@@ -1,0 +1,22 @@
+{
+  "version": "Feature 4.1.1 stabilization",
+  "date": "2026-08-08",
+  "baseline": "brand_app_feature4_1_stabilized_buildfix",
+  "areas": [
+    "dashboard right card rail and font/readability",
+    "achievement grade summary",
+    "teacher contrast",
+    "economy 3-column assets and atomic BV+GOLD grant",
+    "communication real-name recipients",
+    "F4B fault isolation and active emergency history",
+    "attendance 2-column/date UX",
+    "mail/quest dashboard realtime isolation",
+    "classroom emergency realtime",
+    "auction visible error/no-silent-start"
+  ],
+  "database": {
+    "cumulative": "supabase/APPLY_FEATURE4_1_1_CUMULATIVE.sql",
+    "hotfix": "supabase/migrations/20260808_02_feature4_1_1_ui_realtime_hotfix.sql",
+    "postcheck": "supabase/migrations/20260808_02_feature4_1_1_postcheck.sql"
+  }
+}

@@ -1,0 +1,295 @@
+/* 폰트 로드 (반드시 최상단) */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Black+Han+Sans&family=Gaegu:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
+
+/* ===================================================================
+   B.R.A.N.D 2.0 — Global Styles
+   =================================================================== */
+/* Stage 6-A · v4 디자인 기반 전역 스타일 */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===================================================================
+   폰트 로드 (Google Fonts)
+   =================================================================== */
+
+/* Pretendard CDN */
+
+/* ===================================================================
+   외부 호스팅 이미지 URL 헬퍼 (CSS custom properties)
+   =================================================================== */
+:root {
+  --asset-base-shop: 'https://jamesleekor.github.io/brand-assets';
+  --asset-base-tier: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/tier_icon';
+}
+
+/* ===================================================================
+   기본 레이아웃 — 모바일 앱 느낌
+   =================================================================== */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+  
+  body {
+    font-family: 'Pretendard Variable', 'Pretendard', 'Nunito', -apple-system, sans-serif;
+    background: theme('colors.bg.base');
+    color: theme('colors.text.primary');
+    font-weight: 500;   /* 기본은 보통 굵기 (가독성). 강조는 개별 요소에서 */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    
+    /* 다크 테마 기본 적용 */
+    color-scheme: dark;
+  }
+  
+  /* 입력 요소도 같은 폰트 */
+  input, textarea, button, select {
+    font-family: inherit;
+  }
+  
+  /* 한국어 숫자 정렬 (tabular nums) */
+  .font-feature-numeric {
+    font-feature-settings: 'tnum';
+  }
+  
+  /* 스크롤바 (모바일 앱 느낌) */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.bg.soft');
+    border-radius: 3px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.brand.400');
+  }
+  
+  /* 모바일 탭 하이라이트 제거 */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* ===================================================================
+   재사용 컴포넌트 클래스
+   =================================================================== */
+@layer components {
+  /* 앱 컨테이너 */
+  .app-container {
+    @apply max-w-app lg:max-w-[960px] mx-auto min-h-screen relative overflow-hidden;
+    background: 
+      radial-gradient(ellipse at 30% 20%, rgba(177, 151, 252, 0.18) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 80%, rgba(255, 140, 66, 0.15) 0%, transparent 50%),
+      linear-gradient(180deg, #1A1625 0%, #0F0B1A 100%);
+  }
+  
+  /* 글래스 카드 (백드롭 블러 적용) */
+  .glass-card {
+    @apply bg-bg-card backdrop-blur-card border border-line rounded-card-lg;
+  }
+  
+  /* 글래스 pill */
+  .glass-pill {
+    @apply bg-bg-card backdrop-blur-card border border-line rounded-pill;
+  }
+  
+  /* 브랜드 그라데이션 텍스트 */
+  .text-brand-gradient {
+    @apply bg-gradient-to-b from-white to-gold-300 bg-clip-text text-transparent;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  }
+  
+  /* 골드 그라데이션 텍스트 */
+  .text-gold-gradient {
+    background: linear-gradient(90deg, theme('colors.gold.DEFAULT'), theme('colors.brand.primary'));
+    @apply bg-clip-text text-transparent;
+  }
+  
+  /* 호버 lift 효과 */
+  .hover-lift {
+    @apply transition-all duration-150 hover:-translate-y-0.5;
+  }
+  
+  /* 펄스 보더 (돌발 퀘스트용) */
+  .pulse-border {
+    @apply animate-pulse-border;
+  }
+  
+  /* 모바일 안전 영역 (노치·하단 인디케이터) */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ===================================================================
+   유틸리티
+   =================================================================== */
+@layer utilities {
+  /* 스크롤바 숨김 */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* 텍스트 그림자 (어두운 배경 위 텍스트) */
+  .text-shadow-sm {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+  
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+  
+  /* 한국어 줄바꿈 (단어 단위) */
+  .break-keep {
+    word-break: keep-all;
+  }
+}
+
+/* ===== globals_additions.css ===== */
+/* =====================================================================
+   globals.css 추가 (Sub-step 6-B에서 추가됨)
+   =====================================================================
+   기존 globals.css의 @layer components 안에 다음을 추가:
+   ===================================================================== */
+
+@layer components {
+  /* 로그인 입력 필드 */
+  .login-input {
+    @apply w-full px-4 py-3 bg-bg-deep border border-line-strong rounded-card-md
+           text-text-primary placeholder:text-text-muted text-sm font-bold
+           focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20
+           transition-all;
+  }
+  
+  /* 모달 백드롭 */
+  .modal-backdrop {
+    @apply fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4;
+  }
+  
+  /* 모달 카드 */
+  .modal-card {
+    @apply glass-card max-w-sm w-full p-6;
+  }
+  
+  /* 액션 버튼 (주황 그라데이션) */
+  .btn-primary {
+    @apply px-6 py-2.5 bg-gradient-to-r from-brand-primary to-gold text-white 
+           rounded-pill font-extrabold text-sm shadow-brand-md
+           hover:shadow-brand-lg transition-all
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  /* 보조 버튼 (글래스) */
+  .btn-secondary {
+    @apply px-6 py-2.5 glass-card text-text-primary rounded-pill 
+           font-extrabold text-sm hover-lift transition-all;
+  }
+  
+  /* BV 강조 텍스트 */
+  .text-bv-glow {
+    @apply text-bv;
+    text-shadow: 0 0 12px rgba(177, 151, 252, 0.5);
+  }
+  
+  /* 위험 액션 버튼 */
+  .btn-danger {
+    @apply px-6 py-2.5 bg-danger text-white rounded-pill 
+           font-extrabold text-sm hover:bg-danger/90 transition-all;
+  }
+}
+
+/* ===================================================================
+   데스크톱(크롬북) 대응 — 전체 확대 (세로형 유지, 중앙 배치)
+   크롬북은 Chrome 브라우저이므로 zoom 완벽 지원
+   =================================================================== */
+
+/* 넓은 화면에서 양옆 빈 공간을 배경 그라데이션으로 채움 */
+@media (min-width: 768px) {
+  html, body {
+    background:
+      radial-gradient(ellipse at 25% 15%, rgba(177, 151, 252, 0.10) 0%, transparent 45%),
+      radial-gradient(ellipse at 75% 85%, rgba(255, 140, 66, 0.08) 0%, transparent 45%),
+      linear-gradient(180deg, #15111F 0%, #0A0712 100%);
+    min-height: 100vh;
+  }
+}
+
+
+
+/* ===================================================================
+   폰트 가독성 개선 (2026-07-14)
+   Black Han Sans(초굵은 폰트) → Pretendard + 굵기 조절
+   =================================================================== */
+
+/* 디스플레이 텍스트(브랜드명·티어명·큰 숫자)는 굵되 뭉개지지 않게 */
+.font-display {
+  font-family: 'Pretendard Variable', 'Pretendard', 'Nunito', sans-serif;
+  font-weight: 800;          /* extrabold — 강조되지만 읽힘 */
+  letter-spacing: -0.02em;   /* 살짝 조여서 또렷하게 */
+}
+
+/* 큰 숫자(BV·골드)는 또렷하게 */
+.text-display,
+.font-display.text-2xl,
+.font-display.text-3xl,
+.font-display.text-4xl {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+
+/* ===================================================================
+   Feature 4.1.1 — 교사 운영 패널 가독성 / 공통 입력 필드
+   =================================================================== */
+@layer components {
+  .input-field {
+    @apply px-3 py-2.5 bg-bg-deep border border-line-strong rounded-card-md
+           text-sm text-text-primary placeholder:text-text-secondary
+           focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20
+           transition-all;
+  }
+}
+
+/* 학생 화면에는 영향을 주지 않고 교사 운영 패널의 저대비 회색만 상향 */
+.teacher-shell .text-text-muted {
+  color: #d8d2e5 !important;
+}
+
+.teacher-shell .text-text-secondary {
+  color: #eeeaf6 !important;
+}
+
+.teacher-shell .text-text-faded {
+  color: #cfc8dc !important;
+}
+
+.teacher-shell input::placeholder,
+.teacher-shell textarea::placeholder {
+  color: #bdb6cb !important;
+  opacity: 1;
+}

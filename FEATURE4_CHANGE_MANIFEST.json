@@ -1,0 +1,44 @@
+{
+  "version": "Feature4",
+  "base": "Feature3 live auction package",
+  "legacy_data_migration_included": false,
+  "feature3_status": "provisional-pass-assumed; user E2E still pending",
+  "domains": {
+    "F4A": {
+      "name": "communications",
+      "error_prefix": "[F4A] / [F4A:<operation>]",
+      "migration": "20260807_02a_feature4_communications.sql",
+      "routes": ["/mail", "/teacher/communications"],
+      "tables_created": ["global_alert_reads"],
+      "existing_tables_used": ["mail_messages", "global_alerts", "activity_feed_items"],
+      "external_rpcs": ["mark_mail_read", "mark_global_alert_read", "mark_all_global_alerts_read", "teacher_send_mail", "teacher_broadcast_alert"]
+    },
+    "F4B": {
+      "name": "operations",
+      "error_prefix": "[F4B] / [F4B:<operation>]",
+      "migration": "20260807_02b_feature4_operations.sql",
+      "routes": ["/teacher/operations", "/"],
+      "tables_created": ["emergency_quests", "emergency_quest_completions"],
+      "existing_tables_used": ["emergencies", "guard_terms"],
+      "external_rpcs": ["activate_emergency", "terminate_emergency", "finalize_expired_emergencies_for_classroom", "teacher_create_emergency_quest", "teacher_close_emergency_quest", "complete_emergency_quest", "teacher_appoint_guard", "teacher_end_guard_term"]
+    },
+    "F4C": {
+      "name": "learning",
+      "error_prefix": "[F4C] / [F4C:<operation>]",
+      "migration": "20260807_02c_feature4_learning.sql",
+      "routes": ["/assignments", "/teacher/learning"],
+      "tables_created": [],
+      "existing_tables_used": ["attendances", "attendance_milestones", "assignments", "assignment_submissions", "assignment_gradings"],
+      "external_rpcs": ["record_attendance", "teacher_record_attendance_bulk", "teacher_correct_today_attendance", "teacher_create_assignment", "teacher_set_assignment_status", "submit_assignment", "grade_assignment"]
+    },
+    "F4D": {
+      "name": "records",
+      "error_prefix": "[F4D] / [F4D:<operation>]",
+      "migration": "20260807_02d_feature4_records.sql",
+      "routes": ["/records", "/teacher/records", "/teacher/analytics"],
+      "tables_created": ["hall_of_fame_entries"],
+      "existing_tables_used": ["daily_statistics", "rankings", "transactions", "students"],
+      "external_rpcs": ["teacher_refresh_classroom_records", "teacher_add_hall_of_fame_entry", "teacher_archive_hall_of_fame_entry", "teacher_feature4_health_check"]
+    }
+  }
+}

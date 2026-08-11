@@ -1,0 +1,36 @@
+{
+  "version": "Feature 4.1 stabilization",
+  "date": "2026-08-08",
+  "base": "brand_app_feature4_classroom_ops_complete.zip",
+  "database_migrations": [
+    "supabase/migrations/20260808_01_feature4_1_stabilization.sql",
+    "supabase/migrations/20260808_01_feature4_1_postcheck.sql"
+  ],
+  "new_files": [
+    "FEATURE4_1_STABILIZATION.md",
+    "VALIDATION_RESULTS_FEATURE4_1.md",
+    "FEATURE4_1_CHANGE_MANIFEST.json",
+    "src/hooks/useActiveEmergencies.ts"
+  ],
+  "modified_files": [
+    "scripts/validate_feature4_static.py",
+    "src/components/layout/TopHeader.tsx",
+    "src/components/shared/components.tsx",
+    "src/features/dashboard/DashboardPage.tsx",
+    "src/features/dashboard/components.tsx",
+    "src/features/feature4/CommunicationPage.tsx",
+    "src/features/feature4/LearningAdmin.tsx",
+    "src/features/feature4/OperationsAdmin.tsx",
+    "src/features/feature4/RecordsAdmin.tsx",
+    "src/features/market/MarketPage.tsx",
+    "src/features/teacher/ClassroomControl.tsx",
+    "src/features/wallet/EconomicActionsPanel.tsx",
+    "src/lib/rpc/feature4_rpc.ts",
+    "src/lib/utils/format.ts",
+    "src/lib/zod_schemas/feature4_schemas.ts"
+  ],
+  "deferred_until_final_migration": [
+    "Hyperinflation real product-price behavior and restoration",
+    "Employment-freeze real job/wage behavior and restoration"
+  ]
+}
