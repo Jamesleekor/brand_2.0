@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { LoadingSpinner } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
+import { useAuthStore } from '@/stores/auth_store';
 import {
   testFixtureErrorMessage,
   testFixtureRpc,
@@ -13,6 +14,9 @@ const resetPhrase = 'TEST 초기화';
 
 export default function TestClassroomFixturePage() {
   const queryClient = useQueryClient();
+  const currentUser = useAuthStore((state) => state.user);
+  const isTestTeacherAccount = currentUser?.user_metadata?.fixture_code === 'BRAND_TEST_V1'
+    && currentUser?.user_metadata?.fixture_subject === 'TEST_TEACHER';
   const [password, setPassword] = useState('');
   const [resetConfirmation, setResetConfirmation] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +38,10 @@ export default function TestClassroomFixturePage() {
   };
 
   const reconcile = async () => {
+    if (isTestTeacherAccount) {
+      setError('TEST 학급 만들기/다시 확인은 실제 운영 교사 계정에서만 실행할 수 있어요. 로그아웃 후 실제 교사 계정으로 다시 로그인해주세요.');
+      return;
+    }
     setError(null);
     setNotice(null);
     setBusyAction('reconcile');
@@ -45,7 +53,7 @@ export default function TestClassroomFixturePage() {
     }
     setAccounts(result.data.accounts);
     setPassword('');
-    setNotice('TEST 학급과 6개 TEST 로그인 계정을 준비했습니다. 아래 이메일로 로그아웃 후 각각 로그인해보세요.');
+    setNotice('TEST 학급과 6개 TEST 로그인 계정을 준비했고 비밀번호도 방금 입력한 값으로 맞췄습니다. 아래 계정으로 로그아웃 후 로그인해보세요.');
     await refresh();
   };
 
@@ -99,6 +107,7 @@ export default function TestClassroomFixturePage() {
 
         {error && <div className="rounded-card-lg border border-danger/50 bg-danger/10 p-4 text-sm font-bold text-danger">{error}</div>}
         {notice && <div className="rounded-card-lg border border-success/50 bg-success/10 p-4 text-sm font-bold text-success">{notice}</div>}
+        {isTestTeacherAccount && <div className="rounded-card-lg border border-warning/50 bg-warning/10 p-4 text-sm font-bold text-warning">현재 TEST TEACHER로 로그인되어 있습니다. 이 계정에서는 TEST 학급 만들기/다시 확인을 실행할 수 없습니다. 실제 운영 교사 계정으로 로그인해 fixture를 관리하고, TEST TEACHER는 TEST 학급 기능 검증에 사용해주세요.</div>}
 
         {statusQuery.isLoading && <div className="py-16 text-center"><LoadingSpinner size="lg" /></div>}
         {statusQuery.isError && <div className="rounded-card-lg border border-danger/50 bg-danger/10 p-4 text-sm font-bold text-danger">TEST fixture 상태를 불러오지 못했어요. SQL migration이 적용되었는지 확인해주세요.</div>}
@@ -109,7 +118,7 @@ export default function TestClassroomFixturePage() {
             <p className="mt-3 text-sm font-bold text-text-secondary">아직 TEST 학급이 준비되지 않았습니다. 아래에서 TEST 계정 비밀번호를 정한 뒤 “만들기”를 누르세요.</p>
           ) : (
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <StatusCard label="학급" value={status.classroom_name} />
+              <StatusCard label="학급" value={`${status.classroom_name} · 번호 ${status.classroom_id ?? '-'}`} />
               <StatusCard label="기본 길드" value={status.guild_name} />
               <StatusCard label="TEST 학생" value={`${status.test_student_count}명`} />
               <StatusCard label="인증 연결" value={`${status.linked_student_count} / 5명`} />
@@ -120,15 +129,15 @@ export default function TestClassroomFixturePage() {
 
         <section className="glass-card border-brand-primary/30 p-5">
           <h2 className="font-display text-xl text-white">1. TEST 계정 만들기 또는 확인</h2>
-          <p className="mt-2 text-sm leading-6 text-text-secondary">비밀번호는 이 화면에 저장되지 않습니다. 처음 만들 때 입력한 값이 TEST TEACHER와 TEST01~05에 적용됩니다. 이미 만들어진 TEST fixture를 다시 눌러도 계정이나 학생이 중복 생성되지 않습니다.</p>
-          <label className="mt-4 block max-w-md text-sm font-black text-text-primary">새 TEST 계정 비밀번호 (12자 이상)
+          <p className="mt-2 text-sm leading-6 text-text-secondary">비밀번호는 이 화면에 저장되지 않습니다. “만들기/다시 확인”을 누를 때마다 TEST TEACHER와 TEST01~05의 비밀번호를 방금 입력한 값으로 동기화합니다. 이미 만들어진 TEST fixture를 다시 눌러도 계정이나 학생이 중복 생성되지 않습니다.</p>
+          <label className="mt-4 block max-w-md text-sm font-black text-text-primary">새 TEST 계정 비밀번호 (6자 이상)
             <input className="input-field mt-2 w-full" type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="직접 정한 테스트 전용 비밀번호" />
           </label>
           <div className="mt-4 flex flex-wrap gap-3">
-            <button className="btn-primary" disabled={busyAction !== null || password.length < 12} onClick={() => void reconcile()}>{busyAction === 'reconcile' ? '준비 중...' : status?.fixture_exists ? 'TEST 학급 다시 확인' : 'TEST 학급 만들기'}</button>
-            {status?.fixture_exists && <button className="btn-secondary" disabled={busyAction !== null || password.length < 12} onClick={() => void resetPasswords()}>{busyAction === 'password' ? '비밀번호 변경 중...' : 'TEST 계정 비밀번호 모두 바꾸기'}</button>}
+            <button className="btn-primary" disabled={busyAction !== null || password.length < 6 || isTestTeacherAccount} onClick={() => void reconcile()}>{busyAction === 'reconcile' ? '준비 중...' : status?.fixture_exists ? 'TEST 학급 다시 확인' : 'TEST 학급 만들기'}</button>
+            {status?.fixture_exists && <button className="btn-secondary" disabled={busyAction !== null || password.length < 6} onClick={() => void resetPasswords()}>{busyAction === 'password' ? '비밀번호 변경 중...' : 'TEST 계정 비밀번호 모두 바꾸기'}</button>}
           </div>
-          <p className="mt-3 text-xs font-bold text-text-muted">TEST TEACHER는 학생 행이 없는 별도 교사 계정입니다. TEST 학급을 조작하려면 실제 교사 계정이 아니라 TEST TEACHER로 다시 로그인하세요.</p>
+          <p className="mt-3 text-xs font-bold text-text-muted">TEST 학급 만들기/다시 확인은 실제 운영 교사 계정에서만 실행합니다. TEST TEACHER는 생성이 끝난 뒤 TEST 학급 안에서 Guild·Mission·Arcade를 검증할 때 사용하는 계정입니다.</p>
         </section>
 
         {accounts && <section className="glass-card border-success/40 p-5">

@@ -42,6 +42,11 @@ export function ProtectedRoute({ children, requireTeacher = false }: ProtectedRo
   if (requireTeacher && !context.isTeacher) {
     return <Navigate to="/home" replace />;
   }
+
+  // 저장된 교사 세션으로 기본 /home에 들어오면 학생 홈을 거치지 않고 운영 패널로 복귀
+  if (!requireTeacher && context.isTeacher && location.pathname === '/home') {
+    return <Navigate to="/teacher" replace />;
+  }
   
   // 학생인데 교사 라우트 접근 → /home으로
   if (!requireTeacher && context.isTeacher && location.pathname.startsWith('/teacher')) {

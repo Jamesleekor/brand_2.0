@@ -17,6 +17,8 @@ import MarketPage from '@/features/market/MarketPage';
 import GuildPage from '@/features/guild/GuildPage';
 import GuildAdmin from '@/features/guild/GuildAdmin';
 import GuildScoreAdmin from '@/features/guild/GuildScoreAdmin';
+import GuildMissionsPage from '@/features/guild/GuildMissionsPage';
+import GuildMissionAdmin from '@/features/guild/GuildMissionAdmin';
 import ArcadePage from '@/features/arcade/ArcadePage';
 import TeacherArcadePage from '@/features/arcade/TeacherArcadePage';
 import { FriendsPage, RankingsPage, SettingsPage } from '@/features/social/social_pages';
@@ -116,6 +118,10 @@ export default function App() {
           element={<AppShell><GuildPage /></AppShell>} 
         />
         <Route
+          path="/guild/missions"
+          element={<AppShell><GuildMissionsPage /></AppShell>}
+        />
+        <Route
           path="/arcade"
           element={<AppShell><ArcadePage /></AppShell>}
         />
@@ -162,6 +168,7 @@ export default function App() {
         />
         <Route path="/teacher/guild" element={<GuildAdmin />} />
         <Route path="/teacher/guild/scores" element={<GuildScoreAdmin />} />
+        <Route path="/teacher/guild/missions" element={<GuildMissionAdmin />} />
         <Route path="/teacher/arcade" element={<TeacherArcadePage />} />
         <Route path="/teacher/analytics" element={<AnalyticsPage />} />
         <Route path="/teacher/communications" element={<CommunicationAdmin />} />

@@ -46,7 +46,12 @@ export default function GuildPage(){
   const d=q.data;
   return <><PageHeader title="길드" emoji="⚔️"/><div className="px-4 pt-4 pb-28 space-y-4">
     <GuildHeader data={d} contribution={contributionQ.data}/>
-    <div className="grid grid-cols-4 gap-1.5 bg-bg-card border border-line rounded-card-md p-1.5">{['점령','미션','길드점수','동료평가'].map((x,i)=><div key={x} className={`text-center rounded-card-sm px-1 py-2 text-xs font-black ${i===0?'bg-bg-deep text-text-primary':'text-text-secondary'}`}>{x}<div className="text-[9px] font-bold text-text-muted mt-0.5">{i===0?'기반 구축':'준비 중'}</div></div>)}</div>
+    <div className="grid grid-cols-4 gap-1.5 bg-bg-card border border-line rounded-card-md p-1.5">
+      <div className="text-center rounded-card-sm px-1 py-2 text-xs font-black bg-bg-deep text-text-primary">점령<div className="text-[9px] font-bold text-text-muted mt-0.5">기반 구축</div></div>
+      <Link to="/guild/missions" className="text-center rounded-card-sm px-1 py-2 text-xs font-black text-bv hover:bg-bv/10">미션<div className="text-[9px] font-bold text-bv/80 mt-0.5">열기</div></Link>
+      <div className="text-center rounded-card-sm px-1 py-2 text-xs font-black text-text-secondary">길드점수<div className="text-[9px] font-bold text-text-muted mt-0.5">현재 초안</div></div>
+      <div className="text-center rounded-card-sm px-1 py-2 text-xs font-black text-text-secondary">동료평가<div className="text-[9px] font-bold text-text-muted mt-0.5">준비 중</div></div>
+    </div>
     <ContributionCard data={contributionQ.data} isLoading={contributionQ.isLoading} error={contributionQ.error}/>
     <MembersCard data={d}/><SessionSummary data={d}/><MembershipHistory data={d}/>
     <div className="glass-card border-brand-primary/20 p-4"><div className="font-black text-sm text-white">🕹️ Arcade 월간 연결</div><p className="mt-1 text-xs leading-relaxed text-text-secondary">게임별 월간 Top 10을 확정하면 원본 보너스가 개인 기여도에 연결됩니다. 원본 합계는 보존하고, Guild 2 반영값은 최대 +90점입니다.</p><Link to="/arcade" className="btn-secondary mt-3 inline-flex text-xs">아케이드로 가기</Link></div>

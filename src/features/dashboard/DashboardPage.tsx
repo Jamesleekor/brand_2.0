@@ -30,6 +30,7 @@ import { feature4Rpc } from '@/lib/rpc/feature4_rpc';
 import { useRpcCall } from '@/components/shared/components';
 import { useNavigate } from 'react-router-dom';
 import { useActiveEmergencies } from '@/hooks/useActiveEmergencies';
+import { useToastStore } from '@/stores/ui_store';
 
 // =====================================================================
 // 메인 컴포넌트
@@ -44,6 +45,7 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { call: callFeature4 } = useRpcCall();
   const { emergencies } = useActiveEmergencies();
+  const showToast = useToastStore(s=>s.show);
   const liveTier = calculateTierFromBv(wallet?.bv ?? 0);
   const liveNextTier = getNextTier(liveTier);
   
@@ -77,7 +79,19 @@ export default function DashboardPage() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mail_messages', filter: `recipient_id=eq.${studentId}` }, invalidate)
         .subscribe(),
       supabase.channel(`dashboard:alerts:${studentId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'global_alerts', filter: `classroom_id=eq.${classroomId}` }, invalidate)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'global_alerts', filter: `classroom_id=eq.${classroomId}` }, (payload) => {
+          invalidate();
+          const alert = payload.new as { message?: string; emoji?: string | null };
+          const message = String(alert.message ?? '').trim();
+          if (message.includes('새 길드 미션')) {
+            void queryClient.invalidateQueries({ queryKey: ['guild3-student-board'] });
+            showToast({ title: '🗺️ 새 길드 미션이 공개됐어요', description: message, variant: 'info', duration: 7000 });
+          } else if (message) {
+            showToast({ title: `${alert.emoji ?? '🔔'} 새 알림`, description: message, variant: 'info', duration: 5000 });
+          }
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'global_alerts', filter: `classroom_id=eq.${classroomId}` }, invalidate)
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'global_alerts', filter: `classroom_id=eq.${classroomId}` }, invalidate)
         .subscribe(),
       supabase.channel(`dashboard:alert-reads:${studentId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'global_alert_reads', filter: `student_id=eq.${studentId}` }, invalidate)
@@ -101,7 +115,7 @@ export default function DashboardPage() {
     return () => {
       channels.forEach((channel) => { void supabase.removeChannel(channel); });
     };
-  }, [studentId, classroomId, queryClient]);
+  }, [studentId, classroomId, queryClient, showToast]);
   
   // 부가 데이터 조회 (병렬)
   const { data: dashboardData } = useDashboardData(studentId, classroomId);

@@ -56,9 +56,16 @@ function fixtureEmails(domain: string) {
   } as const;
 }
 
+function generateSyntheticEmail(studentName: string, classroomId: number): string {
+  const hex = Array.from(studentName.trim())
+    .map((character) => character.codePointAt(0)!.toString(16).padStart(4, '0'))
+    .join('');
+  return `${hex}@cls${classroomId}.brand.local`;
+}
+
 function validatePassword(password: unknown): password is string {
   return typeof password === 'string'
-    && password.length >= 12
+    && password.length >= 6
     && password.length <= 128;
 }
 
@@ -89,23 +96,27 @@ async function findOrCreateFixtureIdentity(
   email: string,
   password: string,
   allowCreate: boolean,
+  acceptedExistingEmails: string[] = [email],
 ): Promise<FixtureIdentity> {
   const managed = users.filter((user) => isFixtureUser(user, subject));
   if (managed.length > 1) {
     throw new Error(`More than one managed ${subject} Auth account exists. Stop and inspect Auth users.`);
   }
 
+  const accepted = new Set(acceptedExistingEmails.map((value) => value.toLowerCase()));
+  accepted.add(email.toLowerCase());
+
   if (managed.length === 1) {
     const user = managed[0];
-    if (user.email?.toLowerCase() !== email.toLowerCase()) {
+    if (!user.email || !accepted.has(user.email.toLowerCase())) {
       throw new Error(`${subject} Auth account has an unexpected e-mail address. Stop and inspect Auth users.`);
     }
-    return { subject, email, user, created: false };
+    return { subject, email: user.email, user, created: false };
   }
 
-  const sameEmail = users.find((user) => user.email?.toLowerCase() === email.toLowerCase());
+  const sameEmail = users.find((user) => accepted.has(user.email?.toLowerCase() ?? ''));
   if (sameEmail) {
-    throw new Error(`${email} already exists but is not the managed ${subject} fixture account. It will not be adopted.`);
+    throw new Error(`${sameEmail.email ?? email} already exists but is not the managed ${subject} fixture account. It will not be adopted.`);
   }
 
   if (!allowCreate) {
@@ -163,7 +174,7 @@ Deno.serve(async (request) => {
 
     const password = body.action === 'reconcile' ? body.initialPassword : body.newPassword;
     if (!validatePassword(password)) {
-      return json(400, { error: 'TEST 계정 비밀번호는 12자 이상 128자 이하로 입력해주세요.' });
+      return json(400, { error: 'TEST 계정 비밀번호는 6자 이상 128자 이하로 입력해주세요.' });
     }
 
     const admin = createClient(projectUrl, serviceRoleKey, {
@@ -172,7 +183,7 @@ Deno.serve(async (request) => {
     const emails = fixtureEmails(emailDomain);
     const { data: existingFixtures, error: fixtureReadError } = await admin
       .from('test_classroom_fixtures')
-      .select('id')
+      .select('id, classroom_id')
       .eq('fixture_code', fixtureCode)
       .limit(2);
     if (fixtureReadError) throw new Error(`Fixture registry read failed. Apply the TEST fixture SQL migration first: ${fixtureReadError.message}`);
@@ -185,9 +196,24 @@ Deno.serve(async (request) => {
     const knownUsers = await listFixtureUsers(admin);
     const teacher = await findOrCreateFixtureIdentity(admin, knownUsers, 'TEST_TEACHER', emails.TEST_TEACHER, password, allowCreate);
 
+    const existingClassroomId = existingFixtures?.[0]?.classroom_id == null
+      ? null
+      : Number(existingFixtures[0].classroom_id);
     const students: FixtureIdentity[] = [];
     for (const studentCode of testStudentCodes) {
-      students.push(await findOrCreateFixtureIdentity(admin, knownUsers, studentCode, emails[studentCode], password, allowCreate));
+      const bootstrapEmail = emails[studentCode];
+      const syntheticEmail = existingClassroomId == null
+        ? null
+        : generateSyntheticEmail(studentCode, existingClassroomId);
+      students.push(await findOrCreateFixtureIdentity(
+        admin,
+        knownUsers,
+        studentCode,
+        syntheticEmail ?? bootstrapEmail,
+        password,
+        allowCreate,
+        syntheticEmail ? [bootstrapEmail, syntheticEmail] : [bootstrapEmail],
+      ));
     }
 
     if (body.action === 'reset_passwords') {
@@ -210,10 +236,48 @@ Deno.serve(async (request) => {
     });
     if (reconcileError) throw new Error(`Fixture database reconciliation failed: ${reconcileError.message}`);
 
+    const classroomId = Number((fixture as { classroom_id?: number } | null)?.classroom_id);
+    if (!Number.isInteger(classroomId) || classroomId <= 0) {
+      throw new Error('Fixture reconciliation did not return a valid classroom_id.');
+    }
+
+    // Reconcile is intentionally self-healing for TEST identities. A previous
+    // attempt may have created Auth users before a later DB step failed. Always
+    // align the managed fixture passwords with the value the teacher entered on
+    // this run, so retrying the single "create/check" action is sufficient.
+    const { data: updatedTeacher, error: teacherUpdateError } = await admin.auth.admin.updateUserById(teacher.user.id, {
+      password,
+    });
+    if (teacherUpdateError || !updatedTeacher.user) {
+      throw new Error(`TEST_TEACHER password synchronization failed: ${teacherUpdateError?.message ?? 'missing user result'}`);
+    }
+    const finalTeacher: FixtureIdentity = { ...teacher, user: updatedTeacher.user };
+
+    const finalStudents: FixtureIdentity[] = [];
+    for (const student of students) {
+      const desiredEmail = generateSyntheticEmail(student.subject, classroomId);
+      const collision = knownUsers.find((user) =>
+        user.id !== student.user.id && user.email?.toLowerCase() === desiredEmail.toLowerCase()
+      );
+      if (collision) {
+        throw new Error(`${desiredEmail} already belongs to another Auth account. Stop and inspect Auth users.`);
+      }
+
+      const { data: updated, error: updateError } = await admin.auth.admin.updateUserById(student.user.id, {
+        email: desiredEmail,
+        email_confirm: true,
+        password,
+      });
+      if (updateError || !updated.user) {
+        throw new Error(`${student.subject} login identity synchronization failed: ${updateError?.message ?? 'missing user result'}`);
+      }
+      finalStudents.push({ ...student, email: desiredEmail, user: updated.user });
+    }
+
     return json(200, {
       status: 'RECONCILED',
       fixture,
-      accounts: [teacher, ...students].map((account) => ({
+      accounts: [finalTeacher, ...finalStudents].map((account) => ({
         subject: account.subject,
         email: account.email,
         created: account.created,

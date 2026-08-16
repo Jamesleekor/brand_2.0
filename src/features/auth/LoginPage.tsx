@@ -20,6 +20,12 @@ import { cn } from '@/lib/utils/cn';
 
 type LoginMode = 'student' | 'teacher';
 
+const TEACHER_ACCOUNTS = [
+  { email: 'teacher@brand.local', label: '실제 교사 계정' },
+  { email: 'brand-test-teacher@example.com', label: 'TEST TEACHER' },
+] as const;
+const TEACHER_ACCOUNT_STORAGE_KEY = 'brand_teacher_login_email';
+
 export default function LoginPage() {
   const [mode, setMode] = useState<LoginMode>('student');
   const navigate = useNavigate();
@@ -34,9 +40,11 @@ export default function LoginPage() {
   // 이미 로그인된 경우 홈으로 리다이렉트
   useEffect(() => {
     if (isInitialized && session && context) {
-      const from = (location.state as any)?.from?.pathname || 
-                   (context.isTeacher ? '/teacher' : '/home');
-      navigate(from, { replace: true });
+      const requested = (location.state as any)?.from?.pathname as string | undefined;
+      const destination = context.isTeacher
+        ? (requested?.startsWith('/teacher') ? requested : '/teacher')
+        : (requested && !requested.startsWith('/teacher') ? requested : '/home');
+      navigate(destination, { replace: true });
     }
   }, [isInitialized, session, context, navigate, location]);
   
@@ -202,7 +210,7 @@ function StudentLoginForm() {
 // =====================================================================
 
 function TeacherLoginForm() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(()=>{const saved=window.localStorage.getItem(TEACHER_ACCOUNT_STORAGE_KEY);return TEACHER_ACCOUNTS.some(x=>x.email===saved)?saved!:TEACHER_ACCOUNTS[0].email;});
   const [password, setPassword] = useState('');
   const { loginTeacher, isLoading, error, clearError } = useAuthStore();
   
@@ -213,7 +221,8 @@ function TeacherLoginForm() {
     if (!email.trim() || !password) return;
     
     try {
-      await loginTeacher({ email: email.trim(), password });
+      window.localStorage.setItem(TEACHER_ACCOUNT_STORAGE_KEY,email);
+      await loginTeacher({ email, password });
     } catch {
       // 에러는 store에서 처리됨
     }
@@ -223,17 +232,16 @@ function TeacherLoginForm() {
     <form onSubmit={handleSubmit} className="glass-card p-6 space-y-4">
       <div>
         <label className="block text-xs font-bold text-text-secondary mb-2 tracking-wide">
-          이메일
+          교사 계정
         </label>
-        <input
-          type="email"
+        <select
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="example@school.kr"
           className="login-input"
           required
-          autoComplete="email"
-        />
+        >
+          {TEACHER_ACCOUNTS.map(account=><option key={account.email} value={account.email}>{account.label} · {account.email}</option>)}
+        </select>
       </div>
       
       <div>

@@ -39,8 +39,12 @@ export interface TestFixturePasswordResetResult {
   emails: TestFixtureAccountResult[];
 }
 
-async function serverFailure(error: { message: string; context?: unknown }): Promise<RpcResult<never>> {
+async function serverFailure(error: { message: string; context?: unknown; name?: string }): Promise<RpcResult<never>> {
   let detail = error.message || 'TEST fixture 요청을 완료하지 못했어요.';
+  const normalized = detail.toLowerCase();
+  if (normalized.includes('failed to send a request') || normalized.includes('edge function')) {
+    detail = 'TEST Edge Function에 연결하지 못했어요. Supabase에 test-classroom-fixture 함수가 배포되어 있는지와 TEST_FIXTURE_EMAIL_DOMAIN secret을 확인해주세요.';
+  }
   if (error.context instanceof Response) {
     try {
       const responseBody = await error.context.clone().json() as { error?: string; detail?: string };
