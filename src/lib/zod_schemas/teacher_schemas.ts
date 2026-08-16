@@ -311,20 +311,7 @@ export const DistributeWelfareSchema = z.object({
 export type DistributeWelfareInput = z.infer<typeof DistributeWelfareSchema>;
 
 // =====================================================================
-// 16. calculate_individual_contribution — 개인 기여도 산출 (월별)
-// =====================================================================
-
-export const CalculateIndividualContributionSchema = z.object({
-  p_classroom_id: PositiveInt,
-  p_year_month: z.string().regex(/^\d{4}-\d{2}$/, "형식: YYYY-MM"),
-});
-
-export type CalculateIndividualContributionInput = z.infer<
-  typeof CalculateIndividualContributionSchema
->;
-
-// =====================================================================
-// 17. process_matured_deposits — 만기 예금 일괄 처리 (수동 호출)
+// 16. process_matured_deposits — 만기 예금 일괄 처리 (수동 호출)
 // =====================================================================
 
 export const ProcessMaturedDepositsSchema = z.object({

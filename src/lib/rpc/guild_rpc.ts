@@ -51,6 +51,21 @@ export const guildTeacherRpc = {
 
   healthCheck: (supabase: SupabaseClient, input: GuildSchemas.Guild1HealthCheckInput) =>
     safeGuildRpc<GuildSchemas.Guild1HealthCheckInput, Record<string, unknown>>(supabase, 'teacher_guild1_health_check', GuildSchemas.Guild1HealthCheckSchema, input),
+
+  recalculateGuild2Scores: (supabase: SupabaseClient, input: GuildSchemas.RecalculateGuild2ScoresInput) =>
+    safeGuildRpc<GuildSchemas.RecalculateGuild2ScoresInput, Record<string, unknown>>(supabase, 'teacher_recalculate_guild2_scores', GuildSchemas.RecalculateGuild2ScoresSchema, input),
+
+  recordGuild2Observation: (supabase: SupabaseClient, input: GuildSchemas.RecordGuild2ObservationInput) =>
+    safeGuildRpc<GuildSchemas.RecordGuild2ObservationInput, number>(supabase, 'teacher_record_guild2_observation', GuildSchemas.RecordGuild2ObservationSchema, input),
+
+  reverseGuild2Observation: (supabase: SupabaseClient, input: GuildSchemas.ReverseGuild2ObservationInput) =>
+    safeGuildRpc<GuildSchemas.ReverseGuild2ObservationInput, number>(supabase, 'teacher_reverse_guild2_observation', GuildSchemas.ReverseGuild2ObservationSchema, input),
+
+  setGuild2Compensation: (supabase: SupabaseClient, input: GuildSchemas.SetGuild2CompensationInput) =>
+    safeGuildRpc<GuildSchemas.SetGuild2CompensationInput, number>(supabase, 'teacher_set_guild2_compensation', GuildSchemas.SetGuild2CompensationSchema, input),
+
+  postGuild2GsAdjustment: (supabase: SupabaseClient, input: GuildSchemas.PostGuild2GsAdjustmentInput) =>
+    safeGuildRpc<GuildSchemas.PostGuild2GsAdjustmentInput, number>(supabase, 'teacher_post_guild2_gs_adjustment', GuildSchemas.PostGuild2GsAdjustmentSchema, input),
 };
 
 export function guildRpcError(result: unknown, fallback = '길드 작업을 완료하지 못했습니다.') {

@@ -260,35 +260,111 @@ WHERE NOT trg.tgisinternal
   )
 ORDER BY tbl.relname, trg.tgname;
 
--- 11) Direct catalog dependencies reveal views/routines that PostgreSQL has
---     recorded as referencing legacy GS/contribution relations. This is
+-- 11) Direct catalog dependencies recorded against legacy GS/contribution
+--     relations. pg_depend object IDs are meaningful only together with their
+--     classid/refclassid catalog IDs, so every branch checks both. Views use
+--     pg_rewrite entries; functions/procedures use pg_proc entries. This is
 --     supplementary to the routine-source scan above, not a replacement.
+WITH target_relations AS (
+  SELECT c.oid, c.relname
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+    AND c.relname IN (
+      'guild_gs',
+      'guild_individual_contributions',
+      'guild_activity_logs',
+      'guild_missions',
+      'guild_mission_logs',
+      'guild_peer_reviews'
+    )
+), dependency_rows AS (
+  SELECT
+    target.relname AS referenced_relation,
+    d.classid,
+    d.objid,
+    d.objsubid,
+    d.deptype
+  FROM pg_depend d
+  JOIN target_relations target
+    ON d.refclassid = 'pg_class'::regclass
+   AND d.refobjid = target.oid
+), dependent_relations AS (
+  -- Tables, indexes, sequences, and other relation objects directly recorded
+  -- in pg_class as depending on a target relation.
+  SELECT
+    n.nspname AS dependent_schema,
+    CASE relation.relkind
+      WHEN 'v' THEN 'view'
+      WHEN 'm' THEN 'materialized view'
+      WHEN 'r' THEN 'table'
+      WHEN 'p' THEN 'partitioned table'
+      WHEN 'f' THEN 'foreign table'
+      WHEN 'S' THEN 'sequence'
+      WHEN 'i' THEN 'index'
+      WHEN 'I' THEN 'partitioned index'
+      ELSE relation.relkind::text
+    END AS dependent_kind,
+    relation.relname AS dependent_name,
+    d.referenced_relation
+  FROM dependency_rows d
+  JOIN pg_class relation
+    ON d.classid = 'pg_class'::regclass
+   AND relation.oid = d.objid
+  JOIN pg_namespace n ON n.oid = relation.relnamespace
+), dependent_views AS (
+  -- PostgreSQL records a view query's referenced relations against its
+  -- rewrite rule, not against the view's pg_class row itself.
+  SELECT
+    n.nspname AS dependent_schema,
+    CASE view_relation.relkind
+      WHEN 'v' THEN 'view'
+      WHEN 'm' THEN 'materialized view'
+      ELSE view_relation.relkind::text
+    END AS dependent_kind,
+    view_relation.relname AS dependent_name,
+    d.referenced_relation
+  FROM dependency_rows d
+  JOIN pg_rewrite rewrite_rule
+    ON d.classid = 'pg_rewrite'::regclass
+   AND rewrite_rule.oid = d.objid
+  JOIN pg_class view_relation
+    ON view_relation.oid = rewrite_rule.ev_class
+   AND view_relation.relkind IN ('v', 'm')
+  JOIN pg_namespace n ON n.oid = view_relation.relnamespace
+), dependent_routines AS (
+  -- Only dependencies PostgreSQL has explicitly recorded for routines appear
+  -- here. Section 8 still inspects routine source text for additional writes.
+  SELECT
+    n.nspname AS dependent_schema,
+    CASE routine.prokind
+      WHEN 'f' THEN 'function'
+      WHEN 'p' THEN 'procedure'
+      WHEN 'a' THEN 'aggregate'
+      WHEN 'w' THEN 'window function'
+      ELSE routine.prokind::text
+    END AS dependent_kind,
+    format('%I(%s)', routine.proname, pg_get_function_identity_arguments(routine.oid)) AS dependent_name,
+    d.referenced_relation
+  FROM dependency_rows d
+  JOIN pg_proc routine
+    ON d.classid = 'pg_proc'::regclass
+   AND routine.oid = d.objid
+  JOIN pg_namespace n ON n.oid = routine.pronamespace
+)
 SELECT DISTINCT
-  dep_ns.nspname AS dependent_schema,
-  CASE dep.relkind
-    WHEN 'v' THEN 'view'
-    WHEN 'm' THEN 'materialized view'
-    WHEN 'r' THEN 'table'
-    WHEN 'p' THEN 'partitioned table'
-    ELSE dep.relkind::text
-  END AS dependent_kind,
-  dep.relname AS dependent_name,
-  ref.relname AS referenced_relation
-FROM pg_depend d
-JOIN pg_class dep ON dep.oid = d.objid
-JOIN pg_namespace dep_ns ON dep_ns.oid = dep.relnamespace
-JOIN pg_class ref ON ref.oid = d.refobjid
-JOIN pg_namespace ref_ns ON ref_ns.oid = ref.relnamespace
-WHERE ref_ns.nspname = 'public'
-  AND ref.relname IN (
-    'guild_gs',
-    'guild_individual_contributions',
-    'guild_activity_logs',
-    'guild_missions',
-    'guild_mission_logs',
-    'guild_peer_reviews'
-  )
-ORDER BY referenced_relation, dependent_schema, dependent_name;
+  dependent_schema,
+  dependent_kind,
+  dependent_name,
+  referenced_relation
+FROM (
+  SELECT * FROM dependent_relations
+  UNION ALL
+  SELECT * FROM dependent_views
+  UNION ALL
+  SELECT * FROM dependent_routines
+) dependencies
+ORDER BY referenced_relation, dependent_schema, dependent_kind, dependent_name;
 
 -- 12) Lightweight live-table statistics. These are estimates from PostgreSQL
 --     statistics, not row reads, and help identify tables with historical data

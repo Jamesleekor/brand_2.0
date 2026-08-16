@@ -741,21 +741,6 @@ export const teacherRpc = {
   },
 
   /**
-   * 개인 기여도 산출 (월별)
-   */
-  calculateIndividualContribution: (
-    supabase: SupabaseClient,
-    input: TeacherSchemas.CalculateIndividualContributionInput,
-  ): Promise<RpcResult<number>> => {
-    return safeRpc(
-      supabase,
-      "calculate_individual_contribution",
-      TeacherSchemas.CalculateIndividualContributionSchema,
-      input,
-    );
-  },
-
-  /**
    * 만기 예금 일괄 처리 (수동)
    */
   processMaturedDeposits: (

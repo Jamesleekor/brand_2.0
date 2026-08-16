@@ -476,6 +476,33 @@ export const ERROR_MESSAGES: Record<string, ErrorMessage> = {
     category: "VALIDATION",
     title: "시너지 점수가 최대치를 초과했어요",
   },
+  // Guild 2A — GS Engine / 개인 기여도
+  P0164: {
+    category: "VALIDATION",
+    title: "선택한 월 형식을 확인해주세요",
+    description: "월은 YYYY-MM 형식으로 선택해야 합니다.",
+  },
+  P0165: {
+    category: "NOT_FOUND",
+    title: "선택한 월에 해당하는 길드 시즌이 없어요",
+    description: "길드 시즌의 시작일과 종료일을 먼저 확인해주세요.",
+  },
+  P0166: {
+    category: "PERMISSION",
+    title: "이 학급의 길드 점수에는 접근할 수 없어요",
+  },
+  P0167: {
+    category: "VALIDATION",
+    title: "길드 점수 입력 내용을 확인해주세요",
+  },
+  P0168: {
+    category: "NOT_FOUND",
+    title: "필요한 길드 기록을 찾을 수 없어요",
+  },
+  P0169: {
+    category: "STATE",
+    title: "이미 취소된 길드 기여 기록이에요",
+  },
 
   // ===================================================================
   // P0170~P0199 — Cosmetic 에러

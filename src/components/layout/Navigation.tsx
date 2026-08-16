@@ -108,6 +108,7 @@ export function TopMenuRow({ guildAlertCount = 0 }: TopMenuRowProps) {
     <div className="relative z-10 px-4 pt-2.5 flex gap-1.5 justify-end flex-wrap">
       <MenuPill to="/friends" icon="👥" label="친구" />
       <MenuPill to="/guild" icon="⚔️" label="길드" badge={guildAlertCount} />
+      <MenuPill to="/arcade" icon="🕹️" label="아케이드" />
       <MenuPill to="/market" icon="🏪" label="시장" />
       <MenuPill to="/rankings" icon="📊" label="랭킹" />
       <MenuPill to="/assignments" icon="📝" label="과제" />

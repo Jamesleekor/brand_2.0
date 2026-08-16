@@ -16,6 +16,9 @@ import CosmeticPage from '@/features/cosmetic/CosmeticPage';
 import MarketPage from '@/features/market/MarketPage';
 import GuildPage from '@/features/guild/GuildPage';
 import GuildAdmin from '@/features/guild/GuildAdmin';
+import GuildScoreAdmin from '@/features/guild/GuildScoreAdmin';
+import ArcadePage from '@/features/arcade/ArcadePage';
+import TeacherArcadePage from '@/features/arcade/TeacherArcadePage';
 import { FriendsPage, RankingsPage, SettingsPage } from '@/features/social/social_pages';
 import TeacherDashboard from '@/features/teacher/TeacherDashboard';
 import ReviewQueue from '@/features/teacher/ReviewQueue';
@@ -30,6 +33,7 @@ import CommunicationAdmin from '@/features/feature4/CommunicationAdmin';
 import OperationsAdmin from '@/features/feature4/OperationsAdmin';
 import LearningAdmin from '@/features/feature4/LearningAdmin';
 import RecordsAdmin from '@/features/feature4/RecordsAdmin';
+import TestClassroomFixturePage from '@/features/teacher/TestClassroomFixturePage';
 import { ProtectedRoute, AppShell } from '@/components/layout/AppShell';
 
 // =====================================================================
@@ -111,6 +115,10 @@ export default function App() {
           path="/guild" 
           element={<AppShell><GuildPage /></AppShell>} 
         />
+        <Route
+          path="/arcade"
+          element={<AppShell><ArcadePage /></AppShell>}
+        />
         <Route 
           path="/friends" 
           element={<AppShell><FriendsPage /></AppShell>} 
@@ -153,11 +161,14 @@ export default function App() {
           element={<AuctionBroadcastPage />}
         />
         <Route path="/teacher/guild" element={<GuildAdmin />} />
+        <Route path="/teacher/guild/scores" element={<GuildScoreAdmin />} />
+        <Route path="/teacher/arcade" element={<TeacherArcadePage />} />
         <Route path="/teacher/analytics" element={<AnalyticsPage />} />
         <Route path="/teacher/communications" element={<CommunicationAdmin />} />
         <Route path="/teacher/operations" element={<OperationsAdmin />} />
         <Route path="/teacher/learning" element={<LearningAdmin />} />
         <Route path="/teacher/records" element={<RecordsAdmin />} />
+        <Route path="/teacher/test-fixture" element={<TestClassroomFixturePage />} />
       </Route>
       
       {/* 404 */}

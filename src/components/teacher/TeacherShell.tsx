@@ -106,6 +106,8 @@ const SIDEBAR_ITEMS = [
   { to: '/teacher/review',         icon: '📋', label: '검토 큐' },
   { to: '/teacher/auction',        icon: '🔨', label: '경매 진행' },
   { to: '/teacher/guild',          icon: '⚔️', label: '길드 운영' },
+  { to: '/teacher/arcade',         icon: '🕹️', label: 'Arcade 운영' },
+  { to: '/teacher/test-fixture',   icon: '🧪', label: 'TEST 운영' },
   { to: '/teacher/control',        icon: '⚙️', label: '경제 운영' },
   { to: '/teacher/communications', icon: '📬', label: '소통' },
   { to: '/teacher/operations',     icon: '🚨', label: '이벤트' },

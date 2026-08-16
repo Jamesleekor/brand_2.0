@@ -264,7 +264,11 @@ Guild 1은 완료.
 
 # 7. Guild 2 — GS Engine & Individual Contribution
 
-**Status: 🟡 DESIGN ACCEPTED / CODEX IMPLEMENTATION STARTED**
+**Status: 🟢 Guild 2A Core ACCEPTED / Guild 2B 및 Guild 3~5 진행 예정**
+
+Production preflight에서 legacy `guild_gs` / `guild_individual_contributions`가 새 공식과 호환되지 않음을 확인했다. Guild 2A는 Guild 1 이력과 legacy 표를 변경하지 않고, 별도의 `guild2_*` table·append-only GS ledger·teacher/student 화면으로 시작한다. Guild 3 Mission과 Guild 4 Peer Review는 아직 `NOT_READY` 상태만 표현하며 임의의 lifecycle을 추가하지 않는다.
+
+2026-08-13 production E2E에서 세션 감점/복구, 교사 기여 공개·취소, 4인 길드 보정, 수동 GS 조정, 학생 자기 점수·권한 차단을 확인했다. 이어 Guild 1의 멤버 이동·해제·재배정 및 이동 뒤 과거 세션 snapshot 보존도 통과했다. 다른 기기 Realtime 즉시 반영은 별도 확인 항목이다.
 
 상세 source of truth:
 
@@ -281,8 +285,8 @@ Guild 1은 완료.
 | 길드 세션 | 150 |
 | 교사 기여 기록 | 150 |
 | **기본** | **900** |
-| Arcade 보너스 | **+90 cap** |
-| **절대 최대** | **990** |
+| Arcade 보너스 | game별 raw rank bonus 합산, Guild 2 적용 최대 +90 |
+| **최종** | 기본 + 적용 Arcade (최대 990) |
 
 BV 증가량을 개인기여도 공식에 사용하지 않는다.
 
@@ -413,7 +417,7 @@ UI 필수 문구:
 
 교사 메모는 기본 비공개.
 
-## 7.7 Arcade +90 — LOCKED
+## 7.7 Arcade — 원본 game별 합산, Guild 2 적용 최대 +90 — LOCKED
 
 게임별 월간 snapshot:
 
@@ -424,9 +428,7 @@ UI 필수 문구:
 - 7~10위 +15
 - 11위 이하 0
 
-여러 게임 합산 raw가 90을 넘더라도:
-
-`arcade_applied = min(raw, 90)`
+여러 게임의 월간 snapshot bonus 원본은 그대로 합산한다. 초기 6개 게임에서 모두 1위면 raw 합계는 `30 × 6 = +180`이다. 다만 Guild 2 적용값은 학생별 최대 +90이다.
 
 ## 7.8 4인 길드 보정 — LOCKED
 
@@ -470,9 +472,9 @@ UI 필수 문구:
 - 기본 개인기여 최대 4,500
 - 미션 5,000
 - 기본 perfect subtotal 9,500
-- Arcade까지 전원 90이면 이론 최대 9,950
+- 초기 6개 게임에서 원본 합계가 +180이어도 학생별 적용값은 +90, 5인 길드 기준 이론 최대 9,950
 
-따라서 **10,000 GS가 사실상 완벽한 달의 천장**.
+game 수가 늘어도 Guild 2 적용 Arcade bonus는 학생별 +90을 넘지 않는다.
 
 ## 7.10 학생 개인기여도 공개 — LOCKED
 
@@ -482,7 +484,7 @@ UI 필수 문구:
 
 - 월간 총점
 - 기본 `/900`
-- Arcade `+/90`
+- Arcade `획득 +N / 반영 +M` (반영 최대 +90)
 
 영역:
 
@@ -490,7 +492,7 @@ UI 필수 문구:
 - 미션 기여 `/300`
 - 길드 세션 `/150`
 - 길드 기여 기록 `/150`
-- Arcade `+/90`
+- Arcade `획득 +N / 반영 +M` (반영 최대 +90)
 
 공개 강도:
 
@@ -498,7 +500,7 @@ UI 필수 문구:
 - Mission: 점수 + 미션별 S/A/B/C/F + 자기 활동기록
 - Session: 상세 출석 기록 공개
 - Observation: 점수/횟수/category, 메모는 선택 공개
-- Arcade: rank/bonus/cap 상세 공개
+- Arcade: 게임별 rank/bonus와 월 합계 상세 공개
 
 현재 월:
 
@@ -855,7 +857,7 @@ Rank bonus:
 - 4~6위 18
 - 7~10위 15
 
-Guild 2에서 월 raw bonus와 cap 90을 관리.
+Guild 2는 월 game별 raw bonus 합산을 보존하고, 적용값은 학생별 최대 +90으로 제한한다.
 
 ## 11.5 확장성
 
@@ -1414,6 +1416,15 @@ Guild 1 전입/전출 deferred E2E를 해제하려면 특히 중요.
 - 이름 변경
 - 길드 재배정
 - data retention
+
+### 테스트 학생 빠른 추가 — 사용자 요청 접수 (설계 전)
+
+운영 패널에서 교사가 회귀 테스트용 학생을 쉽게 추가할 수 있으면 좋겠다는 요청이 2026-08-13에 접수됐다. 이 기능은 실제 학생, 인증 계정, 길드 이력에 영향을 줄 수 있으므로 다음을 확정한 별도 SPEC과 production preflight 뒤에 구현한다.
+
+- 테스트 학생을 실제 학생과 어떻게 명확히 구분할지
+- 로그인 가능한 테스트 계정을 만들지, 데이터만 가진 테스트 학생으로 둘지
+- 테스트 데이터의 길드·자산·기록을 운영 데이터와 어떻게 안전하게 분리할지
+- 생성·비활성화·정리 권한 및 이력 보존 방식
 
 ## master data
 
