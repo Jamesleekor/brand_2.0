@@ -123,8 +123,9 @@ function TeacherSidebar() {
     <aside className="hidden md:block w-56 border-r border-line py-6 px-3 sticky top-[60px] h-[calc(100vh-60px)]">
       <nav className="space-y-1">
         {SIDEBAR_ITEMS.map((item) => {
-          const isActive = location.pathname === item.to
-            || (item.to === '/teacher' && location.pathname === '/teacher');
+          const isActive = item.to === '/teacher'
+            ? location.pathname === '/teacher'
+            : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
           
           return (
             <Link
@@ -163,8 +164,9 @@ function TeacherMobileNav() {
     <nav className="md:hidden fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-32px)] max-w-md z-20 bg-bg-overlay backdrop-blur-card rounded-card-xl p-2 shadow-card border border-line">
       <div className="flex gap-1 overflow-x-auto pb-1">
         {SIDEBAR_ITEMS.map((item) => {
-          const isActive = location.pathname === item.to
-            || (item.to === '/teacher' && location.pathname === '/teacher');
+          const isActive = item.to === '/teacher'
+            ? location.pathname === '/teacher'
+            : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
           
           return (
             <Link key={item.to} to={item.to} className="flex-none min-w-[68px]">

@@ -106,6 +106,8 @@ export const arcadeTeacherRpc = {
     safeArcadeRpc<ArcadeSchemas.TeacherCreateArcadeRankingPeriodInput, { period_id: number; classroom_id: number; status: string }>(client, 'teacher_create_arcade_ranking_period', ArcadeSchemas.TeacherCreateArcadeRankingPeriodSchema, input),
   updateRankingPeriod: (client: SupabaseClient, input: ArcadeSchemas.TeacherUpdateArcadeRankingPeriodInput) =>
     safeArcadeRpc<ArcadeSchemas.TeacherUpdateArcadeRankingPeriodInput, { period_id: number; classroom_id: number; status: string }>(client, 'teacher_update_arcade_ranking_period', ArcadeSchemas.TeacherUpdateArcadeRankingPeriodSchema, input),
+  endRankingPeriodNow: (client: SupabaseClient, input: ArcadeSchemas.TeacherEndArcadeRankingPeriodNowInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherEndArcadeRankingPeriodNowInput, { period_id: number; classroom_id: number; status: string; ended_at: string; already_ended: boolean }>(client, 'teacher_end_arcade_ranking_period_now', ArcadeSchemas.TeacherEndArcadeRankingPeriodNowSchema, input),
   finalizeMonthlySnapshot: (client: SupabaseClient, input: ArcadeSchemas.TeacherFinalizeArcadeMonthlySnapshotInput) =>
     safeArcadeRpc<ArcadeSchemas.TeacherFinalizeArcadeMonthlySnapshotInput, Record<string, unknown>>(client, 'teacher_finalize_arcade_monthly_snapshot', ArcadeSchemas.TeacherFinalizeArcadeMonthlySnapshotSchema, input),
   getRunAudit: (client: SupabaseClient, input: ArcadeSchemas.TeacherArcadeRunAuditInput) =>
@@ -152,6 +154,7 @@ export function arcadeErrorMessage(error: { type: string; code?: string; error: 
     P0222: '테스트 허용 상태를 확인해주세요.',
     P0223: '현재 테스트할 수 있는 게임을 찾지 못했어요.',
     P0224: '선택한 테스트 학생이 현재 학급에 없어요.',
+    P0225: '아직 시작하지 않은 랭킹 기간은 즉시 종료할 수 없어요.',
   };
   if (messages[error.code ?? '']) return messages[error.code ?? ''];
   if (error.type === 'VALIDATION') return error.error;

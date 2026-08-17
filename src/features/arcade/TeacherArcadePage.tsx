@@ -6,6 +6,7 @@ import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { arcadeErrorMessage, arcadeTeacherRpc, type ArcadePrereleaseTestLeaderboardResult } from '@/lib/rpc/arcade_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
+import { useToastStore } from '@/stores/ui_store';
 
 type PeriodKind = 'MONTHLY' | 'SEASON';
 type PeriodStatus = 'DRAFT' | 'ACTIVE' | 'FINALIZED';
@@ -29,6 +30,7 @@ interface AuditRow { run_id: number; student_name: string; status: string; is_pr
 export default function TeacherArcadePage() {
   const classroomId = useClassroomId();
   const client = useQueryClient();
+  const show = useToastStore((state) => state.show);
   const [kind, setKind] = useState<PeriodKind>('MONTHLY');
   const [displayName, setDisplayName] = useState('2026년 8월 Arcade');
   const [yearMonth, setYearMonth] = useState(koreaDateString().slice(0, 7));
@@ -115,6 +117,17 @@ export default function TeacherArcadePage() {
     refresh();
   };
 
+  const endPeriodNow = async (period: PeriodRow) => {
+    if (!window.confirm(`「${period.display_name}」 랭킹 기간을 지금 즉시 종료할까요?\n종료 후에는 학생의 새 Arcade 기록이 이 기간 랭킹에 포함되지 않습니다.\n월간 기간은 종료 후 별도로 순위를 확정해야 합니다.`)) return;
+    setActionError(null);
+    setIsSaving(true);
+    const rpc = await arcadeTeacherRpc.endRankingPeriodNow(supabase, { p_period_id: period.id });
+    setIsSaving(false);
+    if (rpc.success === false) { setActionError(arcadeErrorMessage(rpc)); return; }
+    show({ title: '랭킹 기간을 종료했어요', description: period.period_kind === 'MONTHLY' ? '이제 월간 순위를 확정해 Guild 2에 반영할 수 있습니다.' : '새 기록 접수가 종료되었습니다.', variant: 'success' });
+    refresh();
+  };
+
   const finalizePeriod = async (period: PeriodRow) => {
     if (!window.confirm(`「${period.display_name}」의 Arcade Top 10을 확정할까요?\n확정 뒤에는 일반 수정이 불가능합니다.`)) return;
     setActionError(null);
@@ -176,7 +189,7 @@ export default function TeacherArcadePage() {
         <button className="btn-primary mt-4" disabled={isSaving} onClick={() => void createPeriod()}>{isSaving ? '저장 중...' : '초안 기간 만들기'}</button>
       </section>
 
-      <section className="glass-card p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">기간 상태와 월간 확정</h2><p className="mt-1 text-xs text-text-secondary">확정은 기간이 끝난 월간 기간에서만 가능합니다. 확정하면 모든 eligible game의 snapshot과 Guild 2 반영이 하나의 작업으로 함께 완료됩니다.</p></div>{!query.data.periods.length ? <p className="py-8 text-center text-sm text-text-secondary">아직 만든 기간이 없습니다.</p> : <div className="space-y-3">{query.data.periods.map((period) => { const ended = new Date(period.ends_at_exclusive).getTime() <= Date.now(); return <div key={period.id} className="rounded-card-md border border-line bg-bg-deep p-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><b className="text-white">{period.display_name}</b><StatusPill status={period.status} /><span className="text-xs text-text-muted">{period.period_kind === 'MONTHLY' ? `Guild 2 ${period.contribution_year_month}` : '시즌 랭킹'}</span></div><p className="mt-1 text-xs text-text-secondary">{formatKst(period.starts_at)} ~ {formatKst(period.ends_at_exclusive)} 전</p></div><div className="flex flex-wrap gap-2">{period.status === 'DRAFT' && <button className="btn-primary text-xs" disabled={isSaving} onClick={() => void updateStatus(period, 'ACTIVE')}>기간 열기</button>}{period.status === 'ACTIVE' && <button className="btn-secondary text-xs" disabled={isSaving} onClick={() => void updateStatus(period, 'DRAFT')}>다시 초안으로</button>}{period.status === 'ACTIVE' && period.period_kind === 'MONTHLY' && <button className="btn-primary text-xs" disabled={!ended || isSaving} title={ended ? '월간 Top 10과 Guild 2 반영을 확정합니다.' : '종료 시각 뒤에 확정할 수 있습니다.'} onClick={() => void finalizePeriod(period)}>{ended ? '월간 순위 확정 + Guild 2 반영' : '기간 종료 전'}</button>}</div></div></div>; })}</div>}</section>
+      <section className="glass-card p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">기간 상태와 월간 확정</h2><p className="mt-1 text-xs text-text-secondary">확정은 기간이 끝난 월간 기간에서만 가능합니다. 확정하면 모든 eligible game의 snapshot과 Guild 2 반영이 하나의 작업으로 함께 완료됩니다.</p></div>{!query.data.periods.length ? <p className="py-8 text-center text-sm text-text-secondary">아직 만든 기간이 없습니다.</p> : <div className="space-y-3">{query.data.periods.map((period) => { const ended = new Date(period.ends_at_exclusive).getTime() <= Date.now(); return <div key={period.id} className="rounded-card-md border border-line bg-bg-deep p-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><b className="text-white">{period.display_name}</b><StatusPill status={period.status} /><span className="text-xs text-text-muted">{period.period_kind === 'MONTHLY' ? `Guild 2 ${period.contribution_year_month}` : '시즌 랭킹'}</span></div><p className="mt-1 text-xs text-text-secondary">{formatKst(period.starts_at)} ~ {formatKst(period.ends_at_exclusive)} 전</p></div><div className="flex flex-wrap gap-2">{period.status === 'DRAFT' && <button className="btn-primary text-xs" disabled={isSaving} onClick={() => void updateStatus(period, 'ACTIVE')}>기간 열기</button>}{period.status === 'ACTIVE' && !ended && <button className="btn-secondary text-xs" disabled={isSaving} onClick={() => void updateStatus(period, 'DRAFT')}>다시 초안으로</button>}{period.status === 'ACTIVE' && !ended && <button className="btn-danger text-xs" disabled={isSaving} onClick={() => void endPeriodNow(period)}>⏹ 랭킹 기간 즉시 종료</button>}{period.status === 'ACTIVE' && period.period_kind === 'MONTHLY' && <button className="btn-primary text-xs" disabled={!ended || isSaving} title={ended ? '월간 Top 10과 Guild 2 반영을 확정합니다.' : '종료 시각 뒤에 확정할 수 있습니다.'} onClick={() => void finalizePeriod(period)}>{ended ? '월간 순위 확정 + Guild 2 반영' : '기간 종료 전'}</button>}</div></div></div>; })}</div>}</section>
 
       <section className="glass-card border-brand-primary/30 p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">사전 테스트 허용</h2><p className="mt-1 text-xs text-text-secondary">공개일 전에는 여기서 허용한 학생만 게임을 플레이할 수 있습니다. 테스트 기록은 서버 검증과 감사 기록에는 남지만, Top 10·월간 확정·Guild 2 점수에는 절대 반영되지 않습니다.</p></div><div className="flex flex-col gap-2 sm:flex-row"><select className="input-field min-w-0 flex-1" value={testStudentId} onChange={(event) => setTestStudentId(event.target.value)}><option value="">테스트할 학생 선택</option>{query.data.students.filter((student) => !student.transferred_at && ['STUDENT', 'STUDENT_LEADER', 'GUARD', 'TEST'].includes(student.role)).map((student) => <option key={student.id} value={student.id}>{student.brand_name || student.name} ({student.name})</option>)}</select><button className="btn-primary" disabled={isSaving || !testStudentId} onClick={() => void setPrereleaseTestAccess(true)}>{isSaving ? '저장 중...' : '사전 테스트 허용'}</button></div>{!query.data.testAccess.length ? <p className="mt-4 text-sm text-text-secondary">현재 사전 테스트가 허용된 학생이 없습니다.</p> : <div className="mt-4 space-y-2">{query.data.testAccess.map((access) => <div key={access.access_id} className="flex flex-wrap items-center justify-between gap-2 rounded-card-md border border-line bg-bg-deep p-3"><div><b className="text-sm text-white">{access.student_brand_name || access.student_name}</b><p className="mt-1 text-xs text-text-secondary">사전 테스트 허용됨 · 최근 변경 {formatKst(access.updated_at)}</p></div><button className="btn-secondary text-xs" disabled={isSaving} onClick={() => void setPrereleaseTestAccess(false, access.student_id)}>허용 해제</button></div>)}</div>}</section>
 

@@ -638,3 +638,18 @@ Guild 1 membership/history를 Arcade snapshot이 수정하지 않는다. mid-mon
 4. migration 적용 뒤에만 frontend, RPC wrapper, Zod, `/arcade`, `/teacher/arcade` 화면을 구현한다.
 
 이 문서가 승인되기 전에는 Game #01의 규칙, 난이도, 점수, combo, ranking 보너스, Guild 연결 규칙을 변경하지 않는다.
+
+---
+
+## 19. 2026-08-16 교사 랭킹 기간 즉시 종료 보완
+
+Guild5 월간 마감 E2E에서 Arcade source를 즉시 FINALIZE해야 하는데, 기존 `/teacher/arcade`에는 예약된 종료 시각을 기다리는 방법만 있어 테스트가 막혔다.
+
+보완 규칙:
+
+- `ACTIVE` 랭킹 기간에만 `랭킹 기간 즉시 종료`를 허용한다.
+- 서버 `clock_timestamp()`를 source of truth로 사용해 `ends_at_exclusive`를 현재 시각으로 줄인다.
+- 종료는 FINALIZE와 분리한다. 즉시 종료 뒤 월간 기간은 교사가 별도로 `월간 순위 확정 + Guild 2 반영`을 눌러 immutable snapshot을 생성한다.
+- `FINALIZED` period는 기존 immutable guard를 그대로 유지한다.
+- 아직 시작하지 않은 period는 즉시 종료할 수 없다.
+- 기존 period 삭제/과거 snapshot rewrite는 하지 않는다.

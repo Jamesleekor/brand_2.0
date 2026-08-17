@@ -67,7 +67,7 @@ export default function GuildScoreAdmin() {
           <label className="block text-xs font-black text-text-secondary">조회할 월
             <input type="month" className="input-field mt-1.5 block" value={yearMonth} onChange={(event) => setYearMonth(event.target.value)} />
           </label>
-          <p className="flex-1 text-xs leading-relaxed text-text-secondary">현재는 <b className="text-white">초안 집계</b>입니다. 미션·동료평가·아케이드는 설계된 방식으로 나중에 연결되며, 지금 0점이라고 해서 평가가 끝난 것은 아닙니다.</p>
+          <p className="flex-1 text-xs leading-relaxed text-text-secondary">Guild2는 <b className="text-white">현재 월 DRAFT 계산기</b>입니다. 미션·동료평가·Arcade 등 연결된 점수원을 현재값에 반영하며, 월 최종 확정은 Guild5에서 snapshot으로 고정합니다.</p>
           <RecalculateButton classroomId={classroomId} yearMonth={yearMonth} />
         </section>
 
@@ -209,7 +209,7 @@ function Guild2ScoreContents({ data }: { data: any }) {
     </div>
 
     <section className="glass-card p-4">
-      <div className="mb-3"><h2 className="font-display text-lg">길드별 GS 초안</h2><p className="mt-1 text-xs text-text-secondary">개인 기여도 + 향후 미션 GS + 수동 인원 보정의 합입니다. 지금은 미션 GS가 아직 연결되지 않았습니다.</p></div>
+      <div className="mb-3"><h2 className="font-display text-lg">길드별 GS 초안</h2><p className="mt-1 text-xs text-text-secondary">개인 기여도 + 공식 Mission GS + 인원 보정 + 수동 조정의 합입니다. Guild5 FINAL 전까지 점수원 변경에 따라 다시 계산될 수 있습니다.</p></div>
       <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">{data.guilds.map((guild: any) => {
         const summary = summaryByGuild.get(Number(guild.id));
         const config = configByGuild.get(Number(guild.id));

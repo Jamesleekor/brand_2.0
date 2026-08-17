@@ -85,6 +85,11 @@ export const TeacherUpdateArcadeRankingPeriodSchema = z.object({
 });
 export type TeacherUpdateArcadeRankingPeriodInput = z.infer<typeof TeacherUpdateArcadeRankingPeriodSchema>;
 
+export const TeacherEndArcadeRankingPeriodNowSchema = z.object({
+  p_period_id: PositiveId,
+});
+export type TeacherEndArcadeRankingPeriodNowInput = z.infer<typeof TeacherEndArcadeRankingPeriodNowSchema>;
+
 export const TeacherFinalizeArcadeMonthlySnapshotSchema = z.object({
   p_period_id: PositiveId,
 });

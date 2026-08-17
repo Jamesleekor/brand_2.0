@@ -48,7 +48,9 @@ export const guild3TeacherRpc = {
   finalize: (c:SupabaseClient,input:S.MissionFinalizeInput)=>call<S.MissionFinalizeInput,Record<string,any>>(c,'teacher_finalize_guild3_mission',S.MissionFinalizeSchema,input),
   correctResult: (c:SupabaseClient,input:S.CorrectInstanceResultInput)=>call<S.CorrectInstanceResultInput,Record<string,any>>(c,'teacher_correct_guild3_instance_result',S.CorrectInstanceResultSchema,input),
   correctGrade: (c:SupabaseClient,input:S.CorrectParticipantGradeInput)=>call<S.CorrectParticipantGradeInput,Record<string,any>>(c,'teacher_correct_guild3_participant_grade',S.CorrectParticipantGradeSchema,input),
+  unfinalize: (c:SupabaseClient,input:S.MissionReasonInput)=>call<S.MissionReasonInput,Record<string,any>>(c,'teacher_unfinalize_guild3_mission',S.MissionReasonSchema,input),
   voidMission: (c:SupabaseClient,input:S.MissionReasonInput)=>call<S.MissionReasonInput,Record<string,any>>(c,'teacher_void_guild3_mission',S.MissionReasonSchema,input),
+  restoreVoided: (c:SupabaseClient,input:S.MissionReasonInput)=>call<S.MissionReasonInput,Record<string,any>>(c,'teacher_restore_voided_guild3_mission',S.MissionReasonSchema,input),
 };
 
 export const guild3StudentRpc = {

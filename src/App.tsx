@@ -19,6 +19,12 @@ import GuildAdmin from '@/features/guild/GuildAdmin';
 import GuildScoreAdmin from '@/features/guild/GuildScoreAdmin';
 import GuildMissionsPage from '@/features/guild/GuildMissionsPage';
 import GuildMissionAdmin from '@/features/guild/GuildMissionAdmin';
+import GuildPeerReviewPage from '@/features/guild/GuildPeerReviewPage';
+import GuildPeerReviewAdmin from '@/features/guild/GuildPeerReviewAdmin';
+import GuildMonthlyPage from '@/features/guild/GuildMonthlyPage';
+import GuildScorePage from '@/features/guild/GuildScorePage';
+import GuildConquestPage from '@/features/guild/GuildConquestPage';
+import GuildMonthlyAdmin from '@/features/guild/GuildMonthlyAdmin';
 import ArcadePage from '@/features/arcade/ArcadePage';
 import TeacherArcadePage from '@/features/arcade/TeacherArcadePage';
 import { FriendsPage, RankingsPage, SettingsPage } from '@/features/social/social_pages';
@@ -118,8 +124,24 @@ export default function App() {
           element={<AppShell><GuildPage /></AppShell>} 
         />
         <Route
+          path="/guild/conquest"
+          element={<AppShell><GuildConquestPage /></AppShell>}
+        />
+        <Route
           path="/guild/missions"
           element={<AppShell><GuildMissionsPage /></AppShell>}
+        />
+        <Route
+          path="/guild/scores"
+          element={<AppShell><GuildScorePage /></AppShell>}
+        />
+        <Route
+          path="/guild/peer-review"
+          element={<AppShell><GuildPeerReviewPage /></AppShell>}
+        />
+        <Route
+          path="/guild/monthly"
+          element={<AppShell><GuildMonthlyPage /></AppShell>}
         />
         <Route
           path="/arcade"
@@ -169,6 +191,8 @@ export default function App() {
         <Route path="/teacher/guild" element={<GuildAdmin />} />
         <Route path="/teacher/guild/scores" element={<GuildScoreAdmin />} />
         <Route path="/teacher/guild/missions" element={<GuildMissionAdmin />} />
+        <Route path="/teacher/guild/peer-review" element={<GuildPeerReviewAdmin />} />
+        <Route path="/teacher/guild/monthly-close" element={<GuildMonthlyAdmin />} />
         <Route path="/teacher/arcade" element={<TeacherArcadePage />} />
         <Route path="/teacher/analytics" element={<AnalyticsPage />} />
         <Route path="/teacher/communications" element={<CommunicationAdmin />} />
