@@ -107,7 +107,7 @@ export function getShopAssetUrl(
 // =====================================================================
 
 /**
- * cosmetic_items 테이블의 image_url 필드가 다음 형식일 때 사용:
+ * cosmetic_items 테이블의 resource_url 필드가 다음 형식일 때 사용:
  *   - 절대 URL: "https://..." 또는 "http://..."
  *   - 상대 경로: "background/013_FrenchBedroom.jpeg"
  *   - 파일명만: "013_FrenchBedroom.jpeg" + category
@@ -194,8 +194,8 @@ export async function verifyAssetUrl(url: string): Promise<boolean> {
 // // 2. 상점 배경
 // <img src={getShopAssetUrl('background', '013_FrenchBedroom.jpeg')} />
 //
-// // 3. DB 데이터 기반 (cosmetic_items.image_url)
-// <img src={resolveAssetUrl(item.image_url, 'background')} alt={item.name} />
+// // 3. DB 데이터 기반 (cosmetic_items.resource_url)
+// <img src={resolveAssetUrl(item.resource_url, 'background')} alt={item.name} />
 //
 // // 4. 프리로드
 // useEffect(() => {

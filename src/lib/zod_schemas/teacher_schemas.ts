@@ -20,7 +20,7 @@ const LongText = z.string().max(2000).trim();
 const AssetAdjustmentReason = z.string().trim().min(2).max(200);
 
 // =====================================================================
-// 0. teacher_adjust_student_assets — 교사 BV/GOLD 단일·다중 지급·차감
+// 0. teacher_adjust_student_assets — 교사 BV/GOLD/CRYSTAL 단일·다중 지급·차감
 // =====================================================================
 
 export const TeacherAdjustStudentAssetsSchema = z.object({
@@ -36,7 +36,7 @@ export const TeacherAdjustStudentAssetsSchema = z.object({
         });
       }
     }),
-  p_value_token: z.enum(["BV", "GOLD"]),
+  p_value_token: z.enum(["BV", "GOLD", "CRYSTAL"]),
   p_amount: z
     .number()
     .int()

@@ -9,8 +9,10 @@
 import { motion } from 'framer-motion';
 import { useCurrentStudent } from '@/stores/auth_store';
 import { formatNumber, formatDelta } from '@/lib/utils/format';
-import { resolveAssetUrl } from '@/lib/assets/asset_urls';
 import { useWallet } from '@/hooks/useWallet';
+import { useMyAchievementTitle } from '@/hooks/useAchievementTitles';
+import { AchievementTitleBadge } from '@/components/shared/AchievementTitleBadge';
+import { getEquippedCharacterImageUrl, useMyEquippedCharacter } from '@/hooks/useEquippedCharacters';
 
 // =====================================================================
 // TopHeader
@@ -39,6 +41,7 @@ export function TopHeader({ bvMonthlyDelta = 0 }: { bvMonthlyDelta?: number }) {
 function IdentityBlock({ bvMonthlyDelta = 0 }: { bvMonthlyDelta?: number }) {
   const student = useCurrentStudent();
   const { wallet } = useWallet();
+  const { title: equippedTitle } = useMyAchievementTitle();
   
   if (!student) return null;
   
@@ -53,6 +56,12 @@ function IdentityBlock({ bvMonthlyDelta = 0 }: { bvMonthlyDelta?: number }) {
       <div className="flex flex-col gap-1 min-w-0 flex-1">
         <div className="flex items-center gap-2 min-w-0 flex-wrap">
           <div className="font-display text-xl text-brand-gradient tracking-tighter leading-tight truncate">{displayName}</div>
+          <AchievementTitleBadge
+            title={equippedTitle?.title}
+            grade={equippedTitle?.grade}
+            prominent
+            className="max-w-full"
+          />
           <div className="px-2.5 py-1 rounded-pill bg-bv/15 border border-bv/35 flex items-center gap-1.5 flex-shrink-0">
             <span className="text-xs">⭐</span><span className="text-xs font-black text-bv-100">{formatNumber(wallet?.bv ?? 0)} BV</span>
             <span className="text-[9px] font-black text-success">{formatDelta(bvMonthlyDelta)}</span>
@@ -70,27 +79,40 @@ function IdentityBlock({ bvMonthlyDelta = 0 }: { bvMonthlyDelta?: number }) {
 
 function CharacterAvatar() {
   const student = useCurrentStudent();
-  
-  // TODO Sub-step 6-D: equipped_character_id 조회 → 이미지 URL
-  // 현재는 fallback (이름 첫글자)
-  const equippedCharacterUrl: string | null = null;
-  
+  const { character } = useMyEquippedCharacter();
+  const equippedCharacterUrl = getEquippedCharacterImageUrl(character, 'avatar');
+
   if (equippedCharacterUrl) {
     return (
-      <div className="w-14 h-14 rounded-card-lg overflow-hidden border-2 border-gold/60 shadow-brand-md flex-shrink-0">
+      <div
+        className="w-14 h-14 rounded-card-lg overflow-hidden border-2 border-gold/60 bg-bg-deep shadow-brand-md flex-shrink-0"
+        title={character?.name ?? '장착 편린'}
+      >
         <img
-          src={resolveAssetUrl(equippedCharacterUrl, 'character')}
-          alt="내 캐릭터"
-          className="w-full h-full object-cover"
+          src={equippedCharacterUrl}
+          alt={`${character?.name ?? '장착 편린'} 아바타`}
+          className="w-full h-full object-contain object-center"
           loading="eager"
         />
       </div>
     );
   }
-  
-  // Fallback — 이름 첫 글자
+
+  if (character?.emoji) {
+    return (
+      <div
+        className="w-14 h-14 rounded-card-lg flex-shrink-0 bg-bg-deep border-2 border-gold/60 shadow-brand-md flex items-center justify-center text-3xl"
+        title={character.name}
+        aria-label={`${character.name} 장착`}
+      >
+        {character.emoji}
+      </div>
+    );
+  }
+
+  // Fallback — 장착 편린이 없을 때만 이름 첫 글자
   const firstChar = student?.studentName?.charAt(0) ?? '?';
-  
+
   return (
     <div className="w-14 h-14 rounded-card-lg flex-shrink-0 bg-gradient-to-br from-gold to-brand-primary flex items-center justify-center border-2 border-white/30 shadow-brand-md">
       <span className="font-display text-2xl text-white">{firstChar}</span>

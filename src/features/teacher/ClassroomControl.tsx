@@ -9,7 +9,7 @@
 // =====================================================================
 
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
@@ -20,6 +20,7 @@ import {
 import { TeacherShell } from "@/components/teacher/TeacherShell";
 import { AssetAdjustmentPanel } from "@/features/teacher/AssetAdjustmentPanel";
 import { TransactionReversalPanel } from "@/features/teacher/TransactionReversalPanel";
+import EconomyHistoryPanel from "@/features/teacher/EconomyHistoryPanel";
 import { supabase } from "@/lib/supabase/client";
 import { teacherRpc } from "@/lib/rpc/teacher_rpc";
 import { useClassroomId, useCurrentStudent } from "@/stores/auth_store";
@@ -51,6 +52,8 @@ interface WelfareFundInfo {
 
 export default function ClassroomControl() {
   const classroomId = useClassroomId();
+  const location = useLocation();
+  const historyMode = location.pathname.endsWith('/history');
 
   return (
     <TeacherShell>
@@ -64,22 +67,49 @@ export default function ClassroomControl() {
           </p>
         </div>
 
-        {/* 학생 BV/GOLD 지급·차감 */}
-        <AssetAdjustmentPanel classroomId={classroomId} />
-
-        {/* 최근 기본 경제 거래 취소·정정 */}
-        <TransactionReversalPanel classroomId={classroomId} />
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* 비상사태 패널 */}
-          <EmergencyPanel classroomId={classroomId} />
-
-          {/* 복지기금 패널 */}
-          <WelfarePanel classroomId={classroomId} />
+        <div className="flex gap-2 rounded-card-lg border border-line bg-bg-card p-2">
+          <Link
+            to="/teacher/control"
+            className={cn(
+              'rounded-pill px-4 py-2 text-xs font-black transition-all',
+              !historyMode ? 'bg-gradient-to-r from-brand-primary to-gold text-white shadow-brand-sm' : 'text-text-secondary hover:bg-bg-deep hover:text-white',
+            )}
+          >
+            ⚙️ 운영
+          </Link>
+          <Link
+            to="/teacher/control/history"
+            className={cn(
+              'rounded-pill px-4 py-2 text-xs font-black transition-all',
+              historyMode ? 'bg-gradient-to-r from-brand-primary to-gold text-white shadow-brand-sm' : 'text-text-secondary hover:bg-bg-deep hover:text-white',
+            )}
+          >
+            📚 히스토리
+          </Link>
         </div>
 
-        {/* 돌발 퀘스트 패널 */}
-        <EmergencyQuestPanel classroomId={classroomId} />
+        {historyMode ? (
+          <EconomyHistoryPanel classroomId={classroomId} />
+        ) : (
+          <>
+            {/* 학생 BV/GOLD/CRYSTAL 지급·차감 */}
+            <AssetAdjustmentPanel classroomId={classroomId} />
+
+            {/* 최근 기본 경제 거래 취소·정정 */}
+            <TransactionReversalPanel classroomId={classroomId} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* 비상사태 패널 */}
+              <EmergencyPanel classroomId={classroomId} />
+
+              {/* 복지기금 패널 */}
+              <WelfarePanel classroomId={classroomId} />
+            </div>
+
+            {/* 돌발 퀘스트 패널 */}
+            <EmergencyQuestPanel classroomId={classroomId} />
+          </>
+        )}
       </div>
     </TeacherShell>
   );

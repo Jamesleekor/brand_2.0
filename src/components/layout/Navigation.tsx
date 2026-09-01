@@ -4,12 +4,15 @@
 // =====================================================================
 // UtilityRow: 출석·우편함·알림·설정 (우측 정렬)
 // TopMenuRow: 친구·길드·시장·랭킹 (아래줄, 우측 정렬)
-// BottomNav: 홈·자산·꾸미기·업적·프로필
+// BottomNav: 홈·자산·편린·업적·프로필
 // =====================================================================
 
 import { Link, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
+import { bakeryI2Rpc } from '@/lib/rpc/bakery_i2_rpc';
+import { supabase } from '@/lib/supabase/client';
 
 // =====================================================================
 // UtilityRow — 출석·우편함·알림·설정
@@ -19,6 +22,7 @@ interface UtilityRowProps {
   onAttendanceClick: () => void;
   onMailClick: () => void;
   onAlertsClick: () => void;
+  onHomeCustomizeClick?: () => void;
   attendanceUnclaimed: boolean;  // 오늘 출석 보상 우편함에 있는지
   mailUnreadCount: number;
   alertsUnreadCount: number;
@@ -28,6 +32,7 @@ export function UtilityRow({
   onAttendanceClick,
   onMailClick,
   onAlertsClick,
+  onHomeCustomizeClick,
   attendanceUnclaimed,
   mailUnreadCount,
   alertsUnreadCount,
@@ -52,6 +57,18 @@ export function UtilityRow({
         badge={alertsUnreadCount}
         aria-label="알림"
       />
+      {onHomeCustomizeClick && (
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.94 }}
+          onClick={onHomeCustomizeClick}
+          className="h-10 rounded-card-md bg-bg-card backdrop-blur-card border border-line flex items-center justify-center gap-1.5 px-2 min-[360px]:px-3 text-sm font-black text-white hover-lift transition-all"
+          aria-label="홈 꾸미기"
+        >
+          <span className="text-lg">🎨</span>
+          <span className="hidden min-[360px]:inline">홈 꾸미기</span>
+        </motion.button>
+      )}
       <Link to="/settings">
         <UtilityButton
           icon="⚙️"
@@ -110,11 +127,32 @@ export function TopMenuRow({ guildAlertCount = 0 }: TopMenuRowProps) {
       <MenuPill to="/guild" icon="⚔️" label="길드" badge={guildAlertCount} />
       <MenuPill to="/arcade" icon="🕹️" label="아케이드" />
       <MenuPill to="/market" icon="🏪" label="시장" />
+      <MenuPill to="/bank" icon="🏦" label="은행" />
+      <MenuPill to="/market/inventory" icon="🎒" label="가방" />
+      <BakeryMenuPill />
       <MenuPill to="/rankings" icon="📊" label="랭킹" />
       <MenuPill to="/assignments" icon="📝" label="과제" />
       <MenuPill to="/records" icon="🏛️" label="기록실" />
     </div>
   );
+}
+
+
+function BakeryMenuPill() {
+  const access = useQuery({
+    queryKey: ['bakery-i2-access'],
+    queryFn: async () => {
+      const result = await bakeryI2Rpc.getAccess(supabase);
+      if (result.success === false) throw new Error(result.error);
+      return result.data;
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    retry: 1,
+  });
+
+  if (!access.data?.is_operator) return null;
+  return <MenuPill to="/bakery" icon="🧁" label="제과점" />;
 }
 
 // =====================================================================
@@ -150,13 +188,13 @@ function MenuPill({ to, icon, label, badge }: MenuPillProps) {
 }
 
 // =====================================================================
-// BottomNav — 홈·자산·꾸미기·업적·프로필
+// BottomNav — 홈·자산·편린·업적·프로필
 // =====================================================================
 
 const NAV_ITEMS = [
   { to: '/home',       icon: '🏠', label: '홈' },
   { to: '/wallet',     icon: '💼', label: '자산' },
-  { to: '/cosmetic',   icon: '🎨', label: '꾸미기' },
+  { to: '/characters', icon: '✦', label: '편린' },
   { to: '/achievement', icon: '🏆', label: '업적' },
   { to: '/profile',    icon: '👤', label: '프로필' },
 ] as const;

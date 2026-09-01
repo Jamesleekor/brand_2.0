@@ -103,7 +103,7 @@ export default function ArcadePage() {
   };
 
   return <div className="min-h-screen">
-    <PageHeader title="아케이드" emoji="🕹️" hideBack />
+    <PageHeader title="아케이드" emoji="🕹️" />
     <main className="mx-auto max-w-5xl space-y-5 px-4 py-5">
       <section className="overflow-hidden rounded-card-xl border border-brand-primary/30 bg-gradient-to-br from-brand-primary/15 via-bg-card to-gold/10 p-5">
         <div className="text-xs font-black tracking-[0.18em] text-brand-primary">B.R.A.N.D ARCADE</div>

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-label="BRAND WORLD temporary fantasy map">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#101827"/>
+      <stop offset="0.55" stop-color="#1d2741"/>
+      <stop offset="1" stop-color="#11142b"/>
+    </linearGradient>
+    <radialGradient id="sanctuary" cx="50%" cy="20%" r="36%">
+      <stop offset="0" stop-color="#fff4ba" stop-opacity=".95"/>
+      <stop offset=".2" stop-color="#9fe9ff" stop-opacity=".55"/>
+      <stop offset=".55" stop-color="#8066e8" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#11142b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="volcano" cx="82%" cy="28%" r="26%">
+      <stop offset="0" stop-color="#ff6a32" stop-opacity=".62"/>
+      <stop offset=".45" stop-color="#7d211c" stop-opacity=".36"/>
+      <stop offset="1" stop-color="#11142b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="ice" cx="31%" cy="26%" r="27%">
+      <stop offset="0" stop-color="#c8f6ff" stop-opacity=".7"/>
+      <stop offset=".45" stop-color="#4ea5dd" stop-opacity=".32"/>
+      <stop offset="1" stop-color="#11142b" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="land" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#345438"/>
+      <stop offset=".38" stop-color="#6d693c"/>
+      <stop offset=".72" stop-color="#74512f"/>
+      <stop offset="1" stop-color="#463649"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="16"/></filter>
+  </defs>
+
+  <rect width="1600" height="900" rx="44" fill="url(#sky)"/>
+  <rect width="1600" height="900" rx="44" fill="url(#sanctuary)"/>
+  <rect width="1600" height="900" rx="44" fill="url(#volcano)"/>
+  <rect width="1600" height="900" rx="44" fill="url(#ice)"/>
+
+  <path d="M75 775 C170 670 265 698 340 635 C430 555 505 650 590 580 C700 490 760 585 870 520 C970 460 1040 515 1140 440 C1240 365 1330 455 1515 390 L1515 850 L70 850 Z" fill="url(#land)" opacity=".92"/>
+  <path d="M100 790 C235 700 325 735 440 655 S655 615 760 550 S990 500 1110 430 S1320 410 1490 330" fill="none" stroke="#e7d88d" stroke-opacity=".36" stroke-width="8" stroke-linecap="round" stroke-dasharray="9 18"/>
+
+  <g opacity=".7" fill="#aee8ff">
+    <path d="M315 290 l55-126 48 119 56-150 62 162 -52-20 -34 63 -47-50 -55 40z"/>
+    <path d="M210 350 l49-112 42 96 46-120 56 144 -47-15 -30 54 -41-42 -48 35z" opacity=".75"/>
+  </g>
+
+  <g opacity=".8" fill="#3a1719">
+    <path d="M1245 365 l78-160 80 160z"/>
+    <path d="M1325 380 l55-120 64 124z"/>
+    <ellipse cx="1322" cy="220" rx="54" ry="20" fill="#ff7848" opacity=".62" filter="url(#glow)"/>
+  </g>
+
+  <g transform="translate(800 128)">
+    <ellipse cx="0" cy="55" rx="188" ry="68" fill="#b7f3ff" opacity=".18" filter="url(#glow)"/>
+    <path d="M-120 95 L-72 28 L-34 52 L0 -36 L38 52 L76 25 L124 95 Z" fill="#eafaff" opacity=".82"/>
+    <path d="M-80 96 L-52 48 L-19 65 L0 6 L21 65 L54 48 L82 96 Z" fill="#f7d877" opacity=".9"/>
+    <circle cx="0" cy="5" r="14" fill="#fff7c6"/>
+  </g>
+
+  <g fill="#ffd86b" opacity=".32">
+    <circle cx="155" cy="716" r="8"/><circle cx="292" cy="642" r="7"/><circle cx="450" cy="690" r="8"/>
+    <circle cx="610" cy="612" r="8"/><circle cx="790" cy="652" r="7"/><circle cx="960" cy="560" r="8"/>
+    <circle cx="1180" cy="505" r="7"/><circle cx="1320" cy="420" r="8"/>
+  </g>
+
+  <rect x="22" y="22" width="1556" height="856" rx="34" fill="none" stroke="#d7c17a" stroke-opacity=".22" stroke-width="3"/>
+</svg>

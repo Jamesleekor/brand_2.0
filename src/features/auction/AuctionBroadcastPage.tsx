@@ -5,16 +5,21 @@ import { supabase } from '@/lib/supabase/client';
 import { studentRpc } from '@/lib/rpc/student_rpc';
 import { formatNumber } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
-import { formatAuctionTime, useAuctionCountdown, useLiveAuctionState } from './useLiveAuction';
+import { formatAuctionTime, useAuctionCountdown, useLiveAuctionState, useServerDeadlineCountdown } from './useLiveAuction';
 
 export default function AuctionBroadcastPage() {
-  const { state, auction, items, currentItem, recentBids, isLoading, refetch } = useLiveAuctionState(false);
+  const { state, auction, items, currentItem, recentBids, superPass, isLoading, refetch } = useLiveAuctionState(false);
   const finalizeKeyRef = useRef('');
+  const superPassResolveKeyRef = useRef('');
   const countdown = useAuctionCountdown(
     state?.server_now,
     currentItem,
     auction?.paused_at,
     auction?.pause_remaining_seconds,
+  );
+  const superPassCountdown = useServerDeadlineCountdown(
+    state?.server_now,
+    superPass?.status === 'APPLYING' ? superPass.application_ends_at : null,
   );
   const [recentResult, setRecentResult] = useState<any>(null);
   const seenResultRef = useRef<string>('');
@@ -28,6 +33,16 @@ export default function AuctionBroadcastPage() {
       .finalizeLiveAuctionItemIfExpired(supabase, { p_item_id: currentItem.id })
       .then(() => refetch());
   }, [countdown.isExpired, countdown.isPaused, currentItem, refetch]);
+
+  useEffect(() => {
+    if (!currentItem || superPass?.status !== 'APPLYING' || !superPassCountdown.isExpired) return;
+    const key = `${superPass.round_id}:${superPass.application_ends_at}`;
+    if (superPassResolveKeyRef.current === key) return;
+    superPassResolveKeyRef.current = key;
+    void studentRpc
+      .resolveAuctionSuperPassPhaseIfExpired(supabase, { p_item_id: currentItem.id })
+      .then(() => refetch());
+  }, [currentItem, refetch, superPass, superPassCountdown.isExpired]);
 
 
   useEffect(() => {
@@ -133,6 +148,12 @@ export default function AuctionBroadcastPage() {
                 <span className="px-3 py-1 rounded-pill bg-bg-deep text-text-secondary font-black text-sm">
                   {currentItem.category}
                 </span>
+                {superPass?.status === 'APPLYING' && (
+                  <span className="px-3 py-1 rounded-pill bg-gold/20 text-gold font-black text-sm">🎫 SUPER PASS 신청</span>
+                )}
+                {superPass?.status === 'PRIORITY_BIDDING' && (
+                  <span className="px-3 py-1 rounded-pill bg-brand-primary/30 text-brand-glow font-black text-sm">⚡ SUPER PASS 우선경매</span>
+                )}
               </div>
               {currentItem.image_url ? (
                 <img src={currentItem.image_url} alt="" className="w-48 h-48 object-cover rounded-card-lg border border-line mb-5" />
@@ -144,29 +165,40 @@ export default function AuctionBroadcastPage() {
               {currentItem.previous_sale_price !== null && (
                 <p className="text-lg text-text-muted mt-3">지난 회차 낙찰가 <strong className="text-text-secondary font-mono">{formatNumber(currentItem.previous_sale_price)} GOLD</strong></p>
               )}
+              {superPass?.status === 'APPLYING' && (
+                <div className="mt-5 rounded-card-lg border border-gold/35 bg-gold/10 px-6 py-4">
+                  <p className="font-display text-2xl text-white">SUPER PASS 우선권 신청 중</p>
+                  <p className="text-base text-text-secondary font-bold mt-2">
+                    신청자 1명은 최소가 즉시 낙찰 · 2명 이상은 신청자 전용 우선경매
+                  </p>
+                  <p className="font-mono text-3xl font-black text-gold mt-3">현재 신청 {superPass.applicant_count}명</p>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-3 border-t border-line bg-bg-deep/55">
               <div className="p-5 text-center border-r border-line">
-                <p className="text-sm text-text-muted font-bold mb-1">현재 최고가</p>
+                <p className="text-sm text-text-muted font-bold mb-1">{superPass?.status === 'APPLYING' ? '최소 낙찰가' : '현재 최고가'}</p>
                 <p className="font-mono text-5xl text-gold font-black tabular-nums">{formatNumber(currentItem.current_price)}</p>
                 <p className="text-sm text-text-muted mt-1">GOLD</p>
               </div>
               <div className="p-5 text-center border-r border-line">
-                <p className="text-sm text-text-muted font-bold mb-1">최고 입찰자</p>
+                <p className="text-sm text-text-muted font-bold mb-1">{superPass?.status === 'APPLYING' ? 'SUPER PASS 신청자' : '최고 입찰자'}</p>
                 <p className="font-display text-3xl text-success truncate mt-4">
-                  {currentItem.top_bid
-                    ? currentItem.top_bid.brand_name || currentItem.top_bid.student_name
-                    : '입찰 대기'}
+                  {superPass?.status === 'APPLYING'
+                    ? `${superPass.applicant_count}명`
+                    : currentItem.top_bid
+                      ? currentItem.top_bid.brand_name || currentItem.top_bid.student_name
+                      : '입찰 대기'}
                 </p>
               </div>
               <div className="p-5 text-center">
-                <p className="text-sm text-text-muted font-bold mb-1">남은 시간</p>
+                <p className="text-sm text-text-muted font-bold mb-1">{superPass?.status === 'APPLYING' ? '신청 마감' : '남은 시간'}</p>
                 <p className={cn(
                   'font-mono text-6xl font-black tabular-nums mt-1',
-                  countdown.isPaused ? 'text-warning' : countdown.remainingSeconds <= 5 ? 'text-danger animate-pulse' : 'text-brand-glow',
+                  countdown.isPaused ? 'text-warning' : (superPass?.status === 'APPLYING' ? superPassCountdown.remainingSeconds : countdown.remainingSeconds) <= 5 ? 'text-danger animate-pulse' : 'text-brand-glow',
                 )}>
-                  {countdown.isPaused ? 'PAUSE' : formatAuctionTime(countdown.remainingSeconds)}
+                  {countdown.isPaused ? 'PAUSE' : formatAuctionTime(superPass?.status === 'APPLYING' ? superPassCountdown.remainingSeconds : countdown.remainingSeconds)}
                 </p>
               </div>
             </div>
@@ -174,9 +206,16 @@ export default function AuctionBroadcastPage() {
 
           <div className="grid grid-rows-2 gap-4 min-h-0">
             <section className="bg-bg-card border border-line rounded-card-lg p-4 min-h-0 overflow-hidden">
-              <h2 className="font-display text-xl mb-3">⚡ 최근 입찰</h2>
+              <h2 className="font-display text-xl mb-3">{superPass?.status === 'APPLYING' ? '🎫 신청 현황' : '⚡ 최근 입찰'}</h2>
               <div className="space-y-2 overflow-y-auto h-[calc(100%-40px)] pr-1">
-                {recentBids.filter((bid) => bid.auction_item_id === currentItem.id).slice(0, 10).map((bid, index) => (
+                {superPass?.status === 'APPLYING' && (
+                  <div className="rounded-card-lg border border-gold/30 bg-gold/10 p-5 text-center">
+                    <div className="text-5xl">🎫</div>
+                    <p className="font-mono text-4xl font-black text-gold mt-3">{superPass.applicant_count}명</p>
+                    <p className="text-sm text-text-muted font-bold mt-2">신청자 신원은 공개하지 않습니다.</p>
+                  </div>
+                )}
+                {superPass?.status !== 'APPLYING' && recentBids.filter((bid) => bid.auction_item_id === currentItem.id).slice(0, 10).map((bid, index) => (
                   <div key={bid.id} className={cn(
                     'rounded-card-md px-3 py-2.5 flex items-center justify-between gap-2',
                     index === 0 ? 'bg-gold/15 border border-gold/30' : 'bg-bg-deep/60 border border-line',
@@ -185,7 +224,7 @@ export default function AuctionBroadcastPage() {
                     <span className="font-mono text-gold font-black">{formatNumber(bid.bid_amount)}</span>
                   </div>
                 ))}
-                {recentBids.filter((bid) => bid.auction_item_id === currentItem.id).length === 0 && (
+                {superPass?.status !== 'APPLYING' && recentBids.filter((bid) => bid.auction_item_id === currentItem.id).length === 0 && (
                   <p className="text-text-muted text-center py-10">첫 입찰을 기다리는 중</p>
                 )}
               </div>

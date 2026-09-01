@@ -410,6 +410,16 @@ export const ERROR_MESSAGES: Record<string, ErrorMessage> = {
     title: "이미 달성한 업적이에요",
     description: "이 업적을 이미 보유 중입니다.",
   },
+  P0113: {
+    category: "PERMISSION",
+    title: "다른 학급의 업적이에요",
+    description: "학생의 학급과 업적의 학급이 일치하지 않습니다.",
+  },
+  P0114: {
+    category: "PERMISSION",
+    title: "학생 또는 학급 권한을 확인할 수 없어요",
+    description: "현재 담당 학급과 학생 정보를 확인해주세요.",
+  },
   P0120: {
     category: "NOT_FOUND",
     title: "업적을 찾을 수 없어요",
@@ -428,6 +438,13 @@ export const ERROR_MESSAGES: Record<string, ErrorMessage> = {
     title: "이미 신청한 업적이에요",
     description: "이전 신청이 검토 중입니다. 결과를 기다려주세요.",
   },
+  P0124: { category: "PERMISSION", title: "다른 학급 업적은 신청할 수 없어요" },
+  P0125: {
+    category: "PERMISSION",
+    title: "아직 공개되지 않은 히든 업적이에요",
+    description: "미공개 히든 업적은 특별보고를 이용해주세요.",
+  },
+  P0126: { category: "PERMISSION", title: "학급 접근 권한이 없어요" },
   P0130: {
     category: "NOT_FOUND",
     title: "학생 업적을 찾을 수 없어요",
@@ -435,6 +452,10 @@ export const ERROR_MESSAGES: Record<string, ErrorMessage> = {
   P0131: {
     category: "STATE",
     title: "이미 회수된 업적이에요",
+  },
+  P0132: {
+    category: "PERMISSION",
+    title: "회수할 업적의 학급 권한이 없어요",
   },
   P0140: {
     category: "NOT_FOUND",
@@ -451,11 +472,66 @@ export const ERROR_MESSAGES: Record<string, ErrorMessage> = {
     description: "자동 승인 후 24시간이 지나서 더 이상 회수할 수 없습니다.",
     hint: "필요시 거래 회수 함수를 사용해주세요.",
   },
+  P0143: {
+    category: "PERMISSION",
+    title: "이 학급의 업적 신청을 검토할 권한이 없어요",
+  },
+  P0144: {
+    category: "NOT_FOUND",
+    title: "신청과 연결된 업적을 찾을 수 없어요",
+    description: "업적 Master 연결 상태를 확인해주세요.",
+  },
   P0150: {
     category: "PERMISSION",
     title: "소유한 업적이 아니에요",
     description: "본인이 보유한 업적만 장착할 수 있습니다.",
   },
+
+  // Achievement Core A3 — 특별보고 / 업적검증도우미
+  PA301: { category: "PERMISSION", title: "학생 정보를 확인할 수 없어요" },
+  PA302: { category: "PERMISSION", title: "업적검증도우미만 사용할 수 있어요" },
+  PA303: { category: "VALIDATION", title: "추천 메모가 너무 길어요" },
+  PA304: { category: "NOT_FOUND", title: "검토할 신청을 찾을 수 없어요" },
+  PA305: { category: "STATE", title: "도우미가 검토할 수 없는 신청이에요" },
+  PA306: { category: "PERMISSION", title: "이 업적은 선생님이 직접 검토해요" },
+  PA307: { category: "VALIDATION", title: "추천 값을 확인해주세요" },
+  PA310: { category: "VALIDATION", title: "특별보고 내용을 입력해주세요" },
+  PA311: { category: "VALIDATION", title: "특별보고는 1000자 이하로 작성해주세요" },
+  PA312: { category: "PERMISSION", title: "특별보고를 제출할 수 없는 학생이에요" },
+  PA320: { category: "VALIDATION", title: "달성 증빙·설명을 입력해주세요" },
+  PA321: { category: "VALIDATION", title: "달성 증빙은 1000자 이하로 작성해주세요" },
+  PA330: { category: "PERMISSION", title: "이 학급의 업적 신청을 볼 권한이 없어요" },
+  PA331: { category: "NOT_FOUND", title: "특별보고를 찾을 수 없어요" },
+  PA332: { category: "STATE", title: "이미 처리된 특별보고예요" },
+  PA333: { category: "VALIDATION", title: "미공개 히든 업적만 연결할 수 있어요" },
+  PA334: { category: "STATE", title: "이미 공개된 히든 업적이에요", description: "이후 신청은 일반 업적 신청으로 처리해주세요." },
+  PA335: { category: "VALIDATION", title: "반려 사유를 입력해주세요" },
+  PA336: { category: "VALIDATION", title: "반려 사유가 너무 길어요" },
+  PA340: { category: "PERMISSION", title: "이 업적의 도우미 검토 설정을 바꿀 수 없어요" },
+
+  // Achievement Core A4 — 최종 승인/보상/직접 부여
+  PA410: { category: "NOT_FOUND", title: "학생 정보를 찾을 수 없어요" },
+  PA411: { category: "NOT_FOUND", title: "학생 업적 기록을 찾을 수 없어요" },
+  PA412: { category: "NOT_FOUND", title: "업적 Master를 찾을 수 없어요" },
+  PA420: { category: "STATE", title: "특별보고는 전용 승인 버튼으로 처리해주세요" },
+  PA431: { category: "NOT_FOUND", title: "특별보고를 찾을 수 없어요" },
+  PA432: { category: "STATE", title: "이미 처리되었거나 승인할 수 없는 특별보고예요" },
+  PA433: { category: "VALIDATION", title: "먼저 히든 업적 후보를 연결해주세요" },
+  PA434: { category: "STATE", title: "연결된 업적이 비활성화되었거나 유효하지 않아요" },
+  PA440: { category: "PERMISSION", title: "이 학급의 업적 보유자를 관리할 권한이 없어요" },
+  PA441: { category: "NOT_FOUND", title: "관리할 업적을 찾을 수 없어요" },
+  PA442: { category: "PERMISSION", title: "학생을 찾을 수 없거나 다른 학급 학생이에요" },
+  PA443: { category: "STATE", title: "부여할 수 없는 업적이에요", description: "비활성화되었거나 다른 학급 업적입니다." },
+  PA444: { category: "VALIDATION", title: "업적 회수 사유를 입력해주세요" },
+  PA445: { category: "VALIDATION", title: "업적 회수 사유가 너무 길어요" },
+  PA446: { category: "PERMISSION", title: "회수할 업적 기록을 찾을 수 없어요" },
+
+  // Achievement Core A5 — 교사용 통계·운영
+  PA510: { category: "PERMISSION", title: "이 학급의 업적 통계를 볼 권한이 없어요" },
+  PA511: { category: "VALIDATION", title: "업적 통계 조회 기간을 확인해주세요", description: "시작일은 종료일보다 늦을 수 없습니다." },
+  PA520: { category: "PERMISSION", title: "이 학급의 학생 업적 이력을 볼 권한이 없어요" },
+  PA521: { category: "NOT_FOUND", title: "학급에서 학생을 찾을 수 없어요" },
+  PA522: { category: "VALIDATION", title: "학생 업적 이력 조회 기간을 확인해주세요", description: "시작일은 종료일보다 늦을 수 없습니다." },
 
   // ===================================================================
   // P0160~P0169 — Guild Mission 에러
@@ -724,7 +800,7 @@ export const ERROR_MESSAGES: Record<string, ErrorMessage> = {
   P0604: {
     category: "VALIDATION",
     title: "지원하지 않는 자산이에요",
-    description: "교사 패널에서는 BV와 골드만 조정할 수 있습니다.",
+    description: "교사 패널에서는 BV·골드·크리스탈을 조정할 수 있습니다.",
   },
   P0605: {
     category: "VALIDATION",
@@ -806,6 +882,84 @@ export const ERROR_MESSAGES: Record<string, ErrorMessage> = {
     description: "원본 거래와 상세 기록의 연결이 불완전합니다.",
     hint: "작업을 중단하고 관리자에게 알려주세요.",
   },
+
+  // ===================================================================
+  // P0810~P0849 — Inventory + Market Core
+  // ===================================================================
+  P0811: { category: "VALIDATION", title: "구매 수량을 확인해주세요", description: "1개 이상 구매할 수 있습니다." },
+  P0812: { category: "VALIDATION", title: "한 번에 너무 많이 구매하려고 했어요" },
+  P0813: { category: "STATE", title: "다른 시장 거래가 처리 중이에요", hint: "잠시 후 다시 시도해주세요." },
+  P0814: { category: "NOT_FOUND", title: "활성 학생 정보를 찾을 수 없어요" },
+  P0815: { category: "STATE", title: "현재 자산 동결 상태예요", description: "자산 동결 중에는 시장에서 구매하거나 판매할 수 없습니다." },
+  P0816: { category: "NOT_FOUND", title: "시장 아이템을 찾을 수 없어요" },
+  P0817: { category: "PERMISSION", title: "다른 학급의 아이템은 구매할 수 없어요" },
+  P0818: { category: "STATE", title: "현재 판매하지 않는 아이템이에요" },
+  P0819: { category: "BUSINESS", title: "재고가 부족해요", hint: "구매 수량을 줄여보세요." },
+  P0820: { category: "BUSINESS", title: "이번 주 구매 한도에 도달했어요", hint: "다음 주에 다시 구매할 수 있습니다." },
+  P0821: { category: "PERMISSION", title: "학생 로그인이 필요해요" },
+  P0822: { category: "PERMISSION", title: "학생 로그인이 필요해요" },
+  P0823: { category: "PERMISSION", title: "학생 로그인이 필요해요" },
+  P0830: { category: "VALIDATION", title: "판매 수량을 확인해주세요" },
+  P0832: { category: "STATE", title: "현재 자산 동결 상태예요", description: "자산 동결 중에는 아이템을 판매할 수 없습니다." },
+  P0833: { category: "NOT_FOUND", title: "판매할 아이템을 찾을 수 없어요" },
+  P0834: { category: "BUSINESS", title: "판매할 수 없는 아이템이에요" },
+  P0835: { category: "BUSINESS", title: "판매 가능한 수량이 부족해요", description: "예약 중인 수량은 판매할 수 없습니다." },
+  P0836: { category: "BUSINESS", title: "구매가 환불 가능한 수량이 부족해요", description: "시장 구매 Lot만 원래 구매 가격으로 판매할 수 있습니다." },
+  P0840: { category: "VALIDATION", title: "사용 수량을 확인해주세요" },
+  P0842: { category: "NOT_FOUND", title: "사용할 아이템을 찾을 수 없어요" },
+  P0843: { category: "BUSINESS", title: "사용할 수 없는 아이템이에요" },
+  P0844: { category: "STATE", title: "SUPER PASS는 여기서 사용할 수 없어요", description: "경매 상품이 공개될 때 사용 여부를 선택할 수 있습니다." },
+  P0845: { category: "STATE", title: "이 아이템은 일반 사용 방식이 아니에요" },
+  P0846: { category: "BUSINESS", title: "사용 가능한 수량이 부족해요", description: "예약 중인 아이템은 사용할 수 없습니다." },
+  P0848: { category: "STATE", title: "제과점이 닫혀 있어요", description: "제과점이 OPEN 상태일 때 간식을 사용할 수 있습니다." },
+
+  // ===================================================================
+  // PI200~PI249 — Bakery I2
+  // ===================================================================
+  PI200: { category: "PERMISSION", title: "로그인이 필요해요" },
+  PI210: { category: "PERMISSION", title: "로그인이 필요해요" },
+  PI211: { category: "PERMISSION", title: "제과점 영업 시작 권한이 없어요", description: "제과점 담당 학생 또는 교사만 OPEN할 수 있습니다." },
+  PI220: { category: "PERMISSION", title: "로그인이 필요해요" },
+  PI221: { category: "PERMISSION", title: "제과점 영업 종료 권한이 없어요", description: "제과점 담당 학생 또는 교사만 CLOSED 처리할 수 있습니다." },
+  PI230: { category: "PERMISSION", title: "로그인이 필요해요" },
+  PI231: { category: "PERMISSION", title: "간식 지급 권한이 없어요", description: "제과점 담당 학생 또는 교사만 지급 완료 처리할 수 있습니다." },
+  PI232: { category: "VALIDATION", title: "수령 대기 정보를 확인해주세요" },
+  PI233: { category: "NOT_FOUND", title: "수령 대기 요청을 찾을 수 없어요" },
+  PI234: { category: "STATE", title: "취소된 요청은 지급할 수 없어요" },
+  PI240: { category: "PERMISSION", title: "로그인이 필요해요" },
+  PI241: { category: "PERMISSION", title: "제과점 운영 권한이 없어요", description: "현재 1인1역 제과점 담당 학생 또는 교사만 운영할 수 있습니다." },
+
+  // ===================================================================
+  // PJ101~PJ111 — 1인1역 교사 운영
+  // ===================================================================
+  PJ101: { category: "STATE", title: "학급 정보를 찾을 수 없어요" },
+  PJ102: { category: "VALIDATION", title: "1인1역 저장 데이터가 올바르지 않아요" },
+  PJ103: { category: "VALIDATION", title: "저장할 학생 수가 너무 많아요" },
+  PJ104: { category: "VALIDATION", title: "학생 식별 정보를 확인해주세요" },
+  PJ105: { category: "BUSINESS", title: "현재 학급의 활성 학생이 아니에요" },
+  PJ106: { category: "VALIDATION", title: "같은 학생이 중복되어 있어요" },
+  PJ107: { category: "VALIDATION", title: "1인1역 이름이 너무 길어요" },
+  PJ108: { category: "VALIDATION", title: "담당 구역 설명이 너무 길어요" },
+  PJ109: { category: "VALIDATION", title: "일급은 정수로 입력해주세요" },
+  PJ110: { category: "VALIDATION", title: "일급을 확인해주세요", description: "1인1역 일급은 0 이상의 정수여야 합니다." },
+  PJ111: { category: "STATE", title: "다른 학급의 1인1역 기록과 충돌했어요", description: "학생의 학급 상태를 확인해주세요." },
+
+  // ===================================================================
+  // DQ3xx — S3 일일퀘스트 관리자/교사 정산
+  // ===================================================================
+  DQ305: { category: "STATE", title: "오늘 체크리스트만 새로 만들 수 있어요" },
+  DQ308: { category: "STATE", title: "1인1역 설정이 아직 완료되지 않았어요", description: "모든 학생의 1인1역과 일급을 먼저 저장해주세요." },
+  DQ309: { category: "STATE", title: "일일퀘스트 관리자를 확인해주세요", description: "현재 학급에 일일퀘스트 관리자가 정확히 1명이어야 합니다." },
+  DQ310: { category: "PERMISSION", title: "현재 일일퀘스트 관리자가 아니에요" },
+  DQ315: { category: "STATE", title: "제출된 보고서는 수정할 수 없어요", description: "선생님이 반려하면 다시 수정할 수 있습니다." },
+  DQ316: { category: "STATE", title: "출석은 자동 반영돼요", description: "출석 상태는 관리자가 직접 수정하지 않습니다." },
+  DQ317: { category: "STATE", title: "교사가 확정한 항목이에요", description: "관리자가 다시 수정할 수 없습니다." },
+  DQ318: { category: "VALIDATION", title: "수정 사유를 입력해주세요", description: "이미 판정한 결과를 바꾸려면 2자 이상의 사유가 필요합니다." },
+  DQ322: { category: "STATE", title: "미확인 항목이 남아 있어요", description: "모든 일일퀘스트를 확인한 뒤 제출해주세요." },
+  DQ328: { category: "STATE", title: "제출된 보고서만 수정할 수 있어요" },
+  DQ332: { category: "STATE", title: "제출된 보고서만 반려할 수 있어요" },
+  DQ340: { category: "STATE", title: "아직 정산할 수 없는 상태예요", description: "관리자의 최종 제출을 먼저 확인해주세요." },
+  DQ341: { category: "STATE", title: "미확인 항목이 남아 있어요", description: "미확인 항목을 모두 처리한 뒤 정산해주세요." },
 };
 
 // =====================================================================

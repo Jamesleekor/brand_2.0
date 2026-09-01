@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   Modal,
   LoadingSpinner,
@@ -9,6 +10,7 @@ import {
 import type { Wallet } from "@/hooks/useWallet";
 import { supabase } from "@/lib/supabase/client";
 import { studentRpc } from "@/lib/rpc/student_rpc";
+import { savingsRpc, type P2PTransferQuote } from "@/lib/rpc/savings_rpc";
 import {
   useClassroomId,
   useCurrentStudent,
@@ -38,6 +40,7 @@ export function EconomicActionsPanel({
   isLoading,
 }: EconomicActionsPanelProps) {
   const [activeModal, setActiveModal] = useState<ActionModal>(null);
+  const navigate = useNavigate();
   const { assetFreeze } = useActiveEmergencies();
   const showToast = useToastStore((state) => state.show);
 
@@ -55,7 +58,7 @@ export function EconomicActionsPanel({
             경제 활동
           </h2>
           <p className="text-sm text-white/75 font-bold mt-1">
-            송금·화폐 교환·복지기금 기부
+            송금·화폐 교환·복지기금 기부·예금
           </p>
         </div>
       </div>
@@ -67,7 +70,7 @@ export function EconomicActionsPanel({
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <ActionCard
           emoji="↗️"
           label="송금"
@@ -88,6 +91,13 @@ export function EconomicActionsPanel({
           description="복지기금에 GOLD"
           disabled={isLoading || !wallet || !!assetFreeze}
           onClick={() => setActiveModal("DONATION")}
+        />
+        <ActionCard
+          emoji="🏦"
+          label="예금"
+          description="기간별 정기예금"
+          disabled={isLoading || !wallet}
+          onClick={() => navigate("/bank")}
         />
       </div>
 
@@ -155,6 +165,17 @@ function TransferModal({
   const [memo, setMemo] = useState("");
   const [confirming, setConfirming] = useState(false);
 
+  const transferQuote = useQuery<P2PTransferQuote>({
+    queryKey: ["s4-p2p-transfer-quote", studentId, amount],
+    enabled: Boolean(studentId && Number.isInteger(amount) && amount > 0 && amount <= 1_000_000),
+    queryFn: async () => {
+      const result = await savingsRpc.getP2PQuote(supabase, { p_amount: amount });
+      if (result.success === false) throw new Error(result.error);
+      return result.data;
+    },
+    staleTime: 5_000,
+  });
+
   const { data: classmates = [], isLoading: classmatesLoading } = useQuery<
     Classmate[]
   >({
@@ -198,8 +219,8 @@ function TransferModal({
     receiver &&
     Number.isInteger(amount) &&
     amount > 0 &&
-    amount <= wallet.gold &&
     amount <= 1_000_000 &&
+    transferQuote.data?.can_afford &&
     memo.trim().length >= 2 &&
     memo.trim().length <= 200,
   );
@@ -218,7 +239,7 @@ function TransferModal({
         }),
       {
         successTitle: "송금이 완료됐어요",
-        successDescription: `${receiver.brandName || receiver.name}에게 ${formatNumber(amount)} GOLD를 보냈습니다.`,
+        successDescription: `${receiver.brandName || receiver.name}에게 ${formatNumber(amount)} GOLD를 보냈습니다. 수수료 ${formatNumber(transferQuote.data?.fee_gold ?? 0)} GOLD가 추가 차감되었습니다.`,
       },
     );
     if (result === null) return;
@@ -244,8 +265,11 @@ function TransferModal({
               "받는 학생",
               `${receiver.name}${receiver.brandName ? ` · ${receiver.brandName}` : ""}`,
             ],
-            ["보낼 금액", `${formatNumber(amount)} GOLD`],
-            ["송금 후 잔액", `${formatNumber(wallet.gold - amount)} GOLD`],
+            ["받는 금액", `${formatNumber(amount)} GOLD`],
+            ["송금 수수료", `${formatNumber(transferQuote.data?.fee_gold ?? 0)} GOLD (${((transferQuote.data?.effective_fee_rate ?? 0) * 100).toFixed(1)}%)`],
+            ["총 차감", `${formatNumber(transferQuote.data?.sender_total_debit ?? amount)} GOLD`],
+            ["송금 후 잔액", `${formatNumber(wallet.gold - (transferQuote.data?.sender_total_debit ?? amount))} GOLD`],
+            ["컬렉션 감면", `-${Number(transferQuote.data?.buff_reduction_pp ?? 0).toFixed(1)}%p`],
             ["메모", memo.trim()],
           ]}
           warning="송금 후에는 학생이 직접 취소할 수 없습니다. 잘못 보냈다면 선생님께 알려야 합니다."
@@ -317,7 +341,7 @@ function TransferModal({
           <AmountInput
             label="송금 금액"
             amount={amount}
-            max={wallet.gold}
+            max={Math.min(wallet.gold, 1_000_000)}
             onChange={setAmount}
             quickAmounts={[100, 500, 1000]}
           />
@@ -339,11 +363,19 @@ function TransferModal({
             </div>
           </div>
 
-          {amount > wallet.gold && (
-            <InlineWarning>
-              현재 GOLD보다 큰 금액은 송금할 수 없습니다.
-            </InlineWarning>
-          )}
+          {transferQuote.isLoading ? (
+            <div className="rounded-card-md border border-line bg-bg-deep p-3 text-xs font-bold text-text-secondary">수수료를 계산하는 중...</div>
+          ) : transferQuote.data ? (
+            <div className="rounded-card-md border border-gold/25 bg-gold/5 p-3 text-xs font-bold text-text-secondary">
+              <div className="flex items-center justify-between"><span>받는 학생 수령</span><b className="text-white">{formatNumber(transferQuote.data.receiver_credit)} GOLD</b></div>
+              <div className="mt-1 flex items-center justify-between"><span>수수료 · 복지기금 귀속</span><b className="text-warning">+{formatNumber(transferQuote.data.fee_gold)} GOLD</b></div>
+              <div className="mt-1 flex items-center justify-between border-t border-line pt-1"><span>내 총 차감</span><b className="text-gold">{formatNumber(transferQuote.data.sender_total_debit)} GOLD</b></div>
+              {transferQuote.data.buff_reduction_pp > 0 && <div className="mt-1 text-[10px] font-black text-success">컬렉션 효과로 수수료 -{Number(transferQuote.data.buff_reduction_pp).toFixed(1)}%p 적용</div>}
+              {!transferQuote.data.can_afford && <div className="mt-2 text-xs font-black text-danger">수수료까지 포함하면 GOLD가 부족합니다.</div>}
+            </div>
+          ) : transferQuote.isError ? (
+            <InlineWarning>송금 수수료 견적을 불러오지 못했습니다.</InlineWarning>
+          ) : null}
 
           <div className="flex gap-2 pt-1">
             <button onClick={onClose} className="btn-secondary flex-1">

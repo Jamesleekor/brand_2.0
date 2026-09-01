@@ -19,6 +19,11 @@ import { formatNumber } from '@/lib/utils/format';
 import { getTierIconEmoji } from '@/constants/tier_thresholds';
 import { cn } from '@/lib/utils/cn';
 import type { Tier } from '@/types/database_types';
+import { useClassroomAchievementTitles } from '@/hooks/useAchievementTitles';
+import { AchievementTitleBadge } from '@/components/shared/AchievementTitleBadge';
+import type { EquippedAchievementTitle } from '@/lib/rpc/achievement_a1_rpc';
+import { AchievementRankingShowcase, type AchievementRankingEntry } from '@/features/social/AchievementRankingShowcase';
+import { getEquippedCharacterImageUrl, useClassroomEquippedCharacters } from '@/hooks/useEquippedCharacters';
 
 // =====================================================================
 // FriendsPage — 학급 학생 디렉토리
@@ -27,6 +32,7 @@ import type { Tier } from '@/types/database_types';
 export function FriendsPage() {
   const classroomId = useClassroomId();
   const studentId = useStudentId();
+  const { byStudentId: achievementTitles } = useClassroomAchievementTitles();
   const [search, setSearch] = useState('');
   
   const { data: classmates, isLoading } = useQuery({
@@ -88,6 +94,7 @@ export function FriendsPage() {
                 <FriendCard
                   key={classmate.id}
                   friend={classmate}
+                  achievementTitle={achievementTitles.get(classmate.id) ?? null}
                 />
               ))}
             </div>
@@ -99,9 +106,11 @@ export function FriendsPage() {
 }
 
 function FriendCard({ 
-  friend 
+  friend,
+  achievementTitle,
 }: { 
   friend: { id: number; name: string; brandName: string | null; tier: Tier; isMe: boolean };
+  achievementTitle: EquippedAchievementTitle | null;
 }) {
   return (
     <motion.div
@@ -128,16 +137,26 @@ function FriendCard({
       </div>
       
       <div className="flex-1 min-w-0">
-        <div className="font-extrabold text-sm text-white truncate flex items-center gap-1.5">
-          {friend.brandName || friend.name}
+        <div className="font-extrabold text-sm text-white min-w-0 flex flex-wrap items-center gap-1.5">
+          <span className="truncate">{friend.brandName || friend.name}</span>
           {friend.isMe && (
             <span className="text-[9px] font-black text-gold bg-gold/20 px-1.5 py-0.5 rounded-pill">
               나
             </span>
           )}
         </div>
+        {achievementTitle?.title && (
+          <div className="mt-1.5 flex min-w-0">
+            <AchievementTitleBadge
+              title={achievementTitle.title}
+              grade={achievementTitle.grade}
+              prominent
+              className="max-w-full !px-2.5 !py-1.5 !text-xs sm:!text-sm"
+            />
+          </div>
+        )}
         {friend.brandName && (
-          <div className="text-sm text-white/70 font-bold mt-0.5">{friend.name}</div>
+          <div className="text-sm text-white/75 font-bold mt-1">{friend.name}</div>
         )}
       </div>
       
@@ -196,6 +215,8 @@ export function RankingsPage() {
 function RankingList({ type }: { type: RankingType }) {
   const classroomId = useClassroomId();
   const studentId = useStudentId();
+  const { byStudentId: achievementTitles } = useClassroomAchievementTitles();
+  const { byStudentId: equippedCharacters } = useClassroomEquippedCharacters();
   
   const { data: ranks, isLoading } = useQuery({
     queryKey: ['rankings', classroomId, type],
@@ -248,13 +269,13 @@ function RankingList({ type }: { type: RankingType }) {
         return Array.from(countMap.entries())
           .sort(([, a], [, b]) => b.count - a.count)
           .slice(0, 30)
-          .map(([studentId, { count, student }]) => ({
-            studentId,
+          .map(([rankStudentId, { count, student }]) => ({
+            studentId: rankStudentId,
             name: student?.name ?? '',
             brandName: student?.brand_name,
             tier: (student?.cached_tier ?? '새싹') as Tier,
             value: count,
-            isMe: studentId === useStudentId(),
+            isMe: rankStudentId === studentId,
           }));
       }
     },
@@ -269,6 +290,24 @@ function RankingList({ type }: { type: RankingType }) {
     return <EmptyState emoji="📊" title="아직 랭킹 데이터가 없어요" />;
   }
   
+  if (type === 'ACHIEVEMENT') {
+    const achievementRanks: AchievementRankingEntry[] = ranks.map((rank) => {
+      const character = equippedCharacters.get(Number(rank.studentId)) ?? null;
+      return {
+        ...(rank as AchievementRankingEntry),
+        equippedCharacterUrl: getEquippedCharacterImageUrl(character, 'avatar'),
+        characterEmoji: character?.emoji ?? null,
+      };
+    });
+
+    return (
+      <AchievementRankingShowcase
+        ranks={achievementRanks}
+        achievementTitles={achievementTitles}
+      />
+    );
+  }
+
   return (
     <div className="space-y-1.5">
       {ranks.map((rank, idx) => (
@@ -277,6 +316,7 @@ function RankingList({ type }: { type: RankingType }) {
           rank={idx + 1}
           item={rank}
           type={type}
+          achievementTitle={achievementTitles.get(rank.studentId) ?? null}
         />
       ))}
     </div>
@@ -284,11 +324,12 @@ function RankingList({ type }: { type: RankingType }) {
 }
 
 function RankItem({ 
-  rank, item, type 
+  rank, item, type, achievementTitle,
 }: { 
   rank: number;
   item: { studentId: number; name: string; brandName: string | null; tier: Tier; value: number; isMe: boolean };
   type: RankingType;
+  achievementTitle: EquippedAchievementTitle | null;
 }) {
   const isTop3 = rank <= 3;
   const rankBg = rank === 1 ? 'bg-gold' 
@@ -322,13 +363,23 @@ function RankItem({
       </div>
       
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-extrabold text-white truncate flex items-center gap-1.5">
-          {item.brandName || item.name}
+        <div className="text-sm font-extrabold text-white min-w-0 flex flex-wrap items-center gap-1.5">
+          <span className="truncate">{item.brandName || item.name}</span>
           {item.isMe && (
             <span className="text-[9px] font-black text-gold bg-gold/20 px-1.5 py-0.5 rounded-pill">나</span>
           )}
         </div>
-        <div className="text-2xs text-text-muted font-bold truncate">
+        {achievementTitle?.title && (
+          <div className="mt-1.5 flex min-w-0">
+            <AchievementTitleBadge
+              title={achievementTitle.title}
+              grade={achievementTitle.grade}
+              prominent
+              className="max-w-full !px-2.5 !py-1.5 !text-xs sm:!text-sm"
+            />
+          </div>
+        )}
+        <div className="mt-1 text-xs text-slate-200 font-bold truncate">
           {item.tier}
         </div>
       </div>

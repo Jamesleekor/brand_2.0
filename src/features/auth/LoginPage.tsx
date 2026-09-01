@@ -13,6 +13,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
+import { LoginMvpMobileStrip, LoginMvpSideParade } from '@/components/shared/MonthlyMvpGallery';
 
 // =====================================================================
 // 메인 컴포넌트 — 학생/교사 탭 분기
@@ -54,16 +55,28 @@ export default function LoginPage() {
   }
   
   return (
-    <div className="app-container flex flex-col items-center justify-center px-6 py-8">
+    <div
+      className="relative flex min-h-screen w-full flex-col items-center justify-start overflow-x-hidden overflow-y-auto px-0 py-3 sm:py-5 lg:px-6 lg:py-8"
+      style={{
+        background:
+          'radial-gradient(ellipse at 30% 20%, rgba(177, 151, 252, 0.18) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(255, 140, 66, 0.15) 0%, transparent 50%), linear-gradient(180deg, #1A1625 0%, #0F0B1A 100%)',
+      }}
+    >
       {/* 배경 별 */}
       <BackgroundStars />
+
+      {/* 크롬북/데스크톱: 로그인 본문을 밀지 않는 좌우 월간 MVP 퍼레이드 */}
+      <LoginMvpSideParade />
+
+      {/* 모바일/좁은 화면: 상단 가로 퍼레이드 */}
+      <LoginMvpMobileStrip position="top" />
       
       {/* 로고 */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="text-center mb-8 relative z-10"
+        className="relative z-10 mb-4 mt-4 px-4 text-center sm:mb-5 sm:mt-5 lg:mb-6 lg:mt-0"
       >
         <div className="text-5xl mb-3">🌟</div>
         <h1 className="font-display text-4xl text-brand-gradient tracking-tighter">
@@ -79,7 +92,7 @@ export default function LoginPage() {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3, delay: 0.2 }}
-        className="w-full max-w-sm relative z-10"
+        className="relative z-10 w-full max-w-sm px-4 sm:px-0"
       >
         <div className="flex gap-2 mb-5 bg-bg-card backdrop-blur-card border border-line rounded-pill p-1">
           <TabButton
@@ -103,6 +116,11 @@ export default function LoginPage() {
           <TeacherLoginForm />
         )}
       </motion.div>
+
+      {/* 모바일/좁은 화면: 하단 가로 퍼레이드 — 상단과 반대 방향 */}
+      <div className="mt-5 w-full lg:hidden">
+        <LoginMvpMobileStrip position="bottom" />
+      </div>
       
       {/* 하단 푸터 */}
       <div className="mt-8 text-center text-2xs text-text-faded relative z-10">

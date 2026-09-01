@@ -12,8 +12,13 @@ import DashboardPage from '@/features/dashboard/DashboardPage';
 import WalletPage from '@/features/wallet/WalletPage';
 import ProfilePage from '@/features/profile/ProfilePage';
 import AchievementPage from '@/features/achievement/AchievementPage';
+import AchievementHelperPage from '@/features/achievement/AchievementHelperPage';
 import CosmeticPage from '@/features/cosmetic/CosmeticPage';
+import CharacterCollectionPage from '@/features/character/CharacterCollectionPage';
 import MarketPage from '@/features/market/MarketPage';
+import BakeryPage from '@/features/bakery/BakeryPage';
+import DailyQuestManagerPage from '@/features/daily-quest/DailyQuestManagerPage';
+import SavingsBankPage from '@/features/savings/SavingsBankPage';
 import GuildPage from '@/features/guild/GuildPage';
 import GuildAdmin from '@/features/guild/GuildAdmin';
 import GuildScoreAdmin from '@/features/guild/GuildScoreAdmin';
@@ -30,6 +35,17 @@ import TeacherArcadePage from '@/features/arcade/TeacherArcadePage';
 import { FriendsPage, RankingsPage, SettingsPage } from '@/features/social/social_pages';
 import TeacherDashboard from '@/features/teacher/TeacherDashboard';
 import ReviewQueue from '@/features/teacher/ReviewQueue';
+import AchievementMasterAdmin from '@/features/teacher/AchievementMasterAdmin';
+import AchievementStatisticsAdmin from '@/features/teacher/AchievementStatisticsAdmin';
+import CharacterAdmin from '@/features/teacher/CharacterAdmin';
+import MarketInventoryAdmin from '@/features/teacher/MarketInventoryAdmin';
+import SecondaryJobAdmin from '@/features/teacher/SecondaryJobAdmin';
+import PrimaryJobAdmin from '@/features/teacher/PrimaryJobAdmin';
+import DailyQuestSettlementAdmin from '@/features/teacher/DailyQuestSettlementAdmin';
+import SavingsBankAdmin from '@/features/savings/SavingsBankAdmin';
+import SecondaryJobPublicRequestAdmin from '@/features/teacher/SecondaryJobPublicRequestAdmin';
+import SecondaryJobServiceAdmin from '@/features/teacher/SecondaryJobServiceAdmin';
+import SecondaryJobReviewAdmin from '@/features/teacher/SecondaryJobReviewAdmin';
 import ClassroomControl from '@/features/teacher/ClassroomControl';
 import AuctionAdmin from '@/features/teacher/AuctionAdmin';
 import AuctionBroadcastPage from '@/features/auction/AuctionBroadcastPage';
@@ -87,6 +103,10 @@ export default function App() {
           element={<AppShell><WalletPage /></AppShell>} 
         />
         <Route 
+          path="/characters" 
+          element={<AppShell><CharacterCollectionPage /></AppShell>} 
+        />
+        <Route 
           path="/cosmetic" 
           element={<AppShell><CosmeticPage /></AppShell>} 
         />
@@ -94,17 +114,27 @@ export default function App() {
           path="/achievement" 
           element={<AppShell><AchievementPage /></AppShell>} 
         />
+        <Route
+          path="/achievement/helper"
+          element={<AppShell><AchievementHelperPage /></AppShell>}
+        />
         <Route 
           path="/profile" 
           element={<AppShell><ProfilePage /></AppShell>} 
         />
+        <Route
+          path="/bank"
+          element={<AppShell><SavingsBankPage /></AppShell>}
+        />
         
         {/* 시장 (탭 컨테이너) */}
-        <Route path="/market" element={<Navigate to="/market/snack" replace />} />
-        <Route 
-          path="/market/snack" 
-          element={<AppShell><MarketPage /></AppShell>} 
-        />
+        <Route path="/market" element={<Navigate to="/market/store" replace />} />
+        <Route path="/market/snack" element={<Navigate to="/market/store" replace />} />
+        <Route path="/market/store" element={<AppShell><MarketPage /></AppShell>} />
+        <Route path="/market/inventory" element={<AppShell><MarketPage /></AppShell>} />
+        <Route path="/market/history" element={<AppShell><MarketPage /></AppShell>} />
+        <Route path="/bakery" element={<AppShell hideBottomNav><BakeryPage /></AppShell>} />
+        <Route path="/daily-quest" element={<AppShell hideBottomNav><DailyQuestManagerPage /></AppShell>} />
         <Route 
           path="/market/auction" 
           element={<AppShell><MarketPage /></AppShell>} 
@@ -115,6 +145,10 @@ export default function App() {
         />
         <Route 
           path="/market/requests" 
+          element={<AppShell><MarketPage /></AppShell>} 
+        />
+        <Route 
+          path="/market/services" 
           element={<AppShell><MarketPage /></AppShell>} 
         />
         
@@ -176,10 +210,22 @@ export default function App() {
           path="/teacher/review" 
           element={<ReviewQueue />} 
         />
+        <Route path="/teacher/achievements" element={<AchievementMasterAdmin />} />
+        <Route path="/teacher/achievement-statistics" element={<AchievementStatisticsAdmin />} />
+        <Route path="/teacher/characters" element={<CharacterAdmin />} />
+        <Route path="/teacher/market" element={<MarketInventoryAdmin />} />
+        <Route path="/teacher/bank" element={<SavingsBankAdmin />} />
+        <Route path="/teacher/primary-jobs" element={<PrimaryJobAdmin />} />
+        <Route path="/teacher/daily-quests" element={<DailyQuestSettlementAdmin />} />
+        <Route path="/teacher/secondary-jobs" element={<SecondaryJobAdmin />} />
+        <Route path="/teacher/secondary-jobs/public-requests" element={<SecondaryJobPublicRequestAdmin />} />
+        <Route path="/teacher/secondary-jobs/services" element={<SecondaryJobServiceAdmin />} />
+        <Route path="/teacher/secondary-jobs/reviews" element={<SecondaryJobReviewAdmin />} />
         <Route 
           path="/teacher/control" 
           element={<ClassroomControl />} 
         />
+        <Route path="/teacher/control/history" element={<ClassroomControl />} />
         <Route 
           path="/teacher/auction" 
           element={<AuctionAdmin />} 
