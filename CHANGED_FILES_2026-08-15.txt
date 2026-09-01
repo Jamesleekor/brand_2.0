@@ -1,0 +1,21 @@
+Direct ChatGPT implementation based on latest uploaded brand_2.0 source.
+
+Modified:
+- src/App.tsx
+- src/features/guild/GuildAdmin.tsx
+- src/features/guild/GuildPage.tsx
+
+Added:
+- src/features/guild/GuildMissionAdmin.tsx
+- src/features/guild/GuildMissionsPage.tsx
+- src/lib/rpc/guild3_rpc.ts
+- src/lib/zod_schemas/guild3_schemas.ts
+- supabase/APPLY_GUILD3_PRODUCTION_RECONCILE_AND_READ_API.sql
+- supabase/migrations/20260815_05_guild3_production_reconcile_and_read_api.sql
+- supabase/APPLY_REAL_CLASSROOM_PRESEASON_CLEANUP.sql
+- docs/GUILD3_DIRECT_IMPLEMENTATION_2026-08-15.md
+- docs/REAL_CLASSROOM_PRESEASON_CLEANUP_2026-08-15.md
+
+Safety decision:
+- the destructive real-classroom cleanup is NOT under supabase/migrations.
+- .env.local is excluded from the returned ZIP; keep your own local environment file.

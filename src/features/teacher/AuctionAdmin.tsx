@@ -8,8 +8,8 @@ import { formatNumber } from '@/lib/utils/format';
 import { useClassroomId } from '@/stores/auth_store';
 import { useToastStore } from '@/stores/ui_store';
 import { cn } from '@/lib/utils/cn';
-import { formatAuctionTime, useAuctionCountdown, useLiveAuctionState } from '@/features/auction/useLiveAuction';
-import type { LiveAuctionItem } from '@/features/auction/types';
+import { formatAuctionTime, useAuctionCountdown, useLiveAuctionState, useServerDeadlineCountdown } from '@/features/auction/useLiveAuction';
+import type { AuctionSuperPassState, LiveAuctionItem } from '@/features/auction/types';
 
 function rpcErrorMessage(result: unknown, fallback = '서버가 요청을 처리하지 못했습니다.'): string {
   if (result && typeof result === 'object' && 'error' in result) {
@@ -22,7 +22,7 @@ function rpcErrorMessage(result: unknown, fallback = '서버가 요청을 처리
 export default function AuctionAdmin() {
   const classroomId = useClassroomId();
   const queryClient = useQueryClient();
-  const { state, auction, items, currentItem, recentBids, isLoading, isError, error, refetch } = useLiveAuctionState(true);
+  const { state, auction, items, currentItem, recentBids, superPass, isLoading, isError, error, refetch } = useLiveAuctionState(true);
   const { call, isLoading: isMutating } = useRpcCall();
   const showToast = useToastStore((s) => s.show);
   const [createOpen, setCreateOpen] = useState(false);
@@ -40,12 +40,18 @@ export default function AuctionAdmin() {
     setCreateOpen(true);
   };
   const finalizeKeyRef = useRef('');
+  const superPassResolveKeyRef = useRef('');
 
   const countdown = useAuctionCountdown(
     state?.server_now,
     currentItem,
     auction?.paused_at,
     auction?.pause_remaining_seconds,
+  );
+
+  const superPassCountdown = useServerDeadlineCountdown(
+    state?.server_now,
+    superPass?.status === 'APPLYING' ? superPass.application_ends_at : null,
   );
 
   useEffect(() => {
@@ -58,6 +64,17 @@ export default function AuctionAdmin() {
       { silent: true, onSuccess: () => void refetch() },
     );
   }, [call, countdown.isExpired, countdown.isPaused, currentItem, refetch]);
+
+  useEffect(() => {
+    if (!currentItem || superPass?.status !== 'APPLYING' || !superPassCountdown.isExpired) return;
+    const key = `${superPass.round_id}:${superPass.application_ends_at}`;
+    if (superPassResolveKeyRef.current === key) return;
+    superPassResolveKeyRef.current = key;
+    void call(
+      () => studentRpc.resolveAuctionSuperPassPhaseIfExpired(supabase, { p_item_id: currentItem.id }),
+      { silent: true, onSuccess: () => void refetch() },
+    );
+  }, [call, currentItem, refetch, superPass, superPassCountdown.isExpired]);
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['live-auction-state', classroomId] });
@@ -126,7 +143,7 @@ export default function AuctionAdmin() {
           <div>
             <h1 className="font-display text-2xl text-brand-gradient tracking-tight">🔨 실시간 온라인 경매</h1>
             <p className="text-sm text-text-secondary font-bold mt-1">
-              서버 타이머 · 실시간 입찰 · GOLD 예약 · 원자적 낙찰
+              SUPER PASS 우선권 · 서버 타이머 · 실시간 입찰 · 원자적 낙찰
             </p>
           </div>
           <div className="flex gap-2">
@@ -253,7 +270,16 @@ export default function AuctionAdmin() {
                 remainingSeconds={countdown.remainingSeconds}
                 isPaused={countdown.isPaused}
                 recentBids={recentBids.filter((bid) => bid.auction_item_id === currentItem.id)}
+                superPass={superPass}
+                superPassRemainingSeconds={superPassCountdown.remainingSeconds}
                 isMutating={isMutating}
+                onCloseSuperPassApplication={() => {
+                  if (!confirm(`SUPER PASS 신청을 지금 마감할까요? 현재 신청자 ${superPass?.applicant_count ?? 0}명 기준으로 즉시 분기됩니다.`)) return;
+                  void call(
+                    () => teacherRpc.closeSuperPassApplicationNow(supabase, { p_item_id: currentItem.id }),
+                    { successTitle: 'SUPER PASS 신청 마감', onSuccess: invalidate },
+                  );
+                }}
                 onPause={() => void call(
                   () => teacherRpc.pauseLiveAuctionItem(supabase, { p_item_id: currentItem.id }),
                   { successTitle: '경매 일시정지', onSuccess: invalidate },
@@ -394,19 +420,19 @@ export default function AuctionAdmin() {
       )}
 
       {pendingStartItem && (
-        <Modal isOpen onClose={() => !criticalBusy && setPendingStartItem(null)} title="상품 입찰 시작 확인" emoji="⚡" size="sm">
+        <Modal isOpen onClose={() => !criticalBusy && setPendingStartItem(null)} title="상품 공개 확인" emoji="⚡" size="sm">
           <div className="space-y-4">
             <div className="bg-bg-deep border border-line rounded-card-md p-3">
               <div className="text-base font-extrabold text-white">{pendingStartItem.item_name}</div>
-              <div className="text-sm text-text-primary mt-1">{pendingStartItem.current_attempt}차 입찰을 시작합니다.</div>
+              <div className="text-sm text-text-primary mt-1">{pendingStartItem.current_attempt}차 상품을 공개하고 SUPER PASS 신청 단계를 시작합니다.</div>
             </div>
             <div className="flex gap-2">
               <button type="button" disabled={criticalBusy} onClick={() => setPendingStartItem(null)} className="btn-secondary flex-1">취소</button>
               <button type="button" disabled={criticalBusy} onClick={async () => {
                 const item = pendingStartItem;
-                const ok = await runCriticalAuctionAction('상품 입찰 시작', () => teacherRpc.startLiveAuctionItem(supabase, { p_item_id: item.id }), '상품 입찰을 시작했어요');
+                const ok = await runCriticalAuctionAction('상품 공개', () => teacherRpc.startLiveAuctionItem(supabase, { p_item_id: item.id }), '상품을 공개하고 SUPER PASS 신청을 시작했어요');
                 if (ok) setPendingStartItem(null);
-              }} className="btn-primary flex-1">{criticalBusy ? '시작 중...' : '입찰 시작'}</button>
+              }} className="btn-primary flex-1">{criticalBusy ? '시작 중...' : '상품 공개'}</button>
             </div>
           </div>
         </Modal>
@@ -424,18 +450,21 @@ export default function AuctionAdmin() {
 }
 
 function TeacherCurrentItem({
-  item, remainingSeconds, isPaused, recentBids, isMutating,
-  onPause, onResume, onCloseNow, onFail,
+  item, remainingSeconds, isPaused, recentBids, superPass, superPassRemainingSeconds, isMutating,
+  onPause, onResume, onCloseNow, onFail, onCloseSuperPassApplication,
 }: {
   item: LiveAuctionItem;
   remainingSeconds: number;
   isPaused: boolean;
   recentBids: Array<{ id: number; student_name: string; brand_name: string | null; bid_amount: number }>;
+  superPass: AuctionSuperPassState | null;
+  superPassRemainingSeconds: number;
   isMutating: boolean;
   onPause: () => void;
   onResume: () => void;
   onCloseNow: () => void;
   onFail: () => void;
+  onCloseSuperPassApplication: () => void;
 }) {
   return (
     <section className="bg-gradient-to-br from-brand-primary/15 to-gold/10 border border-gold/35 rounded-card-lg p-5">
@@ -446,27 +475,59 @@ function TeacherCurrentItem({
             <div className="flex flex-wrap gap-2 mb-2">
               <span className="text-2xs font-black px-2 py-1 rounded-pill bg-brand-primary/20 text-brand-glow">현재 진행 중</span>
               <span className="text-2xs font-black px-2 py-1 rounded-pill bg-gold/15 text-gold">{item.current_attempt}차</span>
+              {superPass?.status === 'APPLYING' && <span className="text-2xs font-black px-2 py-1 rounded-pill bg-gold/15 text-gold">SUPER PASS 신청</span>}
+              {superPass?.status === 'PRIORITY_BIDDING' && <span className="text-2xs font-black px-2 py-1 rounded-pill bg-brand-primary/25 text-brand-glow">우선경매</span>}
+              {superPass?.status === 'NORMAL_BIDDING' && <span className="text-2xs font-black px-2 py-1 rounded-pill bg-bg-deep text-text-secondary">일반경매</span>}
             </div>
             <h2 className="font-display text-2xl text-white truncate">{item.item_name}</h2>
-            <p className="text-xs text-text-secondary font-bold mt-1">{item.category} · 입찰 {item.bid_count}회</p>
+            <p className="text-xs text-text-secondary font-bold mt-1">
+              {item.category} · {superPass?.status === 'APPLYING' ? `SUPER PASS 신청 ${superPass.applicant_count}명` : `입찰 ${item.bid_count}회`}
+            </p>
             <p className="text-sm mt-3">
-              최고 입찰자: <strong className="text-success">{item.top_bid ? item.top_bid.brand_name || item.top_bid.student_name : '없음'}</strong>
+              {superPass?.status === 'APPLYING' ? (
+                <>최소 낙찰가: <strong className="text-gold">{formatNumber(superPass.minimum_price)} GOLD</strong></>
+              ) : (
+                <>최고 입찰자: <strong className="text-success">{item.top_bid ? item.top_bid.brand_name || item.top_bid.student_name : '없음'}</strong></>
+              )}
             </p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 min-w-[300px]">
           <div className="bg-bg-deep/60 border border-line rounded-card-md p-3 text-center">
-            <p className="text-2xs text-text-muted font-bold">현재가</p>
+            <p className="text-2xs text-text-muted font-bold">{superPass?.status === 'APPLYING' ? '최소 낙찰가' : '현재가'}</p>
             <p className="font-mono text-2xl font-black text-gold">{formatNumber(item.current_price)}</p>
           </div>
           <div className="bg-bg-deep/60 border border-line rounded-card-md p-3 text-center">
-            <p className="text-2xs text-text-muted font-bold">남은 시간</p>
-            <p className={cn('font-mono text-2xl font-black', isPaused ? 'text-warning' : remainingSeconds <= 5 ? 'text-danger' : 'text-brand-glow')}>
-              {isPaused ? 'PAUSE' : formatAuctionTime(remainingSeconds)}
+            <p className="text-2xs text-text-muted font-bold">{superPass?.status === 'APPLYING' ? '신청 마감' : '남은 시간'}</p>
+            <p className={cn('font-mono text-2xl font-black', isPaused ? 'text-warning' : (superPass?.status === 'APPLYING' ? superPassRemainingSeconds : remainingSeconds) <= 5 ? 'text-danger' : 'text-brand-glow')}>
+              {isPaused ? 'PAUSE' : formatAuctionTime(superPass?.status === 'APPLYING' ? superPassRemainingSeconds : remainingSeconds)}
             </p>
           </div>
         </div>
       </div>
+
+      {superPass?.status === 'APPLYING' && (
+        <div className="mt-4 rounded-card-md border border-gold/30 bg-gold/10 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-black text-white">🎫 SUPER PASS 신청 현황 · {superPass.applicant_count}명</p>
+              <p className="text-2xs text-text-muted font-bold mt-0.5">학생 화면에는 신청자 신원이 공개되지 않습니다.</p>
+            </div>
+            <button type="button" disabled={isMutating} onClick={onCloseSuperPassApplication} className="btn-primary">신청 즉시 마감</button>
+          </div>
+          {superPass.applicants && superPass.applicants.length > 0 ? (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {superPass.applicants.map((applicant) => (
+                <span key={applicant.student_id} className="rounded-pill border border-line bg-bg-deep/70 px-2.5 py-1 text-xs font-black text-text-primary">
+                  {applicant.brand_name || applicant.student_name}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-text-muted font-bold mt-3">아직 신청자가 없습니다.</p>
+          )}
+        </div>
+      )}
 
       {recentBids.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
@@ -479,18 +540,27 @@ function TeacherCurrentItem({
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-4">
-        <button type="button" disabled={isMutating} onClick={isPaused ? onResume : onPause} className="btn-secondary">
-          {isPaused ? '▶️ 재개' : '⏸️ 일시정지'}
-        </button>
-        <button type="button" disabled={isMutating} onClick={onCloseNow} className="btn-primary">🏁 즉시 종료·정산</button>
-        <button type="button" disabled={isMutating || item.bid_count > 0} onClick={onFail} className="py-2.5 rounded-card-md border border-danger/40 bg-danger-bg text-danger text-sm font-black disabled:opacity-40">
-          ❌ 유찰 처리
-        </button>
-        <div className="rounded-card-md border border-line bg-bg-deep/50 px-3 py-2 text-center text-2xs text-text-muted font-bold">
-          시간이 0이 되면 서버 RPC가 멱등 정산합니다.
+      {superPass?.status === 'APPLYING' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mt-4">
+          <button type="button" disabled={isMutating} onClick={onCloseSuperPassApplication} className="btn-primary">🎫 SUPER PASS 신청 즉시 마감</button>
+          <div className="rounded-card-md border border-line bg-bg-deep/50 px-3 py-2 text-center text-2xs text-text-muted font-bold">
+            마감 후 0명=일반경매 · 1명=최소가 즉시낙찰 · 2명+=우선경매
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mt-4">
+          <button type="button" disabled={isMutating} onClick={isPaused ? onResume : onPause} className="btn-secondary">
+            {isPaused ? '▶️ 재개' : '⏸️ 일시정지'}
+          </button>
+          <button type="button" disabled={isMutating} onClick={onCloseNow} className="btn-primary">🏁 즉시 종료·정산</button>
+          <button type="button" disabled={isMutating || item.bid_count > 0} onClick={onFail} className="py-2.5 rounded-card-md border border-danger/40 bg-danger-bg text-danger text-sm font-black disabled:opacity-40">
+            ❌ 유찰 처리
+          </button>
+          <div className="rounded-card-md border border-line bg-bg-deep/50 px-3 py-2 text-center text-2xs text-text-muted font-bold">
+            시간이 0이 되면 서버 RPC가 멱등 정산합니다.
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -548,7 +618,7 @@ function TeacherItemRow({
       </div>
       <div className="flex flex-wrap gap-1.5">
         {!completed && !item.is_current && auctionInProgress && !hasCurrentItem && (
-          <button type="button" disabled={isCriticalBusy} onClick={onStart} className="px-3 py-2 rounded-card-md bg-gradient-to-r from-brand-primary to-gold text-white text-xs font-black disabled:opacity-50">▶ 시작</button>
+          <button type="button" disabled={isCriticalBusy} onClick={onStart} className="px-3 py-2 rounded-card-md bg-gradient-to-r from-brand-primary to-gold text-white text-xs font-black disabled:opacity-50">▶ 공개</button>
         )}
         {!completed && !item.is_current && !hasCurrentItem && (
           <>

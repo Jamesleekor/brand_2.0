@@ -12,13 +12,40 @@ import DashboardPage from '@/features/dashboard/DashboardPage';
 import WalletPage from '@/features/wallet/WalletPage';
 import ProfilePage from '@/features/profile/ProfilePage';
 import AchievementPage from '@/features/achievement/AchievementPage';
+import AchievementHelperPage from '@/features/achievement/AchievementHelperPage';
 import CosmeticPage from '@/features/cosmetic/CosmeticPage';
+import CharacterCollectionPage from '@/features/character/CharacterCollectionPage';
 import MarketPage from '@/features/market/MarketPage';
+import BakeryPage from '@/features/bakery/BakeryPage';
+import DailyQuestManagerPage from '@/features/daily-quest/DailyQuestManagerPage';
+import SavingsBankPage from '@/features/savings/SavingsBankPage';
 import GuildPage from '@/features/guild/GuildPage';
 import GuildAdmin from '@/features/guild/GuildAdmin';
+import GuildScoreAdmin from '@/features/guild/GuildScoreAdmin';
+import GuildMissionsPage from '@/features/guild/GuildMissionsPage';
+import GuildMissionAdmin from '@/features/guild/GuildMissionAdmin';
+import GuildPeerReviewPage from '@/features/guild/GuildPeerReviewPage';
+import GuildPeerReviewAdmin from '@/features/guild/GuildPeerReviewAdmin';
+import GuildMonthlyPage from '@/features/guild/GuildMonthlyPage';
+import GuildScorePage from '@/features/guild/GuildScorePage';
+import GuildConquestPage from '@/features/guild/GuildConquestPage';
+import GuildMonthlyAdmin from '@/features/guild/GuildMonthlyAdmin';
+import ArcadePage from '@/features/arcade/ArcadePage';
+import TeacherArcadePage from '@/features/arcade/TeacherArcadePage';
 import { FriendsPage, RankingsPage, SettingsPage } from '@/features/social/social_pages';
 import TeacherDashboard from '@/features/teacher/TeacherDashboard';
 import ReviewQueue from '@/features/teacher/ReviewQueue';
+import AchievementMasterAdmin from '@/features/teacher/AchievementMasterAdmin';
+import AchievementStatisticsAdmin from '@/features/teacher/AchievementStatisticsAdmin';
+import CharacterAdmin from '@/features/teacher/CharacterAdmin';
+import MarketInventoryAdmin from '@/features/teacher/MarketInventoryAdmin';
+import SecondaryJobAdmin from '@/features/teacher/SecondaryJobAdmin';
+import PrimaryJobAdmin from '@/features/teacher/PrimaryJobAdmin';
+import DailyQuestSettlementAdmin from '@/features/teacher/DailyQuestSettlementAdmin';
+import SavingsBankAdmin from '@/features/savings/SavingsBankAdmin';
+import SecondaryJobPublicRequestAdmin from '@/features/teacher/SecondaryJobPublicRequestAdmin';
+import SecondaryJobServiceAdmin from '@/features/teacher/SecondaryJobServiceAdmin';
+import SecondaryJobReviewAdmin from '@/features/teacher/SecondaryJobReviewAdmin';
 import ClassroomControl from '@/features/teacher/ClassroomControl';
 import AuctionAdmin from '@/features/teacher/AuctionAdmin';
 import AuctionBroadcastPage from '@/features/auction/AuctionBroadcastPage';
@@ -30,6 +57,7 @@ import CommunicationAdmin from '@/features/feature4/CommunicationAdmin';
 import OperationsAdmin from '@/features/feature4/OperationsAdmin';
 import LearningAdmin from '@/features/feature4/LearningAdmin';
 import RecordsAdmin from '@/features/feature4/RecordsAdmin';
+import TestClassroomFixturePage from '@/features/teacher/TestClassroomFixturePage';
 import { ProtectedRoute, AppShell } from '@/components/layout/AppShell';
 
 // =====================================================================
@@ -75,6 +103,10 @@ export default function App() {
           element={<AppShell><WalletPage /></AppShell>} 
         />
         <Route 
+          path="/characters" 
+          element={<AppShell><CharacterCollectionPage /></AppShell>} 
+        />
+        <Route 
           path="/cosmetic" 
           element={<AppShell><CosmeticPage /></AppShell>} 
         />
@@ -82,17 +114,27 @@ export default function App() {
           path="/achievement" 
           element={<AppShell><AchievementPage /></AppShell>} 
         />
+        <Route
+          path="/achievement/helper"
+          element={<AppShell><AchievementHelperPage /></AppShell>}
+        />
         <Route 
           path="/profile" 
           element={<AppShell><ProfilePage /></AppShell>} 
         />
+        <Route
+          path="/bank"
+          element={<AppShell><SavingsBankPage /></AppShell>}
+        />
         
         {/* 시장 (탭 컨테이너) */}
-        <Route path="/market" element={<Navigate to="/market/snack" replace />} />
-        <Route 
-          path="/market/snack" 
-          element={<AppShell><MarketPage /></AppShell>} 
-        />
+        <Route path="/market" element={<Navigate to="/market/store" replace />} />
+        <Route path="/market/snack" element={<Navigate to="/market/store" replace />} />
+        <Route path="/market/store" element={<AppShell><MarketPage /></AppShell>} />
+        <Route path="/market/inventory" element={<AppShell><MarketPage /></AppShell>} />
+        <Route path="/market/history" element={<AppShell><MarketPage /></AppShell>} />
+        <Route path="/bakery" element={<AppShell hideBottomNav><BakeryPage /></AppShell>} />
+        <Route path="/daily-quest" element={<AppShell hideBottomNav><DailyQuestManagerPage /></AppShell>} />
         <Route 
           path="/market/auction" 
           element={<AppShell><MarketPage /></AppShell>} 
@@ -105,11 +147,39 @@ export default function App() {
           path="/market/requests" 
           element={<AppShell><MarketPage /></AppShell>} 
         />
+        <Route 
+          path="/market/services" 
+          element={<AppShell><MarketPage /></AppShell>} 
+        />
         
         {/* 상단 메뉴 */}
         <Route 
           path="/guild" 
           element={<AppShell><GuildPage /></AppShell>} 
+        />
+        <Route
+          path="/guild/conquest"
+          element={<AppShell><GuildConquestPage /></AppShell>}
+        />
+        <Route
+          path="/guild/missions"
+          element={<AppShell><GuildMissionsPage /></AppShell>}
+        />
+        <Route
+          path="/guild/scores"
+          element={<AppShell><GuildScorePage /></AppShell>}
+        />
+        <Route
+          path="/guild/peer-review"
+          element={<AppShell><GuildPeerReviewPage /></AppShell>}
+        />
+        <Route
+          path="/guild/monthly"
+          element={<AppShell><GuildMonthlyPage /></AppShell>}
+        />
+        <Route
+          path="/arcade"
+          element={<AppShell><ArcadePage /></AppShell>}
         />
         <Route 
           path="/friends" 
@@ -140,10 +210,22 @@ export default function App() {
           path="/teacher/review" 
           element={<ReviewQueue />} 
         />
+        <Route path="/teacher/achievements" element={<AchievementMasterAdmin />} />
+        <Route path="/teacher/achievement-statistics" element={<AchievementStatisticsAdmin />} />
+        <Route path="/teacher/characters" element={<CharacterAdmin />} />
+        <Route path="/teacher/market" element={<MarketInventoryAdmin />} />
+        <Route path="/teacher/bank" element={<SavingsBankAdmin />} />
+        <Route path="/teacher/primary-jobs" element={<PrimaryJobAdmin />} />
+        <Route path="/teacher/daily-quests" element={<DailyQuestSettlementAdmin />} />
+        <Route path="/teacher/secondary-jobs" element={<SecondaryJobAdmin />} />
+        <Route path="/teacher/secondary-jobs/public-requests" element={<SecondaryJobPublicRequestAdmin />} />
+        <Route path="/teacher/secondary-jobs/services" element={<SecondaryJobServiceAdmin />} />
+        <Route path="/teacher/secondary-jobs/reviews" element={<SecondaryJobReviewAdmin />} />
         <Route 
           path="/teacher/control" 
           element={<ClassroomControl />} 
         />
+        <Route path="/teacher/control/history" element={<ClassroomControl />} />
         <Route 
           path="/teacher/auction" 
           element={<AuctionAdmin />} 
@@ -153,11 +235,17 @@ export default function App() {
           element={<AuctionBroadcastPage />}
         />
         <Route path="/teacher/guild" element={<GuildAdmin />} />
+        <Route path="/teacher/guild/scores" element={<GuildScoreAdmin />} />
+        <Route path="/teacher/guild/missions" element={<GuildMissionAdmin />} />
+        <Route path="/teacher/guild/peer-review" element={<GuildPeerReviewAdmin />} />
+        <Route path="/teacher/guild/monthly-close" element={<GuildMonthlyAdmin />} />
+        <Route path="/teacher/arcade" element={<TeacherArcadePage />} />
         <Route path="/teacher/analytics" element={<AnalyticsPage />} />
         <Route path="/teacher/communications" element={<CommunicationAdmin />} />
         <Route path="/teacher/operations" element={<OperationsAdmin />} />
         <Route path="/teacher/learning" element={<LearningAdmin />} />
         <Route path="/teacher/records" element={<RecordsAdmin />} />
+        <Route path="/teacher/test-fixture" element={<TestClassroomFixturePage />} />
       </Route>
       
       {/* 404 */}

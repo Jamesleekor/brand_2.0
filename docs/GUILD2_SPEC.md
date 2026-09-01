@@ -1,7 +1,7 @@
 # Guild 2 SPEC — GS Engine & Individual Contribution
 
-**Status:** DESIGN ACCEPTED / IMPLEMENTATION NEXT  
-**Date:** 2026-08-12  
+**Status:** Guild 2A Core production E2E ACCEPTED / Arcade adapter 설계·production preflight 진행 중
+**Date:** 2026-08-14
 **Depends on:** Guild 1 COMPLETE  
 **Future integrations:** Guild 3 Mission, Guild 4 Peer Review, Guild 5 Monthly Closure
 
@@ -15,7 +15,7 @@ Guild 2는 길드 점수(GS)의 계산 기반과 월간 개인 기여도 구조�
 
 다음 조건을 만족해야 한다.
 
-- 개인기여도 900 + arcade 90 규칙을 server-side로 표현 가능
+- 개인기여도 기본 900 + game별 Arcade 보너스의 Guild 2 적용값(최대 +90)을 server-side로 표현 가능
 - GS가 source별로 추적 가능
 - correction/audit가 가능
 - 4인 길드 compensation을 수동 설정 가능
@@ -42,17 +42,13 @@ Range:
 
 월간 mini-game ranking bonus.
 
-Range after cap:
-
-`0..90`
+월간 game별 rank bonus의 원본 합은 보존한다. Guild 2에 반영하는 Arcade bonus는 최대 **+90**이다.
 
 ## FINAL INDIVIDUAL CONTRIBUTION
 
 `final = basic + arcade_bonus`
 
-Range:
-
-`0..990`
+기본 900에 적용 Arcade bonus를 더한 값이며, 최종 개인기여도는 `0..990`이다.
 
 ## MONTHLY GUILD GS
 
@@ -73,8 +69,9 @@ member-count compensation은 수동 지정된 길드에만 적용된다.
 | Guild session | 150 | attendance responsibility |
 | Teacher observation | 150 | logged qualitative contribution |
 | **Basic** | **900** | |
-| Arcade bonus | **+90** | optional absolute bonus |
-| **Absolute max** | **990** | |
+| Arcade raw bonus | game별 rank bonus 합산 (원본은 +90 초과 가능) | audit evidence |
+| Arcade applied bonus | `least(raw, 90)` | Guild 2 반영 최대 +90 |
+| **Final** | 기본 + 적용 Arcade | 최대 990 |
 
 각 영역은 의미가 겹치지 않도록 유지한다.
 
@@ -442,7 +439,7 @@ Only entries explicitly marked public are visible to student.
 
 ---
 
-# 7. Arcade bonus — max +90
+# 7. Arcade bonus — game별 원본 합산, Guild 2 적용 최대 +90
 
 The Arcade project initially contains 6 mini-games and may grow later.
 
@@ -457,29 +454,21 @@ Each game's monthly ranking snapshot awards absolute personal contribution point
 | 7–10 | +15 |
 | 11+ | 0 |
 
-Student's monthly raw arcade sum may exceed 90.
-
 Applied bonus:
 
-`arcade_bonus = min(sum(all game monthly bonuses), 90)`
+`arcade_raw_total = sum(all finalized game monthly bonuses)`
 
-Example:
+`arcade_applied = least(arcade_raw_total, 90)`
 
-Four game wins:
-
-`30 + 30 + 30 + 30 = 120`
-
-Applied:
-
-`+90`
+Example: six initial games에서 모두 1위면 원본 합계는 `30 × 6 = +180`이지만, Guild 2 적용값은 `+90`이다.
 
 ## 7.1 Integration principles
 
 - Rankings are monthly snapshot results, not live contribution changes.
-- Game count may increase without changing the 90 cap.
+- Game count may increase without changing the formula.
 - Use stable game identifier/code rather than fixed six columns.
 - Store rank and awarded raw points per game/month/student for audit.
-- Applied capped total is separate from raw total.
+- `arcade_raw_total`은 game별 원본 합계를 저장하고 +90을 넘을 수 있다. `arcade_applied`는 `least(arcade_raw_total, 90)`이며 최대 +90이다.
 - Arcade score does NOT participate in 4-member compensation average.
 
 ## 7.2 Student visibility
@@ -492,11 +481,11 @@ Show:
 - monthly rank
 - raw bonus
 - raw monthly sum
-- capped applied bonus
+- applied monthly bonus total
 
 Example:
 
-`획득 117 / 반영 +90`
+`획득 +117 · 반영 +90/90`
 
 ---
 
@@ -510,13 +499,13 @@ Range:
 
 `0..900`
 
-`arcade_s = min(raw_arcade_s, 90)`
+`arcade_raw_s = raw_arcade_s`
 
-`final_s = basic_s + arcade_s`
+`arcade_applied_s = least(arcade_raw_s, 90)`
 
-Range:
+`final_s = basic_s + arcade_applied_s`
 
-`0..990`
+`final_s` range는 `0..990`이다.
 
 Do not use BV increase in the new formula.
 
@@ -635,10 +624,10 @@ Where:
 - basic: 900 × 5 = 4,500
 - mission full clear: 5,000
 - subtotal: 9,500
-- arcade maximum: +90 × 5 = +450
-- theoretical absolute: 9,950
+- Arcade 원본 합계가 +180이어도 학생별 적용값은 최대 +90: +90 × 5 = +450
+- 5인 길드 individual + mission 설계 ceiling: 9,950
 
-Therefore “10,000 GS” is the practical perfect-month ceiling.
+Arcade game 수가 늘어도 Guild 2의 적용 Arcade bonus는 학생별 +90을 넘지 않는다.
 
 ---
 
@@ -672,7 +661,7 @@ Example:
 `742점`
 
 `기본 697 / 900`
-`아케이드 +45 / 90`
+`아케이드 +45`
 
 Current month badge:
 
@@ -692,7 +681,7 @@ Show:
 - 미션 기여 `N / 300`
 - 길드 세션 `N / 150`
 - 길드 기여 기록 `N / 150`
-- 아케이드 보너스 `+N / 90`
+- 아케이드 보너스 `+N`
 
 ## 13.3 Detail policy
 
@@ -711,7 +700,7 @@ Count + category distribution.
 Private notes hidden unless explicitly published.
 
 ### Arcade
-Detailed rank/bonus/cap.
+게임별 rank/bonus와 월 합계 상세.
 
 ---
 
@@ -741,8 +730,8 @@ For each student:
 - teacher /150
 - basic /900
 - arcade raw
-- arcade applied /90
-- final /990
+- arcade applied (최대 +90)
+- final (최대 990)
 - component readiness/status
 
 Unavailable future components must say e.g.:
@@ -1076,7 +1065,7 @@ At minimum:
 - [ ] 15 logs = 150
 - [ ] >15 scoring logs remains 150
 - [ ] arcade rank mapping correct
-- [ ] arcade raw >90 caps at 90
+- [ ] 여러 game의 Arcade 보너스가 cap 없이 정확히 합산됨
 - [ ] basic excludes arcade
 - [ ] final includes arcade
 - [ ] old BV increase does not affect new contribution
@@ -1104,7 +1093,7 @@ At minimum:
 - [ ] observation private notes hidden
 - [ ] public observation note visible
 - [ ] session detail transparent
-- [ ] arcade cap visible
+- [ ] 게임별 Arcade 순위 보너스와 월 합계가 보임
 - [ ] missing future component says “not ready”, not misleading completed zero
 - [ ] teacher sees calculation details/audit
 
@@ -1119,12 +1108,12 @@ At minimum:
 
 ## Regression
 
-- [ ] Guild 1 membership move still works
-- [ ] Guild 1 remove/reassign still works
-- [ ] Guild session create/attendance still works
-- [ ] past session snapshot unchanged after membership move
+- [x] Guild 1 membership move still works
+- [x] Guild 1 remove/reassign still works
+- [x] Guild session create/attendance still works (Guild 2 점수 자동 갱신까지 확인)
+- [x] past session snapshot unchanged after membership move
 - [ ] guild activation/deactivation unchanged
-- [ ] `npm run build` passes
+- [x] `npm run build` passes
 
 Transfer E2E remains deferred until student-management workflow exists.
 
@@ -1132,7 +1121,7 @@ Transfer E2E remains deferred until student-management workflow exists.
 
 # 24. Definition of done for Guild 2
 
-Guild 2 is COMPLETE only when:
+Guild 2A Core is ACCEPTED when:
 
 - production-compatible incremental migration applied
 - append-only GS audit model works
@@ -1142,7 +1131,7 @@ Guild 2 is COMPLETE only when:
 - future mission/peer components have safe integration contracts
 - no stale BV-based formula is used
 - build passes
-- Guild 1 regression passes
+- Guild 1 membership/session regression passes
 - E2E accepted by user
 
-Do not mark Guild 2 complete merely because tables exist.
+Guild 2 전체는 Guild 2B Arcade adapter와 이후 Guild 3~5 연결이 남아 있으므로, Guild 2A Core의 ACCEPTED와 혼동하지 않는다.

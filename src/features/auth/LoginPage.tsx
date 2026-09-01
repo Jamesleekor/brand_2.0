@@ -13,12 +13,19 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
+import { LoginMvpMobileStrip, LoginMvpSideParade } from '@/components/shared/MonthlyMvpGallery';
 
 // =====================================================================
 // 메인 컴포넌트 — 학생/교사 탭 분기
 // =====================================================================
 
 type LoginMode = 'student' | 'teacher';
+
+const TEACHER_ACCOUNTS = [
+  { email: 'teacher@brand.local', label: '실제 교사 계정' },
+  { email: 'brand-test-teacher@example.com', label: 'TEST TEACHER' },
+] as const;
+const TEACHER_ACCOUNT_STORAGE_KEY = 'brand_teacher_login_email';
 
 export default function LoginPage() {
   const [mode, setMode] = useState<LoginMode>('student');
@@ -34,9 +41,11 @@ export default function LoginPage() {
   // 이미 로그인된 경우 홈으로 리다이렉트
   useEffect(() => {
     if (isInitialized && session && context) {
-      const from = (location.state as any)?.from?.pathname || 
-                   (context.isTeacher ? '/teacher' : '/home');
-      navigate(from, { replace: true });
+      const requested = (location.state as any)?.from?.pathname as string | undefined;
+      const destination = context.isTeacher
+        ? (requested?.startsWith('/teacher') ? requested : '/teacher')
+        : (requested && !requested.startsWith('/teacher') ? requested : '/home');
+      navigate(destination, { replace: true });
     }
   }, [isInitialized, session, context, navigate, location]);
   
@@ -46,16 +55,28 @@ export default function LoginPage() {
   }
   
   return (
-    <div className="app-container flex flex-col items-center justify-center px-6 py-8">
+    <div
+      className="relative flex min-h-screen w-full flex-col items-center justify-start overflow-x-hidden overflow-y-auto px-0 py-3 sm:py-5 lg:px-6 lg:py-8"
+      style={{
+        background:
+          'radial-gradient(ellipse at 30% 20%, rgba(177, 151, 252, 0.18) 0%, transparent 50%), radial-gradient(ellipse at 70% 80%, rgba(255, 140, 66, 0.15) 0%, transparent 50%), linear-gradient(180deg, #1A1625 0%, #0F0B1A 100%)',
+      }}
+    >
       {/* 배경 별 */}
       <BackgroundStars />
+
+      {/* 크롬북/데스크톱: 로그인 본문을 밀지 않는 좌우 월간 MVP 퍼레이드 */}
+      <LoginMvpSideParade />
+
+      {/* 모바일/좁은 화면: 상단 가로 퍼레이드 */}
+      <LoginMvpMobileStrip position="top" />
       
       {/* 로고 */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="text-center mb-8 relative z-10"
+        className="relative z-10 mb-4 mt-4 px-4 text-center sm:mb-5 sm:mt-5 lg:mb-6 lg:mt-0"
       >
         <div className="text-5xl mb-3">🌟</div>
         <h1 className="font-display text-4xl text-brand-gradient tracking-tighter">
@@ -71,7 +92,7 @@ export default function LoginPage() {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3, delay: 0.2 }}
-        className="w-full max-w-sm relative z-10"
+        className="relative z-10 w-full max-w-sm px-4 sm:px-0"
       >
         <div className="flex gap-2 mb-5 bg-bg-card backdrop-blur-card border border-line rounded-pill p-1">
           <TabButton
@@ -95,6 +116,11 @@ export default function LoginPage() {
           <TeacherLoginForm />
         )}
       </motion.div>
+
+      {/* 모바일/좁은 화면: 하단 가로 퍼레이드 — 상단과 반대 방향 */}
+      <div className="mt-5 w-full lg:hidden">
+        <LoginMvpMobileStrip position="bottom" />
+      </div>
       
       {/* 하단 푸터 */}
       <div className="mt-8 text-center text-2xs text-text-faded relative z-10">
@@ -202,7 +228,7 @@ function StudentLoginForm() {
 // =====================================================================
 
 function TeacherLoginForm() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(()=>{const saved=window.localStorage.getItem(TEACHER_ACCOUNT_STORAGE_KEY);return TEACHER_ACCOUNTS.some(x=>x.email===saved)?saved!:TEACHER_ACCOUNTS[0].email;});
   const [password, setPassword] = useState('');
   const { loginTeacher, isLoading, error, clearError } = useAuthStore();
   
@@ -213,7 +239,8 @@ function TeacherLoginForm() {
     if (!email.trim() || !password) return;
     
     try {
-      await loginTeacher({ email: email.trim(), password });
+      window.localStorage.setItem(TEACHER_ACCOUNT_STORAGE_KEY,email);
+      await loginTeacher({ email, password });
     } catch {
       // 에러는 store에서 처리됨
     }
@@ -223,17 +250,16 @@ function TeacherLoginForm() {
     <form onSubmit={handleSubmit} className="glass-card p-6 space-y-4">
       <div>
         <label className="block text-xs font-bold text-text-secondary mb-2 tracking-wide">
-          이메일
+          교사 계정
         </label>
-        <input
-          type="email"
+        <select
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="example@school.kr"
           className="login-input"
           required
-          autoComplete="email"
-        />
+        >
+          {TEACHER_ACCOUNTS.map(account=><option key={account.email} value={account.email}>{account.label} · {account.email}</option>)}
+        </select>
       </div>
       
       <div>

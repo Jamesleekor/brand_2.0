@@ -30,6 +30,8 @@ import {
   getNextTier,
 } from "@/constants/tier_thresholds";
 import { cn } from "@/lib/utils/cn";
+import { useMyAchievementTitle } from "@/hooks/useAchievementTitles";
+import { AchievementTitleBadge } from "@/components/shared/AchievementTitleBadge";
 
 // =====================================================================
 // ProfilePage
@@ -39,6 +41,7 @@ export default function ProfilePage() {
   const student = useCurrentStudent();
   const studentId = useStudentId();
   const { wallet } = useWallet();
+  const { title: equippedTitle } = useMyAchievementTitle();
   const [editBrandOpen, setEditBrandOpen] = useState(false);
   const [editPasswordOpen, setEditPasswordOpen] = useState(false);
   const logout = useAuthStore((s) => s.logout);
@@ -75,9 +78,12 @@ export default function ProfilePage() {
           </div>
 
           {/* 브랜드명 */}
-          <h2 className="font-display text-2xl text-brand-gradient tracking-tighter mb-1">
-            {student.brandName || student.studentName}
-          </h2>
+          <div className="mb-1 flex flex-wrap items-center justify-center gap-2">
+            <AchievementTitleBadge title={equippedTitle?.title} grade={equippedTitle?.grade} />
+            <h2 className="font-display text-2xl text-brand-gradient tracking-tighter">
+              {student.brandName || student.studentName}
+            </h2>
+          </div>
 
           {/* 본명 + 학년반 */}
           <p className="text-sm text-text-secondary font-bold mb-2">

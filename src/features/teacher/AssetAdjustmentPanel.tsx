@@ -19,9 +19,10 @@ interface AssetStudent {
   cachedTier: string | null;
   gold: number;
   bv: number;
+  crystal: number;
 }
 
-type AssetToken = 'BV' | 'GOLD' | 'BOTH';
+type AssetToken = 'BV' | 'GOLD' | 'CRYSTAL' | 'BOTH';
 type AdjustmentOperation = 'GRANT' | 'DEDUCT';
 
 interface LastAdjustment {
@@ -71,7 +72,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
 
       const { data: walletRows, error: walletError } = await supabase
         .from('wallets')
-        .select('student_id, gold, bv')
+        .select('student_id, gold, bv, crystal')
         .in('student_id', studentIds);
 
       if (walletError) throw new Error(walletError.message);
@@ -79,7 +80,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
       const walletByStudentId = new Map(
         (walletRows ?? []).map((wallet) => [
           Number(wallet.student_id),
-          { gold: Number(wallet.gold ?? 0), bv: Number(wallet.bv ?? 0) },
+          { gold: Number(wallet.gold ?? 0), bv: Number(wallet.bv ?? 0), crystal: Number(wallet.crystal ?? 0) },
         ])
       );
 
@@ -92,6 +93,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
           cachedTier: student.cached_tier,
           gold: wallet?.gold ?? 0,
           bv: wallet?.bv ?? 0,
+          crystal: wallet?.crystal ?? 0,
         };
       });
     },
@@ -125,7 +127,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
     (bvAmount > 0 || goldAmount > 0);
   const trimmedReason = reason.trim();
   const insufficientStudents = operation === 'DEDUCT' && token !== 'BOTH' && validSingleAmount
-    ? selectedStudents.filter((student) => (token === 'BV' ? student.bv : student.gold) < amount)
+    ? selectedStudents.filter((student) => (token === 'BV' ? student.bv : token === 'GOLD' ? student.gold : student.crystal) < amount)
     : [];
 
   const validAmount = token === 'BOTH' ? validCombinedAmount : validSingleAmount;
@@ -222,7 +224,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
         }),
         {
           successTitle: operation === 'GRANT' ? '자산 지급 완료' : '자산 차감 완료',
-          successDescription: `${selectedStudents.length}명 · ${formatNumber(amount)} ${token === 'BV' ? 'BV' : '골드'}`,
+          successDescription: `${selectedStudents.length}명 · ${formatNumber(amount)} ${token === 'BV' ? 'BV' : token === 'GOLD' ? '골드' : '크리스탈'}`,
         }
       );
       if (!results) return;
@@ -241,7 +243,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
 
   const totalSummary = token === 'BOTH'
     ? `+${formatNumber(bvAmount * selectedStudents.length)} BV · +${formatNumber(goldAmount * selectedStudents.length)} 골드`
-    : `${operation === 'GRANT' ? '+' : '-'}${validSingleAmount ? formatNumber(amount * selectedStudents.length) : '0'} ${token === 'BV' ? 'BV' : '골드'}`;
+    : `${operation === 'GRANT' ? '+' : '-'}${validSingleAmount ? formatNumber(amount * selectedStudents.length) : '0'} ${token === 'BV' ? 'BV' : token === 'GOLD' ? '골드' : '크리스탈'}`;
 
   return (
     <section className="bg-bg-card backdrop-blur-card border border-line-brand rounded-card-lg overflow-hidden">
@@ -252,7 +254,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
               <span>💳</span><span>학생 자산 지급·차감</span>
             </h2>
             <p className="text-xs text-text-secondary font-bold mt-1 break-keep">
-              한 명 또는 여러 학생을 선택해 BV와 골드를 일괄 조정합니다. 모든 변경은 거래 기록에 남습니다.
+              한 명 또는 여러 학생을 선택해 BV·골드·크리스탈을 일괄 조정합니다. 모든 변경은 거래 기록에 남습니다.
             </p>
           </div>
           <div className="text-xs font-black text-text-secondary bg-bg-deep border border-line rounded-pill px-3 py-1.5 self-start sm:self-auto">
@@ -307,9 +309,10 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
                         {student.cachedTier || '티어 정보 없음'}
                       </span>
                     </span>
-                    <span className="text-right min-w-[92px]">
+                    <span className="text-right min-w-[110px]">
                       <span className="block text-xs font-black text-bv">⭐ {formatNumber(student.bv)} BV</span>
                       <span className="block text-xs font-black text-gold mt-0.5">🪙 {formatNumber(student.gold)}</span>
+                      <span className="block text-xs font-black text-crystal mt-0.5">💎 {formatNumber(student.crystal)}</span>
                     </span>
                   </motion.button>
                 );
@@ -321,10 +324,11 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
         <div className="p-4 bg-bg-deep/30 space-y-4">
           <div>
             <label className="block text-sm font-extrabold text-text-primary mb-2">자산 종류</label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {([
                 { value: 'BV', label: 'BV', emoji: '⭐', active: 'bg-bv/15 border-bv/60 text-bv' },
                 { value: 'GOLD', label: '골드', emoji: '🪙', active: 'bg-gold/15 border-gold/60 text-gold' },
+                { value: 'CRYSTAL', label: '크리스탈', emoji: '💎', active: 'bg-crystal/15 border-crystal/60 text-crystal' },
                 { value: 'BOTH', label: 'BV+골드', emoji: '✨', active: 'bg-brand-primary/15 border-brand-primary/60 text-white' },
               ] as const).map((option) => (
                 <button type="button" key={option.value} onClick={() => setTokenMode(option.value)} className={cn('py-2.5 rounded-card-md border text-sm font-black transition-all', token === option.value ? option.active : 'bg-bg-deep border-line text-text-secondary')}>
@@ -399,7 +403,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
               <p className="text-xs text-text-primary font-bold mt-0.5 break-keep">
                 {lastAdjustment.token === 'BOTH'
                   ? `${lastAdjustment.studentCount}명에게 ${formatNumber(lastAdjustment.bvAmount ?? 0)} BV + ${formatNumber(lastAdjustment.goldAmount ?? 0)} 골드를 동시에 지급했습니다.`
-                  : `${lastAdjustment.studentCount}명에게 ${formatNumber(lastAdjustment.amount ?? 0)} ${lastAdjustment.token === 'BV' ? 'BV' : '골드'}를 ${lastAdjustment.operation === 'GRANT' ? '지급' : '차감'}했습니다.`}
+                  : `${lastAdjustment.studentCount}명에게 ${formatNumber(lastAdjustment.amount ?? 0)} ${lastAdjustment.token === 'BV' ? 'BV' : lastAdjustment.token === 'GOLD' ? '골드' : '크리스탈'}를 ${lastAdjustment.operation === 'GRANT' ? '지급' : '차감'}했습니다.`}
               </p>
               <p className="text-xs text-text-secondary font-bold mt-1">사유: {lastAdjustment.reason}</p>
             </div>
@@ -416,7 +420,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
               <div className={cn('font-display text-xl tracking-tight', operation === 'GRANT' ? 'text-success' : 'text-danger')}>
                 {token === 'BOTH'
                   ? `${selectedStudents.length}명 · +${formatNumber(bvAmount)} BV + ${formatNumber(goldAmount)} 골드`
-                  : `${selectedStudents.length}명 · ${operation === 'GRANT' ? '+' : '-'}${formatNumber(amount)} ${token === 'BV' ? 'BV' : '골드'}`}
+                  : `${selectedStudents.length}명 · ${operation === 'GRANT' ? '+' : '-'}${formatNumber(amount)} ${token === 'BV' ? 'BV' : token === 'GOLD' ? '골드' : '크리스탈'}`}
               </div>
             </div>
 
@@ -439,7 +443,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
                     </p>
                   ) : (
                     <p className="text-xs font-mono font-bold text-text-secondary whitespace-nowrap">
-                      {formatNumber(token === 'BV' ? student.bv : student.gold)} → <span className="text-text-primary">{formatNumber((token === 'BV' ? student.bv : student.gold) + (operation === 'GRANT' ? amount : -amount))}</span>
+                      {formatNumber(token === 'BV' ? student.bv : token === 'GOLD' ? student.gold : student.crystal)} → <span className="text-text-primary">{formatNumber((token === 'BV' ? student.bv : token === 'GOLD' ? student.gold : student.crystal) + (operation === 'GRANT' ? amount : -amount))}</span>
                     </p>
                   )}
                 </div>

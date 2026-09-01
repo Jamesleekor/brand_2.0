@@ -166,9 +166,9 @@ export const SubmitAchievementApplicationSchema = z.object({
   p_achievement_id: PositiveInt,
   p_evidence_text: z
     .string()
-    .max(1000, "근거 설명은 1000자 이하")
     .trim()
-    .optional(),
+    .min(2, "달성 증빙·설명을 2자 이상 입력해주세요")
+    .max(1000, "근거 설명은 1000자 이하"),
 });
 
 export type SubmitAchievementApplicationInput = z.infer<
@@ -235,7 +235,7 @@ export const SubscribeToDepositSchema = z.object({
   p_student_id: PositiveInt,
   p_product_id: PositiveInt,
   p_principal: PositiveAmount,
-  p_weeks: z.number().int().min(1).max(4, "예금 기간은 1~4주"),
+  p_weeks: z.number().int().min(1).max(52, "예금 기간은 1~52주"),
 });
 
 export type SubscribeToDepositInput = z.infer<typeof SubscribeToDepositSchema>;
@@ -253,15 +253,9 @@ export type EarlyWithdrawDepositInput = z.infer<
 >;
 
 // =====================================================================
-// 12. complete_daily_quest — 일일퀘스트 완료
+// 12. legacy Daily Quest self-completion removed by S3
 // =====================================================================
-
-export const CompleteDailyQuestSchema = z.object({
-  p_student_id: PositiveInt,
-  p_quest_id: PositiveInt,
-});
-
-export type CompleteDailyQuestInput = z.infer<typeof CompleteDailyQuestSchema>;
+// Daily Quest completion is now manager-check + teacher-settlement only.
 
 // =====================================================================
 // 13. mark_mail_read — 메일 읽음
@@ -454,3 +448,9 @@ export const FinalizeLiveAuctionItemSchema = z.object({
 });
 
 export type FinalizeLiveAuctionItemInput = z.infer<typeof FinalizeLiveAuctionItemSchema>;
+
+export const AuctionSuperPassItemSchema = z.object({
+  p_item_id: PositiveInt,
+});
+
+export type AuctionSuperPassItemInput = z.infer<typeof AuctionSuperPassItemSchema>;

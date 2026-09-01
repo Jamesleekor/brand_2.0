@@ -293,3 +293,64 @@
   color: #bdb6cb !important;
   opacity: 1;
 }
+
+
+/* ===================================================================
+   Achievement Core A2 — 달성 업적 금빛 흐름 테두리
+   =================================================================== */
+@property --achievement-border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.achievement-earned-card {
+  position: relative;
+  isolation: isolate;
+  border-color: rgba(255, 208, 82, 0.56) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 214, 102, 0.08),
+    0 0 16px rgba(255, 188, 66, 0.08);
+}
+
+.achievement-earned-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--achievement-border-angle),
+    rgba(255, 214, 102, 0.18) 0deg,
+    rgba(255, 247, 196, 0.95) 30deg,
+    rgba(255, 175, 48, 0.95) 62deg,
+    rgba(255, 214, 102, 0.20) 105deg,
+    rgba(255, 214, 102, 0.10) 250deg,
+    rgba(255, 235, 155, 0.72) 330deg,
+    rgba(255, 214, 102, 0.18) 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: achievement-border-flow 4.4s linear infinite;
+}
+
+@keyframes achievement-border-flow {
+  to { --achievement-border-angle: 360deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .achievement-earned-card::before {
+    animation: none;
+    background: linear-gradient(90deg, rgba(255,190,62,.86), rgba(255,241,171,.95), rgba(255,190,62,.86));
+  }
+}
+
+/* Character Core C3 teacher operation fields */
+.input-admin {
+  @apply w-full rounded-card-md border border-line bg-bg-deep px-3 py-2 text-xs font-bold text-text-primary outline-none transition-colors focus:border-brand-primary/60;
+}

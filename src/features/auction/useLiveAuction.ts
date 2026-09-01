@@ -44,6 +44,7 @@ export function useLiveAuctionState(includeScheduled = false) {
       makeChannel('bids', 'auction_bids'),
       makeChannel('results', 'auction_results'),
       makeChannel('failures', 'auction_failures'),
+      makeChannel('super-pass-rounds', 'auction_super_pass_rounds', `classroom_id=eq.${classroomId}`),
     ];
 
     return () => {
@@ -65,6 +66,7 @@ export function useLiveAuctionState(includeScheduled = false) {
     items,
     currentItem,
     recentBids: query.data?.recent_bids ?? [],
+    superPass: query.data?.super_pass ?? null,
   };
 }
 
@@ -119,4 +121,36 @@ export function formatAuctionTime(totalSeconds: number) {
   const minutes = Math.floor(value / 60);
   const seconds = value % 60;
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+
+export function useServerDeadlineCountdown(
+  serverNowIso: string | undefined,
+  targetIso: string | null | undefined,
+) {
+  const [tick, setTick] = useState(0);
+  const syncLocalAtRef = useRef(Date.now());
+  const syncServerAtRef = useRef(Date.now());
+
+  useEffect(() => {
+    syncLocalAtRef.current = Date.now();
+    syncServerAtRef.current = serverNowIso ? new Date(serverNowIso).getTime() : Date.now();
+  }, [serverNowIso]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setTick((v) => v + 1), 200);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return useMemo(() => {
+    void tick;
+    if (!targetIso) return { remainingMs: 0, remainingSeconds: 0, isExpired: false };
+    const estimatedServerNow = syncServerAtRef.current + (Date.now() - syncLocalAtRef.current);
+    const remainingMs = Math.max(0, new Date(targetIso).getTime() - estimatedServerNow);
+    return {
+      remainingMs,
+      remainingSeconds: Math.ceil(remainingMs / 1000),
+      isExpired: remainingMs <= 0,
+    };
+  }, [targetIso, tick]);
 }

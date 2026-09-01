@@ -125,24 +125,25 @@ function PendingReviewPanel({ count, items }: { count: number; items: any[] }) {
         </div>
       ) : (
         <div className="space-y-2">
-          {items.slice(0, 5).map((item, idx) => (
-            <div
-              key={idx}
-              className="bg-bg-deep border border-line rounded-card-sm px-3 py-2 flex items-center justify-between gap-2"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-extrabold text-text-primary truncate">
-                  {item.type}: {item.title}
+          {items.slice(0, 5).map((item, idx) => {
+            const body = (
+              <>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-extrabold text-text-primary truncate">
+                    {item.type}: {item.title}
+                  </div>
+                  <div className="text-2xs text-text-muted font-bold truncate">
+                    {item.studentName} · {formatRelativeTime(item.createdAt)}
+                  </div>
                 </div>
-                <div className="text-2xs text-text-muted font-bold truncate">
-                  {item.studentName} · {formatRelativeTime(item.createdAt)}
+                <div className="text-2xs font-black text-warning bg-warning-bg px-2 py-0.5 rounded-pill flex-shrink-0">
+                  대기
                 </div>
-              </div>
-              <div className="text-2xs font-black text-warning bg-warning-bg px-2 py-0.5 rounded-pill flex-shrink-0">
-                대기
-              </div>
-            </div>
-          ))}
+              </>
+            );
+            const cls = "bg-bg-deep border border-line rounded-card-sm px-3 py-2 flex items-center justify-between gap-2";
+            return 'to' in item && item.to ? <Link key={idx} to={item.to} className={`${cls} hover:border-gold/30`}>{body}</Link> : <div key={idx} className={cls}>{body}</div>;
+          })}
         </div>
       )}
     </div>
@@ -252,6 +253,11 @@ function QuickActions() {
     { to: '/teacher/control',   icon: '💳', label: '자산 지급·차감',   color: 'from-bv to-brand-primary' },
     { to: '/teacher/control',   icon: '🚨', label: '비상사태 관리',     color: 'from-danger to-brand-primary' },
     { to: '/teacher/auction',   icon: '🔨', label: '경매 시작',         color: 'from-gold to-brand-primary' },
+    { to: '/teacher/characters', icon: '✦', label: '편린 운영',         color: 'from-crystal to-brand-primary' },
+    { to: '/teacher/market',    icon: '🏪', label: '시장 상품 운영',     color: 'from-gold to-success' },
+    { to: '/teacher/primary-jobs', icon: '🧑‍💼', label: '1인1역 관리',      color: 'from-success to-bv' },
+    { to: '/teacher/daily-quests', icon: '📋', label: '일일퀘스트 정산',   color: 'from-gold to-bv' },
+    { to: '/bakery',            icon: '🧁', label: '제과점 비상 운영',   color: 'from-brand-primary to-crystal' },
     { to: '/teacher/control',   icon: '🤝', label: '복지 분배',         color: 'from-success to-crystal' },
   ];
   
@@ -260,7 +266,7 @@ function QuickActions() {
       <div className="text-xs font-extrabold text-text-secondary uppercase tracking-widest mb-2 px-1">
         빠른 액션
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-9 gap-2">
         {actions.map((action, idx) => (
           <Link key={idx} to={action.to}>
             <motion.div
@@ -292,12 +298,14 @@ function useDashboardSummary(classroomId: number | null) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const todayIso = today.toISOString();
+      const seoulToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
       
       const [
         studentsRes,
         todayTxRes,
         pendingAchievementsRes,
         pendingJobsRes,
+        pendingDailyQuestRes,
         walletsRes,
         recentTxRes,
       ] = await Promise.all([
@@ -315,18 +323,8 @@ function useDashboardSummary(classroomId: number | null) {
           .eq('classroom_id', classroomId)
           .gte('created_at', todayIso),
         
-        // 검토 대기 업적 신청
-        supabase
-          .from('achievement_applications')
-          .select(`
-            id, created_at,
-            student:students!student_id(name, brand_name),
-            achievement:achievements!achievement_id(name)
-          `)
-          .eq('classroom_id', classroomId)
-          .eq('status', 'PENDING_REVIEW')
-          .order('created_at', { ascending: false })
-          .limit(5),
+        // 검토 대기 업적 신청 — A3 teacher-only read boundary
+        supabase.rpc('teacher_get_achievement_review_queue', { p_classroom_id: classroomId }),
         
         // 검토 대기 2차직업 신청
         supabase
@@ -340,6 +338,15 @@ function useDashboardSummary(classroomId: number | null) {
           .order('created_at', { ascending: false })
           .limit(5),
         
+        // 오늘 일일퀘스트 관리자 제출본
+        supabase
+          .from('daily_quest_reports')
+          .select('id, quest_date, status, submitted_at')
+          .eq('classroom_id', classroomId)
+          .eq('quest_date', seoulToday)
+          .eq('status', 'SUBMITTED')
+          .limit(1),
+
         // 학급 wallets
         supabase
           .from('wallets')
@@ -364,11 +371,12 @@ function useDashboardSummary(classroomId: number | null) {
         .length;
       
       // 검토 대기 통합
+      const achievementBoard = (pendingAchievementsRes.data as any) ?? { applications: [] };
       const pendingItems = [
-        ...(pendingAchievementsRes.data ?? []).map((a: any) => ({
-          type: '업적 신청',
-          title: a.achievement?.name ?? '',
-          studentName: a.student?.brand_name || a.student?.name || '학생',
+        ...((achievementBoard.applications ?? []) as any[]).slice(0, 5).map((a: any) => ({
+          type: a.application_kind === 'SPECIAL_REPORT' ? '히든 특별보고' : '업적 신청',
+          title: a.application_kind === 'SPECIAL_REPORT' ? '히든 업적 특별보고' : (a.achievement_name ?? ''),
+          studentName: a.student_name || '학생',
           createdAt: a.created_at,
         })),
         ...(pendingJobsRes.data ?? []).map((j: any) => ({
@@ -376,6 +384,13 @@ function useDashboardSummary(classroomId: number | null) {
           title: j.job_name,
           studentName: j.student?.brand_name || j.student?.name || '학생',
           createdAt: j.created_at,
+        })),
+        ...(pendingDailyQuestRes.data ?? []).map((r: any) => ({
+          type: '일일퀘스트',
+          title: `${r.quest_date} 정산 대기`,
+          studentName: '일일퀘스트 관리자 제출',
+          createdAt: r.submitted_at,
+          to: '/teacher/daily-quests',
         })),
       ];
       

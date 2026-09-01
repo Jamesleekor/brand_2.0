@@ -118,10 +118,12 @@ export function BackgroundSkin({ imageUrl }: BackgroundSkinProps) {
       <img
         src={resolveAssetUrl(imageUrl, 'background')}
         alt="배경"
-        className="w-full h-full object-cover opacity-55"
+        className="w-full h-full object-cover"
         loading="eager"
       />
-      <StarParticles />
+      <div className="absolute inset-0 bg-black/50" />
+      <div className="absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-black/45 to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/55 to-transparent" />
     </div>
   );
 }
@@ -402,4 +404,43 @@ export function EmergencyStatusBanner({ emergencies }: { emergencies: EmergencyS
       </div>
     </div>;
   })}</div>;
+}
+
+// =====================================================================
+// PrimaryJobCard — 나의 1인1역 + 일급
+// =====================================================================
+
+interface PrimaryJobCardProps {
+  jobName?: string | null;
+  dailyWage?: number | null;
+  className?: string;
+}
+
+export function PrimaryJobCard({ jobName, dailyWage, className }: PrimaryJobCardProps) {
+  const hasAssignment = Boolean(jobName?.trim());
+
+  return (
+    <motion.div
+      whileTap={{ scale: 0.98 }}
+      className={cnDashboardCard(className)}
+    >
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className="text-sm">🧑‍💼</span>
+        <span className="text-sm text-white/90 font-extrabold tracking-tight">나의 1인1역</span>
+      </div>
+      <div className="truncate text-sm font-black text-white" title={jobName ?? undefined}>
+        {hasAssignment ? jobName : '배정 없음'}
+      </div>
+      <div className="mt-1 text-sm font-black text-gold">
+        {hasAssignment && dailyWage != null ? `일급 ${formatNumber(dailyWage)} GOLD` : '일급 -'}
+      </div>
+    </motion.div>
+  );
+}
+
+function cnDashboardCard(className?: string) {
+  return [
+    'bg-bg-card backdrop-blur-card border border-line rounded-card-md p-2.5 px-3 relative overflow-hidden',
+    className,
+  ].filter(Boolean).join(' ');
 }

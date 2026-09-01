@@ -114,31 +114,55 @@ export async function loginStudent(
   supabase: SupabaseClient,
   params: StudentLoginParams
 ): Promise<LoginResult> {
-  const email = generateSyntheticEmail(params.studentName, params.classroomId);
-  
-  // 1. Supabase Auth 로그인
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password: params.password,
-  });
-  
-  if (error) {
-    throw new Error(`로그인 실패: ${error.message}`);
+  const normalizedStudentName = params.studentName.trim().toUpperCase();
+  const syntheticEmail = generateSyntheticEmail(params.studentName, params.classroomId);
+  const isManagedTestStudent = /^TEST0[1-5]$/.test(normalizedStudentName);
+
+  // Production students keep the normal classroom-scoped synthetic e-mail.
+  // TEST01~05 were intentionally bootstrapped as Auth-admin fixture accounts
+  // (brandtest01@example.com, ...).  Keep that stable Auth identity instead of
+  // mutating auth.users after the TEST classroom ID is created.
+  const candidateEmails = isManagedTestStudent
+    ? [`brand${normalizedStudentName.toLowerCase()}@example.com`, syntheticEmail]
+    : [syntheticEmail];
+
+  let authData: { session: Session; user: User } | null = null;
+  let lastAuthError: Error | null = null;
+
+  for (const email of candidateEmails) {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: params.password,
+    });
+
+    if (!error && data.session && data.user) {
+      authData = { session: data.session, user: data.user };
+      break;
+    }
+
+    if (error) lastAuthError = error;
   }
-  
-  if (!data.session || !data.user) {
-    throw new Error('세션을 받지 못했습니다');
+
+  if (!authData?.session || !authData.user) {
+    throw new Error(`로그인 실패: ${lastAuthError?.message ?? 'Invalid login credentials'}`);
   }
-  
-  // 2. 사용자 컨텍스트 종합 조회
+
+  // 사용자 컨텍스트 종합 조회
   const context = await getCurrentUserContext(supabase);
-  
+
   if (!context.studentId) {
-    // 학생 레코드 없음 — 교사가 학생 합성 이메일로 로그인 시도한 경우
+    await supabase.auth.signOut();
     throw new Error('학생 계정을 찾을 수 없습니다');
   }
-  
-  return { session: data.session, user: data.user, context };
+
+  // A TEST fallback must never allow the classroom number field to be ignored.
+  // This also tightens the normal student login contract.
+  if (context.classroomId !== params.classroomId) {
+    await supabase.auth.signOut();
+    throw new Error('학급 번호와 학생 계정의 학급이 일치하지 않습니다');
+  }
+
+  return { session: authData.session, user: authData.user, context };
 }
 
 // =====================================================================

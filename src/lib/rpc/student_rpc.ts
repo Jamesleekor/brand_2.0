@@ -55,6 +55,22 @@ export interface LiveAuctionBidResult {
   student_id: number;
 }
 
+export interface AuctionSuperPassActionResult {
+  status: string;
+  phase?: string;
+  round_id?: number;
+  item_id?: number;
+  entry_id?: number;
+  reservation_id?: number;
+  applicant_count?: number;
+  application_ends_at?: string;
+  server_now?: string;
+  ends_at?: string;
+  winner_student_id?: number;
+  final_price?: number;
+  super_pass_resolution?: string;
+}
+
 export interface LiveAuctionFinalizeResult {
   status: string;
   item_id?: number;
@@ -189,6 +205,36 @@ export const studentRpc = {
       supabase,
       "finalize_live_auction_item_if_expired",
       StudentSchemas.FinalizeLiveAuctionItemSchema,
+      input,
+    );
+  },
+
+  /**
+   * I3 SUPER PASS 신청 — PASS 1개를 서버에서 예약한다.
+   */
+  applyAuctionSuperPass: (
+    supabase: SupabaseClient,
+    input: StudentSchemas.AuctionSuperPassItemInput,
+  ): Promise<RpcResult<AuctionSuperPassActionResult>> => {
+    return safeRpc(
+      supabase,
+      "apply_auction_super_pass",
+      StudentSchemas.AuctionSuperPassItemSchema,
+      input,
+    );
+  },
+
+  /**
+   * I3 SUPER PASS 신청창 만료 시 서버 권한으로 phase를 전환한다.
+   */
+  resolveAuctionSuperPassPhaseIfExpired: (
+    supabase: SupabaseClient,
+    input: StudentSchemas.AuctionSuperPassItemInput,
+  ): Promise<RpcResult<AuctionSuperPassActionResult>> => {
+    return safeRpc(
+      supabase,
+      "resolve_auction_super_pass_phase_if_expired",
+      StudentSchemas.AuctionSuperPassItemSchema,
       input,
     );
   },
@@ -329,21 +375,6 @@ export const studentRpc = {
   },
 
   /**
-   * 일일퀘스트 완료
-   */
-  completeDailyQuest: (
-    supabase: SupabaseClient,
-    input: StudentSchemas.CompleteDailyQuestInput,
-  ): Promise<RpcResult<number>> => {
-    return safeRpc(
-      supabase,
-      "complete_daily_quest",
-      StudentSchemas.CompleteDailyQuestSchema,
-      input,
-    );
-  },
-
-  /**
    * 메일 읽음 처리
    */
   markMailRead: (
@@ -452,6 +483,9 @@ export const teacherRpc = {
   startLiveAuctionItem: (supabase: SupabaseClient, input: TeacherSchemas.TeacherAuctionItemIdInput): Promise<RpcResult<{ item_id: number; server_now: string; ends_at: string }>> =>
     safeRpc(supabase, "teacher_start_live_auction_item", TeacherSchemas.TeacherAuctionItemIdSchema, input),
 
+  closeSuperPassApplicationNow: (supabase: SupabaseClient, input: TeacherSchemas.TeacherAuctionItemIdInput): Promise<RpcResult<AuctionSuperPassActionResult>> =>
+    safeRpc(supabase, "teacher_close_super_pass_application_now", TeacherSchemas.TeacherAuctionItemIdSchema, input),
+
   pauseLiveAuctionItem: (supabase: SupabaseClient, input: TeacherSchemas.TeacherAuctionItemIdInput): Promise<RpcResult<number>> =>
     safeRpc(supabase, "teacher_pause_live_auction_item", TeacherSchemas.TeacherAuctionItemIdSchema, input),
 
@@ -471,7 +505,7 @@ export const teacherRpc = {
     safeRpc(supabase, "teacher_delete_scheduled_auction", TeacherSchemas.TeacherAuctionIdSchema, input),
 
   /**
-   * 교사 BV/GOLD 단일·다중 지급·차감
+   * 교사 BV/GOLD/CRYSTAL 단일·다중 지급·차감
    * - 외부 공개 RPC에서 교사 권한·동일 학급 검증
    * - 내부 create_transaction 호출로 거래 기록과 지갑을 원자적으로 갱신
    */
@@ -736,21 +770,6 @@ export const teacherRpc = {
       supabase,
       "distribute_welfare",
       TeacherSchemas.DistributeWelfareSchema,
-      input,
-    );
-  },
-
-  /**
-   * 개인 기여도 산출 (월별)
-   */
-  calculateIndividualContribution: (
-    supabase: SupabaseClient,
-    input: TeacherSchemas.CalculateIndividualContributionInput,
-  ): Promise<RpcResult<number>> => {
-    return safeRpc(
-      supabase,
-      "calculate_individual_contribution",
-      TeacherSchemas.CalculateIndividualContributionSchema,
       input,
     );
   },

@@ -72,11 +72,75 @@ export interface LiveAuctionHeader {
   state_version: number;
 }
 
+
+export type AuctionSuperPassRoundStatus =
+  | 'APPLYING'
+  | 'NORMAL_BIDDING'
+  | 'PRIORITY_BIDDING'
+  | 'SOLD_SINGLE'
+  | 'SOLD_PRIORITY'
+  | 'FAILED_ATTEMPT'
+  | 'CANCELLED';
+
+export type AuctionSuperPassEntryStatus =
+  | 'APPLIED'
+  | 'WINNER_CONSUMED'
+  | 'LOSER_RELEASED'
+  | 'INVALID_RELEASED'
+  | 'ATTEMPT_RELEASED'
+  | 'CANCELLED_RELEASED';
+
+export interface AuctionSuperPassApplicant {
+  student_id: number;
+  student_name: string;
+  brand_name: string | null;
+  entry_status: AuctionSuperPassEntryStatus;
+  reservation_status: 'RESERVED' | 'CONSUMED' | 'RELEASED' | 'EXPIRED' | null;
+  applied_at: string;
+}
+
+export interface AuctionSuperPassState {
+  round_id: number;
+  status: AuctionSuperPassRoundStatus;
+  attempt_number: number;
+  minimum_price: number;
+  application_started_at: string;
+  application_ends_at: string;
+  priority_started_at: string | null;
+  priority_ends_at: string | null;
+  applicant_count: number;
+  winner_student_id: number | null;
+  resolved_at: string | null;
+  pass_item_id: number | null;
+  available_quantity: number;
+  current_student_applied: boolean;
+  current_student_entry_status: AuctionSuperPassEntryStatus | null;
+  current_student_priority_eligible: boolean;
+  applicants: AuctionSuperPassApplicant[] | null;
+}
+
+export interface AuctionSuperPassActionResult {
+  status: string;
+  phase?: AuctionSuperPassRoundStatus;
+  round_id?: number;
+  item_id?: number;
+  entry_id?: number;
+  reservation_id?: number;
+  applicant_count?: number;
+  application_ends_at?: string;
+  server_now?: string;
+  ends_at?: string;
+  winner_student_id?: number;
+  final_price?: number;
+  super_pass_resolution?: string;
+}
+
 export interface LiveAuctionState {
   server_now: string;
   auction: LiveAuctionHeader | null;
   items?: LiveAuctionItem[];
   recent_bids?: LiveAuctionRecentBid[];
+  super_pass?: AuctionSuperPassState | null;
 }
 
 export interface PlaceBidResult {

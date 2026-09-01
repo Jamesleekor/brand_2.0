@@ -7,7 +7,7 @@
 // =====================================================================
 
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
   PageHeader, Modal, LoadingSpinner, EmptyState, useRpcCall
@@ -26,18 +26,20 @@ import { cn } from '@/lib/utils/cn';
 
 type CosmeticCategory = 'background' | 'character' | 'title' | 'frame' | 'effect';
 
+interface CosmeticPricingOption {
+  id: number;
+  valueToken: string;
+  price: number;
+  conditionDescription: string | null;
+}
+
 interface CosmeticItem {
   id: number;
   name: string;
   description: string;
   category: CosmeticCategory;
   imageUrl: string | null;
-  
-  // 가격 (pricing 테이블의 첫 옵션)
-  pricingId: number | null;
-  priceGold: number;
-  priceBv: number;
-  priceCrystal: number;
+  pricingOptions: CosmeticPricingOption[];
   
   // 학생 보유 상태
   isOwned: boolean;
@@ -180,17 +182,7 @@ function CosmeticCard({ item, onClick }: { item: CosmeticItem; onClick: () => vo
             {item.isEquipped ? '✓ 장착중' : '장착하기'}
           </button>
         ) : (
-          <div className="text-2xs font-bold">
-            {item.priceGold > 0 && (
-              <span className="text-gold">🪙 {formatNumber(item.priceGold)}</span>
-            )}
-            {item.priceBv > 0 && (
-              <span className="text-bv ml-1.5">⭐ {formatNumber(item.priceBv)}</span>
-            )}
-            {item.priceCrystal > 0 && (
-              <span className="text-crystal ml-1.5">💎 {formatNumber(item.priceCrystal)}</span>
-            )}
-          </div>
+          <PricingSummary options={item.pricingOptions} />
         )}
       </div>
     </motion.div>
@@ -204,26 +196,28 @@ function CosmeticCard({ item, onClick }: { item: CosmeticItem; onClick: () => vo
 function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: () => void }) {
   const studentId = useStudentId();
   const { wallet } = useWallet();
+  const queryClient = useQueryClient();
   const { call, isLoading } = useRpcCall();
-  
-  const canBuy = !item.isOwned && item.pricingId !== null && (
-    (item.priceGold === 0 || (wallet?.gold ?? 0) >= item.priceGold) &&
-    (item.priceBv === 0 || (wallet?.bv ?? 0) >= item.priceBv) &&
-    (item.priceCrystal === 0 || (wallet?.crystal ?? 0) >= item.priceCrystal)
-  );
+  const [selectedPricingId, setSelectedPricingId] = useState<number | null>(item.pricingOptions[0]?.id ?? null);
+  const selectedPricing = item.pricingOptions.find((option) => option.id === selectedPricingId) ?? null;
+  const canBuy = !item.isOwned && !!selectedPricing && canAffordPricing(selectedPricing, wallet);
   
   const handleBuy = async () => {
-    if (!studentId || !item.pricingId) return;
+    if (!studentId || !selectedPricing) return;
     
     await call(
       () => studentRpc.purchaseCosmeticItem(supabase, {
         p_student_id: studentId,
         p_item_id: item.id,
-        p_pricing_id: item.pricingId!,
+        p_pricing_id: selectedPricing.id,
       }),
       {
         successTitle: `${item.name} 구매 완료! 🎨`,
-        onSuccess: () => onClose(),
+        onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: ['cosmetics', studentId] });
+          void queryClient.invalidateQueries({ queryKey: ['home-customization'] });
+          onClose();
+        },
       }
     );
   };
@@ -238,7 +232,11 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
       }),
       {
         successTitle: `${item.name} 장착! ✨`,
-        onSuccess: () => onClose(),
+        onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: ['cosmetics', studentId] });
+          void queryClient.invalidateQueries({ queryKey: ['home-customization'] });
+          onClose();
+        },
       }
     );
   };
@@ -281,12 +279,34 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
         ) : (
           <div className="space-y-3">
             <div className="bg-bg-deep border border-line rounded-card-md p-3">
-              <div className="text-2xs font-extrabold text-text-secondary uppercase mb-2">가격</div>
-              <div className="flex items-center gap-3 text-sm font-extrabold">
-                {item.priceGold > 0 && <span className="text-gold">🪙 {formatNumber(item.priceGold)}</span>}
-                {item.priceBv > 0 && <span className="text-bv">⭐ {formatNumber(item.priceBv)}</span>}
-                {item.priceCrystal > 0 && <span className="text-crystal">💎 {formatNumber(item.priceCrystal)}</span>}
-              </div>
+              <div className="text-2xs font-extrabold text-text-secondary uppercase mb-2">구매 옵션</div>
+              {item.pricingOptions.length === 0 ? (
+                <div className="text-xs font-bold text-text-muted">현재 구매 가능한 가격 옵션이 없습니다.</div>
+              ) : (
+                <div className="space-y-2">
+                  {item.pricingOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setSelectedPricingId(option.id)}
+                      className={cn(
+                        'w-full rounded-card-md border px-3 py-2 text-left transition',
+                        selectedPricingId === option.id
+                          ? 'border-brand-primary bg-brand-primary/10'
+                          : 'border-line bg-bg-card',
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-black">{formatPricingOption(option)}</span>
+                        {selectedPricingId === option.id && <span className="text-2xs font-black text-brand-glow">선택</span>}
+                      </div>
+                      {option.conditionDescription && (
+                        <div className="mt-1 text-2xs font-bold text-text-secondary">조건: {option.conditionDescription}</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             
             <button
@@ -294,13 +314,60 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
               disabled={!canBuy || isLoading}
               className="btn-primary w-full"
             >
-              {isLoading ? '구매 중...' : canBuy ? '🛒 구매하기' : '재화 부족'}
+              {isLoading
+                ? '구매 중...'
+                : item.pricingOptions.length === 0
+                  ? '구매 옵션 없음'
+                  : !selectedPricing
+                    ? '가격 옵션을 선택하세요'
+                    : canBuy
+                      ? '🛒 구매하기'
+                      : '재화 부족'}
             </button>
           </div>
         )}
       </div>
     </Modal>
   );
+}
+
+function PricingSummary({ options }: { options: CosmeticPricingOption[] }) {
+  if (options.length === 0) {
+    return <div className="text-2xs font-bold text-text-muted">현재 구매 옵션 없음</div>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-1.5 text-2xs font-bold">
+      {options.slice(0, 2).map((option) => (
+        <span key={option.id} className={pricingTokenClass(option.valueToken)}>
+          {formatPricingOption(option)}
+        </span>
+      ))}
+      {options.length > 2 && <span className="text-text-muted">+{options.length - 2}</span>}
+    </div>
+  );
+}
+
+function formatPricingOption(option: CosmeticPricingOption): string {
+  const icon = option.valueToken === 'GOLD' ? '🪙'
+    : option.valueToken === 'BV' ? '⭐'
+      : option.valueToken === 'CRYSTAL' ? '💎'
+        : '◈';
+  return `${icon} ${formatNumber(option.price)} ${option.valueToken}`;
+}
+
+function pricingTokenClass(valueToken: string): string {
+  if (valueToken === 'GOLD') return 'text-gold';
+  if (valueToken === 'BV') return 'text-bv';
+  if (valueToken === 'CRYSTAL') return 'text-crystal';
+  return 'text-text-secondary';
+}
+
+function canAffordPricing(option: CosmeticPricingOption, wallet: { gold?: number; bv?: number; crystal?: number } | null | undefined): boolean {
+  if (option.valueToken === 'GOLD') return (wallet?.gold ?? 0) >= option.price;
+  if (option.valueToken === 'BV') return (wallet?.bv ?? 0) >= option.price;
+  if (option.valueToken === 'CRYSTAL') return (wallet?.crystal ?? 0) >= option.price;
+  return false;
 }
 
 // =====================================================================
@@ -319,8 +386,8 @@ function useCosmeticItems() {
       const { data: items } = await supabase
         .from('cosmetic_items')
         .select(`
-          id, name, description, category, image_url,
-          pricing:cosmetic_pricing(id, price_gold, price_bv, price_crystal)
+          id, name, description, category, resource_url,
+          pricing:cosmetic_item_pricings(id, value_token, price, condition_description, is_active)
         `)
         .eq('is_active', true);
       
@@ -336,18 +403,22 @@ function useCosmeticItems() {
       
       return (items ?? []).map((i: any) => {
         const own = ownMap.get(i.id);
-        const firstPrice = i.pricing?.[0];
+        const pricingOptions: CosmeticPricingOption[] = (i.pricing ?? [])
+          .filter((price: any) => price.is_active !== false)
+          .map((price: any) => ({
+            id: Number(price.id),
+            valueToken: String(price.value_token ?? ''),
+            price: Number(price.price ?? 0),
+            conditionDescription: price.condition_description ? String(price.condition_description) : null,
+          }));
         
         return {
           id: i.id,
           name: i.name,
           description: i.description ?? '',
           category: i.category,
-          imageUrl: i.image_url,
-          pricingId: firstPrice?.id ?? null,
-          priceGold: Number(firstPrice?.price_gold ?? 0),
-          priceBv: Number(firstPrice?.price_bv ?? 0),
-          priceCrystal: Number(firstPrice?.price_crystal ?? 0),
+          imageUrl: i.resource_url ?? null,
+          pricingOptions,
           isOwned: !!own,
           isEquipped: own?.isEquipped ?? false,
           ownershipId: own?.id ?? null,

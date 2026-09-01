@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-12  
 **Baseline:** Guild 1 COMPLETE  
-**Next:** Guild 2 — GS Engine + Individual Contribution foundation
+**Next:** Guild 2A — production SQL 적용 및 E2E (GS Engine + Individual Contribution foundation)
 
 ---
 
@@ -241,7 +241,45 @@ Attendance status:
 
 ---
 
-# 10. Security state warning
+# 10. Guild 2A implementation status
+
+2026-08-12에 production preflight 결과를 확인했다.
+
+확인된 사실:
+
+- 기존 `guild_gs`, `guild_individual_contributions`는 BV 증가량 기반 legacy 구조라 Guild 2 공식에 재사용할 수 없다.
+- Guild 1의 membership, season, session participant snapshot은 실제 production에 존재하며, 새 session 점수의 근거로 사용할 수 있다.
+- legacy mission/peer tables는 Guild 3·4의 확정 설계와 맞지 않는다. 이번 단계에서는 연결하지 않고 `NOT_READY`로만 표시한다.
+
+준비된 Guild 2A 범위:
+
+- 새 `guild2_*` 전용 초안 aggregate, 관찰 기록, GS append-only ledger, 월간 GS summary
+- Guild session과 교사 기여 기록의 server-side 계산
+- 수동 4인 길드 보정(평균 BASIC × 0.5, 10점 단위 반올림)
+- 교사 운영 화면 `/teacher/guild/scores` 및 학생 길드 화면의 개인 기여도 카드
+- legacy BV 산식 RPC의 browser execute 권한 회수. legacy 표와 Guild 1 history row는 삭제·재작성하지 않는다.
+
+Production에는 Core SQL과 두 후속 수정 SQL까지 적용됐다. 초보자용 실제 확인 순서와 결과는 `docs/GUILD2A_E2E_CHECKLIST.md`를 따른다.
+
+2026-08-13에는 공개 교사 메모 조회 정책이 같은 표를 다시 조회해 발생한 RLS 무한 재귀를 확인했다. 기존 데이터에 영향 없이 `supabase/migrations/20260813_01_guild2a_observation_rls_recursion_fix.sql`로 정책만 교체한다.
+
+같은 날 Guild 1 세션 출석을 변경한 뒤 Guild 2 초안 점수가 자동으로 갱신되지 않는 것을 확인했다. `supabase/migrations/20260813_02_guild2a_refresh_after_session_attendance.sql`는 실제 production 함수 signature를 유지한 채, 저장 직후 해당 월의 Guild 2 초안만 다시 계산하도록 연결한다.
+
+2026-08-13 production E2E 통과:
+
+- 세션 `ABSENT` 감점 및 `PRESENT`/`EXCUSED` 변경 후 자동 복구
+- 교사 기여 기록, 학생 공개/비공개 메모, 취소 반대 기록
+- 4인 길드 인원 보정의 적용과 해제
+- 교사 GS 수동 조정과 append-only 기록 보존
+- 학생 자기 점수 조회 및 교사 화면 접근 차단
+
+이후 Guild 1의 기존 학생 이동·해제·재배정, 이동 후 과거 세션 snapshot 보존도 production에서 통과했다. 따라서 **Guild 2A Core는 사용자 E2E ACCEPTED** 상태다. 다른 기기 Realtime 즉시 반영과 전입/전출 E2E는 별도 확인 항목으로 남는다.
+
+다음 운영 도구 후보로, 교사가 회귀 테스트용 학생을 운영 패널에서 쉽게 추가할 수 있는 기능 요청을 기록했다. 실제 학생·인증 계정·길드 이력에 영향을 줄 수 있으므로, Guild 3/4에 임의로 섞어 구현하지 않고 별도 SPEC과 production preflight 후 진행한다.
+
+---
+
+# 11. Security state warning
 
 이전 운영 DB audit에서는 broad GRANT가 individual REVOKE를 덮어쓴 문제가 발견됐다.
 
@@ -311,8 +349,9 @@ Mission/Peer Review 전체 기능 자체를 Guild 2에서 중복 구현하지 �
 - 길드 세션: 150
 - 교사 관찰 로그: 150
 - 기본 최대: 900
-- Arcade bonus: +90 cap
-- 절대 최대: 990
+- Arcade raw bonus: game별 rank bonus 합산 (원본은 +90 초과 가능)
+- Arcade applied bonus: `least(raw, 90)`, 최대 +90
+- 최종 개인기여도: 기본 + 적용 Arcade, 최대 990
 
 Guild GS:
 
@@ -325,8 +364,8 @@ Guild GS:
 - 기본 개인기여 최대: 900 × 5 = 4,500
 - 월간 미션 full-clear total: 5,000
 - 기본 설계 ceiling: 9,500
-- arcade까지 전원이 cap이면 theoretical 9,950
-- “10,000 GS”를 사실상의 완벽한 달 상한으로 사용
+- 초기 6개 game에서 원본 합계가 +180이어도 학생별 적용값은 +90, 5인 기준 theoretical 9,950
+- game 수가 늘어도 Guild 2 적용 Arcade bonus는 학생별 +90을 넘지 않음
 
 ---
 
@@ -365,7 +404,7 @@ Season 2 중 학생 전출 가능성이 있으므로 특히 중요하다.
 
 - 월간 총 개인기여도
 - 기본 /900
-- arcade +/90
+- arcade 획득 +N / 반영 +M (반영 최대 +90)
 - 각 영역 합계
 
 영역별 공개 정도는 다르게 한다.

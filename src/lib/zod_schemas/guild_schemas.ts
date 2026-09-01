@@ -101,3 +101,58 @@ export const Guild1HealthCheckSchema = z.object({
   p_classroom_id: PositiveInt,
 });
 export type Guild1HealthCheckInput = z.infer<typeof Guild1HealthCheckSchema>;
+
+// Guild 2A — all score writes go through teacher-only RPCs.  These schemas
+// mirror the production function signatures rather than the retired BV-based
+// Guild GS functions.
+const YearMonth = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, '월 형식은 YYYY-MM이어야 합니다.');
+const Uuid = z.string().uuid('요청 식별값 형식이 올바르지 않습니다.');
+export const Guild2ObservationCategorySchema = z.enum([
+  'COOPERATION',
+  'LEADERSHIP',
+  'RESPONSIBILITY',
+  'SUPPORT',
+  'PROBLEM_SOLVING',
+  'OTHER',
+]);
+
+export const RecalculateGuild2ScoresSchema = z.object({
+  p_classroom_id: PositiveInt,
+  p_year_month: YearMonth,
+});
+export type RecalculateGuild2ScoresInput = z.infer<typeof RecalculateGuild2ScoresSchema>;
+
+export const RecordGuild2ObservationSchema = z.object({
+  p_student_id: PositiveInt,
+  p_category: Guild2ObservationCategorySchema,
+  p_reason: z.string().trim().min(2, '기록 사유는 2자 이상이어야 합니다.').max(300),
+  p_is_public: z.boolean(),
+  p_occurred_on: IsoDate,
+  p_idempotency_key: Uuid,
+});
+export type RecordGuild2ObservationInput = z.infer<typeof RecordGuild2ObservationSchema>;
+
+export const ReverseGuild2ObservationSchema = z.object({
+  p_observation_event_id: PositiveInt,
+  p_reason: z.string().trim().min(2, '취소 사유는 2자 이상이어야 합니다.').max(300),
+  p_idempotency_key: Uuid,
+});
+export type ReverseGuild2ObservationInput = z.infer<typeof ReverseGuild2ObservationSchema>;
+
+export const SetGuild2CompensationSchema = z.object({
+  p_guild_id: PositiveInt,
+  p_season_id: PositiveInt,
+  p_enabled: z.boolean(),
+  p_year_month: YearMonth,
+});
+export type SetGuild2CompensationInput = z.infer<typeof SetGuild2CompensationSchema>;
+
+export const PostGuild2GsAdjustmentSchema = z.object({
+  p_classroom_id: PositiveInt,
+  p_year_month: YearMonth,
+  p_guild_id: PositiveInt,
+  p_points: z.number().finite().min(-5000).max(5000).refine((value) => value !== 0, '0점 조정은 기록할 수 없습니다.'),
+  p_reason: z.string().trim().min(2, '조정 사유는 2자 이상이어야 합니다.').max(300),
+  p_idempotency_key: Uuid,
+});
+export type PostGuild2GsAdjustmentInput = z.infer<typeof PostGuild2GsAdjustmentSchema>;

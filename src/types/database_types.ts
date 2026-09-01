@@ -312,13 +312,6 @@ export const SYSTEM_CONSTANTS = {
         norm: 0.25,
     },
     
-    // 길드 GS
-    GUILD_GS_WEIGHTS: {
-        alpha: 0.50,         // BV 증가량
-        participation: 0.15, // 미션 참여
-        attendance: 0.10,    // 세션 출석
-    },
-    
     // 출석 마일스톤
     ATTENDANCE_MILESTONE_DAYS: [3, 7, 14, 28] as const,
     

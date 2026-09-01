@@ -344,10 +344,12 @@ function TransactionList({ filter }: { filter: Filter }) {
 // =====================================================================
 
 function TransactionItem({ transaction: tx }: { transaction: Transaction }) {
-  const source = SOURCE_LABELS[tx.sourceType] || {
-    label: tx.sourceType,
-    emoji: "·",
-  };
+  const source = tx.sourceType === "OTHER" && tx.memo?.startsWith("[업적 마일스톤]")
+    ? { label: "업적 마일스톤", emoji: "🎁" }
+    : SOURCE_LABELS[tx.sourceType] || {
+        label: tx.sourceType,
+        emoji: "·",
+      };
   const isIncome = tx.amount > 0;
 
   const tokenColor = {

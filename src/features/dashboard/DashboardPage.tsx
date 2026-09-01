@@ -21,6 +21,7 @@ import {
   TierCard,
   AchievementCard,
   CreditCard,
+  PrimaryJobCard,
   AssignmentNoticeBanner,
 } from '@/features/dashboard/components';
 
@@ -30,6 +31,15 @@ import { feature4Rpc } from '@/lib/rpc/feature4_rpc';
 import { useRpcCall } from '@/components/shared/components';
 import { useNavigate } from 'react-router-dom';
 import { useActiveEmergencies } from '@/hooks/useActiveEmergencies';
+import { useToastStore } from '@/stores/ui_store';
+import { achievementA1Rpc } from '@/lib/rpc/achievement_a1_rpc';
+import { dailyQuestS3Rpc } from '@/lib/rpc/daily_quest_s3_rpc';
+import { resolveAssetUrl } from '@/lib/assets/asset_urls';
+import { HomeCustomizationPanel } from '@/features/dashboard/HomeCustomizationPanel';
+import { homePersonalizationRpc, type HomePersonalization, type HomeShowcaseSlot } from '@/lib/rpc/home_personalization_rpc';
+import { getEquippedCharacterImageUrl, useMyEquippedCharacter } from '@/hooks/useEquippedCharacters';
+import { BrandWorldPanel, BrandWorldSummaryButton } from '@/features/dashboard/BrandWorldPanel';
+import { HomeServiceAdStrip } from '@/features/dashboard/HomeServiceAdStrip';
 
 // =====================================================================
 // 메인 컴포넌트
@@ -44,11 +54,27 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { call: callFeature4 } = useRpcCall();
   const { emergencies } = useActiveEmergencies();
+  const showToast = useToastStore(s=>s.show);
   const liveTier = calculateTierFromBv(wallet?.bv ?? 0);
   const liveNextTier = getNextTier(liveTier);
+  const equippedCharacterQuery = useMyEquippedCharacter();
+  const worldMarkerAvatarUrl = getEquippedCharacterImageUrl(equippedCharacterQuery.character, 'avatar');
+  const dailyQuestAccessQuery = useQuery({
+    queryKey: ['daily-quest-s3-home-access', studentId],
+    enabled: !!studentId,
+    queryFn: async () => {
+      const result = await dailyQuestS3Rpc.getManagerAccess(supabase);
+      if (!result.success) return null;
+      return result.data;
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
   
   // 모달 상태
   const [attendanceOpen, setAttendanceOpen] = useState(false);
+  const [homeCustomizeOpen, setHomeCustomizeOpen] = useState(false);
+  const [brandWorldOpen, setBrandWorldOpen] = useState(false);
 
   // Feature4B 안전망: pg_cron이 지연/비활성 상태여도 학급 화면 진입 시
   // 이미 종료 시각이 지난 비상사태만 멱등적으로 정리한다.
@@ -77,7 +103,19 @@ export default function DashboardPage() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'mail_messages', filter: `recipient_id=eq.${studentId}` }, invalidate)
         .subscribe(),
       supabase.channel(`dashboard:alerts:${studentId}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'global_alerts', filter: `classroom_id=eq.${classroomId}` }, invalidate)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'global_alerts', filter: `classroom_id=eq.${classroomId}` }, (payload) => {
+          invalidate();
+          const alert = payload.new as { message?: string; emoji?: string | null };
+          const message = String(alert.message ?? '').trim();
+          if (message.includes('새 길드 미션')) {
+            void queryClient.invalidateQueries({ queryKey: ['guild3-student-board'] });
+            showToast({ title: '🗺️ 새 길드 미션이 공개됐어요', description: message, variant: 'info', duration: 7000 });
+          } else if (message) {
+            showToast({ title: `${alert.emoji ?? '🔔'} 새 알림`, description: message, variant: 'info', duration: 5000 });
+          }
+        })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'global_alerts', filter: `classroom_id=eq.${classroomId}` }, invalidate)
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'global_alerts', filter: `classroom_id=eq.${classroomId}` }, invalidate)
         .subscribe(),
       supabase.channel(`dashboard:alert-reads:${studentId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'global_alert_reads', filter: `student_id=eq.${studentId}` }, invalidate)
@@ -91,6 +129,12 @@ export default function DashboardPage() {
       supabase.channel(`dashboard:assignments:${studentId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'assignments', filter: `classroom_id=eq.${classroomId}` }, invalidate)
         .subscribe(),
+      supabase.channel(`dashboard:achievement-applications:${studentId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'achievement_applications', filter: `student_id=eq.${studentId}` }, invalidate)
+        .subscribe(),
+      supabase.channel(`dashboard:student-achievements:${studentId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'student_achievements', filter: `student_id=eq.${studentId}` }, invalidate)
+        .subscribe(),
       // 4.1 migration이 아직 적용되지 않은 DB에서는 이 채널만 실패할 수 있다.
       // 핵심 알림 채널과 분리했기 때문에 우편/퀘스트 실시간 갱신은 계속 동작한다.
       supabase.channel(`dashboard:quest-requests:${studentId}`)
@@ -101,17 +145,40 @@ export default function DashboardPage() {
     return () => {
       channels.forEach((channel) => { void supabase.removeChannel(channel); });
     };
-  }, [studentId, classroomId, queryClient]);
+  }, [studentId, classroomId, queryClient, showToast]);
+
+  // Home personalization realtime은 dashboard core와 독립 채널로 유지한다.
+  // 선택 기능 실패가 우편/알림/퀘스트 realtime에 전파되지 않도록 분리한다.
+  useEffect(() => {
+    if (!studentId) return;
+    const invalidateHome = () => {
+      void queryClient.invalidateQueries({ queryKey: ['home-customization'] });
+    };
+
+    const channels = [
+      supabase.channel(`home-customization:showcase:${studentId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'student_home_showcase_slots', filter: `student_id=eq.${studentId}` }, invalidateHome)
+        .subscribe(),
+      supabase.channel(`home-customization:cosmetics:${studentId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'student_cosmetic_ownerships', filter: `student_id=eq.${studentId}` }, invalidateHome)
+        .subscribe(),
+    ];
+
+    return () => {
+      channels.forEach((channel) => { void supabase.removeChannel(channel); });
+    };
+  }, [studentId, queryClient]);
   
   // 부가 데이터 조회 (병렬)
   const { data: dashboardData } = useDashboardData(studentId, classroomId);
+  const homeCustomizationQuery = useHomePersonalization(studentId);
   
   if (!student) return null;
   
   return (
-    <div className="app-container relative pb-24">
-      {/* 배경 일러스트 스킨 */}
-      <BackgroundSkin imageUrl={dashboardData?.equippedBackground ?? null} />
+    <div className="relative min-h-screen">
+      {/* 배경 일러스트 스킨 — dashboard core query와 분리된 Home personalization contract */}
+      <BackgroundSkin imageUrl={homeCustomizationQuery.data?.background?.resource_url ?? null} />
       
       {/* 상단 헤더 — 정체성 + 재화 */}
       <TopHeader bvMonthlyDelta={dashboardData?.bvMonthlyDelta ?? 0} />
@@ -121,6 +188,7 @@ export default function DashboardPage() {
         onAttendanceClick={() => setAttendanceOpen(true)}
         onMailClick={() => navigate('/mail?tab=mail')}
         onAlertsClick={() => navigate('/mail?tab=alerts')}
+        onHomeCustomizeClick={() => setHomeCustomizeOpen(true)}
         attendanceUnclaimed={dashboardData?.attendanceUnclaimed ?? false}
         mailUnreadCount={dashboardData?.mailUnreadCount ?? 0}
         alertsUnreadCount={dashboardData?.alertsUnreadCount ?? 0}
@@ -158,8 +226,58 @@ export default function DashboardPage() {
             onClick={() => navigate('/assignments')}
           />
 
-          {/* 중앙 무대 — 배경 일러스트만 보이는 공간 + 추후 수집 캐릭터 스티커 영역 */}
-          <CenterStage />
+          {dailyQuestAccessQuery.data?.is_manager && (
+            <button
+              type="button"
+              onClick={() => navigate('/daily-quest')}
+              className="mx-4 mt-2 flex w-[calc(100%-32px)] items-center justify-between gap-3 rounded-card-lg border border-gold/30 bg-gradient-to-r from-gold/10 to-brand-primary/10 px-4 py-3 text-left hover-lift"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 flex-none items-center justify-center rounded-card-md bg-gold/15 text-xl">📋</div>
+                <div className="min-w-0">
+                  <div className="text-sm font-black text-white">일일퀘스트 관리자 업무</div>
+                  <div className="mt-0.5 truncate text-2xs font-bold text-text-secondary">오늘 체크리스트를 기록하고 선생님께 제출하세요.</div>
+                </div>
+              </div>
+              <span className="flex-none text-sm font-black text-gold">열기 →</span>
+            </button>
+          )}
+
+          {/* H3 학생 P2P 서비스 광고 — 시스템/업무 배너 뒤, 개인화 Stage 앞 */}
+          <HomeServiceAdStrip />
+
+          {/* Home Personalization Stage — fixed 3-slot 편린 전시 */}
+          <CenterStage
+            slots={homeCustomizationQuery.data?.showcase_slots ?? []}
+            isLoading={homeCustomizationQuery.isLoading}
+            isError={homeCustomizationQuery.isError}
+            onRetry={() => { void homeCustomizationQuery.refetch(); }}
+            onCustomize={() => setHomeCustomizeOpen(true)}
+          />
+
+          <BrandWorldSummaryButton
+            tier={liveTier}
+            currentBv={wallet?.bv ?? 0}
+            nextTier={liveNextTier}
+            isOpen={brandWorldOpen}
+            onToggle={() => setBrandWorldOpen((open) => !open)}
+          />
+
+          <BrandWorldPanel
+            isOpen={brandWorldOpen}
+            onClose={() => setBrandWorldOpen(false)}
+            tier={liveTier}
+            currentBv={wallet?.bv ?? 0}
+            nextTier={liveNextTier}
+            achievementsEarned={dashboardData?.achievementsEarned ?? 0}
+            achievementsTotal={dashboardData?.achievementsTotal ?? 0}
+            studentName={student.studentName}
+            brandName={student.brandName}
+            markerAvatarUrl={worldMarkerAvatarUrl}
+            markerEmoji={equippedCharacterQuery.character?.resourceKind === 'EMOJI' ? equippedCharacterQuery.character.emoji : null}
+          />
+
+          <FutureHomeShortcuts />
         </div>
 
         {/* 우측 카드 레일은 메뉴 row 아래의 별도 grid column이므로 어떤 해상도에서도 메뉴와 겹치지 않는다. */}
@@ -171,7 +289,7 @@ export default function DashboardPage() {
           />
           <AchievementCard
             earned={dashboardData?.achievementsEarned ?? 0}
-            total={dashboardData?.achievementsTotal ?? 119}
+            total={dashboardData?.achievementsTotal ?? 0}
             epicCount={dashboardData?.epicCount ?? 0}
             hiddenCount={dashboardData?.hiddenCount ?? 0}
           />
@@ -179,13 +297,18 @@ export default function DashboardPage() {
             grade={dashboardData?.creditGrade ?? 'B'}
             score={dashboardData?.creditScore ?? 500}
           />
+          <PrimaryJobCard
+            jobName={dailyQuestAccessQuery.data?.job_name ?? null}
+            dailyWage={dailyQuestAccessQuery.data?.daily_wage ?? null}
+          />
         </aside>
       </div>
 
-      <div className="relative z-10 mx-4 mt-2 grid grid-cols-3 gap-2 lg:hidden">
+      <div className="relative z-10 mx-4 mt-2 grid grid-cols-2 gap-2 lg:hidden">
         <TierCard tier={liveTier} currentBv={wallet?.bv ?? 0} nextBv={liveNextTier?.bvFrom ?? (wallet?.bv ?? 0)} />
-        <AchievementCard earned={dashboardData?.achievementsEarned ?? 0} total={dashboardData?.achievementsTotal ?? 119} epicCount={dashboardData?.epicCount ?? 0} hiddenCount={dashboardData?.hiddenCount ?? 0} />
+        <AchievementCard earned={dashboardData?.achievementsEarned ?? 0} total={dashboardData?.achievementsTotal ?? 0} epicCount={dashboardData?.epicCount ?? 0} hiddenCount={dashboardData?.hiddenCount ?? 0} />
         <CreditCard grade={dashboardData?.creditGrade ?? 'B'} score={dashboardData?.creditScore ?? 500} />
+        <PrimaryJobCard jobName={dailyQuestAccessQuery.data?.job_name ?? null} dailyWage={dailyQuestAccessQuery.data?.daily_wage ?? null} />
       </div>
       
       {/* 하단 네비게이션 */}
@@ -193,19 +316,213 @@ export default function DashboardPage() {
       
       {/* 출석은 기존 모달 유지, 우편·알림은 Feature4A 통합 페이지로 이동 */}
       <AttendanceModal isOpen={attendanceOpen} onClose={() => setAttendanceOpen(false)} />
+      {studentId && (
+        <HomeCustomizationPanel
+          isOpen={homeCustomizeOpen}
+          onClose={() => setHomeCustomizeOpen(false)}
+          studentId={studentId}
+          personalization={homeCustomizationQuery.data}
+        />
+      )}
     </div>
   );
 }
 
 // =====================================================================
-// 중앙 무대 — 배경 일러스트만 보이는 공간
-// (추후 수집 캐릭터 스티커가 들어갈 자리)
+// Future Home Shortcuts — H2.3 locked disabled state
 // =====================================================================
 
-function CenterStage() {
+function FutureHomeShortcuts() {
+  const shortcuts = [
+    { emoji: '🔮', label: '차원관문' },
+    { emoji: '🌌', label: '성좌맵' },
+  ] as const;
+
   return (
-    <div className="relative z-[5] h-[280px] mt-4">
-      {/* 추후 학생이 배치한 수집 캐릭터 스티커가 표시될 영역 */}
+    <div
+      aria-label="향후 홈 기능"
+      className="relative z-10 mx-4 mb-1 grid grid-cols-2 gap-2 lg:mx-0"
+    >
+      {shortcuts.map((shortcut) => (
+        <button
+          key={shortcut.label}
+          type="button"
+          disabled
+          aria-disabled="true"
+          className="flex h-9 cursor-not-allowed items-center justify-center gap-1.5 rounded-pill border border-line bg-bg-card/65 px-3 text-2xs font-black text-text-muted backdrop-blur-card"
+        >
+          <span aria-hidden="true">{shortcut.emoji}</span>
+          <span>{shortcut.label}</span>
+          <span className="text-[9px] font-extrabold tracking-wide text-text-muted/80">COMING SOON</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// =====================================================================
+// Home Personalization Stage — fixed 3-slot Fragment Showcase Lite
+// =====================================================================
+
+function CenterStage({
+  slots,
+  isLoading,
+  isError,
+  onRetry,
+  onCustomize,
+}: {
+  slots: HomeShowcaseSlot[];
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
+  onCustomize: () => void;
+}) {
+  const slotMap = new Map(slots.map((slot) => [slot.slot_no, slot]));
+  const hasCharacter = slots.some((slot) => slot.character_id != null);
+
+  return (
+    <section
+      aria-label="홈 편린 전시"
+      className="relative z-[5] mt-3 h-[clamp(260px,64vw,330px)] overflow-hidden lg:mt-2 lg:h-[330px]"
+    >
+      <div className="pointer-events-none absolute left-4 top-3 z-10">
+        <div className="text-[9px] font-black tracking-[0.18em] text-white/35">FRAGMENT SHOWCASE</div>
+        <div className="mt-0.5 text-xs font-black text-white/70">편린 3슬롯 전시</div>
+      </div>
+
+      <div className="pointer-events-none absolute inset-x-[7%] bottom-1 h-20 rounded-[50%] bg-gradient-to-r from-transparent via-brand-primary/10 to-transparent blur-2xl" />
+      <div className="pointer-events-none absolute inset-x-[9%] bottom-5 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="rounded-pill border border-line bg-bg-card/75 px-4 py-2 text-xs font-bold text-text-secondary backdrop-blur-card">
+            편린 전시를 불러오는 중...
+          </div>
+        </div>
+      )}
+
+      {!isLoading && isError && (
+        <div className="absolute inset-0 flex items-center justify-center px-4">
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded-card-md border border-line bg-bg-card/85 px-4 py-3 text-xs font-black text-white backdrop-blur-card"
+          >
+            ⚠️ 홈 전시를 불러오지 못했어요 · 다시 시도
+          </button>
+        </div>
+      )}
+
+      {!isLoading && !isError && (
+        <>
+          <ShowcaseSlot slot={slotMap.get(2)} slotNo={2} position="left" onCustomize={onCustomize} />
+          <ShowcaseSlot slot={slotMap.get(3)} slotNo={3} position="right" onCustomize={onCustomize} />
+          <ShowcaseSlot slot={slotMap.get(1)} slotNo={1} position="primary" onCustomize={onCustomize} />
+
+          {!hasCharacter && (
+            <button
+              type="button"
+              onClick={onCustomize}
+              className="absolute bottom-7 left-1/2 z-[6] -translate-x-1/2 rounded-pill border border-white/10 bg-black/30 px-3 py-1.5 text-[10px] font-black text-white/60 backdrop-blur-sm transition hover:border-brand-primary/40 hover:text-white"
+            >
+              🎨 홈 꾸미기에서 편린을 배치하세요
+            </button>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function ShowcaseSlot({
+  slot,
+  slotNo,
+  position,
+  onCustomize,
+}: {
+  slot: HomeShowcaseSlot | undefined;
+  slotNo: 1 | 2 | 3;
+  position: 'primary' | 'left' | 'right';
+  onCustomize: () => void;
+}) {
+  if (!slot?.character_id) {
+    return <EmptyShowcaseSlot slotNo={slotNo} position={position} onCustomize={onCustomize} />;
+  }
+  return <ShowcaseCharacter slot={slot} position={position} />;
+}
+
+function EmptyShowcaseSlot({
+  slotNo,
+  position,
+  onCustomize,
+}: {
+  slotNo: 1 | 2 | 3;
+  position: 'primary' | 'left' | 'right';
+  onCustomize: () => void;
+}) {
+  const positionClass = {
+    primary: 'left-1/2 bottom-[19%] z-[3] -translate-x-1/2',
+    left: 'left-[19%] bottom-[15%] z-[2] -translate-x-1/2',
+    right: 'right-[19%] bottom-[15%] z-[2] translate-x-1/2',
+  }[position];
+  const sizeClass = position === 'primary' ? 'h-24 w-24 lg:h-28 lg:w-28' : 'h-[72px] w-[72px] lg:h-20 lg:w-20';
+
+  return (
+    <button
+      type="button"
+      onClick={onCustomize}
+      className={`absolute flex flex-col items-center gap-2 ${positionClass}`}
+      aria-label={`편린 슬롯 ${slotNo} 배치하기`}
+    >
+      <div className={`flex ${sizeClass} items-center justify-center rounded-full border border-dashed border-white/20 bg-white/[0.035] text-2xl font-light text-white/30 backdrop-blur-sm transition hover:border-brand-primary/55 hover:bg-brand-primary/10 hover:text-white/70`}>
+        +
+      </div>
+      <span className="rounded-pill border border-white/10 bg-black/25 px-2 py-1 text-[9px] font-black tracking-[0.12em] text-white/35 backdrop-blur-sm">
+        SLOT {slotNo}
+      </span>
+    </button>
+  );
+}
+
+function ShowcaseCharacter({
+  slot,
+  position,
+}: {
+  slot: HomeShowcaseSlot;
+  position: 'primary' | 'left' | 'right';
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageUrl = slot.full_image_url
+    ?? slot.card_image_url
+    ?? slot.avatar_image_url
+    ?? slot.resource_url
+    ?? null;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [slot.character_id, imageUrl]);
+
+  const positionClass = {
+    primary: 'left-1/2 bottom-0 z-[3] h-[94%] w-[58%] -translate-x-1/2 lg:w-[48%]',
+    left: 'left-[2%] bottom-[1%] z-[2] h-[72%] w-[39%] lg:left-[5%] lg:h-[76%] lg:w-[34%]',
+    right: 'right-[2%] bottom-[1%] z-[2] h-[72%] w-[39%] lg:right-[5%] lg:h-[76%] lg:w-[34%]',
+  }[position];
+
+  return (
+    <div className={`pointer-events-none absolute flex items-end justify-center ${positionClass}`}>
+      {!imageFailed && imageUrl && slot.resource_kind !== 'EMOJI' ? (
+        <img
+          src={resolveAssetUrl(imageUrl, 'character')}
+          alt={slot.name ?? '편린'}
+          className="h-full w-full object-contain object-bottom drop-shadow-[0_14px_18px_rgba(0,0,0,0.45)]"
+          loading={position === 'primary' ? 'eager' : 'lazy'}
+          onError={() => setImageFailed(true)}
+        />
+      ) : (
+        <div className="mb-[18%] flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-black/25 text-6xl backdrop-blur-sm">
+          {slot.emoji ?? '✨'}
+        </div>
+      )}
     </div>
   );
 }
@@ -215,9 +532,6 @@ function CenterStage() {
 // =====================================================================
 
 interface DashboardData {
-  // 배경
-  equippedBackground: string | null;
-  
   // 알림 카운트
   attendanceUnclaimed: boolean;
   mailUnreadCount: number;
@@ -284,12 +598,9 @@ function useDashboardData(
             .eq('student_id', studentId),
         ]),
         
-        // 3. 업적 통계
-        supabase
-          .from('student_achievements')
-          .select('achievement_id, achievements!inner(grade, is_hidden)')
-          .eq('student_id', studentId)
-          .eq('is_revoked', false),
+        // 3. 업적 통계 — 도감과 동일한 SECRET-safe catalog를 사용한다.
+        // 미공개 히든도 placeholder 1개로 총 업적 수에는 포함되며, 정확한 업적 점수는 반환되지 않는다.
+        achievementA1Rpc.studentCatalog(supabase),
         
         // 4. 최신 신용점수
         supabase
@@ -344,21 +655,12 @@ function useDashboardData(
         ]),
       ]);
       
-      // 업적 통계 집계
-      const achievements = achievementsRes.data ?? [];
-      const epicCount = achievements.filter((a: any) =>
-        a.achievements?.grade === '에픽' || a.achievements?.grade === '초월'
-      ).length;
-      const hiddenCount = achievements.filter((a: any) =>
-        a.achievements?.is_hidden === true
-      ).length;
-      
-      // 업적 총 개수 (학급 전용 + 전역)
-      const { count: totalAchievements } = await supabase
-        .from('achievements')
-        .select('*', { count: 'exact', head: true })
-        .or(`classroom_id.eq.${classroomId},classroom_id.is.null`)
-        .eq('is_active', true);
+      // 업적 통계 집계: 업적도감과 같은 catalog를 기준으로 하여 홈의 분모/분자가 항상 일치한다.
+      if (achievementsRes.success === false) throw new Error(achievementsRes.error);
+      const achievementCatalog = achievementsRes.data ?? [];
+      const earnedAchievements = achievementCatalog.filter((a) => a.is_earned);
+      const epicCount = earnedAchievements.filter((a) => a.grade === '에픽' || a.grade === '초월').length;
+      const hiddenCount = earnedAchievements.filter((a) => a.grade === '히든').length;
       
       // Feature4B: 이미 완료한 돌발 퀘스트는 배너에서 제외
       const [questListRes, questRequestRes, questCompletionRes] = emergencyQuestRes as any;
@@ -395,7 +697,6 @@ function useDashboardData(
       const nextTierBv = 1700;  // 임시
       
       return {
-        equippedBackground: null,  // TODO: cosmetic 조회
         attendanceUnclaimed: false,  // TODO: 우편함에 출석 보상 있는지
         mailUnreadCount: mailRes.count ?? 0,
         alertsUnreadCount,
@@ -403,8 +704,8 @@ function useDashboardData(
         emergencyQuest: activeEmergencyQuest
           ? { id: activeEmergencyQuest.id, title: activeEmergencyQuest.title, expiresAt: activeEmergencyQuest.expires_at, requestStatus: requestByQuest.get(activeEmergencyQuest.id) ?? null }
           : null,
-        achievementsEarned: achievements.length,
-        achievementsTotal: totalAchievements ?? 119,
+        achievementsEarned: earnedAchievements.length,
+        achievementsTotal: achievementCatalog.length,
         epicCount,
         hiddenCount,
         creditGrade: (creditRes.data?.grade ?? 'B') as any,
@@ -416,6 +717,20 @@ function useDashboardData(
     },
     enabled: studentId !== null && classroomId !== null,
     staleTime: 1000 * 60 * 2,  // 2분 캐시
+  });
+}
+
+function useHomePersonalization(studentId: number | null) {
+  return useQuery<HomePersonalization>({
+    queryKey: ['home-customization', studentId],
+    enabled: studentId !== null,
+    staleTime: 30_000,
+    retry: 1,
+    queryFn: async () => {
+      const result = await homePersonalizationRpc.get(supabase);
+      if (result.success === false) throw new Error(result.error);
+      return result.data;
+    },
   });
 }
 

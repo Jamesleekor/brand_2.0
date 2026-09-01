@@ -20,7 +20,7 @@ const LongText = z.string().max(2000).trim();
 const AssetAdjustmentReason = z.string().trim().min(2).max(200);
 
 // =====================================================================
-// 0. teacher_adjust_student_assets — 교사 BV/GOLD 단일·다중 지급·차감
+// 0. teacher_adjust_student_assets — 교사 BV/GOLD/CRYSTAL 단일·다중 지급·차감
 // =====================================================================
 
 export const TeacherAdjustStudentAssetsSchema = z.object({
@@ -36,7 +36,7 @@ export const TeacherAdjustStudentAssetsSchema = z.object({
         });
       }
     }),
-  p_value_token: z.enum(["BV", "GOLD"]),
+  p_value_token: z.enum(["BV", "GOLD", "CRYSTAL"]),
   p_amount: z
     .number()
     .int()
@@ -311,20 +311,7 @@ export const DistributeWelfareSchema = z.object({
 export type DistributeWelfareInput = z.infer<typeof DistributeWelfareSchema>;
 
 // =====================================================================
-// 16. calculate_individual_contribution — 개인 기여도 산출 (월별)
-// =====================================================================
-
-export const CalculateIndividualContributionSchema = z.object({
-  p_classroom_id: PositiveInt,
-  p_year_month: z.string().regex(/^\d{4}-\d{2}$/, "형식: YYYY-MM"),
-});
-
-export type CalculateIndividualContributionInput = z.infer<
-  typeof CalculateIndividualContributionSchema
->;
-
-// =====================================================================
-// 17. process_matured_deposits — 만기 예금 일괄 처리 (수동 호출)
+// 16. process_matured_deposits — 만기 예금 일괄 처리 (수동 호출)
 // =====================================================================
 
 export const ProcessMaturedDepositsSchema = z.object({
