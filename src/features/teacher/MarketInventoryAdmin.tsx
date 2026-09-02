@@ -33,6 +33,12 @@ const USE_META: Record<MarketUseMode, string> = {
 
 type Filter = 'ALL' | 'ACTIVE' | 'ARCHIVED' | MarketItemType;
 
+type GrantStudent = {
+  id: number;
+  name: string;
+  brandName: string | null;
+};
+
 type ItemForm = {
   name: string;
   description: string;
@@ -58,6 +64,7 @@ export default function MarketInventoryAdmin() {
   const [filter, setFilter] = useState<Filter>('ALL');
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<TeacherMarketItem | 'NEW' | null>(null);
+  const [granting, setGranting] = useState<TeacherMarketItem | null>(null);
 
   const query = useQuery<TeacherMarketBoard>({
     queryKey: ['inventory-market-teacher-board', classroomId],
@@ -68,6 +75,28 @@ export default function MarketInventoryAdmin() {
       return result.data;
     },
     enabled: classroomId !== null,
+  });
+
+  const studentsQuery = useQuery<GrantStudent[]>({
+    queryKey: ['inventory-market-grant-students', classroomId],
+    enabled: classroomId !== null,
+    queryFn: async () => {
+      if (!classroomId) return [];
+      const { data, error } = await supabase
+        .from('students')
+        .select('id,name,brand_name,role')
+        .eq('classroom_id', classroomId)
+        .in('role', ['STUDENT', 'STUDENT_LEADER', 'GUARD'])
+        .is('transferred_at', null)
+        .order('name', { ascending: true });
+      if (error) throw new Error(error.message);
+      return (data ?? []).map((student) => ({
+        id: Number(student.id),
+        name: student.name,
+        brandName: student.brand_name,
+      }));
+    },
+    staleTime: 30_000,
   });
 
   const rows = useMemo(() => {
@@ -130,17 +159,18 @@ export default function MarketInventoryAdmin() {
           <div className="rounded-card-lg border border-line bg-bg-card"><EmptyState emoji="🏪" title="등록된 상품이 없습니다" description="새 상품 추가를 눌러 시즌2 시장을 구성하세요." /></div>
         ) : (
           <div className="grid gap-3 xl:grid-cols-2">
-            {rows.map((item) => <AdminItemCard key={item.id} item={item} classroomId={classroomId} onEdit={() => setEditing(item)} onRefresh={() => void refresh()} />)}
+            {rows.map((item) => <AdminItemCard key={item.id} item={item} classroomId={classroomId} onEdit={() => setEditing(item)} onGrant={() => setGranting(item)} onRefresh={() => void refresh()} />)}
           </div>
         )}
 
         {editing && <MarketItemEditor classroomId={classroomId} item={editing === 'NEW' ? null : editing} onClose={() => setEditing(null)} onSaved={async () => { setEditing(null); await refresh(); }} />}
+        {granting && <InventoryGrantModal classroomId={classroomId} item={granting} students={studentsQuery.data ?? []} studentsLoading={studentsQuery.isLoading} studentsError={studentsQuery.isError ? (studentsQuery.error instanceof Error ? studentsQuery.error.message : '학생 목록을 불러오지 못했습니다.') : null} onClose={() => setGranting(null)} onSaved={async () => { setGranting(null); await refresh(); }} />}
       </div>
     </TeacherShell>
   );
 }
 
-function AdminItemCard({ item, classroomId, onEdit, onRefresh }: { item: TeacherMarketItem; classroomId: number; onEdit: () => void; onRefresh: () => void }) {
+function AdminItemCard({ item, classroomId, onEdit, onGrant, onRefresh }: { item: TeacherMarketItem; classroomId: number; onEdit: () => void; onGrant: () => void; onRefresh: () => void }) {
   const { call, isLoading } = useRpcCall();
   const rise = item.base_price_gold > 0 ? ((item.current_market_price_gold / item.base_price_gold) - 1) * 100 : 0;
 
@@ -190,12 +220,87 @@ function AdminItemCard({ item, classroomId, onEdit, onRefresh }: { item: Teacher
             <button type="button" disabled={isLoading || item.is_archived || item.current_stock < 1} onClick={() => void adjust(-1)} className="btn-secondary px-2.5 py-1.5 text-[10px]">-1</button>
             <button type="button" disabled={isLoading || item.is_archived} onClick={() => void adjust(1)} className="btn-secondary px-2.5 py-1.5 text-[10px]">+1</button>
             <button type="button" disabled={isLoading || item.is_archived} onClick={() => void adjust(5)} className="btn-secondary px-2.5 py-1.5 text-[10px]">+5</button>
+            <button type="button" disabled={isLoading} onClick={onGrant} className="rounded-pill border border-gold/40 bg-gold/10 px-3 py-1.5 text-[10px] font-black text-gold disabled:opacity-40">🎁 학생 지급</button>
             <button type="button" onClick={onEdit} className="btn-primary ml-auto px-3 py-1.5 text-[10px]">수정</button>
             {!item.is_archived && <button type="button" disabled={isLoading} onClick={() => void archive()} className="rounded-pill border border-danger/35 bg-danger-bg px-3 py-1.5 text-[10px] font-black text-danger">삭제(보관)</button>}
           </div>
         </div>
       </div>
     </article>
+  );
+}
+
+function InventoryGrantModal({ classroomId, item, students, studentsLoading, studentsError, onClose, onSaved }: {
+  classroomId: number;
+  item: TeacherMarketItem;
+  students: GrantStudent[];
+  studentsLoading: boolean;
+  studentsError: string | null;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const queryClient = useQueryClient();
+  const { call, isLoading } = useRpcCall();
+  const [studentId, setStudentId] = useState('');
+  const [quantity, setQuantity] = useState('1');
+  const [note, setNote] = useState('교사 운영패널 지급');
+  const parsedQuantity = Number(quantity);
+  const selected = students.find((student) => student.id === Number(studentId)) ?? null;
+  const valid = !!selected && Number.isInteger(parsedQuantity) && parsedQuantity >= 1 && parsedQuantity <= 1000 && note.trim().length <= 500;
+
+  const grant = async () => {
+    if (!valid || !selected) return;
+    const result = await call(
+      () => inventoryMarketRpc.teacherGrantItem(supabase, {
+        p_classroom_id: classroomId,
+        p_student_id: selected.id,
+        p_item_id: item.id,
+        p_quantity: parsedQuantity,
+        p_note: note.trim() || null,
+      }),
+      {
+        successTitle: `${item.name} 지급 완료`,
+        successDescription: `${selected.brandName || selected.name} · ${parsedQuantity}개`,
+      },
+    );
+    if (result === null) return;
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['inventory-market-teacher-board'] }),
+      queryClient.invalidateQueries({ queryKey: ['inventory-my-bag'] }),
+      queryClient.invalidateQueries({ queryKey: ['economy-history'] }),
+    ]);
+    await onSaved();
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} title="학생 인벤토리 지급" emoji="🎁">
+      <div className="space-y-4">
+        <div className="rounded-card-md border border-line bg-bg-deep p-3">
+          <div className="text-[10px] font-black text-text-muted">지급 상품</div>
+          <div className="mt-1 font-display text-base text-white">{TYPE_META[item.item_type].emoji} {item.name}</div>
+          <div className="mt-1 text-xs text-text-secondary">교사 지급분은 구매가 환불 대상이 아닌 별도 지급 Lot으로 기록됩니다.</div>
+        </div>
+
+        {studentsError ? (
+          <div className="rounded-card-md border border-danger/35 bg-danger-bg p-3 text-xs font-bold text-danger">{studentsError}</div>
+        ) : (
+          <Field label="학생 *">
+            <select className="login-input" value={studentId} onChange={(e) => setStudentId(e.target.value)} disabled={studentsLoading || students.length === 0}>
+              <option value="">{studentsLoading ? '학생 목록 불러오는 중…' : '학생을 선택하세요'}</option>
+              {students.map((student) => <option key={student.id} value={student.id}>{student.name}{student.brandName ? ` · ${student.brandName}` : ''}</option>)}
+            </select>
+          </Field>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="지급 수량 (1~1000)"><input type="number" min={1} max={1000} className="login-input" value={quantity} onChange={(e) => setQuantity(e.target.value)} /></Field>
+          <Field label="지급 메모"><input maxLength={500} className="login-input" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+        </div>
+
+        <div className="rounded-card-sm border border-warning/25 bg-warning-bg p-2.5 text-[11px] font-bold text-text-secondary">시장 재고와 학생 GOLD는 변하지 않고, 선택한 학생의 인벤토리 보유수량만 증가합니다.</div>
+        <button type="button" disabled={isLoading || !valid} onClick={() => void grant()} className="btn-primary w-full disabled:opacity-40">{isLoading ? '지급 중…' : '지급 확정'}</button>
+      </div>
+    </Modal>
   );
 }
 

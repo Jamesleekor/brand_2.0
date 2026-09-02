@@ -397,6 +397,7 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
   const { call, isLoading: rpcLoading } = useRpcCall();
   const actionBusy = busy || rpcLoading;
   const liveItems = useMemo(()=>items.filter((s)=>!s.deleted_at),[items]);
+  const activeAdCandidates = useMemo(()=>liveItems.filter((s)=>s.is_active),[liveItems]);
   const openAd = useMemo<MyServiceAd | null>(
     () => adBoard?.my_ads.find((ad)=>ad.status==='PENDING'||ad.status==='ACTIVE') ?? null,
     [adBoard],
@@ -411,6 +412,7 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
   const [allowConcurrent,setAllowConcurrent] = useState(false);
   const [deleteTarget,setDeleteTarget] = useState<MyServiceItem|null>(null);
   const [adTarget,setAdTarget] = useState<MyServiceItem|null>(null);
+  const [adPickerOpen,setAdPickerOpen] = useState(false);
   const [adDuration,setAdDuration] = useState<1|2|3>(1);
 
   const openNew=()=>{setForm('NEW');setJobId(jobs[0]?.id??0);setTitle('');setDesc('');setPrice(100);setDelivery('');setAllowConcurrent(false);};
@@ -467,6 +469,16 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
     );
   };
 
+  const openAdRequest=()=>{
+    if(!adBoard?.can_submit||openAd||activeAdCandidates.length===0)return;
+    if(activeAdCandidates.length===1){
+      setAdTarget(activeAdCandidates[0]);
+      setAdDuration(1);
+      return;
+    }
+    setAdPickerOpen(true);
+  };
+
   const feeOptions=adBoard?.fee_options ?? [];
   const selectedFee=feeOptions.find((x)=>x.duration_days===adDuration)?.fee_gold ?? null;
 
@@ -481,18 +493,30 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
             1일 100G · 2일 190G · 3일 250G. 신청할 때는 무료이며 선생님이 승인하는 순간에만 GOLD가 차감됩니다.
           </div>
         </div>
-        {openAd && (
-          <span className={cn(
-            'rounded-pill px-2.5 py-1 text-2xs font-black',
-            openAd.status==='ACTIVE' ? 'bg-success-bg text-success' : 'bg-warning-bg text-warning',
-          )}>
-            {openAd.status==='ACTIVE'?'광고 진행 중':'승인 대기'}
-          </span>
-        )}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {openAd && (
+            <span className={cn(
+              'rounded-pill px-2.5 py-1 text-2xs font-black',
+              openAd.status==='ACTIVE' ? 'bg-success-bg text-success' : 'bg-warning-bg text-warning',
+            )}>
+              {openAd.status==='ACTIVE'?'광고 진행 중':'승인 대기'}
+            </span>
+          )}
+          <button
+            type="button"
+            className="btn-primary whitespace-nowrap"
+            disabled={actionBusy||adLoading||!!openAd||!adBoard?.can_submit||activeAdCandidates.length===0}
+            onClick={openAdRequest}
+          >
+            📣 광고 신청
+          </button>
+        </div>
       </div>
 
       {adLoading && <div className="mt-2 text-2xs text-text-muted">광고 상태 확인 중…</div>}
       {adError && <div className="mt-2 text-2xs font-bold text-danger">광고 상태를 불러오지 못했습니다: {adError}</div>}
+      {!adLoading && !adError && activeAdCandidates.length===0 && <div className="mt-2 text-2xs text-text-muted">광고를 신청하려면 먼저 아래에서 판매 중인 서비스를 1개 이상 등록하세요.</div>}
+      {!adLoading && !adError && !openAd && activeAdCandidates.length>0 && adBoard && !adBoard.can_submit && <div className="mt-2 text-2xs text-text-muted">현재 다른 광고의 심사/진행이 끝난 뒤 새 광고를 신청할 수 있습니다.</div>}
 
       {openAd && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-card-sm bg-bg-deep p-2.5">
@@ -578,6 +602,24 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
 
     <Modal isOpen={!!deleteTarget} onClose={()=>setDeleteTarget(null)} title="서비스 삭제" emoji="🗑️">
       {deleteTarget && <div className="space-y-3"><p className="text-sm text-text-secondary"><b className="text-white">{deleteTarget.title}</b> 서비스를 삭제합니다. 새 구매는 막히지만 기존 주문과 거래 이력은 삭제되지 않습니다.</p><button className="btn-primary w-full" disabled={actionBusy} onClick={remove}>삭제 확정</button></div>}
+    </Modal>
+
+    <Modal isOpen={adPickerOpen} onClose={()=>setAdPickerOpen(false)} title="광고할 서비스 선택" emoji="📣">
+      <div className="space-y-2">
+        <p className="text-xs text-text-secondary">광고 심사를 신청할 서비스를 선택하세요.</p>
+        {activeAdCandidates.map((service)=>(
+          <button
+            type="button"
+            key={service.id}
+            onClick={()=>{setAdPickerOpen(false);setAdTarget(service);setAdDuration(1);}}
+            className="w-full rounded-card-md border border-line bg-bg-deep p-3 text-left hover:border-gold/50"
+          >
+            <div className="text-2xs font-black text-brand-glow">{service.job_name}</div>
+            <div className="mt-0.5 font-display text-sm text-white">{service.title}</div>
+            <div className="mt-1 text-xs font-black text-gold">🪙 {formatNumber(service.price_gold)}</div>
+          </button>
+        ))}
+      </div>
     </Modal>
 
     <Modal isOpen={!!adTarget} onClose={()=>setAdTarget(null)} title="서비스 광고 신청" emoji="📣">

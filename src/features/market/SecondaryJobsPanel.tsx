@@ -230,6 +230,14 @@ export default function SecondaryJobsPanel() {
             </span>
             <button
               type="button"
+              onClick={openCustom}
+              disabled={!canApply}
+              className="px-3 py-2 rounded-pill bg-brand-primary text-white border border-brand-primary/60 text-xs font-black disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ＋ 2차직업 신청
+            </button>
+            <button
+              type="button"
               onClick={() => navigate('/market/services?view=services')}
               disabled={myJobs.length === 0}
               className="px-3 py-2 rounded-pill bg-brand-primary/20 text-brand-glow border border-line-brand text-xs font-black disabled:opacity-40 disabled:cursor-not-allowed"

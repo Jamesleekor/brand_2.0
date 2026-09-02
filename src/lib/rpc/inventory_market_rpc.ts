@@ -139,6 +139,20 @@ export interface TeacherMarketBoard {
   items: TeacherMarketItem[];
 }
 
+export interface TeacherInventoryGrantResult {
+  success: true;
+  lot_id: number;
+  owned_quantity: number;
+}
+
+export interface TeacherInventoryGrantInput {
+  p_classroom_id: number;
+  p_student_id: number;
+  p_item_id: number;
+  p_quantity: number;
+  p_note?: string | null;
+}
+
 export type EconomyHistoryKind = 'ALL' | 'ASSET' | 'PURCHASE' | 'SALE' | 'USE' | 'INVENTORY';
 export type ItemHistoryFilter = 'ALL' | 'PURCHASE' | 'SALE' | 'USE';
 
@@ -243,6 +257,28 @@ export const inventoryMarketRpc = {
 
   teacherBoard: (supabase: SupabaseClient, classroomId: number) =>
     callRpc<TeacherMarketBoard>(supabase, 'teacher_get_market_admin_board', { p_classroom_id: classroomId }),
+
+  teacherGrantItem: (supabase: SupabaseClient, input: TeacherInventoryGrantInput) => {
+    if (!Number.isInteger(input.p_classroom_id) || input.p_classroom_id <= 0) {
+      return Promise.resolve(validationError<TeacherInventoryGrantResult>('학급 정보를 확인해주세요.'));
+    }
+    if (!Number.isInteger(input.p_student_id) || input.p_student_id <= 0) {
+      return Promise.resolve(validationError<TeacherInventoryGrantResult>('학생을 선택해주세요.'));
+    }
+    if (!Number.isInteger(input.p_item_id) || input.p_item_id <= 0) {
+      return Promise.resolve(validationError<TeacherInventoryGrantResult>('상품 정보를 확인해주세요.'));
+    }
+    if (!Number.isInteger(input.p_quantity) || input.p_quantity < 1 || input.p_quantity > 1000) {
+      return Promise.resolve(validationError<TeacherInventoryGrantResult>('지급 수량은 1~1000개여야 합니다.'));
+    }
+    if ((input.p_note ?? '').trim().length > 500) {
+      return Promise.resolve(validationError<TeacherInventoryGrantResult>('지급 메모는 500자 이하로 입력해주세요.'));
+    }
+    return callRpc<TeacherInventoryGrantResult>(supabase, 'teacher_grant_inventory_item', {
+      ...input,
+      p_note: input.p_note?.trim() || null,
+    });
+  },
 
   teacherEconomyHistory: (supabase: SupabaseClient, input: {
     p_classroom_id: number;
