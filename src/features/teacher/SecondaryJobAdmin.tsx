@@ -126,7 +126,7 @@ export default function SecondaryJobAdmin() {
   };
 
   return <TeacherShell><div className="space-y-6">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="font-display text-2xl text-brand-gradient">💼 2차직업 운영</h1><p className="text-sm text-text-secondary mt-1">추천 카탈로그와 현재 활동 중인 2차직업을 관리합니다. 학생 신청 승인은 검토 큐에서 처리합니다.</p></div><div className="flex flex-wrap gap-2"><a href="/teacher/secondary-jobs/public-requests" className="btn-primary">📋 공공 의뢰 관리</a><a href="/teacher/secondary-jobs/services" className="btn-primary">🛍️ P2P 서비스 거래</a><a href="/teacher/secondary-jobs/reviews" className="btn-primary">⭐ 평점·후기 관리</a></div></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="font-display text-2xl text-brand-gradient">💼 2차직업 운영</h1><p className="text-sm text-text-secondary mt-1">추천 카탈로그와 현재 활동 중인 2차직업을 관리합니다. 학생 신청 승인은 검토 큐에서 처리합니다.</p></div><div className="flex flex-wrap gap-2"><a href="#/teacher/secondary-jobs/public-requests" className="btn-primary">📋 공공 의뢰 관리</a><a href="#/teacher/secondary-jobs/services" className="btn-primary">🛍️ P2P 서비스 거래</a><a href="#/teacher/secondary-jobs/reviews" className="btn-primary">⭐ 평점·후기 관리</a></div></div>
 
     <section className="bg-bg-card border border-line rounded-card-lg p-4 space-y-3">
       <div className="flex items-center justify-between"><h2 className="font-display text-lg text-white">{form.id ? '템플릿 수정' : '카탈로그 템플릿 추가'}</h2>{form.id && <button className="text-xs text-text-secondary underline" onClick={()=>setForm(EMPTY_FORM)}>새 항목으로</button>}</div>
