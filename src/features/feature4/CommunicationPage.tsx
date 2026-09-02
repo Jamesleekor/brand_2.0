@@ -25,8 +25,12 @@ export default function CommunicationPage() {
 
   useEffect(() => {
     if (!studentId || !classroomId) return;
+    const invalidateMail = () => {
+      void qc.invalidateQueries({ queryKey: ['f4a-mail'] });
+      void qc.invalidateQueries({ queryKey: ['dashboard', studentId, classroomId] });
+    };
     const ch = supabase.channel(`f4a:communication:${studentId}`)
-      .on('postgres_changes',{event:'*',schema:'public',table:'mail_messages',filter:`recipient_id=eq.${studentId}`},()=>qc.invalidateQueries({queryKey:['f4a-mail']}))
+      .on('postgres_changes',{event:'*',schema:'public',table:'mail_messages',filter:`recipient_id=eq.${studentId}`},invalidateMail)
       .on('postgres_changes',{event:'*',schema:'public',table:'global_alerts',filter:`classroom_id=eq.${classroomId}`},()=>qc.invalidateQueries({queryKey:['f4a-alerts']}))
       .on('postgres_changes',{event:'*',schema:'public',table:'global_alert_reads',filter:`student_id=eq.${studentId}`},()=>qc.invalidateQueries({queryKey:['f4a-alerts']}))
       .on('postgres_changes',{event:'*',schema:'public',table:'activity_feed_items',filter:`classroom_id=eq.${classroomId}`},()=>qc.invalidateQueries({queryKey:['f4a-activity']}))
@@ -41,20 +45,35 @@ export default function CommunicationPage() {
         {([['mail','✉️','우편'],['alerts','🔔','알림'],['activity','🌟','활동']] as const).map(([v,e,l]) =>
           <button key={v} onClick={()=>setParams({tab:v},{replace:true})} className={cn('py-2.5 rounded-pill text-xs font-extrabold border',tab===v?'bg-gradient-to-r from-brand-primary to-gold text-white border-transparent':'bg-bg-card border-line text-text-secondary')}>{e} {l}</button>)}
       </div>
-      {tab==='mail' && <MailTab studentId={studentId} />}
+      {tab==='mail' && <MailTab studentId={studentId} classroomId={classroomId} />}
       {tab==='alerts' && <AlertsTab studentId={studentId} classroomId={classroomId} />}
       {tab==='activity' && <ActivityTab classroomId={classroomId} />}
     </div>
   </>;
 }
 
-function MailTab({studentId}:{studentId:number|null}) {
+function MailTab({studentId,classroomId}:{studentId:number|null;classroomId:number|null}) {
   const qc=useQueryClient(); const {call}=useRpcCall(); const [openId,setOpenId]=useState<number|null>(null);
   const q=useQuery({queryKey:['f4a-mail',studentId],enabled:!!studentId,queryFn:async()=>{
     const {data,error}=await supabase.from('mail_messages').select('id,title,body,sender_type,message_type,is_read,created_at').eq('recipient_id',studentId!).order('created_at',{ascending:false}).limit(100); if(error) throw feature4QueryError('F4A','mail-list',error); return data??[];
   }});
   const selected=useMemo(()=>q.data?.find((m:any)=>m.id===openId),[q.data,openId]);
-  useEffect(()=>{ if(selected && !selected.is_read) void call(()=>feature4Rpc.markMailRead(supabase,{p_message_id:selected.id}),{silent:true,onSuccess:()=>qc.invalidateQueries({queryKey:['f4a-mail']})}); },[selected?.id]);
+  useEffect(()=>{
+    if(selected && !selected.is_read) void call(
+      ()=>feature4Rpc.markMailRead(supabase,{p_message_id:selected.id}),
+      {
+        silent:true,
+        onSuccess:()=>{
+          // 소식함과 홈 뱃지를 같은 순간에 갱신한다.
+          // Dashboard는 /mail 화면에서 unmount 되어 있으므로 Realtime만으로는 캐시가 갱신되지 않는다.
+          qc.setQueryData<any[]>(['f4a-mail',studentId],(old)=>old?.map((mail:any)=>mail.id===selected.id?{...mail,is_read:true}:mail)??old);
+          qc.setQueryData<any>(['dashboard',studentId,classroomId],(old)=>old?{...old,mailUnreadCount:Math.max(0,Number(old.mailUnreadCount??0)-1)}:old);
+          void qc.invalidateQueries({queryKey:['f4a-mail']});
+          void qc.invalidateQueries({queryKey:['dashboard',studentId,classroomId]});
+        }
+      }
+    );
+  },[selected?.id]);
   if(q.isLoading) return <CenterLoad/>;
   if(q.isError) return <Feature4ErrorPanel domain="F4A" error={q.error} onRetry={()=>void q.refetch()} />;
   if(selected) return <div className="glass-card p-4"><button onClick={()=>setOpenId(null)} className="text-xs text-brand-primary font-bold mb-4">← 목록</button><div className="text-2xs text-text-muted mb-1">{selected.sender_type} · {formatRelativeTime(selected.created_at)}</div><h2 className="font-display text-lg text-brand-gradient mb-3">{selected.title}</h2><p className="text-sm leading-relaxed whitespace-pre-wrap">{selected.body}</p></div>;

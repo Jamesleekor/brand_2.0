@@ -24,11 +24,15 @@ interface OwnedBackground {
   isEquipped: boolean;
 }
 
+type HomeCustomizationSection = 'showcase' | 'background' | 'font';
+
 interface HomeCustomizationPanelProps {
   isOpen: boolean;
   onClose: () => void;
   studentId: number;
   personalization: HomePersonalization | null | undefined;
+  initialSection?: HomeCustomizationSection;
+  initialSlot?: 1 | 2 | 3;
 }
 
 const SLOT_LABELS: Record<1 | 2 | 3, { title: string; short: string }> = {
@@ -42,15 +46,23 @@ export function HomeCustomizationPanel({
   onClose,
   studentId,
   personalization,
+  initialSection = 'showcase',
+  initialSlot = 1,
 }: HomeCustomizationPanelProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { call, isLoading: isMutating } = useRpcCall();
-  const [section, setSection] = useState<'background' | 'showcase'>('background');
+  const [section, setSection] = useState<HomeCustomizationSection>('showcase');
   const [activeSlot, setActiveSlot] = useState<1 | 2 | 3>(1);
 
   const backgroundsQuery = useOwnedBackgrounds(studentId, isOpen);
   const charactersQuery = useOwnedCharacters(isOpen);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSection(initialSection);
+    setActiveSlot(initialSlot);
+  }, [isOpen, initialSection, initialSlot]);
 
   useEffect(() => {
     if (!isOpen || typeof document === 'undefined') return;
@@ -154,23 +166,39 @@ export function HomeCustomizationPanel({
               </button>
             </header>
 
-            <div className="grid grid-cols-2 gap-2 border-b border-line px-4 py-3 md:px-5">
-              <SectionButton
-                active={section === 'background'}
-                onClick={() => setSection('background')}
-                emoji="🌄"
-                label="Background / CG"
-              />
+            <div className="grid grid-cols-3 gap-2 border-b border-line px-4 py-3 md:px-5">
               <SectionButton
                 active={section === 'showcase'}
                 onClick={() => setSection('showcase')}
                 emoji="✨"
                 label="편린 전시"
               />
+              <SectionButton
+                active={section === 'background'}
+                onClick={() => setSection('background')}
+                emoji="🌄"
+                label="배경 / CG"
+              />
+              <SectionButton
+                active={section === 'font'}
+                onClick={() => setSection('font')}
+                emoji="🔤"
+                label="폰트"
+              />
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 py-4 md:px-5">
-              {section === 'background' ? (
+              {section === 'showcase' ? (
+                <ShowcaseSection
+                  query={charactersQuery}
+                  slotMap={slotMap}
+                  usedSlotByCharacter={usedSlotByCharacter}
+                  activeSlot={activeSlot}
+                  onActiveSlotChange={setActiveSlot}
+                  disabled={isMutating}
+                  onSelect={(characterId) => { void setCharacter(characterId); }}
+                />
+              ) : section === 'background' ? (
                 <BackgroundSection
                   query={backgroundsQuery}
                   currentOwnershipId={personalization?.background?.ownership_id ?? null}
@@ -182,15 +210,7 @@ export function HomeCustomizationPanel({
                   }}
                 />
               ) : (
-                <ShowcaseSection
-                  query={charactersQuery}
-                  slotMap={slotMap}
-                  usedSlotByCharacter={usedSlotByCharacter}
-                  activeSlot={activeSlot}
-                  onActiveSlotChange={setActiveSlot}
-                  disabled={isMutating}
-                  onSelect={(characterId) => { void setCharacter(characterId); }}
-                />
+                <FontSection />
               )}
             </div>
           </motion.section>
@@ -423,6 +443,21 @@ function ShowcaseSection({
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function FontSection() {
+  return (
+    <div className="rounded-card-lg border border-dashed border-line bg-bg-card/70 px-5 py-10 text-center">
+      <div className="text-4xl">🔤</div>
+      <div className="mt-3 text-sm font-black text-white">폰트 꾸미기</div>
+      <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-text-secondary">
+        폰트 탭을 먼저 준비해두었습니다. 보유 폰트 선택과 적용 기능은 다음 단계에서 연결됩니다.
+      </p>
+      <span className="mt-4 inline-flex rounded-pill border border-line bg-bg-deep px-3 py-1 text-2xs font-black text-text-muted">
+        COMING SOON
+      </span>
     </div>
   );
 }

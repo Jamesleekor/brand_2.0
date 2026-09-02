@@ -74,7 +74,13 @@ export default function DashboardPage() {
   // 모달 상태
   const [attendanceOpen, setAttendanceOpen] = useState(false);
   const [homeCustomizeOpen, setHomeCustomizeOpen] = useState(false);
+  const [homeCustomizeSlot, setHomeCustomizeSlot] = useState<1 | 2 | 3>(1);
   const [brandWorldOpen, setBrandWorldOpen] = useState(false);
+
+  const openHomeCustomize = (slotNo: 1 | 2 | 3 = 1) => {
+    setHomeCustomizeSlot(slotNo);
+    setHomeCustomizeOpen(true);
+  };
 
   // Feature4B 안전망: pg_cron이 지연/비활성 상태여도 학급 화면 진입 시
   // 이미 종료 시각이 지난 비상사태만 멱등적으로 정리한다.
@@ -188,7 +194,7 @@ export default function DashboardPage() {
         onAttendanceClick={() => setAttendanceOpen(true)}
         onMailClick={() => navigate('/mail?tab=mail')}
         onAlertsClick={() => navigate('/mail?tab=alerts')}
-        onHomeCustomizeClick={() => setHomeCustomizeOpen(true)}
+        onHomeCustomizeClick={() => openHomeCustomize(1)}
         attendanceUnclaimed={dashboardData?.attendanceUnclaimed ?? false}
         mailUnreadCount={dashboardData?.mailUnreadCount ?? 0}
         alertsUnreadCount={dashboardData?.alertsUnreadCount ?? 0}
@@ -252,7 +258,7 @@ export default function DashboardPage() {
             isLoading={homeCustomizationQuery.isLoading}
             isError={homeCustomizationQuery.isError}
             onRetry={() => { void homeCustomizationQuery.refetch(); }}
-            onCustomize={() => setHomeCustomizeOpen(true)}
+            onCustomize={openHomeCustomize}
           />
 
           <BrandWorldSummaryButton
@@ -322,6 +328,8 @@ export default function DashboardPage() {
           onClose={() => setHomeCustomizeOpen(false)}
           studentId={studentId}
           personalization={homeCustomizationQuery.data}
+          initialSection="showcase"
+          initialSlot={homeCustomizeSlot}
         />
       )}
     </div>
@@ -375,7 +383,7 @@ function CenterStage({
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
-  onCustomize: () => void;
+  onCustomize: (slotNo: 1 | 2 | 3) => void;
 }) {
   const slotMap = new Map(slots.map((slot) => [slot.slot_no, slot]));
   const hasCharacter = slots.some((slot) => slot.character_id != null);
@@ -422,7 +430,7 @@ function CenterStage({
           {!hasCharacter && (
             <button
               type="button"
-              onClick={onCustomize}
+              onClick={() => onCustomize(1)}
               className="absolute bottom-7 left-1/2 z-[6] -translate-x-1/2 rounded-pill border border-white/10 bg-black/30 px-3 py-1.5 text-[10px] font-black text-white/60 backdrop-blur-sm transition hover:border-brand-primary/40 hover:text-white"
             >
               🎨 홈 꾸미기에서 편린을 배치하세요
@@ -443,12 +451,12 @@ function ShowcaseSlot({
   slot: HomeShowcaseSlot | undefined;
   slotNo: 1 | 2 | 3;
   position: 'primary' | 'left' | 'right';
-  onCustomize: () => void;
+  onCustomize: (slotNo: 1 | 2 | 3) => void;
 }) {
   if (!slot?.character_id) {
     return <EmptyShowcaseSlot slotNo={slotNo} position={position} onCustomize={onCustomize} />;
   }
-  return <ShowcaseCharacter slot={slot} position={position} />;
+  return <ShowcaseCharacter slot={slot} slotNo={slotNo} position={position} onCustomize={onCustomize} />;
 }
 
 function EmptyShowcaseSlot({
@@ -458,7 +466,7 @@ function EmptyShowcaseSlot({
 }: {
   slotNo: 1 | 2 | 3;
   position: 'primary' | 'left' | 'right';
-  onCustomize: () => void;
+  onCustomize: (slotNo: 1 | 2 | 3) => void;
 }) {
   const positionClass = {
     primary: 'left-1/2 bottom-[19%] z-[3] -translate-x-1/2',
@@ -470,7 +478,7 @@ function EmptyShowcaseSlot({
   return (
     <button
       type="button"
-      onClick={onCustomize}
+      onClick={() => onCustomize(slotNo)}
       className={`absolute flex flex-col items-center gap-2 ${positionClass}`}
       aria-label={`편린 슬롯 ${slotNo} 배치하기`}
     >
@@ -486,10 +494,14 @@ function EmptyShowcaseSlot({
 
 function ShowcaseCharacter({
   slot,
+  slotNo,
   position,
+  onCustomize,
 }: {
   slot: HomeShowcaseSlot;
+  slotNo: 1 | 2 | 3;
   position: 'primary' | 'left' | 'right';
+  onCustomize: (slotNo: 1 | 2 | 3) => void;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const imageUrl = slot.full_image_url
@@ -509,21 +521,27 @@ function ShowcaseCharacter({
   }[position];
 
   return (
-    <div className={`pointer-events-none absolute flex items-end justify-center ${positionClass}`}>
+    <button
+      type="button"
+      onClick={() => onCustomize(slotNo)}
+      className={`absolute flex items-end justify-center ${positionClass} cursor-pointer rounded-[20px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/70`}
+      aria-label={`편린 슬롯 ${slotNo} 변경하기 · ${slot.name ?? '편린'}`}
+      title="클릭해서 전시 편린 변경"
+    >
       {!imageFailed && imageUrl && slot.resource_kind !== 'EMOJI' ? (
         <img
           src={resolveAssetUrl(imageUrl, 'character')}
           alt={slot.name ?? '편린'}
-          className="h-full w-full object-contain object-bottom drop-shadow-[0_14px_18px_rgba(0,0,0,0.45)]"
+          className="pointer-events-none h-full w-full object-contain object-bottom drop-shadow-[0_14px_18px_rgba(0,0,0,0.45)] transition-[filter,transform] duration-200 hover:brightness-110"
           loading={position === 'primary' ? 'eager' : 'lazy'}
           onError={() => setImageFailed(true)}
         />
       ) : (
-        <div className="mb-[18%] flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-black/25 text-6xl backdrop-blur-sm">
+        <div className="pointer-events-none mb-[18%] flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-black/25 text-6xl backdrop-blur-sm">
           {slot.emoji ?? '✨'}
         </div>
       )}
-    </div>
+    </button>
   );
 }
 
