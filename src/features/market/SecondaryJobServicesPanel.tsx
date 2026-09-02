@@ -19,6 +19,7 @@ import {
   type SellerReputation,
 } from '@/lib/rpc/secondary_job_service_review_rpc';
 import { MySellerReputationCard, OrderReviewAction, SellerReputationBadge } from '@/features/market/SecondaryJobReviewWidgets';
+import { useClassroomId } from '@/stores/auth_store';
 import {
   secondaryJobServiceAdStudentRpc,
   type MyServiceAd,
@@ -56,6 +57,7 @@ function dt(v: string | null | undefined) {
 
 export default function SecondaryJobServicesPanel() {
   const queryClient = useQueryClient();
+  const classroomId = useClassroomId();
   const { call, isLoading } = useRpcCall();
   const [searchParams] = useSearchParams();
   const requestedView = searchParams.get('view');
@@ -75,6 +77,20 @@ export default function SecondaryJobServicesPanel() {
       if ('error' in result) throw new Error(result.error);
       return result.data;
     },
+  });
+
+  const studentNames = useQuery({
+    queryKey: ['secondary-job-service-student-names', classroomId],
+    enabled: !!classroomId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('students')
+        .select('id,name')
+        .eq('classroom_id', classroomId!);
+      if (error) throw new Error(error.message);
+      return new Map<number, string>((data ?? []).map((row) => [Number(row.id), row.name]));
+    },
+    staleTime: 60_000,
   });
 
   const reputationBoard = useQuery({
@@ -178,8 +194,8 @@ export default function SecondaryJobServicesPanel() {
       ))}
     </div>
 
-    {tab==='market' && <MarketList items={data.services} reputations={reputationBySeller} busy={isLoading} onDone={refresh} highlightServiceId={requestedServiceId} />}
-    {tab==='orders' && <BuyerOrders items={data.my_orders} myReviews={myReviewByOrder} busy={isLoading} onDone={refresh} />}
+    {tab==='market' && <MarketList items={data.services} reputations={reputationBySeller} studentNames={studentNames.data ?? new Map()} busy={isLoading} onDone={refresh} highlightServiceId={requestedServiceId} />}
+    {tab==='orders' && <BuyerOrders items={data.my_orders} myReviews={myReviewByOrder} studentNames={studentNames.data ?? new Map()} busy={isLoading} onDone={refresh} />}
     {tab==='sales' && <SellerOrders items={data.my_sales} busy={isLoading} onDone={refresh} />}
     {tab==='services' && <MyServices items={data.my_services} jobs={data.active_jobs} reputation={reputationData.my_seller_reputation} adBoard={adBoard.data ?? null} adLoading={adBoard.isLoading} adError={adBoard.isError ? (adBoard.error instanceof Error ? adBoard.error.message : '광고 정보를 불러오지 못했습니다.') : null} busy={isLoading} onDone={refresh} />}
 
@@ -191,7 +207,7 @@ export default function SecondaryJobServicesPanel() {
   </div>;
 }
 
-function MarketList({ items, reputations, busy, onDone, highlightServiceId }: { items: ServiceMarketItem[]; reputations: Map<number,SellerReputation>; busy: boolean; onDone: ()=>void; highlightServiceId: number | null }) {
+function MarketList({ items, reputations, studentNames, busy, onDone, highlightServiceId }: { items: ServiceMarketItem[]; reputations: Map<number,SellerReputation>; studentNames: Map<number,string>; busy: boolean; onDone: ()=>void; highlightServiceId: number | null }) {
   const { call, isLoading: rpcLoading } = useRpcCall();
   const actionBusy = busy || rpcLoading;
   const [selected,setSelected] = useState<ServiceMarketItem|null>(null);
@@ -221,7 +237,7 @@ function MarketList({ items, reputations, busy, onDone, highlightServiceId }: { 
 
   return <>
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-      {items.map((s)=><div
+      {items.map((s)=>{const sellerName=studentNames.get(s.seller_student_id)??s.seller_name;return <div
         key={s.id}
         id={`service-market-${s.id}`}
         className={cn(
@@ -235,23 +251,23 @@ function MarketList({ items, reputations, busy, onDone, highlightServiceId }: { 
           <div><div className="text-2xs text-brand-glow font-black">{s.job_name}</div><div className="font-display text-base text-white mt-0.5">{s.title}</div></div>
           <div className="font-display text-sm text-gold whitespace-nowrap">🪙 {formatNumber(s.price_gold)}</div>
         </div>
-        <div className="text-2xs text-text-muted font-bold mt-1">판매자 · {s.seller_name}</div>
+        <div className="mt-2 rounded-card-sm border border-white/5 bg-black/15 px-2 py-1.5 text-sm font-black text-slate-100">👤 판매자 · {sellerName}</div>
         <SellerReputationBadge reputation={reputations.get(s.seller_student_id)} />
-        <p className="text-xs text-text-secondary mt-2 whitespace-pre-wrap flex-1">{s.description}</p>
-        {s.delivery_note && <div className="text-2xs text-text-muted mt-2">⏱ {s.delivery_note}</div>}
+        <p className="mt-2 flex-1 whitespace-pre-wrap text-[13px] font-medium leading-5 text-slate-200">{s.description}</p>
+        {s.delivery_note && <div className="mt-2 rounded-card-sm bg-bg-deep/80 px-2 py-1.5 text-xs font-bold text-cyan-100">⏱ 소요시간 · {s.delivery_note}</div>}
         <div className="mt-2 text-[11px] font-bold text-text-muted">{s.allow_concurrent_orders?'👥 여러 학생 동시 주문 가능':'👤 한 번에 1명만 주문 가능'}</div>
         <button disabled={!s.can_buy || actionBusy} onClick={()=>{setSelected(s);setRequest('');}}
           className="btn-primary w-full mt-3 disabled:opacity-50 disabled:cursor-not-allowed">
           {s.can_buy?'구매하기':'구매 불가'}
         </button>
         {!s.can_buy && s.blocked_reason && <div className="text-[11px] text-warning mt-1.5 text-center">{s.blocked_reason}</div>}
-      </div>)}
+      </div>})}
     </div>
 
     <Modal isOpen={!!selected} onClose={()=>setSelected(null)} title={selected?`${selected.title} 주문`:'서비스 주문'} emoji="🛒">
       {selected && <div className="space-y-3">
         <div className="bg-bg-deep rounded-card-md p-3 text-sm">
-          <div className="flex justify-between"><span>{selected.seller_name} · {selected.job_name}</span><b className="text-gold">{formatNumber(selected.price_gold)} GOLD</b></div>
+          <div className="flex justify-between"><span className="font-bold text-slate-100">{studentNames.get(selected.seller_student_id) ?? selected.seller_name} · {selected.job_name}</span><b className="text-gold">{formatNumber(selected.price_gold)} GOLD</b></div>
           <div className="text-xs text-text-secondary mt-2">구매 시 GOLD가 즉시 빠져나가지만 판매자에게 바로 지급되지는 않습니다. 납품 후 구매 확정하면 판매자에게 정산됩니다.</div>
         </div>
         <label className="block"><span className="text-xs font-bold text-text-secondary">구체적인 요청 내용 (10~500자)</span>
@@ -265,7 +281,7 @@ function MarketList({ items, reputations, busy, onDone, highlightServiceId }: { 
   </>;
 }
 
-function BuyerOrders({ items, myReviews, busy, onDone }: { items: ServicePurchaseOrder[]; myReviews: Map<number,MyServiceReview>; busy:boolean; onDone:()=>void }) {
+function BuyerOrders({ items, myReviews, studentNames, busy, onDone }: { items: ServicePurchaseOrder[]; myReviews: Map<number,MyServiceReview>; studentNames: Map<number,string>; busy:boolean; onDone:()=>void }) {
   const { call, isLoading: rpcLoading } = useRpcCall();
   const actionBusy = busy || rpcLoading;
   const [action,setAction] = useState<{order:ServicePurchaseOrder;type:'CANCEL'|'REVISION'|'DISPUTE'}|null>(null);
@@ -284,7 +300,7 @@ function BuyerOrders({ items, myReviews, busy, onDone }: { items: ServicePurchas
   return <div className="space-y-2.5">
     {items.map((o)=><div key={o.id} className="bg-bg-card border border-line rounded-card-md p-3.5">
       <div className="flex items-start justify-between gap-2">
-        <div><div className="font-display text-base text-white">{o.service_title}</div><div className="text-2xs text-text-muted mt-0.5">판매자 {o.seller_name} · {o.job_name}</div></div>
+        <div><div className="font-display text-base text-white">{o.service_title}</div><div className="mt-1 text-xs font-bold text-slate-200">판매자 {studentNames.get(o.seller_student_id) ?? o.seller_name} · <span className="text-slate-400">{o.job_name}</span></div></div>
         <span className={cn('text-xs font-black',STATUS_CLASS[o.status])}>{STATUS_LABEL[o.status]}</span>
       </div>
       <div className="grid grid-cols-2 gap-2 mt-3 text-xs">

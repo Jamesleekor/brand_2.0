@@ -14,6 +14,7 @@ import { useClassroomId } from '@/stores/auth_store';
 import { resolveAssetUrl } from '@/lib/assets/asset_urls';
 import { formatNumber } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
+import { randomBoxRpc, type TeacherRandomBoxManualReward } from '@/lib/rpc/random_box_rpc';
 
 const TYPE_META: Record<MarketItemType, { label: string; emoji: string }> = {
   SNACK: { label: '간식', emoji: '🍪' },
@@ -65,6 +66,7 @@ export default function MarketInventoryAdmin() {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<TeacherMarketItem | 'NEW' | null>(null);
   const [granting, setGranting] = useState<TeacherMarketItem | null>(null);
+  const [manualReward, setManualReward] = useState<TeacherRandomBoxManualReward | null>(null);
 
   const query = useQuery<TeacherMarketBoard>({
     queryKey: ['inventory-market-teacher-board', classroomId],
@@ -75,6 +77,19 @@ export default function MarketInventoryAdmin() {
       return result.data;
     },
     enabled: classroomId !== null,
+  });
+
+  const randomBoxQueue = useQuery({
+    queryKey: ['teacher-random-box-manual-rewards', classroomId],
+    enabled: classroomId !== null,
+    queryFn: async () => {
+      if (!classroomId) return { classroom_id: 0, pending_count: 0, items: [] };
+      const result = await randomBoxRpc.teacherManualBoard(supabase, classroomId);
+      if (result.success === false) throw new Error(result.error);
+      return result.data;
+    },
+    staleTime: 5_000,
+    refetchInterval: 15_000,
   });
 
   const studentsQuery = useQuery<GrantStudent[]>({
@@ -141,6 +156,16 @@ export default function MarketInventoryAdmin() {
           <StatCard emoji="🎒" label="학생 인벤토리 보유" value={owned} color="crystal" />
           <StatCard emoji="📈" label="재고연동 시세" value={dynamic} color="bv" />
         </div>
+        <div className="rounded-card-lg border border-gold/30 bg-gold/5 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="font-display text-lg text-amber-100">🎁 랜덤상자 수동 지급 대기</h2>
+              <p className="mt-1 text-xs font-bold text-slate-300">편린 교환권·슈퍼패스 당첨만 표시됩니다. 실제 보상을 지급한 뒤 완료 처리하세요.</p>
+            </div>
+            <span className="rounded-pill border border-gold/35 bg-bg-deep px-3 py-1.5 text-xs font-black text-gold">대기 {randomBoxQueue.data?.pending_count ?? 0}건</span>
+          </div>
+          {randomBoxQueue.isError ? <div className="mt-3 text-xs font-bold text-warning">랜덤상자 대기 목록을 불러오지 못했습니다. 백엔드 POSTCHECK/배포 상태를 확인하세요.</div> : randomBoxQueue.isLoading ? <div className="mt-3"><LoadingSpinner size="sm" /></div> : (randomBoxQueue.data?.items ?? []).filter((row) => row.status === 'PENDING_MANUAL').length === 0 ? <div className="mt-3 rounded-card-md bg-bg-deep px-3 py-2 text-xs font-bold text-slate-400">현재 수동 지급 대기 보상이 없습니다.</div> : <div className="mt-3 grid gap-2 lg:grid-cols-2">{(randomBoxQueue.data?.items ?? []).filter((row) => row.status === 'PENDING_MANUAL').map((row) => <div key={row.opening_id} className="flex items-center justify-between gap-3 rounded-card-md border border-line bg-bg-deep p-3"><div className="min-w-0"><div className="font-black text-white">{row.student_name} · <span className="text-gold">{row.reward_label}</span></div><div className="mt-1 text-[10px] font-bold text-slate-400">당첨 {new Date(row.opened_at).toLocaleString('ko-KR')}</div></div><button type="button" onClick={() => setManualReward(row)} className="shrink-0 rounded-pill border border-success/40 bg-success-bg px-3 py-1.5 text-xs font-black text-success">지급 완료</button></div>)}</div>}
+        </div>
 
         <div className="rounded-card-lg border border-line bg-bg-card p-3">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -164,6 +189,7 @@ export default function MarketInventoryAdmin() {
         )}
 
         {editing && <MarketItemEditor classroomId={classroomId} item={editing === 'NEW' ? null : editing} onClose={() => setEditing(null)} onSaved={async () => { setEditing(null); await refresh(); }} />}
+        {manualReward && <RandomBoxManualRewardModal reward={manualReward} onClose={() => setManualReward(null)} onSaved={async () => { setManualReward(null); await queryClient.invalidateQueries({ queryKey: ['teacher-random-box-manual-rewards'] }); }} />}
         {granting && <InventoryGrantModal classroomId={classroomId} item={granting} students={studentsQuery.data ?? []} studentsLoading={studentsQuery.isLoading} studentsError={studentsQuery.isError ? (studentsQuery.error instanceof Error ? studentsQuery.error.message : '학생 목록을 불러오지 못했습니다.') : null} onClose={() => setGranting(null)} onSaved={async () => { setGranting(null); await refresh(); }} />}
       </div>
     </TeacherShell>
@@ -302,6 +328,31 @@ function InventoryGrantModal({ classroomId, item, students, studentsLoading, stu
       </div>
     </Modal>
   );
+}
+
+function RandomBoxManualRewardModal({ reward, onClose, onSaved }: { reward: TeacherRandomBoxManualReward; onClose: () => void; onSaved: () => Promise<void> }) {
+  const { call, isLoading } = useRpcCall();
+  const [note, setNote] = useState('');
+
+  const complete = async () => {
+    const result = await call(
+      () => randomBoxRpc.teacherMarkDelivered(supabase, reward.opening_id, note),
+      { successTitle: '랜덤상자 수동 보상을 지급 완료 처리했습니다' },
+    );
+    if (result) await onSaved();
+  };
+
+  return <Modal isOpen onClose={onClose} title="랜덤상자 수동 보상 지급" emoji="🎁">
+    <div className="space-y-4">
+      <div className="rounded-card-md border border-gold/30 bg-gold/5 p-3">
+        <div className="font-black text-white">{reward.student_name}</div>
+        <div className="mt-1 font-display text-lg text-gold">{reward.reward_label}</div>
+        <div className="mt-2 text-xs font-bold leading-relaxed text-slate-300">이 버튼은 보상 자체를 자동 지급하지 않습니다. 학생에게 선택한 편린 또는 슈퍼패스를 실제로 지급한 뒤 완료 처리하세요.</div>
+      </div>
+      <Field label="지급 메모 (권장)"><input maxLength={500} className="login-input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: CHAR-052 지급 / 급식 슈퍼패스 지급" /></Field>
+      <button type="button" disabled={isLoading} onClick={() => void complete()} className="btn-primary w-full disabled:opacity-40">{isLoading ? '처리 중…' : '실제 지급 완료로 표시'}</button>
+    </div>
+  </Modal>;
 }
 
 function MiniStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {

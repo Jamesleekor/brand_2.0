@@ -15,6 +15,7 @@ import { resolveAssetUrl } from '@/lib/assets/asset_urls';
 import { formatNumber } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { savingsRpc } from '@/lib/rpc/savings_rpc';
+import { randomBoxRpc, type RandomBoxBoard, type RandomBoxOpenResult } from '@/lib/rpc/random_box_rpc';
 
 const TYPE_META: Record<MarketItemType, { label: string; emoji: string }> = {
   SNACK: { label: '간식', emoji: '🍪' },
@@ -60,6 +61,7 @@ export function StudentMarketStorePanel() {
       queryClient.invalidateQueries({ queryKey: ['wallet'] }),
       queryClient.invalidateQueries({ queryKey: ['transactions'] }),
       queryClient.invalidateQueries({ queryKey: ['inventory-item-history'] }),
+      queryClient.invalidateQueries({ queryKey: ['random-box-board'] }),
     ]);
   };
 
@@ -253,7 +255,7 @@ export function StudentInventoryPanel() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<ItemFilter>('ALL');
   const [search, setSearch] = useState('');
-  const [action, setAction] = useState<{ kind: 'USE' | 'SELL'; item: StudentInventoryItem } | null>(null);
+  const [action, setAction] = useState<{ kind: 'USE' | 'SELL' | 'OPEN_BOX'; item: StudentInventoryItem } | null>(null);
 
   const query = useQuery({
     queryKey: ['inventory-my-bag'],
@@ -263,6 +265,17 @@ export function StudentInventoryPanel() {
       return result.data;
     },
     refetchInterval: 15_000,
+  });
+
+  const randomBoxBoard = useQuery<RandomBoxBoard>({
+    queryKey: ['random-box-board'],
+    queryFn: async () => {
+      const result = await randomBoxRpc.studentBoard(supabase);
+      if (result.success === false) throw new Error(result.error);
+      return result.data;
+    },
+    staleTime: 10_000,
+    refetchInterval: 30_000,
   });
 
   const economyTerms = useQuery({
@@ -293,6 +306,7 @@ export function StudentInventoryPanel() {
       queryClient.invalidateQueries({ queryKey: ['wallet'] }),
       queryClient.invalidateQueries({ queryKey: ['transactions'] }),
       queryClient.invalidateQueries({ queryKey: ['inventory-item-history'] }),
+      queryClient.invalidateQueries({ queryKey: ['random-box-board'] }),
     ]);
   };
 
@@ -301,6 +315,7 @@ export function StudentInventoryPanel() {
 
   const totalOwned = query.data.items.reduce((sum, item) => sum + item.owned_quantity, 0);
   const reserved = query.data.items.reduce((sum, item) => sum + item.reserved_quantity, 0);
+  const randomBoxItemId = randomBoxBoard.data?.box?.item_id ?? null;
 
   return (
     <section className="space-y-4 pb-6">
@@ -333,11 +348,18 @@ export function StudentInventoryPanel() {
         <div className="rounded-card-lg border border-line bg-bg-card"><EmptyState emoji="🎒" title="가방이 비어 있어요" description="시장에서 아이템을 구매하면 이곳에 보관됩니다." /></div>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {items.map((item) => <InventoryCard key={item.item_id} item={item} feeRate={economyTerms.data?.market_sell.effective_fee_rate ?? 0.10} buffReductionPp={economyTerms.data?.market_sell.buff_reduction_pp ?? 0} onAction={(kind) => setAction({ kind, item })} />)}
+          {items.map((item) => <InventoryCard key={item.item_id} item={item} isRandomBox={item.item_id === randomBoxItemId} feeRate={economyTerms.data?.market_sell.effective_fee_rate ?? 0.10} buffReductionPp={economyTerms.data?.market_sell.buff_reduction_pp ?? 0} onAction={(kind) => setAction({ kind, item })} />)}
         </div>
       )}
 
-      {action && (
+      {action?.kind === 'OPEN_BOX' ? (
+        <RandomBoxOpenModal
+          item={action.item}
+          board={randomBoxBoard.data ?? null}
+          onClose={() => setAction(null)}
+          onDone={async () => { await refresh(); }}
+        />
+      ) : action ? (
         <InventoryActionModal
           action={action.kind}
           item={action.item}
@@ -346,7 +368,7 @@ export function StudentInventoryPanel() {
           onClose={() => setAction(null)}
           onDone={async () => { setAction(null); await refresh(); }}
         />
-      )}
+      ) : null}
     </section>
   );
 }
@@ -355,9 +377,10 @@ function BagStat({ label, value }: { label: string; value: number }) {
   return <div className="min-w-[64px] rounded-card-md border border-line bg-black/20 px-3 py-2"><div className="text-[9px] font-black text-text-muted">{label}</div><div className="font-display text-lg text-white">{value}</div></div>;
 }
 
-function InventoryCard({ item, feeRate, buffReductionPp, onAction }: { item: StudentInventoryItem; feeRate: number; buffReductionPp: number; onAction: (kind: 'USE' | 'SELL') => void }) {
+function InventoryCard({ item, isRandomBox, feeRate, buffReductionPp, onAction }: { item: StudentInventoryItem; isRandomBox: boolean; feeRate: number; buffReductionPp: number; onAction: (kind: 'USE' | 'SELL' | 'OPEN_BOX') => void }) {
   const canNormalUse = item.is_usable && (item.use_mode === 'IMMEDIATE' || item.use_mode === 'BAKERY_FULFILLMENT') && item.available_quantity > 0;
   const canSell = item.is_sellable && item.sellable_quantity > 0 && item.available_quantity > 0;
+  const canOpenBox = isRandomBox && item.is_usable && item.available_quantity > 0;
 
   return (
     <article className="overflow-hidden rounded-card-lg border border-line bg-bg-card">
@@ -373,16 +396,69 @@ function InventoryCard({ item, feeRate, buffReductionPp, onAction }: { item: Stu
         <div className="mt-2 text-[10px] font-bold text-text-muted">사용 가능 {item.available_quantity}개 · 환불 가능 {item.sellable_quantity}개</div>
         {item.sellable_quantity > 0 && <div className="mt-1 text-[10px] font-black text-gold">전량 구매가 기준 {formatNumber(item.full_sellback_value_gold)} G · 수수료 {(feeRate * 100).toFixed(1)}%{buffReductionPp > 0 ? ` (컬렉션 -${Number(buffReductionPp).toFixed(1)}%p)` : ''}</div>}
 
+        {isRandomBox && <div className="mt-2 rounded-card-sm border border-gold/35 bg-gold/10 px-2 py-1.5 text-[10px] font-black text-amber-100">✨ 열 때마다 보상 1종이 즉시 추첨됩니다.</div>}
+
         {item.use_mode === 'AUCTION_SUPER_PASS' && (
           <div className="mt-2 rounded-card-sm border border-warning/30 bg-warning-bg px-2 py-1.5 text-[10px] font-black text-warning">⚡ 경매 상품 공개 시 사용 여부를 선택합니다.</div>
         )}
 
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <button type="button" disabled={!canNormalUse} onClick={() => onAction('USE')} className="rounded-pill border border-crystal/40 bg-crystal/15 py-2 text-xs font-black text-crystal disabled:cursor-not-allowed disabled:opacity-35">{item.use_mode === 'BAKERY_FULFILLMENT' ? '사용·수령' : item.use_mode === 'AUCTION_SUPER_PASS' ? '경매 전용' : '사용'}</button>
+          <button type="button" disabled={isRandomBox ? !canOpenBox : !canNormalUse} onClick={() => onAction(isRandomBox ? 'OPEN_BOX' : 'USE')} className={cn('rounded-pill border py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-35', isRandomBox ? 'border-gold/55 bg-gold/15 text-amber-100' : 'border-crystal/40 bg-crystal/15 text-crystal')}>{isRandomBox ? '✨ 상자 열기' : item.use_mode === 'BAKERY_FULFILLMENT' ? '사용·수령' : item.use_mode === 'AUCTION_SUPER_PASS' ? '경매 전용' : '사용'}</button>
           <button type="button" disabled={!canSell} onClick={() => onAction('SELL')} className="rounded-pill border border-gold/40 bg-gold/10 py-2 text-xs font-black text-gold disabled:cursor-not-allowed disabled:opacity-35">판매</button>
         </div>
       </div>
     </article>
+  );
+}
+
+function RandomBoxOpenModal({ item, board, onClose, onDone }: { item: StudentInventoryItem; board: RandomBoxBoard | null; onClose: () => void; onDone: () => Promise<void> }) {
+  const { call, isLoading } = useRpcCall();
+  const [result, setResult] = useState<RandomBoxOpenResult | null>(null);
+
+  const openBox = async () => {
+    const opened = await call(
+      () => randomBoxRpc.open(supabase),
+      { silent: true },
+    );
+    if (!opened) return;
+    setResult(opened);
+    await onDone();
+  };
+
+  const rewardEmoji = result?.reward_kind === 'GOLD' ? '🪙' : result?.reward_code === 'SNACK_COUPON' ? '🍪' : result?.reward_code === 'FRAGMENT_TICKET' ? '✨' : '🎫';
+
+  return (
+    <Modal isOpen onClose={onClose} title="여름시장 랜덤 상자" emoji="🎁">
+      <div className="space-y-4">
+        {!result ? (
+          <>
+            <div className="rounded-card-lg border border-gold/30 bg-gradient-to-br from-bg-deep via-bg-card to-gold/10 p-5 text-center">
+              <motion.div animate={{ y: [0,-5,0], rotate: [0,-2,2,0] }} transition={{ duration: 1.8, repeat: Infinity }} className="text-7xl">🎁</motion.div>
+              <div className="mt-3 font-display text-xl text-amber-100">보유 상자 {item.available_quantity}개</div>
+              <p className="mt-2 text-xs font-bold leading-relaxed text-slate-300">상자 1개를 사용해 서버에서 즉시 추첨합니다. GOLD와 간식 쿠폰은 자동 지급되고, 편린·슈퍼패스는 선생님 확인 후 지급됩니다.</p>
+            </div>
+            {board?.rewards?.length ? <div className="grid grid-cols-2 gap-1.5 rounded-card-md border border-line bg-bg-deep p-3 sm:grid-cols-3">
+              {board.rewards.map((reward) => <div key={reward.reward_code} className="rounded-card-sm bg-white/[0.035] px-2 py-1.5 text-[10px] font-bold text-slate-300"><span className="text-white">{reward.label}</span><span className="ml-1 text-gold">{Number(reward.probability_percent).toFixed(1)}%</span></div>)}
+            </div> : null}
+            <button type="button" disabled={isLoading || item.available_quantity < 1} onClick={() => void openBox()} className="btn-primary w-full text-sm disabled:opacity-40">{isLoading ? '상자를 여는 중…' : '✨ 상자 1개 열기'}</button>
+          </>
+        ) : (
+          <motion.div initial={{ opacity:0, scale:0.82 }} animate={{ opacity:1, scale:1 }} transition={{ type:'spring', stiffness:220, damping:18 }} className="space-y-4">
+            <div className="rounded-card-lg border border-gold/45 bg-gradient-to-br from-gold/15 via-bg-card to-bg-deep p-6 text-center shadow-card">
+              <div className="text-[10px] font-black tracking-[0.22em] text-gold">REWARD</div>
+              <div className="mt-3 text-6xl">{rewardEmoji}</div>
+              <div className="mt-3 font-display text-2xl text-amber-100">{result.reward_label}</div>
+              {result.manual_required ? <div className="mt-3 rounded-card-md border border-warning/35 bg-warning-bg p-3 text-xs font-black text-warning">🎟 당첨 기록이 선생님 화면에 등록되었습니다. 실제 보상은 선생님 확인 후 지급됩니다.</div> : <div className="mt-3 text-xs font-black text-success">✓ 보상이 즉시 지급되었습니다.</div>}
+              <div className="mt-3 text-xs font-bold text-slate-300">남은 랜덤 상자 {result.remaining_box_quantity}개</div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={onClose} className="btn-secondary">닫기</button>
+              <button type="button" disabled={isLoading || result.remaining_box_quantity < 1} onClick={() => { setResult(null); }} className="btn-primary disabled:opacity-40">{result.remaining_box_quantity > 0 ? '한 번 더 열기' : '상자 없음'}</button>
+            </div>
+          </motion.div>
+        )}
+      </div>
+    </Modal>
   );
 }
 

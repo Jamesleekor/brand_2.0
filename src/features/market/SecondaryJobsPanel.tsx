@@ -25,7 +25,6 @@ type Job = {
   id: number;
   studentId: number;
   studentName: string;
-  brandName: string | null;
   jobName: string;
   description: string;
   approvedAt: string;
@@ -94,7 +93,7 @@ export default function SecondaryJobsPanel() {
       if (!classroomId) return [];
       const { data, error } = await supabase
         .from('secondary_jobs')
-        .select('id,student_id,job_name,description,approved_at,student:students!student_id(name,brand_name)')
+        .select('id,student_id,job_name,description,approved_at,student:students!student_id(name)')
         .eq('classroom_id', classroomId)
         .eq('is_active', true)
         .order('approved_at', { ascending: false });
@@ -103,7 +102,6 @@ export default function SecondaryJobsPanel() {
         id: j.id,
         studentId: j.student_id,
         studentName: j.student?.name ?? '',
-        brandName: j.student?.brand_name ?? null,
         jobName: j.job_name,
         description: j.description ?? '',
         approvedAt: j.approved_at,
@@ -261,11 +259,11 @@ export default function SecondaryJobsPanel() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="font-display text-sm text-brand-gradient truncate">{job.jobName}</div>
-                    <div className="text-2xs text-text-muted font-bold mt-0.5 truncate">{job.brandName || job.studentName}</div>
+                    <div className="mt-1 truncate text-xs font-extrabold text-slate-200">👤 {job.studentName}</div>
                   </div>
                   {job.studentId === studentId && <span className="shrink-0 text-[10px] rounded-pill bg-brand-primary/15 px-2 py-0.5 font-black text-brand-glow">내 직업</span>}
                 </div>
-                {job.description && <p className="text-xs text-text-secondary mt-2 line-clamp-2">{job.description}</p>}
+                {job.description && <p className="mt-2 line-clamp-2 text-xs font-medium leading-relaxed text-slate-300">{job.description}</p>}
               </motion.div>
             ))}
           </div>

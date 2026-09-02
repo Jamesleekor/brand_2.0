@@ -515,7 +515,7 @@ function AchievementDetailModal({ achievement: ach, onClose }: { achievement: Ac
               <div className="space-y-1.5">
                 {ach.firstAchievers.map((first) => (
                   <div key={first.student_id} className="flex items-center justify-between gap-3 text-sm font-bold">
-                    <span className="text-amber-100">{first.brand_name || first.name}</span>
+                    <span className="text-amber-100">{first.name}</span>
                     <span className="text-xs text-slate-400">{formatDateTime(first.achieved_at)}</span>
                   </div>
                 ))}
@@ -723,7 +723,7 @@ function Reward({ emoji, value, className }: { emoji: string; value: number; cla
 
 function getFirstAchieverLabel(first: AchievementFirstAchiever[]) {
   if (first.length === 0) return '';
-  if (first.length === 1) return first[0].brand_name || first[0].name;
+  if (first.length === 1) return first[0].name;
   return `공동 ${first.length}명`;
 }
 

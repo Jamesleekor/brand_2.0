@@ -15,6 +15,20 @@ export function HomeServiceAdStrip() {
   const navigate = useNavigate();
   const [index, setIndex] = useState(0);
 
+  const classmateNames = useQuery({
+    queryKey: ['home-service-ad-student-names', classroomId],
+    enabled: !!classroomId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('students')
+        .select('id,name')
+        .eq('classroom_id', classroomId!);
+      if (error) throw new Error(error.message);
+      return new Map<number, string>((data ?? []).map((row) => [Number(row.id), row.name]));
+    },
+    staleTime: 60_000,
+  });
+
   const query = useQuery({
     queryKey: ['home-service-ads', studentId],
     enabled: !!studentId,
@@ -72,6 +86,7 @@ export function HomeServiceAdStrip() {
 
   const ad = ads[index % ads.length];
   if (!ad) return null;
+  const sellerName = classmateNames.data?.get(ad.seller_student_id) ?? ad.seller_name;
 
   return (
     <button
@@ -79,8 +94,8 @@ export function HomeServiceAdStrip() {
       onClick={() =>
         navigate(`/market/services?view=market&service=${ad.service_id}`)
       }
-      className="relative z-10 mx-4 mt-2 flex w-[calc(100%-32px)] min-w-0 items-center gap-2 rounded-card-md border border-gold/25 bg-bg-card/80 px-3 py-2 text-left backdrop-blur-card transition hover:border-gold/45 hover:bg-bg-card lg:mx-0 lg:w-full"
-      title={`${ad.seller_name}의 서비스 광고 열기`}
+      className="relative z-10 mx-4 mt-2 flex w-[calc(100%-32px)] min-w-0 items-center gap-2 rounded-card-md border border-gold/35 bg-bg-deep/95 px-3 py-2.5 text-left shadow-card backdrop-blur-card transition hover:border-gold/60 hover:bg-bg-card lg:mx-0 lg:w-full"
+      title={`${sellerName}의 서비스 광고 열기`}
     >
       <span
         aria-hidden="true"
@@ -90,14 +105,14 @@ export function HomeServiceAdStrip() {
       </span>
 
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-1.5 text-2xs">
+        <div className="flex min-w-0 items-center gap-1.5 text-xs">
           <span className="flex-none font-black text-gold">SERVICE AD</span>
-          <span className="truncate font-bold text-text-muted">
-            {ad.seller_name} · {ad.job_name}
+          <span className="truncate font-extrabold text-slate-200">
+            {sellerName} <span className="font-bold text-slate-400">· {ad.job_name}</span>
           </span>
         </div>
         <div className="mt-0.5 flex min-w-0 items-center gap-2">
-          <span className="truncate text-xs font-black text-white">
+          <span className="truncate text-sm font-black text-white">
             {ad.service_title}
           </span>
           <span className="flex-none text-2xs font-black text-gold">

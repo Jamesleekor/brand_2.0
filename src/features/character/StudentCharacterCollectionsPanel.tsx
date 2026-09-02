@@ -426,7 +426,7 @@ function StudentCollectionCard({
 
         <div className="mt-4 border-t border-line pt-3">
           <div className="flex items-center justify-between gap-2">
-            <h4 className="text-[11px] font-black text-text-primary">완성 효과</h4>
+            <h4 className="text-sm font-black text-gold">✨ 완성 효과</h4>
             {row.is_complete && <span className="text-[9px] font-black text-success">완성됨</span>}
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -536,16 +536,16 @@ function CollectionRewardBadge({
 }) {
   return (
     <div className={cn(
-      'rounded-pill border px-2.5 py-1.5 text-[10px] font-black',
+      'rounded-card-md border px-3 py-2 text-xs font-black leading-relaxed',
       active && integrated
-        ? 'border-gold/30 bg-gold/10 text-gold'
+        ? 'border-gold/50 bg-gold/15 text-amber-100 shadow-sm'
         : active
-          ? 'border-line bg-bg-deep text-text-secondary'
-          : 'border-line bg-bg-deep text-text-secondary',
+          ? 'border-brand-primary/30 bg-brand-primary/10 text-slate-200'
+          : 'border-line bg-bg-deep text-slate-300',
     )}>
       {reward.display_name} <span className="whitespace-nowrap">{effectValueText(reward.effect_value, reward.value_unit, reward.direction)}</span>
       {active && (
-        <span className={cn('ml-1 whitespace-nowrap text-[8px]', integrated ? 'text-success' : 'text-text-muted')}>
+        <span className={cn('ml-1 whitespace-nowrap text-[10px]', integrated ? 'text-success' : 'text-text-muted')}>
           · {integrated ? '적용 중' : effectIntegrationLabel(reward.effect_code)}
         </span>
       )}
