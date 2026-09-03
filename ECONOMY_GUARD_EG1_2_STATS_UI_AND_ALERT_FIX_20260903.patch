@@ -1,0 +1,324 @@
+diff --git a/src/features/guard/EconomyGuardPage.tsx b/src/features/guard/EconomyGuardPage.tsx
+index 98b4951..30f889e 100644
+--- a/src/features/guard/EconomyGuardPage.tsx
++++ b/src/features/guard/EconomyGuardPage.tsx
+@@ -541,73 +541,198 @@ function StreamTab({ dashboard }: { dashboard: EconomyGuardDashboard }) {
+ 
+ function CategoryTab({ dashboard }: { dashboard: EconomyGuardDashboard }) {
+   const maxCount = Math.max(1, ...dashboard.stats.tag_stats.map((item) => item.count));
++  const tradeRows = dashboard.stats.student_trade_stats;
++  const categories = dashboard.stats.service_category_stats;
++  const categoryReady = categories.some((item) => item.available);
++
+   return (
+-    <div className="grid gap-4 lg:grid-cols-2">
++    <div className="space-y-4">
+       <section className="rounded-card-xl border border-line bg-bg-card p-4">
+-        <SectionTitle icon={<Tags className="h-4 w-4" />} title="거래 태그별 현황" description="현재 태그 기준 통계입니다. 서비스 전용 카테고리는 등록 기능 확장 후 별도로 집계합니다." />
+-        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+-          {dashboard.stats.tag_stats.length === 0 ? <EmptyState title="카테고리 데이터가 없습니다" /> : dashboard.stats.tag_stats.map((item) => (
+-            <div key={item.tag}>
+-              <div className="flex items-end justify-between gap-2">
+-                <div>
+-                  <div className="text-sm font-black text-text-primary">{item.tag}</div>
+-                  <div className="text-2xs font-bold text-text-muted">수량 {formatNumber(item.quantity)} · 평균 {formatNumber(Math.round(item.unit_price))} G</div>
+-                </div>
+-                <div className="text-right">
+-                  <div className="font-mono text-sm font-black text-gold">{formatNumber(item.amount)} G</div>
+-                  <div className="text-2xs font-bold text-text-muted">{item.count}건</div>
+-                </div>
++        <SectionTitle
++          icon={<WalletCards className="h-4 w-4" />}
++          title="학생별 구매·판매 현황"
++          description="선택한 기간의 공식 참가자 전원을 기준으로 구매와 판매 건수·금액을 집계합니다. 환불·회수된 거래는 유효 통계에서 제외합니다."
++        />
++        <div className="mt-3 overflow-x-auto rounded-card-lg border border-line">
++          <table className="w-full min-w-[820px] text-left text-xs">
++            <thead className="bg-bg-deep text-2xs font-black text-text-muted">
++              <tr>
++                <th className="px-3 py-2.5">학생</th>
++                <th className="px-3 py-2.5 text-right">구매 건수</th>
++                <th className="px-3 py-2.5 text-right">구매 금액</th>
++                <th className="px-3 py-2.5 text-right">판매 건수</th>
++                <th className="px-3 py-2.5 text-right">판매 금액</th>
++                <th className="px-3 py-2.5 text-right">서비스 구매</th>
++                <th className="px-3 py-2.5 text-right">서비스 판매</th>
++              </tr>
++            </thead>
++            <tbody>
++              {tradeRows.map((row) => (
++                <tr key={row.student_id} className="border-t border-line bg-bg-card hover:bg-bg-deep/60">
++                  <td className="px-3 py-2.5">
++                    <StudentStatIdentity name={row.name} brandName={row.brand_name} />
++                  </td>
++                  <td className="px-3 py-2.5 text-right font-mono font-black text-text-primary">{formatNumber(row.buy_count)}건</td>
++                  <td className="px-3 py-2.5 text-right font-mono font-black text-gold">{formatNumber(row.buy_amount)} G</td>
++                  <td className="px-3 py-2.5 text-right font-mono font-black text-text-primary">{formatNumber(row.sell_count)}건</td>
++                  <td className="px-3 py-2.5 text-right font-mono font-black text-gold">{formatNumber(row.sell_amount)} G</td>
++                  <td className="px-3 py-2.5 text-right">
++                    <div className="font-mono font-black text-text-secondary">{formatNumber(row.service_buy_count)}건</div>
++                    <div className="text-[10px] font-bold text-text-muted">{formatNumber(row.service_buy_amount)} G</div>
++                  </td>
++                  <td className="px-3 py-2.5 text-right">
++                    <div className="font-mono font-black text-text-secondary">{formatNumber(row.service_sell_count)}건</div>
++                    <div className="text-[10px] font-bold text-text-muted">{formatNumber(row.service_sell_amount)} G</div>
++                  </td>
++                </tr>
++              ))}
++            </tbody>
++          </table>
++        </div>
++      </section>
++
++      <div className="grid gap-4 lg:grid-cols-2">
++        <ServiceRankingCard
++          title="서비스 판매 수익 TOP"
++          description="정산 완료된 2차직업 서비스 판매대금 기준"
++          rows={dashboard.stats.service_top_earners}
++          emptyTitle="정산 완료된 서비스 판매가 없습니다"
++        />
++        <ServiceRankingCard
++          title="서비스 구매 지출 TOP"
++          description="정산 완료된 2차직업 서비스 구매대금 기준"
++          rows={dashboard.stats.service_top_spenders}
++          emptyTitle="정산 완료된 서비스 구매가 없습니다"
++        />
++      </div>
++
++      <section className="rounded-card-xl border border-line bg-bg-card p-4">
++        <SectionTitle
++          icon={<Tags className="h-4 w-4" />}
++          title="2차직업 서비스 카테고리"
++          description="서비스 등록 카테고리가 연결되면 청소·학습·제작·1인1역·생활도움·기타별 주문 수, 거래액, 구매자·판매자 수를 자동 집계합니다."
++        />
++        <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
++          {categories.map((item) => (
++            <div key={item.category} className="rounded-card-md border border-line bg-bg-deep p-3">
++              <div className="flex items-center justify-between gap-2">
++                <span className="text-xs font-black text-text-primary">{item.category}</span>
++                <span className={cn(
++                  'rounded-pill border px-2 py-0.5 text-[9px] font-black',
++                  item.available ? 'border-success/30 bg-success-bg text-success' : 'border-line bg-bg-card text-text-muted',
++                )}>
++                  {item.available ? '집계 중' : '준비 중'}
++                </span>
+               </div>
+-              <div className="mt-1.5 h-2 overflow-hidden rounded-pill bg-bg-deep">
+-                <div className="h-full rounded-pill bg-gradient-to-r from-brand-primary to-gold" style={{ width: `${Math.max(4, (item.count / maxCount) * 100)}%` }} />
++              <div className="mt-3 font-mono text-lg font-black text-gold">{formatNumber(item.amount)} G</div>
++              <div className="mt-1 text-[10px] font-bold text-text-muted">
++                {item.order_count}건 · 구매자 {item.buyer_count}명 · 판매자 {item.seller_count}명
+               </div>
+             </div>
+           ))}
+         </div>
++        {!categoryReady && (
++          <div className="mt-3 rounded-card-sm border border-dashed border-line bg-bg-deep px-3 py-2 text-2xs font-bold text-text-muted">
++            현재 서비스 주문에는 카테고리 snapshot이 아직 없습니다. 서비스 등록 기능에 카테고리가 추가되면 같은 통계 계약으로 즉시 집계되도록 준비되어 있습니다.
++          </div>
++        )}
+       </section>
+ 
+-      <div className="space-y-4">
++      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(300px,0.75fr)]">
+         <section className="rounded-card-xl border border-line bg-bg-card p-4">
+-          <SectionTitle icon={<WalletCards className="h-4 w-4" />} title="출처별 비중" description="직접거래와 서비스 경제가 어느 정도 사용됐는지 비교합니다." />
+-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+-            {dashboard.stats.source_stats.map((item) => (
+-              <div key={item.source_kind} className="rounded-card-md border border-line bg-bg-deep p-3">
+-                <SourceBadge source={item.source_kind} />
+-                <div className="mt-2 font-mono text-xl font-black text-gold">{formatNumber(item.effective_amount)} G</div>
+-                <div className="mt-1 text-xs font-bold text-text-secondary">유효 {item.effective_count}건 · 기록 {item.visible_count}건</div>
+-                <div className="mt-1 text-2xs font-black text-danger">열린 알림 {item.open_alert_count}건</div>
+-              </div>
+-            ))}
+-          </div>
+-        </section>
+-        <section className="rounded-card-xl border border-line bg-bg-card p-4">
+-          <SectionTitle icon={<Clock3 className="h-4 w-4" />} title="날짜별 활동" description="선택 기간 안에서 거래가 몰린 날을 확인합니다." />
+-          <div className="mt-3 space-y-2">
+-            {dashboard.stats.date_stats.slice(-14).map((item) => (
+-              <div key={item.date} className="flex items-center justify-between rounded-card-sm border border-line bg-bg-deep px-3 py-2">
+-                <span className="text-xs font-black text-text-secondary">{item.date}</span>
+-                <span className="text-xs font-bold text-text-muted">{item.count}건</span>
+-                <span className="font-mono text-xs font-black text-gold">{formatNumber(item.amount)} G</span>
+-              </div>
+-            ))}
+-          </div>
+-        </section>
+-        <section className="rounded-card-xl border border-dashed border-line bg-bg-card p-4">
+-          <SectionTitle icon={<Tags className="h-4 w-4" />} title="2차직업 서비스 카테고리" description="서비스 등록에 카테고리가 추가되면 이 영역에서 카테고리별 주문 수·거래액·구매자·판매자를 집계합니다." />
+-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+-            {['청소', '학습', '제작', '1인1역', '생활도움', '기타'].map((category) => (
+-              <div key={category} className="rounded-card-sm border border-line bg-bg-deep px-2 py-2 text-center">
+-                <div className="text-xs font-black text-text-secondary">{category}</div>
+-                <div className="mt-0.5 text-[9px] font-black text-text-muted">준비 중</div>
++          <SectionTitle icon={<Tags className="h-4 w-4" />} title="거래 태그별 현황" description="현재 P2P 태그와 서비스 기본 태그를 기준으로 거래 구성을 확인합니다." />
++          <div className="mt-4 grid gap-3 lg:grid-cols-2">
++            {dashboard.stats.tag_stats.length === 0 ? <EmptyState title="태그 데이터가 없습니다" /> : dashboard.stats.tag_stats.map((item) => (
++              <div key={item.tag}>
++                <div className="flex items-end justify-between gap-2">
++                  <div>
++                    <div className="text-sm font-black text-text-primary">{item.tag}</div>
++                    <div className="text-2xs font-bold text-text-muted">수량 {formatNumber(item.quantity)} · 평균 {formatNumber(Math.round(item.unit_price))} G</div>
++                  </div>
++                  <div className="text-right">
++                    <div className="font-mono text-sm font-black text-gold">{formatNumber(item.amount)} G</div>
++                    <div className="text-2xs font-bold text-text-muted">{item.count}건</div>
++                  </div>
++                </div>
++                <div className="mt-1.5 h-2 overflow-hidden rounded-pill bg-bg-deep">
++                  <div className="h-full rounded-pill bg-gradient-to-r from-brand-primary to-gold" style={{ width: `${Math.max(4, (item.count / maxCount) * 100)}%` }} />
++                </div>
+               </div>
+             ))}
+           </div>
+         </section>
++
++        <div className="space-y-4">
++          <section className="rounded-card-xl border border-line bg-bg-card p-4">
++            <SectionTitle icon={<WalletCards className="h-4 w-4" />} title="출처별 비중" description="직접거래와 서비스 경제 사용량을 비교합니다." />
++            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
++              {dashboard.stats.source_stats.map((item) => (
++                <div key={item.source_kind} className="rounded-card-md border border-line bg-bg-deep p-3">
++                  <SourceBadge source={item.source_kind} />
++                  <div className="mt-2 font-mono text-xl font-black text-gold">{formatNumber(item.effective_amount)} G</div>
++                  <div className="mt-1 text-xs font-bold text-text-secondary">유효 {item.effective_count}건 · 기록 {item.visible_count}건</div>
++                  <div className="mt-1 text-2xs font-black text-danger">열린 알림 {item.open_alert_count}건</div>
++                </div>
++              ))}
++            </div>
++          </section>
++          <section className="rounded-card-xl border border-line bg-bg-card p-4">
++            <SectionTitle icon={<Clock3 className="h-4 w-4" />} title="날짜별 활동" description="선택 기간 안에서 거래가 몰린 날을 확인합니다." />
++            <div className="mt-3 max-h-[260px] space-y-2 overflow-y-auto pr-1">
++              {dashboard.stats.date_stats.slice(-14).map((item) => (
++                <div key={item.date} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-card-sm border border-line bg-bg-deep px-3 py-2">
++                  <span className="text-xs font-black text-text-secondary">{item.date}</span>
++                  <span className="text-xs font-bold text-text-muted">{item.count}건</span>
++                  <span className="font-mono text-xs font-black text-gold">{formatNumber(item.amount)} G</span>
++                </div>
++              ))}
++            </div>
++          </section>
++        </div>
+       </div>
+     </div>
+   );
+ }
+ 
++function StudentStatIdentity({ name, brandName }: { name: string; brandName: string | null }) {
++  return (
++    <div className="min-w-[120px]">
++      <div className="font-black text-text-primary">{name}</div>
++      {brandName && <div className="mt-0.5 text-[10px] font-bold text-text-muted">{brandName}</div>}
++    </div>
++  );
++}
++
++function ServiceRankingCard({
++  title,
++  description,
++  rows,
++  emptyTitle,
++}: {
++  title: string;
++  description: string;
++  rows: EconomyGuardDashboard['stats']['service_top_earners'];
++  emptyTitle: string;
++}) {
++  return (
++    <section className="rounded-card-xl border border-line bg-bg-card p-4">
++      <SectionTitle icon={<Coins className="h-4 w-4" />} title={title} description={description} />
++      <div className="mt-3 space-y-2">
++        {rows.length === 0 ? <EmptyState title={emptyTitle} /> : rows.map((row, index) => (
++          <div key={row.student_id} className="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3 rounded-card-md border border-line bg-bg-deep px-3 py-2.5">
++            <span className="font-mono text-xs font-black text-text-muted">#{index + 1}</span>
++            <StudentStatIdentity name={row.name} brandName={row.brand_name} />
++            <div className="text-right">
++              <div className="font-mono text-sm font-black text-gold">{formatNumber(row.total)} G</div>
++              <div className="text-[10px] font-bold text-text-muted">{row.count}건</div>
++            </div>
++          </div>
++        ))}
++      </div>
++    </section>
++  );
++}
++
+ function NetworkTab({ dashboard }: { dashboard: EconomyGuardDashboard }) {
+   return (
+     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+@@ -725,13 +850,13 @@ function AlertCenterTab({ dashboard, onRefresh }: { dashboard: EconomyGuardDashb
+           {openAlerts.length === 0 ? (
+             <div className="lg:col-span-2"><EmptyState emoji="✅" title="열린 이상거래가 없습니다" description="새 거래가 생기면 30초 이내 자동으로 다시 확인합니다." /></div>
+           ) : openAlerts.map((event) => (
+-            <div key={event.event_key} className={cn('rounded-card-lg border p-3', event.review_is_stale ? 'border-warning/35 bg-warning-bg' : 'border-danger/25 bg-bg-deep')}>
++            <div key={event.event_key} className={cn('flex h-full flex-col rounded-card-lg border p-3', event.review_is_stale ? 'border-warning/35 bg-warning-bg' : 'border-danger/25 bg-bg-deep')}>
+               <EventRow event={event} compact embedded />
+-              <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-line pt-3">
+-                <button type="button" onClick={() => openReview(event, 'NORMAL')} className="btn-secondary inline-flex items-center gap-1.5">
++              <div className="mt-auto grid grid-cols-2 gap-2 border-t border-line pt-3">
++                <button type="button" onClick={() => openReview(event, 'NORMAL')} className="btn-secondary inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap">
+                   <CheckCircle2 className="h-4 w-4" /> 정상 확인
+                 </button>
+-                <button type="button" onClick={() => openReview(event, 'FLAG')} className="btn-danger inline-flex items-center gap-1.5">
++                <button type="button" onClick={() => openReview(event, 'FLAG')} className="btn-danger inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap">
+                   <Flag className="h-4 w-4" /> 최종 적발
+                 </button>
+               </div>
+@@ -979,7 +1104,8 @@ function InequalityMetric({ label, value, hint }: { label: string; value: string
+ function EventRow({ event, compact, embedded = false }: { event: EconomyGuardEvent; compact: boolean; embedded?: boolean }) {
+   return (
+     <div className={cn(
+-      'h-full rounded-card-md',
++      'rounded-card-md',
++      !embedded && 'h-full',
+       embedded ? 'bg-transparent' : 'border border-line bg-bg-deep',
+       embedded ? 'p-0' : compact ? 'p-3' : 'p-3.5',
+     )}>
+diff --git a/src/lib/zod_schemas/economy_guard_schemas.ts b/src/lib/zod_schemas/economy_guard_schemas.ts
+index 42e3240..0ab84b7 100644
+--- a/src/lib/zod_schemas/economy_guard_schemas.ts
++++ b/src/lib/zod_schemas/economy_guard_schemas.ts
+@@ -139,6 +139,29 @@ const SourceStatSchema = z.object({
+   open_alert_count: NonNegativeInt,
+ });
+ 
++const StudentTradeStatSchema = z.object({
++  student_id: PositiveInt,
++  name: z.string(),
++  brand_name: z.string().nullable(),
++  buy_count: NonNegativeInt,
++  buy_amount: NonNegativeNumber,
++  sell_count: NonNegativeInt,
++  sell_amount: NonNegativeNumber,
++  service_buy_count: NonNegativeInt,
++  service_buy_amount: NonNegativeNumber,
++  service_sell_count: NonNegativeInt,
++  service_sell_amount: NonNegativeNumber,
++});
++
++const ServiceCategoryStatSchema = z.object({
++  category: z.enum(['청소', '학습', '제작', '1인1역', '생활도움', '기타']),
++  available: z.boolean(),
++  order_count: NonNegativeInt,
++  amount: NonNegativeNumber,
++  buyer_count: NonNegativeInt,
++  seller_count: NonNegativeInt,
++});
++
+ const NetworkNodeSchema = z.object({
+   student_id: PositiveInt,
+   name: z.string(),
+@@ -206,6 +229,10 @@ export const EconomyGuardDashboardSchema = z.object({
+     tag_stats: z.array(TagStatSchema),
+     date_stats: z.array(DateStatSchema),
+     source_stats: z.array(SourceStatSchema),
++    student_trade_stats: z.array(StudentTradeStatSchema),
++    service_top_earners: z.array(StudentActivitySchema),
++    service_top_spenders: z.array(StudentActivitySchema),
++    service_category_stats: z.array(ServiceCategoryStatSchema),
+     briefing_report: z.string(),
+   }),
+   network: z.object({

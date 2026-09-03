@@ -259,6 +259,7 @@ function QuickActions() {
     { to: '/teacher/daily-quests', icon: '📋', label: '일일퀘스트 정산',   color: 'from-gold to-bv' },
     { to: '/bakery',            icon: '🧁', label: '제과점 비상 운영',   color: 'from-brand-primary to-crystal' },
     { to: '/teacher/control',   icon: '🤝', label: '복지 분배',         color: 'from-success to-crystal' },
+    { to: '/teacher/economy-guard', icon: '🛡️', label: '경제수호대', color: 'from-brand-primary to-gold' },
   ];
   
   return (
@@ -266,7 +267,7 @@ function QuickActions() {
       <div className="text-xs font-extrabold text-text-secondary uppercase tracking-widest mb-2 px-1">
         빠른 액션
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-9 gap-2">
+      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-10 gap-2">
         {actions.map((action, idx) => (
           <Link key={idx} to={action.to}>
             <motion.div

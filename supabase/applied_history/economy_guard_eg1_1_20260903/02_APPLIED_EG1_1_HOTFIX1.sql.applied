@@ -1,0 +1,332 @@
+-- B.R.A.N.D 2.0
+-- Economy Guard EG1.1 — HOTFIX 1
+-- Date: 2026-09-03
+--
+-- Fixes:
+--   1) Unreviewed suspicious events incorrectly had is_open_alert=NULL.
+--   2) review_is_stale could also become NULL before any review.
+--
+-- Scope:
+--   ONLY public._economy_guard_event_rows(integer,date,date)
+-- No tables/wallets/transactions/source events are modified.
+--
+-- Run the separate ROLLBACK rehearsal first.
+-- Apply this file ONCE only after rehearsal passes.
+
+BEGIN;
+
+DO $eg11_hotfix1_pre$
+DECLARE
+  v_hash text;
+BEGIN
+  IF to_regprocedure('public._economy_guard_event_rows(integer,date,date)') IS NULL THEN
+    RAISE EXCEPTION '[EG1.1 HOTFIX1] target function missing' USING ERRCODE='P8200';
+  END IF;
+
+  SELECT md5(pg_get_functiondef(
+    to_regprocedure('public._economy_guard_event_rows(integer,date,date)')
+  )) INTO v_hash;
+
+  IF v_hash <> 'c24f567bde8c7aea37cdb9c5448ebe3f' THEN
+    RAISE EXCEPTION '[EG1.1 HOTFIX1] target function drifted or hotfix already applied: %',v_hash
+      USING ERRCODE='P8201';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.economy_guard_event_reviews LIMIT 1)
+     OR EXISTS (SELECT 1 FROM public.economy_guard_event_penalties LIMIT 1) THEN
+    RAISE EXCEPTION '[EG1.1 HOTFIX1] audit rows already exist; re-evaluate before applying'
+      USING ERRCODE='P8202';
+  END IF;
+END
+$eg11_hotfix1_pre$;
+
+CREATE OR REPLACE FUNCTION public._economy_guard_event_rows(
+  p_classroom_id integer,
+  p_start_date date,
+  p_end_date date
+)
+RETURNS TABLE(
+  source_kind text,
+  source_id bigint,
+  event_key text,
+  occurred_at timestamptz,
+  trade_date date,
+  sender_id integer,
+  sender_name text,
+  sender_brand_name text,
+  receiver_id integer,
+  receiver_name text,
+  receiver_brand_name text,
+  amount bigint,
+  quantity integer,
+  unit_price numeric,
+  tag text,
+  description text,
+  raw_status text,
+  economic_state text,
+  source_meta jsonb,
+  anomaly_reasons text[],
+  anomaly_fingerprint text,
+  is_suspicious boolean,
+  is_actionable boolean,
+  is_open_alert boolean,
+  review_status text,
+  review_is_stale boolean,
+  review_memo text,
+  reviewed_at timestamptz,
+  penalty jsonb
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $eg11_event_rows$
+WITH raw_events AS (
+  SELECT *
+  FROM public._economy_guard_p2p_event_rows(p_classroom_id,p_start_date,p_end_date)
+
+  UNION ALL
+
+  SELECT *
+  FROM public._economy_guard_service_event_rows(p_classroom_id,p_start_date,p_end_date)
+),
+pair_scored AS (
+  SELECT
+    r.*,
+    count(*) FILTER (
+      WHERE r.economic_state NOT IN ('REFUNDED','REVERSED')
+    ) OVER (
+      PARTITION BY r.trade_date,r.sender_id,r.receiver_id
+    ) AS pair_count,
+    coalesce(
+      sum(r.amount) FILTER (
+        WHERE r.economic_state NOT IN ('REFUNDED','REVERSED')
+      ) OVER (
+        PARTITION BY r.trade_date,r.sender_id,r.receiver_id
+      ),
+      0
+    ) AS pair_amount
+  FROM raw_events r
+),
+reasoned0 AS (
+  SELECT
+    p.*,
+    array_remove(
+      ARRAY[
+        CASE WHEN p.amount>=1000 THEN '고액 거래' END,
+        CASE
+          WHEN p.source_kind='P2P_TRANSFER'
+           AND char_length(coalesce(p.description,''))<10
+          THEN '사유 불충분'
+        END,
+        CASE
+          WHEN p.source_kind='P2P_TRANSFER'
+           AND p.tag='#기타'
+           AND char_length(coalesce(p.description,''))<20
+          THEN '태그 불일치 의심'
+        END,
+        CASE
+          WHEN p.economic_state NOT IN ('REFUNDED','REVERSED')
+           AND p.pair_count>=3
+          THEN '반복 거래'
+        END,
+        CASE
+          WHEN p.economic_state NOT IN ('REFUNDED','REVERSED')
+           AND p.pair_amount>=500
+          THEN '금액 집중'
+        END,
+        CASE
+          WHEN p.source_kind='SERVICE_ORDER'
+           AND upper(coalesce(p.raw_status,''))='DISPUTED'
+          THEN '서비스 분쟁'
+        END
+      ]::text[],
+      NULL
+    ) AS reasons0
+  FROM pair_scored p
+),
+reasoned AS (
+  SELECT
+    r.*,
+    CASE
+      WHEN cardinality(r.reasons0)=0
+       AND r.source_kind='P2P_TRANSFER'
+       AND upper(coalesce(r.raw_status,'')) IN ('SUSPICIOUS','이상거래')
+      THEN ARRAY['시스템 감지']::text[]
+      ELSE r.reasons0
+    END AS reasons
+  FROM reasoned0 r
+),
+fingerprinted AS (
+  SELECT
+    r.*,
+    md5(
+      concat_ws(
+        '|',
+        r.source_kind,
+        r.source_id::text,
+        r.sender_id::text,
+        r.receiver_id::text,
+        r.amount::text,
+        coalesce(r.quantity,1)::text,
+        coalesce(r.tag,''),
+        coalesce(r.description,''),
+        coalesce(r.raw_status,''),
+        coalesce(r.economic_state,''),
+        array_to_string(r.reasons,',')
+      )
+    ) AS basis_hash
+  FROM reasoned r
+),
+joined AS (
+  SELECT
+    f.*,
+    rv.decision AS latest_decision,
+    rv.basis_hash AS reviewed_basis_hash,
+    rv.memo AS latest_review_memo,
+    rv.reviewed_at AS latest_reviewed_at,
+    ep.id AS penalty_id,
+    ep.penalty_uid,
+    ep.subject_student_id,
+    ps.name::text AS subject_name,
+    ps.brand_name::text AS subject_brand_name,
+    ep.reason AS penalty_reason,
+    ep.memo AS penalty_memo,
+    ep.created_at AS penalty_created_at
+  FROM fingerprinted f
+  LEFT JOIN LATERAL (
+    SELECT r.decision,r.basis_hash,r.memo,r.reviewed_at
+    FROM public.economy_guard_event_reviews r
+    WHERE r.classroom_id=p_classroom_id
+      AND r.source_kind=f.source_kind
+      AND r.source_id=f.source_id
+    ORDER BY r.reviewed_at DESC,r.id DESC
+    LIMIT 1
+  ) rv ON true
+  LEFT JOIN public.economy_guard_event_penalties ep
+    ON ep.classroom_id=p_classroom_id
+   AND ep.source_kind=f.source_kind
+   AND ep.source_id=f.source_id
+  LEFT JOIN public.students ps ON ps.id=ep.subject_student_id
+)
+SELECT
+  j.source_kind,
+  j.source_id,
+  j.event_key,
+  j.occurred_at,
+  j.trade_date,
+  j.sender_id,
+  j.sender_name,
+  j.sender_brand_name,
+  j.receiver_id,
+  j.receiver_name,
+  j.receiver_brand_name,
+  j.amount,
+  j.quantity,
+  j.unit_price,
+  j.tag,
+  j.description,
+  j.raw_status,
+  j.economic_state,
+  j.source_meta,
+  j.reasons AS anomaly_reasons,
+  j.basis_hash AS anomaly_fingerprint,
+  cardinality(j.reasons)>0 AS is_suspicious,
+  (
+    cardinality(j.reasons)>0
+    AND j.economic_state NOT IN ('REFUNDED','REVERSED')
+  ) AS is_actionable,
+  (
+    cardinality(j.reasons)>0
+    AND j.economic_state NOT IN ('REFUNDED','REVERSED')
+    AND j.penalty_id IS NULL
+    AND NOT coalesce(
+      (
+        j.latest_decision='NORMAL_CONFIRMED'
+        AND j.reviewed_basis_hash=j.basis_hash
+      ),
+      false
+    )
+  ) AS is_open_alert,
+  j.latest_decision AS review_status,
+  (
+    coalesce(j.latest_decision='NORMAL_CONFIRMED',false)
+    AND j.reviewed_basis_hash IS DISTINCT FROM j.basis_hash
+  ) AS review_is_stale,
+  j.latest_review_memo AS review_memo,
+  j.latest_reviewed_at AS reviewed_at,
+  CASE
+    WHEN j.penalty_id IS NULL THEN NULL
+    ELSE jsonb_build_object(
+      'id',j.penalty_id,
+      'penalty_uid',j.penalty_uid,
+      'subject_student_id',j.subject_student_id,
+      'subject_name',j.subject_name,
+      'subject_brand_name',j.subject_brand_name,
+      'reason',j.penalty_reason,
+      'memo',j.penalty_memo,
+      'created_at',j.penalty_created_at
+    )
+  END AS penalty
+FROM joined j
+ORDER BY j.occurred_at DESC,j.source_kind,j.source_id DESC
+$eg11_event_rows$;
+
+REVOKE ALL ON FUNCTION public._economy_guard_event_rows(integer,date,date)
+  FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public._economy_guard_event_rows(integer,date,date)
+  TO service_role;
+
+DO $eg11_hotfix1_post$
+DECLARE
+  v_null_flags integer;
+  v_leaks integer;
+  v_actionable integer;
+  v_open integer;
+BEGIN
+  SELECT count(*)::integer
+    INTO v_null_flags
+  FROM public.classrooms c
+  CROSS JOIN LATERAL public._economy_guard_event_rows(c.id,NULL,NULL) e
+  WHERE e.is_open_alert IS NULL
+     OR e.review_is_stale IS NULL;
+
+  IF v_null_flags<>0 THEN
+    RAISE EXCEPTION '[EG1.1 HOTFIX1] nullable review/alert flags remain: %',v_null_flags
+      USING ERRCODE='P8290';
+  END IF;
+
+  SELECT count(*)::integer
+    INTO v_leaks
+  FROM public.classrooms c
+  CROSS JOIN LATERAL public._economy_guard_event_rows(c.id,NULL,NULL) e
+  WHERE NOT public.is_official_participant(e.sender_id)
+     OR NOT public.is_official_participant(e.receiver_id);
+
+  IF v_leaks<>0 THEN
+    RAISE EXCEPTION '[EG1.1 HOTFIX1] non-official event leak detected: %',v_leaks
+      USING ERRCODE='P8291';
+  END IF;
+
+  SELECT
+    count(*) FILTER (WHERE e.is_actionable)::integer,
+    count(*) FILTER (WHERE e.is_open_alert)::integer
+  INTO v_actionable,v_open
+  FROM public.classrooms c
+  CROSS JOIN LATERAL public._economy_guard_event_rows(c.id,NULL,NULL) e;
+
+  -- Current Production has zero v2 reviews/penalties; therefore every actionable
+  -- anomaly must be open immediately after this hotfix.
+  IF v_actionable<>v_open THEN
+    RAISE EXCEPTION '[EG1.1 HOTFIX1] actionable/open mismatch: actionable=% open=%',
+      v_actionable,v_open USING ERRCODE='P8292';
+  END IF;
+
+  IF v_open=0 THEN
+    RAISE EXCEPTION '[EG1.1 HOTFIX1] expected existing suspicious events to open'
+      USING ERRCODE='P8293';
+  END IF;
+END
+$eg11_hotfix1_post$;
+
+COMMIT;

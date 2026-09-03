@@ -1,0 +1,252 @@
+--- a/src/features/guard/EconomyGuardPage.tsx
++++ b/src/features/guard/EconomyGuardPage.tsx
+@@ -1,5 +1,6 @@
+ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+ import { useQuery, useQueryClient } from '@tanstack/react-query';
++import { Link } from 'react-router-dom';
+ import {
+   Activity,
+   AlertTriangle,
+@@ -328,6 +329,11 @@
+           <p className="mt-1 max-w-2xl text-sm font-bold leading-relaxed text-text-secondary">
+             학생 간 직접거래와 2차직업 서비스를 하나의 경제 흐름으로 감시합니다. 환불·회수된 기록은 역사로 남기되 현재 통계를 부풀리지 않습니다.
+           </p>
++          {access.is_teacher && (
++            <Link to="/teacher/operations#economy-guard" className="mt-3 inline-flex items-center gap-1.5 rounded-pill border border-gold/30 bg-gold/10 px-3 py-1.5 text-xs font-black text-gold transition hover:bg-gold/15">
++              <ShieldCheck className="h-3.5 w-3.5" /> 수호대 임명·관리 <ArrowRight className="h-3.5 w-3.5" />
++            </Link>
++          )}
+         </div>
+         {dashboard && (
+           <div className="grid grid-cols-2 gap-2 sm:min-w-[280px]">
+@@ -423,9 +429,12 @@
+   return (
+     <>
+       <SummaryGrid dashboard={dashboard} />
+-      <section className="rounded-card-lg border border-line bg-gradient-to-r from-brand-primary/10 via-bg-card to-gold/5 p-4">
+-        <div className="flex items-center gap-2 text-xs font-black text-gold"><ShieldCheck className="h-4 w-4" /> 수호대 브리핑</div>
+-        <pre className="mt-2 whitespace-pre-wrap font-sans text-xs font-bold leading-relaxed text-text-secondary">{dashboard.stats.briefing_report}</pre>
++      <section className="flex flex-wrap items-center justify-between gap-3 rounded-card-lg border border-line bg-bg-card px-4 py-3">
++        <div className="min-w-0">
++          <div className="flex items-center gap-2 text-xs font-black text-gold"><ShieldCheck className="h-4 w-4" /> AI 심층 브리핑</div>
++          <p className="mt-1 text-2xs font-bold text-text-muted">추후 ChatGPT API를 연결해 기간 내 거래 흐름·이상징후·불평등 변화를 종합 분석합니다.</p>
++        </div>
++        <span className="shrink-0 rounded-pill border border-line bg-bg-deep px-3 py-1.5 text-2xs font-black text-text-muted">준비 중</span>
+       </section>
+       <div className="overflow-x-auto rounded-card-lg border border-line bg-bg-card p-1.5">
+         <div className="flex min-w-max gap-1">
+@@ -521,10 +530,10 @@
+           <option value="SERVICE_ORDER">2차직업 서비스</option>
+         </select>
+       </div>
+-      <div className="mt-4 space-y-2">
++      <div className="mt-4 grid gap-2 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+         {filtered.length === 0 ? (
+-          <EmptyState emoji="📭" title="표시할 경제행위가 없습니다" description="기간이나 검색 조건을 바꿔보세요." />
+-        ) : filtered.map((event) => <EventRow key={event.event_key} event={event} compact={false} />)}
++          <div className="md:col-span-2 lg:col-span-3 2xl:col-span-4"><EmptyState emoji="📭" title="표시할 경제행위가 없습니다" description="기간이나 검색 조건을 바꿔보세요." /></div>
++        ) : filtered.map((event) => <EventRow key={event.event_key} event={event} compact />)}
+       </div>
+     </section>
+   );
+@@ -535,8 +544,8 @@
+   return (
+     <div className="grid gap-4 lg:grid-cols-2">
+       <section className="rounded-card-xl border border-line bg-bg-card p-4">
+-        <SectionTitle icon={<Tags className="h-4 w-4" />} title="카테고리별 거래" description="환불·회수 기록을 제외한 현재 유효 경제행위를 기준으로 합니다." />
+-        <div className="mt-4 space-y-3">
++        <SectionTitle icon={<Tags className="h-4 w-4" />} title="거래 태그별 현황" description="현재 태그 기준 통계입니다. 서비스 전용 카테고리는 등록 기능 확장 후 별도로 집계합니다." />
++        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+           {dashboard.stats.tag_stats.length === 0 ? <EmptyState title="카테고리 데이터가 없습니다" /> : dashboard.stats.tag_stats.map((item) => (
+             <div key={item.tag}>
+               <div className="flex items-end justify-between gap-2">
+@@ -583,6 +592,17 @@
+             ))}
+           </div>
+         </section>
++        <section className="rounded-card-xl border border-dashed border-line bg-bg-card p-4">
++          <SectionTitle icon={<Tags className="h-4 w-4" />} title="2차직업 서비스 카테고리" description="서비스 등록에 카테고리가 추가되면 이 영역에서 카테고리별 주문 수·거래액·구매자·판매자를 집계합니다." />
++          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
++            {['청소', '학습', '제작', '1인1역', '생활도움', '기타'].map((category) => (
++              <div key={category} className="rounded-card-sm border border-line bg-bg-deep px-2 py-2 text-center">
++                <div className="text-xs font-black text-text-secondary">{category}</div>
++                <div className="mt-0.5 text-[9px] font-black text-text-muted">준비 중</div>
++              </div>
++            ))}
++          </div>
++        </section>
+       </div>
+     </div>
+   );
+@@ -701,12 +721,12 @@
+ 
+       <section className="rounded-card-xl border border-line bg-bg-card p-4">
+         <SectionTitle icon={<AlertTriangle className="h-4 w-4" />} title="처리 대기" description="자동 감지는 판정이 아닙니다. 사건 내용을 확인한 뒤 정상 또는 최종 적발로 기록하세요." />
+-        <div className="mt-4 space-y-3">
++        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+           {openAlerts.length === 0 ? (
+-            <EmptyState emoji="✅" title="열린 이상거래가 없습니다" description="새 거래가 생기면 30초 이내 자동으로 다시 확인합니다." />
++            <div className="lg:col-span-2"><EmptyState emoji="✅" title="열린 이상거래가 없습니다" description="새 거래가 생기면 30초 이내 자동으로 다시 확인합니다." /></div>
+           ) : openAlerts.map((event) => (
+             <div key={event.event_key} className={cn('rounded-card-lg border p-3', event.review_is_stale ? 'border-warning/35 bg-warning-bg' : 'border-danger/25 bg-bg-deep')}>
+-              <EventRow event={event} compact />
++              <EventRow event={event} compact embedded />
+               <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-line pt-3">
+                 <button type="button" onClick={() => openReview(event, 'NORMAL')} className="btn-secondary inline-flex items-center gap-1.5">
+                   <CheckCircle2 className="h-4 w-4" /> 정상 확인
+@@ -723,7 +743,7 @@
+       {finalFlags.length > 0 && (
+         <section className="rounded-card-xl border border-line bg-bg-card p-4">
+           <SectionTitle icon={<History className="h-4 w-4" />} title="최종 적발 기록" description="최종 판정은 원거래나 자산을 자동으로 변경하지 않고 감사 이력으로 보존됩니다." />
+-          <div className="mt-3 space-y-2">{finalFlags.slice(0, 30).map((event) => <EventRow key={event.event_key} event={event} compact />)}</div>
++          <div className="mt-3 grid gap-2 lg:grid-cols-2">{finalFlags.slice(0, 30).map((event) => <EventRow key={event.event_key} event={event} compact />)}</div>
+         </section>
+       )}
+ 
+@@ -813,11 +833,11 @@
+       <div className="space-y-4">
+         <div className="rounded-card-md border border-line bg-bg-deep p-3">
+           <div className="flex flex-wrap items-center gap-2"><SourceBadge source={event.source_kind} /><StateBadge event={event} /></div>
+-          <div className="mt-2 flex items-center gap-2 text-sm font-black text-text-primary">
+-            <span>{displayName(event.sender_name, event.sender_brand_name)}</span>
++          <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-2">
++            <StudentIdentity name={event.sender_name} brandName={event.sender_brand_name} />
+             <ArrowRight className="h-4 w-4 text-text-muted" />
+-            <span>{displayName(event.receiver_name, event.receiver_brand_name)}</span>
+-            <span className="ml-auto font-mono text-gold">{formatNumber(event.amount)} G</span>
++            <StudentIdentity name={event.receiver_name} brandName={event.receiver_brand_name} />
++            <span className="font-mono text-sm font-black text-gold">{formatNumber(event.amount)} G</span>
+           </div>
+           <div className="mt-2 flex flex-wrap gap-1.5">{event.anomaly_reasons.map((item) => <AnomalyBadge key={item} text={item} />)}</div>
+           {event.review_is_stale && <div className="mt-2 rounded-card-sm border border-warning/30 bg-warning-bg px-3 py-2 text-xs font-black text-warning">이 사건은 이전 정상판정 이후 근거가 바뀌어 재검토가 필요합니다.</div>}
+@@ -829,8 +849,8 @@
+               <div className="mb-2 text-xs font-black text-text-secondary">적발 대상</div>
+               <div className="grid grid-cols-2 gap-2">
+                 {[
+-                  { id: event.sender_id, label: displayName(event.sender_name, event.sender_brand_name), role: '구매자·지급자' },
+-                  { id: event.receiver_id, label: displayName(event.receiver_name, event.receiver_brand_name), role: '판매자·수취인' },
++                  { id: event.sender_id, label: event.sender_name, brandName: event.sender_brand_name, role: '구매자·지급자' },
++                  { id: event.receiver_id, label: event.receiver_name, brandName: event.receiver_brand_name, role: '판매자·수취인' },
+                 ].map((person) => (
+                   <button
+                     type="button"
+@@ -839,6 +859,7 @@
+                     className={cn('rounded-card-md border p-3 text-left transition', subjectId === person.id ? 'border-danger/50 bg-danger-bg' : 'border-line bg-bg-deep')}
+                   >
+                     <div className="text-sm font-black text-text-primary">{person.label}</div>
++                    {person.brandName && <div className="mt-0.5 truncate text-[10px] font-bold text-text-muted">{person.brandName}</div>}
+                     <div className="mt-0.5 text-2xs font-bold text-text-muted">{person.role}</div>
+                   </button>
+                 ))}
+@@ -955,38 +976,56 @@
+   );
+ }
+ 
+-function EventRow({ event, compact }: { event: EconomyGuardEvent; compact: boolean }) {
++function EventRow({ event, compact, embedded = false }: { event: EconomyGuardEvent; compact: boolean; embedded?: boolean }) {
+   return (
+-    <div className={cn('rounded-card-md border border-line bg-bg-deep', compact ? 'p-3' : 'p-3.5')}>
+-      <div className="flex flex-wrap items-center gap-2">
++    <div className={cn(
++      'h-full rounded-card-md',
++      embedded ? 'bg-transparent' : 'border border-line bg-bg-deep',
++      embedded ? 'p-0' : compact ? 'p-3' : 'p-3.5',
++    )}>
++      <div className="flex flex-wrap items-center gap-1.5">
+         <SourceBadge source={event.source_kind} />
+         <StateBadge event={event} />
+         {event.review_is_stale && <span className="rounded-pill border border-warning/30 bg-warning-bg px-2 py-0.5 text-[10px] font-black text-warning">재검토 필요</span>}
+         {event.penalty && <span className="rounded-pill border border-danger/30 bg-danger-bg px-2 py-0.5 text-[10px] font-black text-danger">최종 적발</span>}
+-        <span className="ml-auto text-2xs font-bold text-text-muted">{formatDateTime(event.occurred_at)}</span>
++        <span className="ml-auto text-[10px] font-bold text-text-muted">{formatDateTime(event.occurred_at)}</span>
++      </div>
++
++      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
++        <StudentIdentity name={event.sender_name} brandName={event.sender_brand_name} />
++        <ArrowRight className="h-4 w-4 shrink-0 text-text-muted" />
++        <StudentIdentity name={event.receiver_name} brandName={event.receiver_brand_name} align="right" />
+       </div>
+-      <div className="mt-2 flex flex-wrap items-center gap-2">
+-        <span className="text-sm font-black text-text-primary">{displayName(event.sender_name, event.sender_brand_name)}</span>
+-        <ArrowRight className="h-4 w-4 text-text-muted" />
+-        <span className="text-sm font-black text-text-primary">{displayName(event.receiver_name, event.receiver_brand_name)}</span>
+-        <span className="ml-auto font-mono text-base font-black text-gold">{formatNumber(event.amount)} G</span>
+-      </div>
+-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs font-bold text-text-muted">
+-        <span>{event.tag || '(태그 없음)'}</span>
+-        {event.quantity > 1 && <span>수량 {event.quantity} · 단가 {formatNumber(Math.round(event.unit_price))} G</span>}
+-        <span className="font-mono">{event.event_key}</span>
++
++      <div className="mt-2 flex items-center justify-between gap-2 border-t border-line pt-2">
++        <div className="min-w-0">
++          <div className="truncate text-[10px] font-black text-text-muted">{event.tag || '(태그 없음)'}</div>
++          <div className="mt-0.5 truncate font-mono text-[9px] font-bold text-text-muted">{event.event_key}</div>
++        </div>
++        <span className="shrink-0 font-mono text-base font-black text-gold">{formatNumber(event.amount)} G</span>
+       </div>
+-      {event.description && <p className={cn('mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-text-secondary', compact && 'line-clamp-2')}>{event.description}</p>}
+-      {event.anomaly_reasons.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{event.anomaly_reasons.map((item) => <AnomalyBadge key={item} text={item} />)}</div>}
++
++      {event.quantity > 1 && <div className="mt-1 text-[10px] font-bold text-text-muted">수량 {event.quantity} · 단가 {formatNumber(Math.round(event.unit_price))} G</div>}
++      {event.description && <p className={cn('mt-1.5 whitespace-pre-wrap break-words text-xs leading-snug text-text-secondary', compact && 'line-clamp-2')}>{event.description}</p>}
++      {event.anomaly_reasons.length > 0 && <div className="mt-2 flex flex-wrap gap-1">{event.anomaly_reasons.map((item) => <AnomalyBadge key={item} text={item} />)}</div>}
+       {event.penalty && (
+-        <div className="mt-2 rounded-card-sm border border-danger/25 bg-danger-bg px-3 py-2 text-xs font-bold text-text-secondary">
+-          <span className="font-black text-danger">{event.penalty.reason}</span> · {event.penalty.subject_brand_name || event.penalty.subject_name || `학생 #${event.penalty.subject_student_id}`}
++        <div className="mt-2 rounded-card-sm border border-danger/25 bg-danger-bg px-2.5 py-2 text-xs font-bold text-text-secondary">
++          <span className="font-black text-danger">{event.penalty.reason}</span> · {event.penalty.subject_name || event.penalty.subject_brand_name || `학생 #${event.penalty.subject_student_id}`}
+           {event.penalty.memo ? ` · ${event.penalty.memo}` : ''}
+         </div>
+       )}
+     </div>
+   );
+ }
++
++function StudentIdentity({ name, brandName, align = 'left' }: { name: string; brandName: string | null; align?: 'left' | 'right' }) {
++  return (
++    <div className={cn('min-w-0', align === 'right' && 'text-right')}>
++      <div className="truncate text-sm font-black text-text-primary">{name}</div>
++      {brandName && <div className="mt-0.5 truncate text-[10px] font-bold text-text-muted">{brandName}</div>}
++    </div>
++  );
++}
+ 
+ function SourceBadge({ source }: { source: EconomyGuardSourceKind }) {
+   return source === 'P2P_TRANSFER'
+--- a/src/features/feature4/OperationsAdmin.tsx
++++ b/src/features/feature4/OperationsAdmin.tsx
+@@ -115,6 +115,14 @@
+     return () => { channels.forEach((channel) => { void supabase.removeChannel(channel); }); };
+   }, [classroomId, qc]);
+ 
++  useEffect(() => {
++    if (window.location.hash !== '#economy-guard') return;
++    const frame = window.requestAnimationFrame(() => {
++      document.getElementById('economy-guard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
++    });
++    return () => window.cancelAnimationFrame(frame);
++  }, []);
++
+   const endDate = new Date(emergencyEnd);
+   const emergencyEndValid = emergencyEnd && Number.isFinite(endDate.getTime()) && endDate.getTime() > Date.now();
+   const pendingRequests = requests.data ?? [];
+@@ -183,7 +191,7 @@
+             </div>
+           </Panel>
+ 
+-          <Panel title="🛡️ 경제수호대">
++          <Panel title="🛡️ 경제수호대" id="economy-guard">
+             <select value={guardStudent} onChange={(e) => setGuardStudent(Number(e.target.value))} className="input-field w-full mb-2 text-base">
+               <option value={0}>학생 선택</option>
+               {students.data?.map((s: any) => <option key={s.id} value={s.id}>{s.name}{s.brand_name ? ` (${s.brand_name})` : ''}</option>)}
+@@ -228,8 +236,8 @@
+   );
+ }
+ 
+-function Panel({ title, children }: { title: string; children: any }) {
+-  return <section className="glass-card p-4"><h2 className="font-display text-lg mb-3">{title}</h2>{children}</section>;
++function Panel({ title, children, id }: { title: string; children: any; id?: string }) {
++  return <section id={id} className="glass-card scroll-mt-24 p-4"><h2 className="font-display text-lg mb-3">{title}</h2>{children}</section>;
+ }
+ 
+ function FieldN({ label, v, set }: { label: string; v: number; set: (n: number) => void }) {

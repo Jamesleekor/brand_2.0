@@ -42,6 +42,7 @@ const NAV_GROUPS: readonly TeacherNavGroup[] = [
     id: 'economy', icon: '💰', label: '경제',
     items: [
       { to: '/teacher/control', icon: '⚙️', label: '경제 현황' },
+      { to: '/teacher/economy-guard', icon: '🛡️', label: '경제수호대' },
       { to: '/teacher/market', icon: '🏪', label: '시장' },
       { to: '/teacher/bank', icon: '🏦', label: '은행' },
       { to: '/teacher/auction', icon: '🔨', label: '경매' },

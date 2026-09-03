@@ -12,6 +12,7 @@ import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 import { bakeryI2Rpc } from '@/lib/rpc/bakery_i2_rpc';
+import { economyGuardRpc } from '@/lib/rpc/economy_guard_rpc';
 import { supabase } from '@/lib/supabase/client';
 
 // =====================================================================
@@ -130,6 +131,7 @@ export function TopMenuRow({ guildAlertCount = 0 }: TopMenuRowProps) {
       <MenuPill to="/bank" icon="🏦" label="은행" />
       <MenuPill to="/market/inventory" icon="🎒" label="가방" />
       <BakeryMenuPill />
+      <EconomyGuardMenuPill />
       <MenuPill to="/rankings" icon="📊" label="랭킹" />
       <MenuPill to="/assignments" icon="📝" label="과제" />
       <MenuPill to="/records" icon="🏛️" label="기록실" />
@@ -153,6 +155,25 @@ function BakeryMenuPill() {
 
   if (!access.data?.is_operator) return null;
   return <MenuPill to="/bakery" icon="🧁" label="제과점" />;
+}
+
+
+function EconomyGuardMenuPill() {
+  const access = useQuery({
+    queryKey: ['economy-guard-access'],
+    queryFn: async () => {
+      const result = await economyGuardRpc.getAccess(supabase);
+      if (result.success === false) throw new Error(result.error);
+      return result.data;
+    },
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    retry: 1,
+  });
+
+  if (!access.data?.can_access || access.data.is_teacher) return null;
+  return <MenuPill to="/guard" icon="🛡️" label="경제수호대" />;
 }
 
 // =====================================================================

@@ -1,0 +1,2037 @@
+-- B.R.A.N.D 2.0
+-- Economy Guard EG1.1 — Focused One-Time Migration
+-- Date: 2026-09-03
+--
+-- IMPORTANT
+-- 1) DO NOT rerun historical EG1 migrations/hotfixes.
+-- 2) Run the separate ROLLBACK REHEARSAL first.
+-- 3) Run this APPLY only after the rehearsal passes.
+-- 4) This migration is intentionally fail-closed if the verified Production contract drifted.
+--
+-- Main changes:
+-- - Preserve original economy ledgers.
+-- - Add generic append-only Guard review / penalty audit tables.
+-- - Add canonical P2P + SERVICE_ORDER audit projection.
+-- - Exclude Live Test Agent / non-official participants server-side.
+-- - Prevent non-official students from becoming active Guards.
+-- - Keep legacy EG1 objects for rollback compatibility.
+-- - Do NOT alter GOLD/BV/wallets/source economic events.
+
+BEGIN;
+
+-- ============================================================================
+-- 0. FAIL-CLOSED PRODUCTION CONTRACT CHECK
+-- ============================================================================
+
+DO $eg11_precondition$
+DECLARE
+  v_hash text;
+BEGIN
+  IF to_regclass('public.p2p_transfers') IS NULL
+     OR to_regclass('public.secondary_job_service_orders') IS NULL
+     OR to_regclass('public.transactions') IS NULL
+     OR to_regclass('public.wallets') IS NULL
+     OR to_regclass('public.guard_terms') IS NULL THEN
+    RAISE EXCEPTION '[EG1.1] required source relation missing' USING ERRCODE='P8100';
+  END IF;
+
+  IF to_regprocedure('public.is_official_participant(integer)') IS NULL
+     OR to_regprocedure('public._economy_guard_assert_access()') IS NULL
+     OR to_regprocedure('public._economy_guard_period_bounds(text,date,date)') IS NULL
+     OR to_regprocedure('public.economy_guard_get_access()') IS NULL
+     OR to_regprocedure('public.teacher_appoint_guard(integer,integer,public.guard_role_type,date,date,text)') IS NULL THEN
+    RAISE EXCEPTION '[EG1.1] required helper/RPC missing' USING ERRCODE='P8101';
+  END IF;
+
+  -- Verified 2026-09-03 Production hashes. Refuse to overwrite silently if drifted.
+  SELECT md5(pg_get_functiondef(to_regprocedure('public._economy_guard_access_context()')))
+    INTO v_hash;
+  IF v_hash <> '9a8ea6304f362f33381b95dfd3b1c5e8' THEN
+    RAISE EXCEPTION '[EG1.1] _economy_guard_access_context drifted: %',v_hash USING ERRCODE='P8102';
+  END IF;
+
+  SELECT md5(pg_get_functiondef(to_regprocedure('public._economy_guard_assert_access()')))
+    INTO v_hash;
+  IF v_hash <> 'c10dc0b5f8fa17330f411598707b84d0' THEN
+    RAISE EXCEPTION '[EG1.1] _economy_guard_assert_access drifted: %',v_hash USING ERRCODE='P8102';
+  END IF;
+
+  SELECT md5(pg_get_functiondef(to_regprocedure('public._economy_guard_inequality(integer)')))
+    INTO v_hash;
+  IF v_hash <> '2bf3d4cc186019d49f037800b4575c01' THEN
+    RAISE EXCEPTION '[EG1.1] _economy_guard_inequality drifted: %',v_hash USING ERRCODE='P8102';
+  END IF;
+
+  SELECT md5(pg_get_functiondef(to_regprocedure('public._economy_guard_transaction_rows(integer,date,date)')))
+    INTO v_hash;
+  IF v_hash <> 'ebaf109fc8afd5aacc67cf5b3a202ee3' THEN
+    RAISE EXCEPTION '[EG1.1] legacy transaction projection drifted: %',v_hash USING ERRCODE='P8102';
+  END IF;
+
+  SELECT md5(pg_get_functiondef(to_regprocedure('public._economy_guard_period_bounds(text,date,date)')))
+    INTO v_hash;
+  IF v_hash <> 'a6ad7eea73dd3c2f6d78df8f44be4297' THEN
+    RAISE EXCEPTION '[EG1.1] period helper drifted: %',v_hash USING ERRCODE='P8102';
+  END IF;
+
+  SELECT md5(pg_get_functiondef(to_regprocedure('public.is_official_participant(integer)')))
+    INTO v_hash;
+  IF v_hash <> '194c2d8769eb04bded9c0d61775d5cda' THEN
+    RAISE EXCEPTION '[EG1.1] official participant helper drifted: %',v_hash USING ERRCODE='P8102';
+  END IF;
+
+  SELECT md5(pg_get_functiondef(to_regprocedure('public.teacher_appoint_guard(integer,integer,public.guard_role_type,date,date,text)')))
+    INTO v_hash;
+  IF v_hash <> '17614e2090a678f6ad97f660f3532545' THEN
+    RAISE EXCEPTION '[EG1.1] teacher_appoint_guard drifted: %',v_hash USING ERRCODE='P8102';
+  END IF;
+
+  -- New EG1.1 objects must be unused/free for this one-time migration.
+  IF to_regclass('public.economy_guard_event_reviews') IS NOT NULL
+     OR to_regclass('public.economy_guard_event_penalties') IS NOT NULL
+     OR to_regprocedure('public._economy_guard_p2p_event_rows(integer,date,date)') IS NOT NULL
+     OR to_regprocedure('public._economy_guard_service_event_rows(integer,date,date)') IS NOT NULL
+     OR to_regprocedure('public._economy_guard_event_rows(integer,date,date)') IS NOT NULL
+     OR to_regprocedure('public.economy_guard_get_dashboard_v2(text,date,date)') IS NOT NULL
+     OR to_regprocedure('public.economy_guard_get_ai_context_v2(text,date,date)') IS NOT NULL
+     OR to_regprocedure('public.economy_guard_mark_event_normal(text,bigint,text)') IS NOT NULL
+     OR to_regprocedure('public.economy_guard_flag_event(text,bigint,integer,text,text)') IS NOT NULL THEN
+    RAISE EXCEPTION '[EG1.1] one-time migration objects already exist; do not rerun' USING ERRCODE='P8103';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_trigger t
+    JOIN pg_class c ON c.oid=t.tgrelid
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public'
+      AND c.relname='guard_terms'
+      AND t.tgname='trg_guard_terms_official_participant'
+      AND NOT t.tgisinternal
+  ) THEN
+    RAISE EXCEPTION '[EG1.1] guard official-participant trigger already exists' USING ERRCODE='P8103';
+  END IF;
+
+  -- Because new generic audit tables start fresh, refuse silent loss of old decisions.
+  IF EXISTS (SELECT 1 FROM public.economy_guard_transfer_reviews LIMIT 1)
+     OR EXISTS (SELECT 1 FROM public.economy_guard_penalties LIMIT 1) THEN
+    RAISE EXCEPTION '[EG1.1] legacy review/penalty data exists; explicit migration is required first' USING ERRCODE='P8104';
+  END IF;
+
+  -- Current service contract required by the adapter.
+  IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='secondary_job_service_orders'
+        AND column_name='buyer_student_id'
+    )
+    OR NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='secondary_job_service_orders'
+        AND column_name='seller_student_id'
+    )
+    OR NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='secondary_job_service_orders'
+        AND column_name='price_gold_snapshot'
+    )
+    OR NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='secondary_job_service_orders'
+        AND column_name='buyer_request'
+    )
+    OR NOT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='secondary_job_service_orders'
+        AND column_name='status'
+    ) THEN
+    RAISE EXCEPTION '[EG1.1] service-order schema drifted' USING ERRCODE='P8105';
+  END IF;
+END
+$eg11_precondition$;
+
+
+-- ============================================================================
+-- 1. NEW GENERIC APPEND-ONLY AUDIT TABLES
+-- ============================================================================
+
+CREATE TABLE public.economy_guard_event_reviews (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  classroom_id integer NOT NULL REFERENCES public.classrooms(id) ON DELETE CASCADE,
+  source_kind varchar(32) NOT NULL,
+  source_id bigint NOT NULL,
+  decision varchar(32) NOT NULL,
+  basis_hash varchar(32) NOT NULL,
+  event_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
+  memo text,
+  reviewed_by_student_id integer REFERENCES public.students(id) ON DELETE SET NULL,
+  reviewed_by_user_id uuid NOT NULL,
+  guard_term_id integer REFERENCES public.guard_terms(id) ON DELETE SET NULL,
+  reviewed_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT economy_guard_event_reviews_source_kind_ck
+    CHECK (source_kind IN ('P2P_TRANSFER','SERVICE_ORDER')),
+  CONSTRAINT economy_guard_event_reviews_decision_ck
+    CHECK (decision IN ('NORMAL_CONFIRMED','FINAL_FLAGGED')),
+  CONSTRAINT economy_guard_event_reviews_basis_hash_ck
+    CHECK (basis_hash ~ '^[0-9a-f]{32}$'),
+  CONSTRAINT economy_guard_event_reviews_snapshot_ck
+    CHECK (jsonb_typeof(event_snapshot)='object'),
+  CONSTRAINT economy_guard_event_reviews_memo_ck
+    CHECK (char_length(coalesce(memo,'')) <= 500),
+  CONSTRAINT economy_guard_event_reviews_same_basis_uq
+    UNIQUE (classroom_id,source_kind,source_id,decision,basis_hash)
+);
+
+CREATE INDEX economy_guard_event_reviews_event_idx
+  ON public.economy_guard_event_reviews(classroom_id,source_kind,source_id,reviewed_at DESC,id DESC);
+
+CREATE INDEX economy_guard_event_reviews_guard_term_idx
+  ON public.economy_guard_event_reviews(guard_term_id)
+  WHERE guard_term_id IS NOT NULL;
+
+
+CREATE TABLE public.economy_guard_event_penalties (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  penalty_uid varchar(64) NOT NULL UNIQUE,
+  classroom_id integer NOT NULL REFERENCES public.classrooms(id) ON DELETE CASCADE,
+  source_kind varchar(32) NOT NULL,
+  source_id bigint NOT NULL,
+  subject_student_id integer NOT NULL REFERENCES public.students(id) ON DELETE RESTRICT,
+  reason varchar(64) NOT NULL,
+  memo text,
+  basis_hash varchar(32) NOT NULL,
+  event_snapshot jsonb NOT NULL DEFAULT '{}'::jsonb,
+  flagged_by_student_id integer REFERENCES public.students(id) ON DELETE SET NULL,
+  flagged_by_user_id uuid NOT NULL,
+  guard_term_id integer REFERENCES public.guard_terms(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT economy_guard_event_penalties_source_kind_ck
+    CHECK (source_kind IN ('P2P_TRANSFER','SERVICE_ORDER')),
+  CONSTRAINT economy_guard_event_penalties_reason_ck
+    CHECK (reason IN ('사유 허위 기재','실물 거래 의심','강압적 거래','소명 거부','기타')),
+  CONSTRAINT economy_guard_event_penalties_basis_hash_ck
+    CHECK (basis_hash ~ '^[0-9a-f]{32}$'),
+  CONSTRAINT economy_guard_event_penalties_snapshot_ck
+    CHECK (jsonb_typeof(event_snapshot)='object'),
+  CONSTRAINT economy_guard_event_penalties_memo_ck
+    CHECK (char_length(coalesce(memo,'')) <= 500),
+  CONSTRAINT economy_guard_event_penalties_one_per_event_uq
+    UNIQUE (classroom_id,source_kind,source_id)
+);
+
+CREATE INDEX economy_guard_event_penalties_subject_idx
+  ON public.economy_guard_event_penalties(classroom_id,subject_student_id,created_at DESC);
+
+ALTER TABLE public.economy_guard_event_reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.economy_guard_event_penalties ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON TABLE public.economy_guard_event_reviews FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON TABLE public.economy_guard_event_penalties FROM PUBLIC,anon,authenticated;
+
+-- Direct browser DML is intentionally unavailable.
+-- service_role receives read-only direct visibility; guarded SECURITY DEFINER RPCs own writes.
+GRANT SELECT ON TABLE public.economy_guard_event_reviews TO service_role;
+GRANT SELECT ON TABLE public.economy_guard_event_penalties TO service_role;
+
+
+-- ============================================================================
+-- 2. OFFICIAL-PARTICIPANT DEFENSE IN DEPTH
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public._economy_guard_enforce_official_guard_term()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $eg11_guard_trigger$
+BEGIN
+  IF NEW.is_active THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.students s
+      WHERE s.id=NEW.student_id
+        AND s.classroom_id=NEW.classroom_id
+        AND public.is_official_participant(s.id)
+    ) THEN
+      RAISE EXCEPTION '[EG1.1] only an official participant may hold an active Guard term'
+        USING ERRCODE='PK111';
+    END IF;
+  END IF;
+  RETURN NEW;
+END
+$eg11_guard_trigger$;
+
+REVOKE ALL ON FUNCTION public._economy_guard_enforce_official_guard_term()
+  FROM PUBLIC,anon,authenticated,service_role;
+
+CREATE TRIGGER trg_guard_terms_official_participant
+BEFORE INSERT OR UPDATE OF classroom_id,student_id,is_active
+ON public.guard_terms
+FOR EACH ROW
+EXECUTE FUNCTION public._economy_guard_enforce_official_guard_term();
+
+
+CREATE OR REPLACE FUNCTION public.teacher_appoint_guard(
+  p_classroom_id integer,
+  p_student_id integer,
+  p_role_type public.guard_role_type,
+  p_start_date date,
+  p_end_date date,
+  p_note text DEFAULT NULL::text
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $eg11_teacher_appoint$
+DECLARE
+  v_id integer;
+BEGIN
+  PERFORM public.ensure_teacher_role();
+
+  IF NOT public.is_classroom_member(p_classroom_id) THEN
+    RAISE EXCEPTION '[F4B] teacher classroom denied' USING ERRCODE='P4B10';
+  END IF;
+
+  IF p_start_date>p_end_date THEN
+    RAISE EXCEPTION '[F4B] guard period invalid' USING ERRCODE='P4B30';
+  END IF;
+
+  IF char_length(coalesce(p_note,''))>500 THEN
+    RAISE EXCEPTION '[F4B] guard note too long' USING ERRCODE='P4B34';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.students
+    WHERE id=p_student_id
+      AND classroom_id=p_classroom_id
+      AND transferred_at IS NULL
+      AND role='STUDENT'
+  ) THEN
+    RAISE EXCEPTION '[F4B] guard student invalid' USING ERRCODE='P4B31';
+  END IF;
+
+  IF NOT public.is_official_participant(p_student_id) THEN
+    RAISE EXCEPTION '[F4B] test/non-official participant cannot be appointed as Guard'
+      USING ERRCODE='P4B35';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.guard_terms
+    WHERE student_id=p_student_id
+      AND is_active
+      AND daterange(start_date,end_date,'[]') && daterange(p_start_date,p_end_date,'[]')
+  ) THEN
+    RAISE EXCEPTION '[F4B] overlapping guard term exists' USING ERRCODE='P4B32';
+  END IF;
+
+  INSERT INTO public.guard_terms(
+    classroom_id,student_id,role_type,start_date,end_date,is_active,appointed_by,note
+  )
+  VALUES(
+    p_classroom_id,p_student_id,p_role_type,p_start_date,p_end_date,true,auth.uid(),
+    nullif(btrim(coalesce(p_note,'')),'')
+  )
+  RETURNING id INTO v_id;
+
+  PERFORM public.send_mail(
+    p_student_id,
+    'TEACHER',
+    NULL,
+    auth.uid(),
+    '🛡️ 경제수호대 임명',
+    format(
+      '%s부터 %s까지 경제수호대 %s으로 임명되었습니다.',
+      p_start_date,p_end_date,
+      CASE WHEN p_role_type='CHIEF' THEN '대장' ELSE '대원' END
+    ),
+    'TEACHER_MESSAGE',
+    NULL,
+    NULL
+  );
+
+  RETURN v_id;
+END
+$eg11_teacher_appoint$;
+
+
+-- Guard access itself also rejects non-official student accounts even if a bad term
+-- somehow existed before/through a privileged administrative path.
+CREATE OR REPLACE FUNCTION public._economy_guard_access_context()
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $eg11_access_context$
+DECLARE
+  v_uid uuid:=auth.uid();
+  v_student_id integer;
+  v_classroom_id integer;
+  v_is_teacher boolean:=false;
+  v_term_id integer;
+  v_role_type text;
+  v_start_date date;
+  v_end_date date;
+  v_today date:=(now() AT TIME ZONE 'Asia/Seoul')::date;
+BEGIN
+  IF v_uid IS NULL THEN
+    RETURN jsonb_build_object(
+      'can_access',false,'is_teacher',false,'student_id',NULL,'classroom_id',NULL,
+      'role_type',NULL,'active_term_id',NULL,'start_date',NULL,'end_date',NULL,
+      'reason','NOT_AUTHENTICATED'
+    );
+  END IF;
+
+  BEGIN
+    v_is_teacher:=coalesce(public.is_teacher_or_admin(),false);
+  EXCEPTION WHEN OTHERS THEN
+    v_is_teacher:=false;
+  END;
+
+  IF v_is_teacher THEN
+    SELECT s.classroom_id
+      INTO v_classroom_id
+      FROM public.students s
+     WHERE s.user_id=v_uid
+       AND s.transferred_at IS NULL
+       AND s.role::text IN ('TEACHER','ADMIN')
+     ORDER BY CASE WHEN s.role::text='TEACHER' THEN 0 ELSE 1 END,s.id
+     LIMIT 1;
+
+    IF v_classroom_id IS NULL THEN
+      SELECT c.id
+        INTO v_classroom_id
+        FROM public.classrooms c
+       WHERE c.teacher_user_id=v_uid
+         AND c.is_active=true
+       ORDER BY c.id
+       LIMIT 1;
+    END IF;
+
+    RETURN jsonb_build_object(
+      'can_access',v_classroom_id IS NOT NULL,
+      'is_teacher',true,
+      'student_id',NULL,
+      'classroom_id',v_classroom_id,
+      'role_type',NULL,
+      'active_term_id',NULL,
+      'start_date',NULL,
+      'end_date',NULL,
+      'reason',CASE WHEN v_classroom_id IS NULL THEN 'CLASSROOM_UNAVAILABLE' ELSE 'TEACHER_OVERSIGHT' END
+    );
+  END IF;
+
+  SELECT s.id,s.classroom_id,g.id,g.role_type::text,g.start_date,g.end_date
+    INTO v_student_id,v_classroom_id,v_term_id,v_role_type,v_start_date,v_end_date
+    FROM public.students s
+    JOIN public.guard_terms g
+      ON g.student_id=s.id
+     AND g.classroom_id=s.classroom_id
+   WHERE s.user_id=v_uid
+     AND s.transferred_at IS NULL
+     AND s.role::text IN ('STUDENT','STUDENT_LEADER','GUARD')
+     AND public.is_official_participant(s.id)
+     AND g.is_active=true
+     AND v_today>=g.start_date
+     AND (g.end_date IS NULL OR v_today<=g.end_date)
+   ORDER BY
+     CASE WHEN g.role_type::text='CHIEF' THEN 0 ELSE 1 END,
+     g.end_date DESC NULLS FIRST,
+     g.id DESC,
+     s.id
+   LIMIT 1;
+
+  IF v_student_id IS NULL OR v_classroom_id IS NULL OR v_term_id IS NULL THEN
+    RETURN jsonb_build_object(
+      'can_access',false,'is_teacher',false,
+      'student_id',v_student_id,'classroom_id',v_classroom_id,
+      'role_type',NULL,'active_term_id',NULL,'start_date',NULL,'end_date',NULL,
+      'reason','NO_ACTIVE_GUARD_TERM'
+    );
+  END IF;
+
+  RETURN jsonb_build_object(
+    'can_access',true,'is_teacher',false,
+    'student_id',v_student_id,'classroom_id',v_classroom_id,
+    'role_type',v_role_type,'active_term_id',v_term_id,
+    'start_date',v_start_date,'end_date',v_end_date,
+    'reason','ACTIVE_GUARD_TERM'
+  );
+END
+$eg11_access_context$;
+
+
+-- ============================================================================
+-- 3. FIX LEGACY OFFICIAL-PARTICIPANT FILTERING
+--    This also makes the old P2P-only EG1 safer while v2 is rolled out.
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION public._economy_guard_inequality(p_classroom_id integer)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $eg11_inequality$
+DECLARE
+  v_gini_gold numeric:=0;
+  v_gini_bv numeric:=0;
+  v_top20 numeric:=0;
+  v_ranked jsonb:='[]'::jsonb;
+  v_lorenz jsonb:='[]'::jsonb;
+  v_history jsonb:='[]'::jsonb;
+  v_total_gold numeric:=0;
+  v_total_bv numeric:=0;
+  v_n integer:=0;
+BEGIN
+  WITH vals AS (
+    SELECT
+      s.id student_id,
+      s.name::text name,
+      s.brand_name::text brand_name,
+      greatest(coalesce(w.gold,0),0)::numeric gold,
+      greatest(coalesce(w.bv,0),0)::numeric bv
+    FROM public.students s
+    JOIN public.wallets w ON w.student_id=s.id
+    WHERE s.classroom_id=p_classroom_id
+      AND public.is_official_participant(s.id)
+  ),
+  agg AS (
+    SELECT count(*) n,coalesce(sum(gold),0) tg,coalesce(sum(bv),0) tb
+    FROM vals
+  )
+  SELECT n,tg,tb
+    INTO v_n,v_total_gold,v_total_bv
+  FROM agg;
+
+  IF v_n>0 THEN
+    WITH vals AS (
+      SELECT greatest(coalesce(w.gold,0),0)::numeric x
+      FROM public.students s
+      JOIN public.wallets w ON w.student_id=s.id
+      WHERE s.classroom_id=p_classroom_id
+        AND public.is_official_participant(s.id)
+    ),
+    ranked AS (
+      SELECT x,row_number() OVER(ORDER BY x) rn,count(*) OVER() n,sum(x) OVER() total
+      FROM vals
+    )
+    SELECT coalesce(
+      CASE WHEN max(total)=0
+        THEN 0
+        ELSE sum((2*rn-n-1)*x)/(max(n)*max(total))
+      END,0
+    )
+    INTO v_gini_gold
+    FROM ranked;
+
+    WITH vals AS (
+      SELECT greatest(coalesce(w.bv,0),0)::numeric x
+      FROM public.students s
+      JOIN public.wallets w ON w.student_id=s.id
+      WHERE s.classroom_id=p_classroom_id
+        AND public.is_official_participant(s.id)
+    ),
+    ranked AS (
+      SELECT x,row_number() OVER(ORDER BY x) rn,count(*) OVER() n,sum(x) OVER() total
+      FROM vals
+    )
+    SELECT coalesce(
+      CASE WHEN max(total)=0
+        THEN 0
+        ELSE sum((2*rn-n-1)*x)/(max(n)*max(total))
+      END,0
+    )
+    INTO v_gini_bv
+    FROM ranked;
+
+    WITH vals AS (
+      SELECT
+        s.id AS student_id,
+        greatest(coalesce(w.gold,0),0)::numeric gold
+      FROM public.students s
+      JOIN public.wallets w ON w.student_id=s.id
+      WHERE s.classroom_id=p_classroom_id
+        AND public.is_official_participant(s.id)
+    ),
+    topn AS (
+      SELECT
+        gold,
+        row_number() OVER(ORDER BY gold DESC,student_id) rn,
+        count(*) OVER() n,
+        sum(gold) OVER() total
+      FROM vals
+    )
+    SELECT coalesce(
+      CASE WHEN max(total)=0
+        THEN 0
+        ELSE sum(gold) FILTER (WHERE rn<=greatest(1,ceil(n*0.2)::int))/max(total)
+      END,0
+    )
+    INTO v_top20
+    FROM topn;
+  END IF;
+
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'rank',x.rn,
+        'student_id',x.student_id,
+        'name',x.name,
+        'brand_name',x.brand_name,
+        'gold',x.gold,
+        'bv',x.bv
+      )
+      ORDER BY x.rn
+    ),
+    '[]'::jsonb
+  )
+  INTO v_ranked
+  FROM (
+    SELECT
+      row_number() OVER(ORDER BY w.gold DESC,s.id)::integer rn,
+      s.id student_id,
+      s.name::text name,
+      s.brand_name::text brand_name,
+      coalesce(w.gold,0)::bigint gold,
+      coalesce(w.bv,0)::bigint bv
+    FROM public.students s
+    JOIN public.wallets w ON w.student_id=s.id
+    WHERE s.classroom_id=p_classroom_id
+      AND public.is_official_participant(s.id)
+  ) x;
+
+  WITH vals AS (
+    SELECT greatest(coalesce(w.gold,0),0)::numeric gold
+    FROM public.students s
+    JOIN public.wallets w ON w.student_id=s.id
+    WHERE s.classroom_id=p_classroom_id
+      AND public.is_official_participant(s.id)
+  ),
+  ordered AS (
+    SELECT
+      gold,
+      row_number() OVER(ORDER BY gold) rn,
+      count(*) OVER() n,
+      sum(gold) OVER() total,
+      sum(gold) OVER(
+        ORDER BY gold
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+      ) cum
+    FROM vals
+  ),
+  pts AS (
+    SELECT 0::numeric population_share,0::numeric asset_share,0::integer ord
+    UNION ALL
+    SELECT
+      rn::numeric/nullif(n,0),
+      CASE WHEN total=0 THEN 0 ELSE cum/total END,
+      rn::integer
+    FROM ordered
+  )
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'population_share',population_share,
+        'asset_share',asset_share
+      )
+      ORDER BY ord
+    ),
+    '[]'::jsonb
+  )
+  INTO v_lorenz
+  FROM pts;
+
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'snapshot_date',snapshot_date,
+        'gini_gold',gini_gold,
+        'gini_bv',gini_bv,
+        'top20_gold_share',top20_gold_share
+      )
+      ORDER BY snapshot_date
+    ),
+    '[]'::jsonb
+  )
+  INTO v_history
+  FROM (
+    SELECT snapshot_date,gini_gold,gini_bv,top20_gold_share
+    FROM public.economy_guard_inequality_snapshots
+    WHERE classroom_id=p_classroom_id
+    ORDER BY snapshot_date DESC
+    LIMIT 60
+  ) h;
+
+  RETURN jsonb_build_object(
+    'gini_gold',round(coalesce(v_gini_gold,0),6),
+    'gini_bv',round(coalesce(v_gini_bv,0),6),
+    'top20_gold_share',round(coalesce(v_top20,0),6),
+    'lorenz',v_lorenz,
+    'ranked',v_ranked,
+    'history',v_history,
+    'total_gold',v_total_gold::bigint,
+    'total_bv',v_total_bv::bigint,
+    'student_count',v_n
+  );
+END
+$eg11_inequality$;
+
+
+CREATE OR REPLACE FUNCTION public._economy_guard_transaction_rows(
+  p_classroom_id integer,
+  p_start_date date,
+  p_end_date date
+)
+RETURNS TABLE(
+  transfer_id bigint,
+  transfer_uid text,
+  created_at timestamptz,
+  trade_date date,
+  sender_id integer,
+  sender_name text,
+  sender_brand_name text,
+  receiver_id integer,
+  receiver_name text,
+  receiver_brand_name text,
+  amount bigint,
+  fee_gold bigint,
+  sender_total_debit bigint,
+  tag text,
+  description text,
+  quantity integer,
+  rating integer,
+  raw_status text,
+  review_status text,
+  review_memo text,
+  reviewed_at timestamptz,
+  anomaly_reasons text[],
+  is_suspicious boolean,
+  is_open_alert boolean,
+  penalty jsonb
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $eg11_legacy_rows$
+WITH base AS (
+  SELECT
+    p.id::bigint transfer_id,
+    p.transfer_uid::text,
+    p.created_at,
+    (p.created_at AT TIME ZONE 'Asia/Seoul')::date trade_date,
+    p.sender_id,
+    sn.name::text sender_name,
+    sn.brand_name::text sender_brand_name,
+    p.receiver_id,
+    rn.name::text receiver_name,
+    rn.brand_name::text receiver_brand_name,
+    p.amount::bigint,
+    coalesce(p.fee_gold,0)::bigint fee_gold,
+    coalesce(p.sender_total_debit,p.amount)::bigint sender_total_debit,
+    nullif(btrim(coalesce(p.tag::text,'')),'') tag,
+    nullif(btrim(coalesce(p.description::text,'')),'') description,
+    greatest(coalesce(p.quantity,1),1)::integer quantity,
+    p.rating::integer,
+    nullif(btrim(coalesce(to_jsonb(p)->>'status','')),'') raw_status,
+    r.review_status::text,
+    r.memo::text review_memo,
+    r.reviewed_at,
+    count(*) OVER (
+      PARTITION BY (p.created_at AT TIME ZONE 'Asia/Seoul')::date,p.sender_id,p.receiver_id
+    ) pair_count,
+    sum(p.amount) OVER (
+      PARTITION BY (p.created_at AT TIME ZONE 'Asia/Seoul')::date,p.sender_id,p.receiver_id
+    ) pair_amount,
+    ep.id penalty_id,
+    ep.penalty_uid,
+    ep.subject_student_id,
+    ps.name subject_name,
+    ps.brand_name subject_brand_name,
+    ep.reason,
+    ep.memo penalty_memo,
+    ep.created_at penalty_created_at
+  FROM public.p2p_transfers p
+  JOIN public.students sn ON sn.id=p.sender_id
+  JOIN public.students rn ON rn.id=p.receiver_id
+  LEFT JOIN public.economy_guard_transfer_reviews r ON r.transfer_id=p.id
+  LEFT JOIN public.economy_guard_penalties ep ON ep.transfer_id=p.id
+  LEFT JOIN public.students ps ON ps.id=ep.subject_student_id
+  WHERE p.classroom_id=p_classroom_id
+    AND public.is_official_participant(p.sender_id)
+    AND public.is_official_participant(p.receiver_id)
+    AND (p_start_date IS NULL OR (p.created_at AT TIME ZONE 'Asia/Seoul')::date>=p_start_date)
+    AND (p_end_date IS NULL OR (p.created_at AT TIME ZONE 'Asia/Seoul')::date<=p_end_date)
+),
+scored AS (
+  SELECT
+    b.*,
+    array_remove(
+      ARRAY[
+        CASE WHEN b.amount>=1000 THEN '고액 거래' END,
+        CASE WHEN char_length(coalesce(b.description,''))<10 THEN '사유 불충분' END,
+        CASE WHEN b.tag='#기타' AND char_length(coalesce(b.description,''))<20 THEN '태그 불일치 의심' END,
+        CASE WHEN b.pair_count>=3 THEN '반복 거래' END,
+        CASE WHEN b.pair_amount>=500 THEN '금액 집중' END
+      ]::text[],
+      NULL
+    ) reasons0
+  FROM base b
+),
+final_scored AS (
+  SELECT
+    s.*,
+    CASE
+      WHEN cardinality(s.reasons0)=0
+       AND upper(coalesce(s.raw_status,'')) IN ('SUSPICIOUS','이상거래')
+      THEN ARRAY['시스템 감지']::text[]
+      ELSE s.reasons0
+    END reasons
+  FROM scored s
+)
+SELECT
+  f.transfer_id,
+  f.transfer_uid,
+  f.created_at,
+  f.trade_date,
+  f.sender_id,
+  f.sender_name,
+  f.sender_brand_name,
+  f.receiver_id,
+  f.receiver_name,
+  f.receiver_brand_name,
+  f.amount,
+  f.fee_gold,
+  f.sender_total_debit,
+  f.tag,
+  f.description,
+  f.quantity,
+  f.rating,
+  f.raw_status,
+  f.review_status,
+  f.review_memo,
+  f.reviewed_at,
+  f.reasons,
+  (cardinality(f.reasons)>0 OR upper(coalesce(f.raw_status,'')) IN ('SUSPICIOUS','이상거래')) AS is_suspicious,
+  (
+    (cardinality(f.reasons)>0 OR upper(coalesce(f.raw_status,'')) IN ('SUSPICIOUS','이상거래'))
+    AND f.review_status IS NULL
+  ) AS is_open_alert,
+  CASE
+    WHEN f.penalty_id IS NULL THEN NULL
+    ELSE jsonb_build_object(
+      'id',f.penalty_id,
+      'penalty_uid',f.penalty_uid,
+      'subject_student_id',f.subject_student_id,
+      'subject_name',f.subject_name,
+      'subject_brand_name',f.subject_brand_name,
+      'reason',f.reason,
+      'memo',f.penalty_memo,
+      'created_at',f.penalty_created_at
+    )
+  END AS penalty
+FROM final_scored f
+ORDER BY f.created_at DESC,f.transfer_id DESC
+$eg11_legacy_rows$;
+
+
+-- ============================================================================
+-- 4. CANONICAL SOURCE ADAPTERS
+-- ============================================================================
+
+CREATE FUNCTION public._economy_guard_p2p_event_rows(
+  p_classroom_id integer,
+  p_start_date date,
+  p_end_date date
+)
+RETURNS TABLE(
+  source_kind text,
+  source_id bigint,
+  event_key text,
+  occurred_at timestamptz,
+  trade_date date,
+  sender_id integer,
+  sender_name text,
+  sender_brand_name text,
+  receiver_id integer,
+  receiver_name text,
+  receiver_brand_name text,
+  amount bigint,
+  quantity integer,
+  unit_price numeric,
+  tag text,
+  description text,
+  raw_status text,
+  economic_state text,
+  source_meta jsonb
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $eg11_p2p_adapter$
+SELECT
+  'P2P_TRANSFER'::text source_kind,
+  p.id::bigint source_id,
+  ('P2P_TRANSFER:'||p.id::text)::text event_key,
+  p.created_at occurred_at,
+  (p.created_at AT TIME ZONE 'Asia/Seoul')::date trade_date,
+  p.sender_id,
+  sn.name::text sender_name,
+  sn.brand_name::text sender_brand_name,
+  p.receiver_id,
+  rn.name::text receiver_name,
+  rn.brand_name::text receiver_brand_name,
+  p.amount::bigint amount,
+  greatest(coalesce(p.quantity,1),1)::integer quantity,
+  round(
+    p.amount::numeric / greatest(coalesce(p.quantity,1),1)::numeric,
+    2
+  ) unit_price,
+  nullif(btrim(coalesce(p.tag::text,'')),'') tag,
+  nullif(btrim(coalesce(p.description::text,'')),'') description,
+  p.status::text raw_status,
+  CASE
+    WHEN coalesce(ts.is_reversed,false) OR coalesce(tr.is_reversed,false)
+      THEN 'REVERSED'
+    ELSE 'ACTIVE'
+  END::text economic_state,
+  jsonb_build_object(
+    'transfer_uid',p.transfer_uid,
+    'rating',p.rating,
+    'fee_gold',coalesce(p.fee_gold,0),
+    'sender_total_debit',coalesce(p.sender_total_debit,p.amount),
+    'transaction_id_sender',p.transaction_id_sender,
+    'transaction_id_receiver',p.transaction_id_receiver,
+    'sender_transaction_reversed',coalesce(ts.is_reversed,false),
+    'receiver_transaction_reversed',coalesce(tr.is_reversed,false)
+  ) source_meta
+FROM public.p2p_transfers p
+JOIN public.students sn ON sn.id=p.sender_id
+JOIN public.students rn ON rn.id=p.receiver_id
+LEFT JOIN public.transactions ts ON ts.id=p.transaction_id_sender
+LEFT JOIN public.transactions tr ON tr.id=p.transaction_id_receiver
+WHERE p.classroom_id=p_classroom_id
+  AND public.is_official_participant(p.sender_id)
+  AND public.is_official_participant(p.receiver_id)
+  AND (p_start_date IS NULL OR (p.created_at AT TIME ZONE 'Asia/Seoul')::date>=p_start_date)
+  AND (p_end_date IS NULL OR (p.created_at AT TIME ZONE 'Asia/Seoul')::date<=p_end_date)
+$eg11_p2p_adapter$;
+
+
+CREATE FUNCTION public._economy_guard_service_event_rows(
+  p_classroom_id integer,
+  p_start_date date,
+  p_end_date date
+)
+RETURNS TABLE(
+  source_kind text,
+  source_id bigint,
+  event_key text,
+  occurred_at timestamptz,
+  trade_date date,
+  sender_id integer,
+  sender_name text,
+  sender_brand_name text,
+  receiver_id integer,
+  receiver_name text,
+  receiver_brand_name text,
+  amount bigint,
+  quantity integer,
+  unit_price numeric,
+  tag text,
+  description text,
+  raw_status text,
+  economic_state text,
+  source_meta jsonb
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $eg11_service_adapter$
+SELECT
+  'SERVICE_ORDER'::text source_kind,
+  o.id::bigint source_id,
+  ('SERVICE_ORDER:'||o.id::text)::text event_key,
+  o.created_at occurred_at,
+  (o.created_at AT TIME ZONE 'Asia/Seoul')::date trade_date,
+  o.buyer_student_id sender_id,
+  buyer.name::text sender_name,
+  buyer.brand_name::text sender_brand_name,
+  o.seller_student_id receiver_id,
+  seller.name::text receiver_name,
+  seller.brand_name::text receiver_brand_name,
+  o.price_gold_snapshot::bigint amount,
+  1::integer quantity,
+  o.price_gold_snapshot::numeric unit_price,
+  '#2차직업서비스'::text tag,
+  nullif(btrim(o.buyer_request),'') description,
+  o.status::text raw_status,
+  CASE
+    WHEN o.refund_transaction_id IS NOT NULL OR o.status IN ('CANCELLED','REJECTED')
+      THEN 'REFUNDED'
+    WHEN o.payout_transaction_id IS NOT NULL OR o.status='COMPLETED'
+      THEN 'SETTLED'
+    ELSE 'ESCROW_ACTIVE'
+  END::text economic_state,
+  jsonb_build_object(
+    'service_id',o.service_id,
+    'service_title',o.service_title_snapshot,
+    'service_description',o.service_description_snapshot,
+    'secondary_job_id',o.secondary_job_id_snapshot,
+    'pricing_mode','FIXED',
+    'escrow_transaction_id',o.escrow_transaction_id,
+    'payout_transaction_id',o.payout_transaction_id,
+    'refund_transaction_id',o.refund_transaction_id,
+    'current_revision',o.current_revision,
+    'status_reason',o.status_reason,
+    'accepted_at',o.accepted_at,
+    'delivered_at',o.delivered_at,
+    'completed_at',o.completed_at,
+    'cancelled_at',o.cancelled_at,
+    'disputed_at',o.disputed_at,
+    'revision_requested_at',o.revision_requested_at
+  ) source_meta
+FROM public.secondary_job_service_orders o
+JOIN public.students buyer ON buyer.id=o.buyer_student_id
+JOIN public.students seller ON seller.id=o.seller_student_id
+WHERE o.classroom_id=p_classroom_id
+  AND public.is_official_participant(o.buyer_student_id)
+  AND public.is_official_participant(o.seller_student_id)
+  AND (p_start_date IS NULL OR (o.created_at AT TIME ZONE 'Asia/Seoul')::date>=p_start_date)
+  AND (p_end_date IS NULL OR (o.created_at AT TIME ZONE 'Asia/Seoul')::date<=p_end_date)
+$eg11_service_adapter$;
+
+
+-- ============================================================================
+-- 5. CANONICAL CROSS-SOURCE ANOMALY PROJECTION
+-- ============================================================================
+
+CREATE FUNCTION public._economy_guard_event_rows(
+  p_classroom_id integer,
+  p_start_date date,
+  p_end_date date
+)
+RETURNS TABLE(
+  source_kind text,
+  source_id bigint,
+  event_key text,
+  occurred_at timestamptz,
+  trade_date date,
+  sender_id integer,
+  sender_name text,
+  sender_brand_name text,
+  receiver_id integer,
+  receiver_name text,
+  receiver_brand_name text,
+  amount bigint,
+  quantity integer,
+  unit_price numeric,
+  tag text,
+  description text,
+  raw_status text,
+  economic_state text,
+  source_meta jsonb,
+  anomaly_reasons text[],
+  anomaly_fingerprint text,
+  is_suspicious boolean,
+  is_actionable boolean,
+  is_open_alert boolean,
+  review_status text,
+  review_is_stale boolean,
+  review_memo text,
+  reviewed_at timestamptz,
+  penalty jsonb
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $eg11_event_rows$
+WITH raw_events AS (
+  SELECT *
+  FROM public._economy_guard_p2p_event_rows(p_classroom_id,p_start_date,p_end_date)
+
+  UNION ALL
+
+  SELECT *
+  FROM public._economy_guard_service_event_rows(p_classroom_id,p_start_date,p_end_date)
+),
+pair_scored AS (
+  SELECT
+    r.*,
+    count(*) FILTER (
+      WHERE r.economic_state NOT IN ('REFUNDED','REVERSED')
+    ) OVER (
+      PARTITION BY r.trade_date,r.sender_id,r.receiver_id
+    ) AS pair_count,
+    coalesce(
+      sum(r.amount) FILTER (
+        WHERE r.economic_state NOT IN ('REFUNDED','REVERSED')
+      ) OVER (
+        PARTITION BY r.trade_date,r.sender_id,r.receiver_id
+      ),
+      0
+    ) AS pair_amount
+  FROM raw_events r
+),
+reasoned0 AS (
+  SELECT
+    p.*,
+    array_remove(
+      ARRAY[
+        CASE WHEN p.amount>=1000 THEN '고액 거래' END,
+        CASE
+          WHEN p.source_kind='P2P_TRANSFER'
+           AND char_length(coalesce(p.description,''))<10
+          THEN '사유 불충분'
+        END,
+        CASE
+          WHEN p.source_kind='P2P_TRANSFER'
+           AND p.tag='#기타'
+           AND char_length(coalesce(p.description,''))<20
+          THEN '태그 불일치 의심'
+        END,
+        CASE
+          WHEN p.economic_state NOT IN ('REFUNDED','REVERSED')
+           AND p.pair_count>=3
+          THEN '반복 거래'
+        END,
+        CASE
+          WHEN p.economic_state NOT IN ('REFUNDED','REVERSED')
+           AND p.pair_amount>=500
+          THEN '금액 집중'
+        END,
+        CASE
+          WHEN p.source_kind='SERVICE_ORDER'
+           AND upper(coalesce(p.raw_status,''))='DISPUTED'
+          THEN '서비스 분쟁'
+        END
+      ]::text[],
+      NULL
+    ) AS reasons0
+  FROM pair_scored p
+),
+reasoned AS (
+  SELECT
+    r.*,
+    CASE
+      WHEN cardinality(r.reasons0)=0
+       AND r.source_kind='P2P_TRANSFER'
+       AND upper(coalesce(r.raw_status,'')) IN ('SUSPICIOUS','이상거래')
+      THEN ARRAY['시스템 감지']::text[]
+      ELSE r.reasons0
+    END AS reasons
+  FROM reasoned0 r
+),
+fingerprinted AS (
+  SELECT
+    r.*,
+    md5(
+      concat_ws(
+        '|',
+        r.source_kind,
+        r.source_id::text,
+        r.sender_id::text,
+        r.receiver_id::text,
+        r.amount::text,
+        coalesce(r.quantity,1)::text,
+        coalesce(r.tag,''),
+        coalesce(r.description,''),
+        coalesce(r.raw_status,''),
+        coalesce(r.economic_state,''),
+        array_to_string(r.reasons,',')
+      )
+    ) AS basis_hash
+  FROM reasoned r
+),
+joined AS (
+  SELECT
+    f.*,
+    rv.decision AS latest_decision,
+    rv.basis_hash AS reviewed_basis_hash,
+    rv.memo AS latest_review_memo,
+    rv.reviewed_at AS latest_reviewed_at,
+    ep.id AS penalty_id,
+    ep.penalty_uid,
+    ep.subject_student_id,
+    ps.name::text AS subject_name,
+    ps.brand_name::text AS subject_brand_name,
+    ep.reason AS penalty_reason,
+    ep.memo AS penalty_memo,
+    ep.created_at AS penalty_created_at
+  FROM fingerprinted f
+  LEFT JOIN LATERAL (
+    SELECT r.decision,r.basis_hash,r.memo,r.reviewed_at
+    FROM public.economy_guard_event_reviews r
+    WHERE r.classroom_id=p_classroom_id
+      AND r.source_kind=f.source_kind
+      AND r.source_id=f.source_id
+    ORDER BY r.reviewed_at DESC,r.id DESC
+    LIMIT 1
+  ) rv ON true
+  LEFT JOIN public.economy_guard_event_penalties ep
+    ON ep.classroom_id=p_classroom_id
+   AND ep.source_kind=f.source_kind
+   AND ep.source_id=f.source_id
+  LEFT JOIN public.students ps ON ps.id=ep.subject_student_id
+)
+SELECT
+  j.source_kind,
+  j.source_id,
+  j.event_key,
+  j.occurred_at,
+  j.trade_date,
+  j.sender_id,
+  j.sender_name,
+  j.sender_brand_name,
+  j.receiver_id,
+  j.receiver_name,
+  j.receiver_brand_name,
+  j.amount,
+  j.quantity,
+  j.unit_price,
+  j.tag,
+  j.description,
+  j.raw_status,
+  j.economic_state,
+  j.source_meta,
+  j.reasons AS anomaly_reasons,
+  j.basis_hash AS anomaly_fingerprint,
+  cardinality(j.reasons)>0 AS is_suspicious,
+  (
+    cardinality(j.reasons)>0
+    AND j.economic_state NOT IN ('REFUNDED','REVERSED')
+  ) AS is_actionable,
+  (
+    cardinality(j.reasons)>0
+    AND j.economic_state NOT IN ('REFUNDED','REVERSED')
+    AND j.penalty_id IS NULL
+    AND NOT (
+      j.latest_decision='NORMAL_CONFIRMED'
+      AND j.reviewed_basis_hash=j.basis_hash
+    )
+  ) AS is_open_alert,
+  j.latest_decision AS review_status,
+  (
+    j.latest_decision='NORMAL_CONFIRMED'
+    AND j.reviewed_basis_hash IS DISTINCT FROM j.basis_hash
+  ) AS review_is_stale,
+  j.latest_review_memo AS review_memo,
+  j.latest_reviewed_at AS reviewed_at,
+  CASE
+    WHEN j.penalty_id IS NULL THEN NULL
+    ELSE jsonb_build_object(
+      'id',j.penalty_id,
+      'penalty_uid',j.penalty_uid,
+      'subject_student_id',j.subject_student_id,
+      'subject_name',j.subject_name,
+      'subject_brand_name',j.subject_brand_name,
+      'reason',j.penalty_reason,
+      'memo',j.penalty_memo,
+      'created_at',j.penalty_created_at
+    )
+  END AS penalty
+FROM joined j
+ORDER BY j.occurred_at DESC,j.source_kind,j.source_id DESC
+$eg11_event_rows$;
+
+
+-- Internal projection functions are not browser-callable.
+REVOKE ALL ON FUNCTION public._economy_guard_p2p_event_rows(integer,date,date)
+  FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public._economy_guard_service_event_rows(integer,date,date)
+  FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION public._economy_guard_event_rows(integer,date,date)
+  FROM PUBLIC,anon,authenticated;
+
+GRANT EXECUTE ON FUNCTION public._economy_guard_p2p_event_rows(integer,date,date) TO service_role;
+GRANT EXECUTE ON FUNCTION public._economy_guard_service_event_rows(integer,date,date) TO service_role;
+GRANT EXECUTE ON FUNCTION public._economy_guard_event_rows(integer,date,date) TO service_role;
+
+
+-- ============================================================================
+-- 6. EG1.1 DASHBOARD / AI READ RPC
+-- ============================================================================
+
+CREATE FUNCTION public.economy_guard_get_dashboard_v2(
+  p_period text DEFAULT 'week'::text,
+  p_start_date date DEFAULT NULL::date,
+  p_end_date date DEFAULT NULL::date
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $eg11_dashboard$
+DECLARE
+  v_access jsonb:=public._economy_guard_assert_access();
+  v_classroom_id integer:=(v_access->>'classroom_id')::integer;
+  v_start date;
+  v_end date;
+  v_label text;
+  v_period text:=lower(coalesce(p_period,'week'));
+
+  v_events jsonb:='[]'::jsonb;
+  v_top_sellers jsonb:='[]'::jsonb;
+  v_top_buyers jsonb:='[]'::jsonb;
+  v_tag_stats jsonb:='[]'::jsonb;
+  v_date_stats jsonb:='[]'::jsonb;
+  v_source_stats jsonb:='[]'::jsonb;
+  v_nodes jsonb:='[]'::jsonb;
+  v_edges jsonb:='[]'::jsonb;
+
+  v_visible_count integer:=0;
+  v_total_count integer:=0;
+  v_total_amount bigint:=0;
+  v_settled_amount bigint:=0;
+  v_escrow_held_amount bigint:=0;
+  v_suspect_count integer:=0;
+  v_final_count integer:=0;
+  v_refunded_count integer:=0;
+  v_reversed_count integer:=0;
+
+  v_top_tag text:='-';
+  v_top_seller text:='-';
+  v_brief text;
+  v_ineq jsonb;
+BEGIN
+  SELECT b.start_date,b.end_date,b.label
+    INTO v_start,v_end,v_label
+  FROM public._economy_guard_period_bounds(v_period,p_start_date,p_end_date) b;
+
+  SELECT
+    coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'source_kind',e.source_kind,
+          'source_id',e.source_id,
+          'event_key',e.event_key,
+          'occurred_at',e.occurred_at,
+          'date',e.trade_date,
+          'sender_id',e.sender_id,
+          'sender_name',e.sender_name,
+          'sender_brand_name',e.sender_brand_name,
+          'receiver_id',e.receiver_id,
+          'receiver_name',e.receiver_name,
+          'receiver_brand_name',e.receiver_brand_name,
+          'amount',e.amount,
+          'quantity',e.quantity,
+          'unit_price',e.unit_price,
+          'tag',e.tag,
+          'description',e.description,
+          'raw_status',e.raw_status,
+          'economic_state',e.economic_state,
+          'source_meta',e.source_meta,
+          'anomaly_reasons',to_jsonb(e.anomaly_reasons),
+          'anomaly_fingerprint',e.anomaly_fingerprint,
+          'is_suspicious',e.is_suspicious,
+          'is_actionable',e.is_actionable,
+          'is_open_alert',e.is_open_alert,
+          'review_status',e.review_status,
+          'review_is_stale',e.review_is_stale,
+          'review_memo',e.review_memo,
+          'reviewed_at',e.reviewed_at,
+          'penalty',e.penalty
+        )
+        ORDER BY e.occurred_at DESC,e.source_kind,e.source_id DESC
+      ),
+      '[]'::jsonb
+    ),
+    count(*)::integer,
+    count(*) FILTER (
+      WHERE e.economic_state NOT IN ('REFUNDED','REVERSED')
+    )::integer,
+    coalesce(sum(e.amount) FILTER (
+      WHERE e.economic_state NOT IN ('REFUNDED','REVERSED')
+    ),0)::bigint,
+    coalesce(sum(e.amount) FILTER (
+      WHERE (e.source_kind='P2P_TRANSFER' AND e.economic_state='ACTIVE')
+         OR (e.source_kind='SERVICE_ORDER' AND e.economic_state='SETTLED')
+    ),0)::bigint,
+    coalesce(sum(e.amount) FILTER (
+      WHERE e.source_kind='SERVICE_ORDER'
+        AND e.economic_state='ESCROW_ACTIVE'
+    ),0)::bigint,
+    count(*) FILTER (WHERE e.is_open_alert)::integer,
+    count(*) FILTER (WHERE e.penalty IS NOT NULL)::integer,
+    count(*) FILTER (WHERE e.economic_state='REFUNDED')::integer,
+    count(*) FILTER (WHERE e.economic_state='REVERSED')::integer
+  INTO
+    v_events,
+    v_visible_count,
+    v_total_count,
+    v_total_amount,
+    v_settled_amount,
+    v_escrow_held_amount,
+    v_suspect_count,
+    v_final_count,
+    v_refunded_count,
+    v_reversed_count
+  FROM public._economy_guard_event_rows(v_classroom_id,v_start,v_end) e;
+
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'student_id',x.student_id,
+        'name',x.name,
+        'brand_name',x.brand_name,
+        'count',x.cnt,
+        'total',x.total
+      )
+      ORDER BY x.cnt DESC,x.total DESC,x.student_id
+    ),
+    '[]'::jsonb
+  )
+  INTO v_top_sellers
+  FROM (
+    SELECT
+      e.receiver_id student_id,
+      max(e.receiver_name) name,
+      max(e.receiver_brand_name) brand_name,
+      count(*)::integer cnt,
+      sum(e.amount)::bigint total
+    FROM public._economy_guard_event_rows(v_classroom_id,v_start,v_end) e
+    WHERE e.economic_state NOT IN ('REFUNDED','REVERSED')
+    GROUP BY e.receiver_id
+    ORDER BY count(*) DESC,sum(e.amount) DESC,e.receiver_id
+    LIMIT 3
+  ) x;
+
+  SELECT coalesce(nullif(e.receiver_brand_name,''),e.receiver_name,'-')
+    INTO v_top_seller
+  FROM public._economy_guard_event_rows(v_classroom_id,v_start,v_end) e
+  WHERE e.economic_state NOT IN ('REFUNDED','REVERSED')
+  GROUP BY e.receiver_id,e.receiver_name,e.receiver_brand_name
+  ORDER BY count(*) DESC,sum(e.amount) DESC,e.receiver_id
+  LIMIT 1;
+  v_top_seller:=coalesce(v_top_seller,'-');
+
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'student_id',x.student_id,
+        'name',x.name,
+        'brand_name',x.brand_name,
+        'count',x.cnt,
+        'total',x.total
+      )
+      ORDER BY x.cnt DESC,x.total DESC,x.student_id
+    ),
+    '[]'::jsonb
+  )
+  INTO v_top_buyers
+  FROM (
+    SELECT
+      e.sender_id student_id,
+      max(e.sender_name) name,
+      max(e.sender_brand_name) brand_name,
+      count(*)::integer cnt,
+      sum(e.amount)::bigint total
+    FROM public._economy_guard_event_rows(v_classroom_id,v_start,v_end) e
+    WHERE e.economic_state NOT IN ('REFUNDED','REVERSED')
+    GROUP BY e.sender_id
+    ORDER BY count(*) DESC,sum(e.amount) DESC,e.sender_id
+    LIMIT 3
+  ) x;
+
+  SELECT
+    coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'tag',x.tag,
+          'count',x.cnt,
+          'amount',x.amount,
+          'quantity',x.qty,
+          'unit_price',x.unit_price
+        )
+        ORDER BY x.cnt DESC,x.amount DESC,x.tag
+      ),
+      '[]'::jsonb
+    ),
+    coalesce((array_agg(x.tag ORDER BY x.cnt DESC,x.amount DESC,x.tag))[1],'-')
+  INTO v_tag_stats,v_top_tag
+  FROM (
+    SELECT
+      coalesce(e.tag,'(태그 없음)') tag,
+      count(*)::integer cnt,
+      sum(e.amount)::bigint amount,
+      sum(e.quantity)::integer qty,
+      round(sum(e.amount)::numeric/nullif(sum(e.quantity),0),2) unit_price
+    FROM public._economy_guard_event_rows(v_classroom_id,v_start,v_end) e
+    WHERE e.economic_state NOT IN ('REFUNDED','REVERSED')
+    GROUP BY coalesce(e.tag,'(태그 없음)')
+  ) x;
+
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object('date',x.trade_date,'count',x.cnt,'amount',x.amount)
+      ORDER BY x.trade_date
+    ),
+    '[]'::jsonb
+  )
+  INTO v_date_stats
+  FROM (
+    SELECT
+      e.trade_date,
+      count(*)::integer cnt,
+      sum(e.amount)::bigint amount
+    FROM public._economy_guard_event_rows(v_classroom_id,v_start,v_end) e
+    WHERE e.economic_state NOT IN ('REFUNDED','REVERSED')
+    GROUP BY e.trade_date
+  ) x;
+
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'source_kind',x.source_kind,
+        'visible_count',x.visible_count,
+        'effective_count',x.effective_count,
+        'effective_amount',x.effective_amount,
+        'open_alert_count',x.open_alert_count
+      )
+      ORDER BY x.source_kind
+    ),
+    '[]'::jsonb
+  )
+  INTO v_source_stats
+  FROM (
+    SELECT
+      e.source_kind,
+      count(*)::integer visible_count,
+      count(*) FILTER (
+        WHERE e.economic_state NOT IN ('REFUNDED','REVERSED')
+      )::integer effective_count,
+      coalesce(sum(e.amount) FILTER (
+        WHERE e.economic_state NOT IN ('REFUNDED','REVERSED')
+      ),0)::bigint effective_amount,
+      count(*) FILTER (WHERE e.is_open_alert)::integer open_alert_count
+    FROM public._economy_guard_event_rows(v_classroom_id,v_start,v_end) e
+    GROUP BY e.source_kind
+  ) x;
+
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'student_id',x.student_id,
+        'name',x.name,
+        'brand_name',x.brand_name,
+        'sell_count',x.sell_count,
+        'buy_count',x.buy_count,
+        'total_activity',x.sell_count+x.buy_count,
+        'final_flagged',x.final_flagged
+      )
+      ORDER BY (x.sell_count+x.buy_count) DESC,x.student_id
+    ),
+    '[]'::jsonb
+  )
+  INTO v_nodes
+  FROM (
+    SELECT
+      s.id student_id,
+      s.name::text name,
+      s.brand_name::text brand_name,
+      count(*) FILTER (WHERE e.receiver_id=s.id)::integer sell_count,
+      count(*) FILTER (WHERE e.sender_id=s.id)::integer buy_count,
+      coalesce(bool_or(e.penalty IS NOT NULL),false) final_flagged
+    FROM public.students s
+    JOIN public._economy_guard_event_rows(v_classroom_id,v_start,v_end) e
+      ON (e.sender_id=s.id OR e.receiver_id=s.id)
+     AND e.economic_state NOT IN ('REFUNDED','REVERSED')
+    WHERE public.is_official_participant(s.id)
+    GROUP BY s.id,s.name,s.brand_name
+  ) x;
+
+  SELECT coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'from_student_id',x.sender_id,
+        'to_student_id',x.receiver_id,
+        'from_name',x.sender_name,
+        'to_name',x.receiver_name,
+        'count',x.cnt,
+        'total',x.total,
+        'p2p_count',x.p2p_count,
+        'service_count',x.service_count
+      )
+      ORDER BY x.cnt DESC,x.total DESC,x.sender_id,x.receiver_id
+    ),
+    '[]'::jsonb
+  )
+  INTO v_edges
+  FROM (
+    SELECT
+      e.sender_id,
+      e.receiver_id,
+      max(coalesce(nullif(e.sender_brand_name,''),e.sender_name)) sender_name,
+      max(coalesce(nullif(e.receiver_brand_name,''),e.receiver_name)) receiver_name,
+      count(*)::integer cnt,
+      sum(e.amount)::bigint total,
+      count(*) FILTER (WHERE e.source_kind='P2P_TRANSFER')::integer p2p_count,
+      count(*) FILTER (WHERE e.source_kind='SERVICE_ORDER')::integer service_count
+    FROM public._economy_guard_event_rows(v_classroom_id,v_start,v_end) e
+    WHERE e.economic_state NOT IN ('REFUNDED','REVERSED')
+    GROUP BY e.sender_id,e.receiver_id
+  ) x;
+
+  v_ineq:=public._economy_guard_inequality(v_classroom_id);
+
+  v_brief:=format(
+    'B.R.A.N.D 경제수호대 브리핑 — %s%s────────────────────────────────────%s유효 경제행위 %s건 · 거래액 %s GOLD%s직접거래/서비스 통합 감시 · 에스크로 보류 %s GOLD%s최다 태그: %s · 최다 판매 활동: %s%s재검토 필요 %s건 · 최종 적발 %s건%s현재 GOLD 지니계수 %s · 상위 20%% GOLD 점유율 %s%%',
+    v_label,E'\n',E'\n',
+    v_total_count,to_char(v_total_amount,'FM999,999,999,999'),E'\n',
+    to_char(v_escrow_held_amount,'FM999,999,999,999'),E'\n',
+    v_top_tag,v_top_seller,E'\n',
+    v_suspect_count,v_final_count,E'\n',
+    to_char(coalesce((v_ineq->>'gini_gold')::numeric,0),'FM0.000'),
+    to_char(coalesce((v_ineq->>'top20_gold_share')::numeric,0)*100,'FM990.0')
+  );
+
+  RETURN jsonb_build_object(
+    'access',v_access,
+    'server_now',now(),
+    'period',jsonb_build_object(
+      'kind',v_period,
+      'start_date',v_start,
+      'end_date',v_end,
+      'label',v_label
+    ),
+    'events',v_events,
+    'stats',jsonb_build_object(
+      'visible_count',v_visible_count,
+      'total_count',v_total_count,
+      'total_amount',v_total_amount,
+      'settled_amount',v_settled_amount,
+      'escrow_held_amount',v_escrow_held_amount,
+      'suspect_count',v_suspect_count,
+      'final_count',v_final_count,
+      'refunded_count',v_refunded_count,
+      'reversed_count',v_reversed_count,
+      'top_sellers',v_top_sellers,
+      'top_buyers',v_top_buyers,
+      'tag_stats',v_tag_stats,
+      'date_stats',v_date_stats,
+      'source_stats',v_source_stats,
+      'briefing_report',v_brief
+    ),
+    'network',jsonb_build_object('nodes',v_nodes,'edges',v_edges),
+    'inequality',v_ineq
+  );
+END
+$eg11_dashboard$;
+
+
+CREATE FUNCTION public.economy_guard_get_ai_context_v2(
+  p_period text DEFAULT 'week'::text,
+  p_start_date date DEFAULT NULL::date,
+  p_end_date date DEFAULT NULL::date
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $eg11_ai_context$
+DECLARE
+  v_dash jsonb:=public.economy_guard_get_dashboard_v2(p_period,p_start_date,p_end_date);
+  v_recent jsonb;
+BEGIN
+  SELECT coalesce(
+    jsonb_agg(x.item ORDER BY x.occurred_at DESC),
+    '[]'::jsonb
+  )
+  INTO v_recent
+  FROM (
+    SELECT
+      e.value item,
+      (e.value->>'occurred_at')::timestamptz occurred_at
+    FROM jsonb_array_elements(v_dash->'events') e(value)
+    ORDER BY (e.value->>'occurred_at')::timestamptz DESC
+    LIMIT 150
+  ) x;
+
+  RETURN jsonb_build_object(
+    'period',v_dash->'period',
+    'stats',v_dash->'stats',
+    'inequality',v_dash->'inequality',
+    'events',v_recent
+  );
+END
+$eg11_ai_context$;
+
+
+-- ============================================================================
+-- 7. GENERIC APPEND-ONLY REVIEW WRITE RPCs
+-- ============================================================================
+
+CREATE FUNCTION public.economy_guard_mark_event_normal(
+  p_source_kind text,
+  p_source_id bigint,
+  p_memo text DEFAULT NULL::text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $eg11_mark_normal$
+DECLARE
+  v_access jsonb:=public._economy_guard_assert_access();
+  v_class integer:=(v_access->>'classroom_id')::integer;
+  v_student integer:=nullif(v_access->>'student_id','')::integer;
+  v_term integer:=nullif(v_access->>'active_term_id','')::integer;
+  v_kind text:=upper(btrim(coalesce(p_source_kind,'')));
+  v_event record;
+  v_review_id bigint;
+  v_snapshot jsonb;
+BEGIN
+  IF v_kind NOT IN ('P2P_TRANSFER','SERVICE_ORDER') THEN
+    RAISE EXCEPTION '[EG1.1] invalid source kind' USING ERRCODE='PK112';
+  END IF;
+
+  IF p_source_id IS NULL OR p_source_id<=0 THEN
+    RAISE EXCEPTION '[EG1.1] invalid source id' USING ERRCODE='PK113';
+  END IF;
+
+  IF char_length(coalesce(p_memo,''))>500 THEN
+    RAISE EXCEPTION '[EG1.1] memo too long' USING ERRCODE='PK103';
+  END IF;
+
+  SELECT *
+    INTO v_event
+  FROM public._economy_guard_event_rows(v_class,NULL,NULL) e
+  WHERE e.source_kind=v_kind
+    AND e.source_id=p_source_id
+  LIMIT 1;
+
+  IF v_event.source_id IS NULL THEN
+    RAISE EXCEPTION '[EG1.1] event not found or not an official classroom event'
+      USING ERRCODE='PK104';
+  END IF;
+
+  IF NOT coalesce(v_event.is_suspicious,false)
+     OR NOT coalesce(v_event.is_actionable,false) THEN
+    RAISE EXCEPTION '[EG1.1] event has no actionable anomaly signal'
+      USING ERRCODE='PK109';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.economy_guard_event_penalties p
+    WHERE p.classroom_id=v_class
+      AND p.source_kind=v_kind
+      AND p.source_id=p_source_id
+  ) THEN
+    RAISE EXCEPTION '[EG1.1] final-flagged event cannot be marked normal'
+      USING ERRCODE='PK107';
+  END IF;
+
+  v_snapshot:=jsonb_build_object(
+    'source_kind',v_event.source_kind,
+    'source_id',v_event.source_id,
+    'event_key',v_event.event_key,
+    'occurred_at',v_event.occurred_at,
+    'trade_date',v_event.trade_date,
+    'sender_id',v_event.sender_id,
+    'receiver_id',v_event.receiver_id,
+    'amount',v_event.amount,
+    'quantity',v_event.quantity,
+    'unit_price',v_event.unit_price,
+    'tag',v_event.tag,
+    'description',v_event.description,
+    'raw_status',v_event.raw_status,
+    'economic_state',v_event.economic_state,
+    'anomaly_reasons',to_jsonb(v_event.anomaly_reasons),
+    'source_meta',v_event.source_meta
+  );
+
+  INSERT INTO public.economy_guard_event_reviews(
+    classroom_id,source_kind,source_id,decision,basis_hash,event_snapshot,memo,
+    reviewed_by_student_id,reviewed_by_user_id,guard_term_id,reviewed_at
+  )
+  VALUES(
+    v_class,v_kind,p_source_id,'NORMAL_CONFIRMED',
+    v_event.anomaly_fingerprint,v_snapshot,
+    nullif(btrim(coalesce(p_memo,'')),''),
+    v_student,auth.uid(),v_term,now()
+  )
+  ON CONFLICT (classroom_id,source_kind,source_id,decision,basis_hash)
+  DO NOTHING
+  RETURNING id INTO v_review_id;
+
+  IF v_review_id IS NULL THEN
+    SELECT r.id
+      INTO v_review_id
+    FROM public.economy_guard_event_reviews r
+    WHERE r.classroom_id=v_class
+      AND r.source_kind=v_kind
+      AND r.source_id=p_source_id
+      AND r.decision='NORMAL_CONFIRMED'
+      AND r.basis_hash=v_event.anomaly_fingerprint
+    ORDER BY r.id DESC
+    LIMIT 1;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'success',true,
+    'source_kind',v_kind,
+    'source_id',p_source_id,
+    'event_key',v_event.event_key,
+    'review_status','NORMAL_CONFIRMED',
+    'review_id',v_review_id,
+    'basis_hash',v_event.anomaly_fingerprint
+  );
+END
+$eg11_mark_normal$;
+
+
+CREATE FUNCTION public.economy_guard_flag_event(
+  p_source_kind text,
+  p_source_id bigint,
+  p_subject_student_id integer,
+  p_reason text,
+  p_memo text DEFAULT NULL::text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $eg11_flag$
+DECLARE
+  v_access jsonb:=public._economy_guard_assert_access();
+  v_class integer:=(v_access->>'classroom_id')::integer;
+  v_student integer:=nullif(v_access->>'student_id','')::integer;
+  v_term integer:=nullif(v_access->>'active_term_id','')::integer;
+  v_kind text:=upper(btrim(coalesce(p_source_kind,'')));
+  v_reason text:=btrim(coalesce(p_reason,''));
+  v_event record;
+  v_penalty_id bigint;
+  v_penalty_uid text;
+  v_review_id bigint;
+  v_subject_name text;
+  v_snapshot jsonb;
+BEGIN
+  IF v_kind NOT IN ('P2P_TRANSFER','SERVICE_ORDER') THEN
+    RAISE EXCEPTION '[EG1.1] invalid source kind' USING ERRCODE='PK112';
+  END IF;
+
+  IF p_source_id IS NULL OR p_source_id<=0 THEN
+    RAISE EXCEPTION '[EG1.1] invalid source id' USING ERRCODE='PK113';
+  END IF;
+
+  IF v_reason NOT IN ('사유 허위 기재','실물 거래 의심','강압적 거래','소명 거부','기타') THEN
+    RAISE EXCEPTION '[EG1.1] invalid penalty reason' USING ERRCODE='PK105';
+  END IF;
+
+  IF char_length(coalesce(p_memo,''))>500
+     OR (v_reason='기타' AND char_length(btrim(coalesce(p_memo,'')))<2) THEN
+    RAISE EXCEPTION '[EG1.1] penalty memo invalid' USING ERRCODE='PK103';
+  END IF;
+
+  SELECT *
+    INTO v_event
+  FROM public._economy_guard_event_rows(v_class,NULL,NULL) e
+  WHERE e.source_kind=v_kind
+    AND e.source_id=p_source_id
+  LIMIT 1;
+
+  IF v_event.source_id IS NULL THEN
+    RAISE EXCEPTION '[EG1.1] event not found or not an official classroom event'
+      USING ERRCODE='PK104';
+  END IF;
+
+  IF NOT coalesce(v_event.is_suspicious,false)
+     OR NOT coalesce(v_event.is_actionable,false) THEN
+    RAISE EXCEPTION '[EG1.1] event has no actionable anomaly signal'
+      USING ERRCODE='PK109';
+  END IF;
+
+  IF p_subject_student_id NOT IN (v_event.sender_id,v_event.receiver_id) THEN
+    RAISE EXCEPTION '[EG1.1] penalty subject must be an event participant'
+      USING ERRCODE='PK106';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.economy_guard_event_penalties p
+    WHERE p.classroom_id=v_class
+      AND p.source_kind=v_kind
+      AND p.source_id=p_source_id
+  ) THEN
+    RAISE EXCEPTION '[EG1.1] event already final-flagged' USING ERRCODE='PK108';
+  END IF;
+
+  -- A current, same-basis NORMAL decision closes that exact alert.
+  -- A changed/stale basis may be escalated.
+  IF EXISTS (
+    SELECT 1
+    FROM public.economy_guard_event_reviews r
+    WHERE r.classroom_id=v_class
+      AND r.source_kind=v_kind
+      AND r.source_id=p_source_id
+      AND r.decision='NORMAL_CONFIRMED'
+      AND r.basis_hash=v_event.anomaly_fingerprint
+  ) THEN
+    RAISE EXCEPTION '[EG1.1] current anomaly basis is already confirmed normal'
+      USING ERRCODE='PK110';
+  END IF;
+
+  SELECT coalesce(nullif(s.brand_name,''),s.name)
+    INTO v_subject_name
+  FROM public.students s
+  WHERE s.id=p_subject_student_id;
+
+  v_snapshot:=jsonb_build_object(
+    'source_kind',v_event.source_kind,
+    'source_id',v_event.source_id,
+    'event_key',v_event.event_key,
+    'occurred_at',v_event.occurred_at,
+    'trade_date',v_event.trade_date,
+    'sender_id',v_event.sender_id,
+    'receiver_id',v_event.receiver_id,
+    'amount',v_event.amount,
+    'quantity',v_event.quantity,
+    'unit_price',v_event.unit_price,
+    'tag',v_event.tag,
+    'description',v_event.description,
+    'raw_status',v_event.raw_status,
+    'economic_state',v_event.economic_state,
+    'anomaly_reasons',to_jsonb(v_event.anomaly_reasons),
+    'source_meta',v_event.source_meta
+  );
+
+  v_penalty_uid:=
+    'EGP2_'||
+    extract(epoch FROM clock_timestamp())::bigint::text||
+    '_'||
+    substring(md5(random()::text||clock_timestamp()::text),1,8);
+
+  INSERT INTO public.economy_guard_event_penalties(
+    penalty_uid,classroom_id,source_kind,source_id,subject_student_id,
+    reason,memo,basis_hash,event_snapshot,
+    flagged_by_student_id,flagged_by_user_id,guard_term_id
+  )
+  VALUES(
+    v_penalty_uid,v_class,v_kind,p_source_id,p_subject_student_id,
+    v_reason,nullif(btrim(coalesce(p_memo,'')),''),
+    v_event.anomaly_fingerprint,v_snapshot,
+    v_student,auth.uid(),v_term
+  )
+  RETURNING id INTO v_penalty_id;
+
+  INSERT INTO public.economy_guard_event_reviews(
+    classroom_id,source_kind,source_id,decision,basis_hash,event_snapshot,memo,
+    reviewed_by_student_id,reviewed_by_user_id,guard_term_id,reviewed_at
+  )
+  VALUES(
+    v_class,v_kind,p_source_id,'FINAL_FLAGGED',
+    v_event.anomaly_fingerprint,v_snapshot,
+    nullif(btrim(coalesce(p_memo,'')),''),
+    v_student,auth.uid(),v_term,now()
+  )
+  RETURNING id INTO v_review_id;
+
+  PERFORM public.send_mail(
+    p_subject_student_id,
+    'TEACHER'::public.mail_sender_type,
+    NULL::integer,
+    NULL::uuid,
+    '🚨 경제수호대 적발 통보'::varchar,
+    format(
+      '경제수호대에 의해 경제 이벤트(%s)가 최종 적발되었습니다.%s사유: %s%s이의가 있을 경우 선생님께 문의하세요.',
+      v_event.event_key,E'\n',v_reason,E'\n'
+    ),
+    'P2P_NOTE'::public.mail_message_type,
+    NULL::public.transaction_source_type,
+    p_source_id
+  );
+
+  RETURN jsonb_build_object(
+    'success',true,
+    'source_kind',v_kind,
+    'source_id',p_source_id,
+    'event_key',v_event.event_key,
+    'review_status','FINAL_FLAGGED',
+    'review_id',v_review_id,
+    'penalty_id',v_penalty_id,
+    'subject_student_id',p_subject_student_id,
+    'subject_name',v_subject_name,
+    'basis_hash',v_event.anomaly_fingerprint
+  );
+END
+$eg11_flag$;
+
+
+-- ============================================================================
+-- 8. ACL FOR NEW EXTERNAL RPCs
+-- ============================================================================
+
+REVOKE ALL ON FUNCTION public.economy_guard_get_dashboard_v2(text,date,date)
+  FROM PUBLIC,anon;
+REVOKE ALL ON FUNCTION public.economy_guard_get_ai_context_v2(text,date,date)
+  FROM PUBLIC,anon;
+REVOKE ALL ON FUNCTION public.economy_guard_mark_event_normal(text,bigint,text)
+  FROM PUBLIC,anon;
+REVOKE ALL ON FUNCTION public.economy_guard_flag_event(text,bigint,integer,text,text)
+  FROM PUBLIC,anon;
+
+GRANT EXECUTE ON FUNCTION public.economy_guard_get_dashboard_v2(text,date,date)
+  TO authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.economy_guard_get_ai_context_v2(text,date,date)
+  TO authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.economy_guard_mark_event_normal(text,bigint,text)
+  TO authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.economy_guard_flag_event(text,bigint,integer,text,text)
+  TO authenticated,service_role;
+
+
+-- ============================================================================
+-- 9. APPLY-TIME INVARIANT CHECKS
+-- ============================================================================
+
+DO $eg11_post_apply$
+DECLARE
+  v_bad integer;
+BEGIN
+  IF to_regclass('public.economy_guard_event_reviews') IS NULL
+     OR to_regclass('public.economy_guard_event_penalties') IS NULL
+     OR to_regprocedure('public._economy_guard_event_rows(integer,date,date)') IS NULL
+     OR to_regprocedure('public.economy_guard_get_dashboard_v2(text,date,date)') IS NULL
+     OR to_regprocedure('public.economy_guard_mark_event_normal(text,bigint,text)') IS NULL
+     OR to_regprocedure('public.economy_guard_flag_event(text,bigint,integer,text,text)') IS NULL THEN
+    RAISE EXCEPTION '[EG1.1] post-apply object check failed' USING ERRCODE='P8190';
+  END IF;
+
+  SELECT count(*)
+    INTO v_bad
+  FROM public.classrooms c
+  CROSS JOIN LATERAL public._economy_guard_event_rows(c.id,NULL,NULL) e
+  WHERE NOT public.is_official_participant(e.sender_id)
+     OR NOT public.is_official_participant(e.receiver_id);
+
+  IF v_bad<>0 THEN
+    RAISE EXCEPTION '[EG1.1] canonical event projection leaked non-official participant(s): %',v_bad
+      USING ERRCODE='P8191';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.economy_guard_event_reviews
+    UNION ALL
+    SELECT 1
+    FROM public.economy_guard_event_penalties
+  ) THEN
+    RAISE EXCEPTION '[EG1.1] new audit tables unexpectedly contain rows during migration'
+      USING ERRCODE='P8192';
+  END IF;
+END
+$eg11_post_apply$;
+
+COMMIT;

@@ -1,0 +1,16 @@
+--- a/src/features/guard/EconomyGuardPage.tsx
++++ b/src/features/guard/EconomyGuardPage.tsx
+@@ -925,8 +925,11 @@
+   );
+ }
+ 
+-function LorenzChart({ points }: { points: Array<{ population_share: number; asset_share: number }> }) {
+-  const safePoints = points.length ? points : [{ population_share: 0, asset_share: 0 }, { population_share: 1, asset_share: 1 }];
++function LorenzChart({ points }: { points: EconomyGuardDashboard['inequality']['lorenz'] }) {
++  const safePoints = (points.length ? points : [{ population_share: 0, asset_share: 0 }, { population_share: 1, asset_share: 1 }]).map((point) => ({
++    population_share: point.population_share ?? 0,
++    asset_share: point.asset_share ?? 0,
++  }));
+   const polyline = safePoints.map((point) => `${40 + point.population_share * 320},${340 - point.asset_share * 300}`).join(' ');
+   return (
+     <div className="overflow-x-auto rounded-card-lg border border-line bg-bg-deep p-2">

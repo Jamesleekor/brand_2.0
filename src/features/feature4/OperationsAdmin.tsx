@@ -68,7 +68,7 @@ export default function OperationsAdmin() {
     queryKey: ['f4b-students', classroomId],
     enabled: !!classroomId,
     queryFn: async () => {
-      const res = await supabase.from('students').select('id,name,brand_name,role').eq('classroom_id', classroomId!).eq('role', 'STUDENT').is('transferred_at', null).order('name');
+      const res = await supabase.from('students').select('id,name,brand_name,role,is_test_account').eq('classroom_id', classroomId!).eq('role', 'STUDENT').eq('is_test_account', false).is('transferred_at', null).order('name');
       if (res.error) throw feature4QueryError('F4B', 'students', res.error);
       return res.data ?? [];
     },
@@ -114,6 +114,14 @@ export default function OperationsAdmin() {
     ];
     return () => { channels.forEach((channel) => { void supabase.removeChannel(channel); }); };
   }, [classroomId, qc]);
+
+  useEffect(() => {
+    if (window.location.hash !== '#economy-guard') return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById('economy-guard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   const endDate = new Date(emergencyEnd);
   const emergencyEndValid = emergencyEnd && Number.isFinite(endDate.getTime()) && endDate.getTime() > Date.now();
@@ -183,7 +191,7 @@ export default function OperationsAdmin() {
             </div>
           </Panel>
 
-          <Panel title="🛡️ 경제수호대">
+          <Panel title="🛡️ 경제수호대" id="economy-guard">
             <select value={guardStudent} onChange={(e) => setGuardStudent(Number(e.target.value))} className="input-field w-full mb-2 text-base">
               <option value={0}>학생 선택</option>
               {students.data?.map((s: any) => <option key={s.id} value={s.id}>{s.name}{s.brand_name ? ` (${s.brand_name})` : ''}</option>)}
@@ -228,8 +236,8 @@ export default function OperationsAdmin() {
   );
 }
 
-function Panel({ title, children }: { title: string; children: any }) {
-  return <section className="glass-card p-4"><h2 className="font-display text-lg mb-3">{title}</h2>{children}</section>;
+function Panel({ title, children, id }: { title: string; children: any; id?: string }) {
+  return <section id={id} className="glass-card scroll-mt-24 p-4"><h2 className="font-display text-lg mb-3">{title}</h2>{children}</section>;
 }
 
 function FieldN({ label, v, set }: { label: string; v: number; set: (n: number) => void }) {

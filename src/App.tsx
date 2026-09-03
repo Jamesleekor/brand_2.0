@@ -17,6 +17,7 @@ import CosmeticPage from '@/features/cosmetic/CosmeticPage';
 import CharacterCollectionPage from '@/features/character/CharacterCollectionPage';
 import MarketPage from '@/features/market/MarketPage';
 import BakeryPage from '@/features/bakery/BakeryPage';
+import EconomyGuardPage from '@/features/guard/EconomyGuardPage';
 import DailyQuestManagerPage from '@/features/daily-quest/DailyQuestManagerPage';
 import SavingsBankPage from '@/features/savings/SavingsBankPage';
 import GuildPage from '@/features/guild/GuildPage';
@@ -59,6 +60,7 @@ import LearningAdmin from '@/features/feature4/LearningAdmin';
 import RecordsAdmin from '@/features/feature4/RecordsAdmin';
 import TestClassroomFixturePage from '@/features/teacher/TestClassroomFixturePage';
 import { ProtectedRoute, AppShell } from '@/components/layout/AppShell';
+import { TeacherShell } from '@/components/teacher/TeacherShell';
 
 // =====================================================================
 // 임시 placeholder (Sub-step 6-C 이후 실제 구현)
@@ -194,6 +196,7 @@ export default function App() {
         <Route path="/mail" element={<AppShell><CommunicationPage /></AppShell>} />
         <Route path="/assignments" element={<AppShell><AssignmentsPage /></AppShell>} />
         <Route path="/records" element={<AppShell><RecordsPage /></AppShell>} />
+        <Route path="/guard" element={<AppShell hideBottomNav><EconomyGuardPage /></AppShell>} />
         <Route 
           path="/settings" 
           element={<AppShell><SettingsPage /></AppShell>} 
@@ -241,6 +244,7 @@ export default function App() {
         <Route path="/teacher/guild/monthly-close" element={<GuildMonthlyAdmin />} />
         <Route path="/teacher/arcade" element={<TeacherArcadePage />} />
         <Route path="/teacher/analytics" element={<AnalyticsPage />} />
+        <Route path="/teacher/economy-guard" element={<TeacherShell><EconomyGuardPage embeddedTeacher /></TeacherShell>} />
         <Route path="/teacher/communications" element={<CommunicationAdmin />} />
         <Route path="/teacher/operations" element={<OperationsAdmin />} />
         <Route path="/teacher/learning" element={<LearningAdmin />} />

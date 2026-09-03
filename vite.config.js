@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
-base: '/brand_2.0/',
+    base: '/brand_2.0/',
     plugins: [react()],
     resolve: {
         alias: {

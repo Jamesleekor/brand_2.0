@@ -339,6 +339,23 @@ export const ERROR_MESSAGES: Record<string, ErrorMessage> = {
   P4B32: { category: "STATE", title: "[F4B] 겹치는 수호대 임기가 있어요" },
   P4B33: { category: "NOT_FOUND", title: "[F4B] 수호대 임기를 찾을 수 없어요" },
   P4B34: { category: "VALIDATION", title: "[F4B] 수호대 메모가 너무 길어요" },
+  P4B35: { category: "PERMISSION", title: "[F4B] 테스트요원은 경제수호대로 임명할 수 없어요" },
+
+
+  // Economy Guard EG1.1 — Guard access / review lifecycle
+  PK101: { category: "PERMISSION", title: "경제수호대 접근 권한이 없어요", description: "활성 경제수호대 임기 또는 교사 감독 권한이 필요합니다." },
+  PK102: { category: "VALIDATION", title: "조회 기간을 확인해주세요" },
+  PK103: { category: "VALIDATION", title: "판정 메모를 확인해주세요", description: "메모는 500자 이하이며 기타 사유에는 설명이 필요합니다." },
+  PK104: { category: "NOT_FOUND", title: "경제 사건을 찾을 수 없어요", description: "현재 학급의 공식 경제 사건인지 확인해주세요." },
+  PK105: { category: "VALIDATION", title: "최종 적발 사유를 확인해주세요" },
+  PK106: { category: "VALIDATION", title: "적발 대상 학생을 확인해주세요", description: "해당 경제 사건의 당사자만 적발 대상으로 선택할 수 있습니다." },
+  PK107: { category: "STATE", title: "이미 최종 적발된 사건이에요", description: "최종 적발 후에는 정상 판정으로 되돌릴 수 없습니다." },
+  PK108: { category: "STATE", title: "이미 최종 적발 처리됐어요" },
+  PK109: { category: "STATE", title: "현재 처리할 이상징후가 없어요" },
+  PK110: { category: "STATE", title: "이미 같은 근거로 정상 확인된 사건이에요", description: "새로운 이상징후가 생기면 재검토할 수 있습니다." },
+  PK111: { category: "PERMISSION", title: "공식 참가자만 경제수호대가 될 수 있어요" },
+  PK112: { category: "VALIDATION", title: "지원하지 않는 경제 사건 유형이에요" },
+  PK113: { category: "VALIDATION", title: "경제 사건 ID를 확인해주세요" },
   P4C10: { category: "STATE", title: "[F4C] 현재 제출할 수 없는 과제예요" },
   P4C11: { category: "PERMISSION", title: "[F4C] 다른 학급 과제예요" },
   P4C12: { category: "STATE", title: "[F4C] 이미 제출한 과제예요" },
