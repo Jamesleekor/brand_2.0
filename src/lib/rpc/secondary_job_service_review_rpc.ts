@@ -37,6 +37,17 @@ export type SellerReputation = {
   reviews: SellerPublicReview[];
 };
 
+export type ServiceReputation = {
+  service_id: number;
+  seller_student_id: number;
+  seller_name: string;
+  rating_count: number;
+  average_rating: number | null;
+  visible_review_count: number;
+  can_view_individual_ratings: boolean;
+  reviews: SellerPublicReview[];
+};
+
 export type MyServiceReview = {
   id: number;
   order_id: number;
@@ -49,6 +60,7 @@ export type MyServiceReview = {
 
 export type ServiceReputationBoard = {
   seller_reputations: SellerReputation[];
+  service_reputations: ServiceReputation[];
   my_seller_reputation: SellerReputation | null;
   my_reviews: MyServiceReview[];
 };

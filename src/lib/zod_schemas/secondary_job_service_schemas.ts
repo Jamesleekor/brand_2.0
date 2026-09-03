@@ -7,11 +7,16 @@ export const ServiceOrderStatusSchema = z.enum([
 ]);
 export type ServiceOrderStatus = z.infer<typeof ServiceOrderStatusSchema>;
 
+export const ServiceCategorySchema = z.enum(['청소','학습','제작','1인1역','생활도움','기타']);
+export type ServiceCategory = z.infer<typeof ServiceCategorySchema>;
+
 export const UpsertSecondaryJobServiceSchema = z.object({
   p_service_id: z.number().int().positive().nullable(),
   p_secondary_job_id: z.number().int().positive(),
-  p_title: z.string().trim().min(2).max(80),
-  p_description: z.string().trim().min(10).max(1000),
+  p_title: z.string().trim().min(2).max(24),
+  p_subtitle: z.string().trim().min(2).max(40),
+  p_description: z.string().trim().min(10).max(2000),
+  p_service_category: ServiceCategorySchema,
   p_price_gold: z.number().int().min(1).max(1_000_000),
   p_delivery_note: z.string().trim().max(100),
   p_is_active: z.boolean(),

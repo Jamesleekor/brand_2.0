@@ -8,17 +8,19 @@ import { cn } from '@/lib/utils/cn';
 import {
   secondaryJobServiceStudentRpc,
   type MyServiceItem,
-  type ServiceMarketItem,
   type ServicePurchaseOrder,
   type ServiceSaleOrder,
 } from '@/lib/rpc/secondary_job_service_rpc';
-import type { ServiceOrderStatus } from '@/lib/zod_schemas/secondary_job_service_schemas';
+import type { ServiceCategory, ServiceOrderStatus } from '@/lib/zod_schemas/secondary_job_service_schemas';
 import {
   secondaryJobServiceReviewStudentRpc,
   type MyServiceReview,
   type SellerReputation,
+  type ServiceReputation,
 } from '@/lib/rpc/secondary_job_service_review_rpc';
-import { MySellerReputationCard, OrderReviewAction, SellerReputationBadge } from '@/features/market/SecondaryJobReviewWidgets';
+import { MySellerReputationCard, OrderReviewAction } from '@/features/market/SecondaryJobReviewWidgets';
+import { SecondaryJobServiceMarket } from '@/features/market/SecondaryJobServiceMarket';
+import { SERVICE_CATEGORY_OPTIONS } from '@/features/market/secondary_job_service_market_utils';
 import { useClassroomId } from '@/stores/auth_store';
 import {
   secondaryJobServiceAdStudentRpc,
@@ -58,8 +60,8 @@ function dt(v: string | null | undefined) {
 export default function SecondaryJobServicesPanel() {
   const queryClient = useQueryClient();
   const classroomId = useClassroomId();
-  const { call, isLoading } = useRpcCall();
-  const [searchParams] = useSearchParams();
+  const { isLoading } = useRpcCall();
+  const [searchParams, setSearchParams] = useSearchParams();
   const requestedView = searchParams.get('view');
   const initialView: ViewTab = requestedView === 'orders' || requestedView === 'sales' || requestedView === 'services' || requestedView === 'market'
     ? requestedView
@@ -138,6 +140,7 @@ export default function SecondaryJobServicesPanel() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'secondary_job_services' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'secondary_job_service_orders' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'secondary_job_service_deliveries' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'secondary_job_service_reviews' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'secondary_job_service_ads' }, refresh)
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
@@ -145,8 +148,8 @@ export default function SecondaryJobServicesPanel() {
 
   const data = board.data;
   const reputationData = reputationBoard.data;
-  const reputationBySeller = useMemo(() => new Map<number, SellerReputation>(
-    (reputationData?.seller_reputations ?? []).map((r) => [r.seller_student_id, r]),
+  const reputationByService = useMemo(() => new Map<number, ServiceReputation>(
+    (reputationData?.service_reputations ?? []).map((r) => [r.service_id, r]),
   ), [reputationData]);
   const myReviewByOrder = useMemo(() => new Map<number, MyServiceReview>(
     (reputationData?.my_reviews ?? []).map((r) => [r.order_id, r]),
@@ -194,7 +197,20 @@ export default function SecondaryJobServicesPanel() {
       ))}
     </div>
 
-    {tab==='market' && <MarketList items={data.services} reputations={reputationBySeller} studentNames={studentNames.data ?? new Map()} busy={isLoading} onDone={refresh} highlightServiceId={requestedServiceId} />}
+    {tab==='market' && <SecondaryJobServiceMarket
+      items={data.services}
+      reputations={reputationByService}
+      studentNames={studentNames.data ?? new Map()}
+      serverNow={data.server_now}
+      busy={isLoading}
+      onDone={refresh}
+      deepLinkServiceId={requestedServiceId}
+      onDeepLinkHandled={()=>{
+        const next = new URLSearchParams(searchParams);
+        next.delete('service');
+        setSearchParams(next,{replace:true});
+      }}
+    />}
     {tab==='orders' && <BuyerOrders items={data.my_orders} myReviews={myReviewByOrder} studentNames={studentNames.data ?? new Map()} busy={isLoading} onDone={refresh} />}
     {tab==='sales' && <SellerOrders items={data.my_sales} busy={isLoading} onDone={refresh} />}
     {tab==='services' && <MyServices items={data.my_services} jobs={data.active_jobs} reputation={reputationData.my_seller_reputation} adBoard={adBoard.data ?? null} adLoading={adBoard.isLoading} adError={adBoard.isError ? (adBoard.error instanceof Error ? adBoard.error.message : '광고 정보를 불러오지 못했습니다.') : null} busy={isLoading} onDone={refresh} />}
@@ -205,80 +221,6 @@ export default function SecondaryJobServicesPanel() {
       </div>
     )}
   </div>;
-}
-
-function MarketList({ items, reputations, studentNames, busy, onDone, highlightServiceId }: { items: ServiceMarketItem[]; reputations: Map<number,SellerReputation>; studentNames: Map<number,string>; busy: boolean; onDone: ()=>void; highlightServiceId: number | null }) {
-  const { call, isLoading: rpcLoading } = useRpcCall();
-  const actionBusy = busy || rpcLoading;
-  const [selected,setSelected] = useState<ServiceMarketItem|null>(null);
-  const [request,setRequest] = useState('');
-
-  useEffect(() => {
-    if (!highlightServiceId || !items.some((item) => item.id === highlightServiceId)) return;
-    const timer = window.setTimeout(() => {
-      document.getElementById(`service-market-${highlightServiceId}`)?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-    }, 80);
-    return () => window.clearTimeout(timer);
-  }, [highlightServiceId, items]);
-
-  const buy = async () => {
-    if (!selected || !selected.can_buy || request.trim().length<10) return;
-    await call(() => secondaryJobServiceStudentRpc.buy(supabase,{p_service_id:selected.id,p_buyer_request:request}),{
-      successTitle:'서비스 주문 완료',
-      successDescription:`${formatNumber(selected.price_gold)} GOLD가 거래 완료 전까지 보류됩니다.`,
-      onSuccess:()=>{ setSelected(null);setRequest('');onDone(); },
-    });
-  };
-
-  if (!items.length) return <EmptyState emoji="🛍️" title="판매 중인 서비스가 없어요" description="2차직업을 가진 학생이 서비스를 등록하면 여기에 표시됩니다." />;
-
-  return <>
-    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-      {items.map((s)=>{const sellerName=studentNames.get(s.seller_student_id)??s.seller_name;return <div
-        key={s.id}
-        id={`service-market-${s.id}`}
-        className={cn(
-          'bg-bg-card border rounded-card-md p-3.5 flex flex-col transition',
-          highlightServiceId===s.id
-            ? 'border-gold/70 ring-2 ring-gold/20 shadow-card'
-            : 'border-line',
-        )}
-      >
-        <div className="flex items-start justify-between gap-2">
-          <div><div className="text-2xs text-brand-glow font-black">{s.job_name}</div><div className="font-display text-base text-white mt-0.5">{s.title}</div></div>
-          <div className="font-display text-sm text-gold whitespace-nowrap">🪙 {formatNumber(s.price_gold)}</div>
-        </div>
-        <div className="mt-2 rounded-card-sm border border-white/5 bg-black/15 px-2 py-1.5 text-sm font-black text-slate-100">👤 판매자 · {sellerName}</div>
-        <SellerReputationBadge reputation={reputations.get(s.seller_student_id)} />
-        <p className="mt-2 flex-1 whitespace-pre-wrap text-[13px] font-medium leading-5 text-slate-200">{s.description}</p>
-        {s.delivery_note && <div className="mt-2 rounded-card-sm bg-bg-deep/80 px-2 py-1.5 text-xs font-bold text-cyan-100">⏱ 소요시간 · {s.delivery_note}</div>}
-        <div className="mt-2 text-[11px] font-bold text-text-muted">{s.allow_concurrent_orders?'👥 여러 학생 동시 주문 가능':'👤 한 번에 1명만 주문 가능'}</div>
-        <button disabled={!s.can_buy || actionBusy} onClick={()=>{setSelected(s);setRequest('');}}
-          className="btn-primary w-full mt-3 disabled:opacity-50 disabled:cursor-not-allowed">
-          {s.can_buy?'구매하기':'구매 불가'}
-        </button>
-        {!s.can_buy && s.blocked_reason && <div className="text-[11px] text-warning mt-1.5 text-center">{s.blocked_reason}</div>}
-      </div>})}
-    </div>
-
-    <Modal isOpen={!!selected} onClose={()=>setSelected(null)} title={selected?`${selected.title} 주문`:'서비스 주문'} emoji="🛒">
-      {selected && <div className="space-y-3">
-        <div className="bg-bg-deep rounded-card-md p-3 text-sm">
-          <div className="flex justify-between"><span className="font-bold text-slate-100">{studentNames.get(selected.seller_student_id) ?? selected.seller_name} · {selected.job_name}</span><b className="text-gold">{formatNumber(selected.price_gold)} GOLD</b></div>
-          <div className="text-xs text-text-secondary mt-2">구매 시 GOLD가 즉시 빠져나가지만 판매자에게 바로 지급되지는 않습니다. 납품 후 구매 확정하면 판매자에게 정산됩니다.</div>
-        </div>
-        <label className="block"><span className="text-xs font-bold text-text-secondary">구체적인 요청 내용 (10~500자)</span>
-          <textarea rows={5} maxLength={500} value={request} onChange={(e)=>setRequest(e.target.value)}
-            className="input-field w-full mt-1 resize-none" placeholder="원하는 결과, 내용, 조건을 구체적으로 적어주세요." /></label>
-        <div className="text-right text-2xs text-text-muted">{request.trim().length}/500</div>
-        <button className="btn-primary w-full" disabled={actionBusy||request.trim().length<10} onClick={buy}>결제하고 주문하기</button>
-        {request.trim().length<10 && <div className="text-xs text-warning text-center">요청 내용을 10자 이상 입력하면 주문 버튼이 활성화됩니다.</div>}
-      </div>}
-    </Modal>
-  </>;
 }
 
 function BuyerOrders({ items, myReviews, studentNames, busy, onDone }: { items: ServicePurchaseOrder[]; myReviews: Map<number,MyServiceReview>; studentNames: Map<number,string>; busy:boolean; onDone:()=>void }) {
@@ -422,6 +364,8 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
   const [form,setForm] = useState<MyServiceItem|null|'NEW'>(null);
   const [jobId,setJobId] = useState(0);
   const [title,setTitle] = useState('');
+  const [subtitle,setSubtitle] = useState('');
+  const [category,setCategory] = useState<ServiceCategory|''>('');
   const [desc,setDesc] = useState('');
   const [price,setPrice] = useState(100);
   const [delivery,setDelivery] = useState('');
@@ -431,15 +375,15 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
   const [adPickerOpen,setAdPickerOpen] = useState(false);
   const [adDuration,setAdDuration] = useState<1|2|3>(1);
 
-  const openNew=()=>{setForm('NEW');setJobId(jobs[0]?.id??0);setTitle('');setDesc('');setPrice(100);setDelivery('');setAllowConcurrent(false);};
-  const openEdit=(s:MyServiceItem)=>{setForm(s);setJobId(s.secondary_job_id);setTitle(s.title);setDesc(s.description);setPrice(s.price_gold);setDelivery(s.delivery_note??'');setAllowConcurrent(s.allow_concurrent_orders);};
+  const openNew=()=>{setForm('NEW');setJobId(jobs[0]?.id??0);setTitle('');setSubtitle('');setCategory('');setDesc('');setPrice(100);setDelivery('');setAllowConcurrent(false);};
+  const openEdit=(s:MyServiceItem)=>{setForm(s);setJobId(s.secondary_job_id);setTitle(s.title);setSubtitle(s.subtitle??'');setCategory(s.service_category??'');setDesc(s.description);setPrice(s.price_gold);setDelivery(s.delivery_note??'');setAllowConcurrent(s.allow_concurrent_orders);};
 
   const save=async()=>{
     const existing=form!=='NEW'&&form?form:null;
-    if (!jobId||title.trim().length<2||desc.trim().length<10||price<1) return;
+    if (!jobId||title.trim().length<2||title.trim().length>24||subtitle.trim().length<2||subtitle.trim().length>40||!category||desc.trim().length<10||desc.trim().length>2000||price<1) return;
     await call(()=>secondaryJobServiceStudentRpc.upsertService(supabase,{
-      p_service_id:existing?.id??null,p_secondary_job_id:jobId,p_title:title,p_description:desc,
-      p_price_gold:price,p_delivery_note:delivery,p_is_active:existing?.is_active??true,
+      p_service_id:existing?.id??null,p_secondary_job_id:jobId,p_title:title,p_subtitle:subtitle,p_description:desc,
+      p_service_category:category,p_price_gold:price,p_delivery_note:delivery,p_is_active:existing?.is_active??true,
       p_allow_concurrent_orders:allowConcurrent,
     }),{successTitle:existing?'서비스 수정 완료':'서비스 등록 완료',onSuccess:()=>{setForm(null);onDone();}});
   };
@@ -593,8 +537,24 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
           <select className="input-field w-full mt-1" value={jobId} onChange={(e)=>setJobId(Number(e.target.value))}>
             {jobs.map(j=><option key={j.id} value={j.id}>{j.job_name}</option>)}
           </select></label>
-        <label className="block"><span className="text-xs font-bold text-text-secondary">서비스 제목</span><input maxLength={80} className="input-field w-full mt-1" value={title} onChange={(e)=>setTitle(e.target.value)} /></label>
-        <label className="block"><span className="text-xs font-bold text-text-secondary">설명</span><textarea rows={5} maxLength={1000} className="input-field w-full mt-1 resize-none" value={desc} onChange={(e)=>setDesc(e.target.value)} /></label>
+        <label className="block">
+          <span className="flex items-center justify-between text-xs font-bold text-text-secondary"><span>서비스 제목</span><span className={title.trim().length>24?'text-danger':'text-text-muted'}>{title.trim().length}/24</span></span>
+          <input maxLength={24} placeholder="고객의 관심을 끄는 핵심 문구" className="input-field w-full mt-1" value={title} onChange={(e)=>setTitle(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="flex items-center justify-between text-xs font-bold text-text-secondary"><span>서비스 부제목</span><span className="text-text-muted">{subtitle.trim().length}/40</span></span>
+          <input maxLength={40} placeholder="서비스를 한 문장으로 설명" className="input-field w-full mt-1" value={subtitle} onChange={(e)=>setSubtitle(e.target.value)} />
+        </label>
+        <label className="block"><span className="text-xs font-bold text-text-secondary">서비스 카테고리</span>
+          <select className="input-field w-full mt-1" value={category} onChange={(e)=>setCategory(e.target.value as ServiceCategory|'')}>
+            <option value="">카테고리를 선택하세요</option>
+            {SERVICE_CATEGORY_OPTIONS.filter((option)=>option.value!=='ALL').map((option)=><option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </label>
+        <label className="block">
+          <span className="flex items-center justify-between text-xs font-bold text-text-secondary"><span>상세 설명</span><span className="text-text-muted">{desc.trim().length}/2000</span></span>
+          <textarea rows={6} maxLength={2000} placeholder="실제 서비스 내용과 조건을 자세히 안내" className="input-field w-full mt-1 resize-none" value={desc} onChange={(e)=>setDesc(e.target.value)} />
+        </label>
         <label className="block"><span className="text-xs font-bold text-text-secondary">가격 GOLD</span><input type="number" min={1} max={1000000} className="input-field w-full mt-1" value={price} onChange={(e)=>setPrice(Number(e.target.value))} /></label>
         <label className="block"><span className="text-xs font-bold text-text-secondary">예상 소요 안내 (선택)</span><input maxLength={100} placeholder="예: 쉬는시간 2번 정도 / 오늘 안에" className="input-field w-full mt-1" value={delivery} onChange={(e)=>setDelivery(e.target.value)} /></label>
         <div>
@@ -611,8 +571,8 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
           </div>
           <div className="text-[11px] text-text-muted mt-1.5">같은 학생이 같은 서비스에 진행 중 주문을 중복으로 넣는 것은 두 방식 모두 차단됩니다.</div>
         </div>
-        <button className="btn-primary w-full" onClick={save} disabled={actionBusy||!jobId||title.trim().length<2||desc.trim().length<10||price<1}>저장</button>
-        {(title.trim().length<2||desc.trim().length<10||price<1) && <div className="text-xs text-warning text-center">제목 2자+, 설명 10자+, 가격 1 GOLD+ 조건을 채우면 저장할 수 있습니다.</div>}
+        <button className="btn-primary w-full" onClick={save} disabled={actionBusy||!jobId||title.trim().length<2||title.trim().length>24||subtitle.trim().length<2||subtitle.trim().length>40||!category||desc.trim().length<10||desc.trim().length>2000||price<1}>저장</button>
+        {(title.trim().length<2||title.trim().length>24||subtitle.trim().length<2||subtitle.trim().length>40||!category||desc.trim().length<10||desc.trim().length>2000||price<1) && <div className="text-xs text-warning text-center">제목 2~24자, 부제목 2~40자, 카테고리 선택, 상세 설명 10~2000자, 가격 1 GOLD+ 조건을 확인해주세요.</div>}
       </div>
     </Modal>
 

@@ -1,0 +1,993 @@
+-- B.R.A.N.D 2.0
+-- P2P 서비스 마켓 UI/UX 개편 STEP 3
+-- Production APPLY
+-- 작성일: 2026-09-03
+--
+-- 목적
+--   1) subtitle / service_category / service_category_snapshot 스키마 변경 적용
+--   2) market / reputation / upsert / buy RPC 및 Economy Guard adapter 변경 적용
+--   3) 기존 서비스·주문·후기·거래·Guard fingerprint 불변 검증
+--   4) 트랜잭션 내부 검증 PASS 후 COMMIT
+--
+-- 주의
+--   * 이것은 Production 변경 SQL이다. DDL/RPC 변경을 실제로 COMMIT한다.
+--   * 중간 오류가 발생하면 트랜잭션이 중단되므로 COMMIT되지 않는다.
+--   * PRECHECK/POSTCHECK 오류가 발생하면 오류 전문을 전달하고 임의 재실행하지 않는다.
+
+BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '90s';
+
+-- ============================================================
+-- 0. PRE-FLIGHT: 조사 당시 Production과 동일한지 확인
+-- ============================================================
+DO $preflight$
+DECLARE
+  v_hash text;
+BEGIN
+  IF to_regclass('public.secondary_job_services') IS NULL
+     OR to_regclass('public.secondary_job_service_orders') IS NULL
+     OR to_regclass('public.secondary_job_service_reviews') IS NULL THEN
+    RAISE EXCEPTION 'PRECHECK FAIL: P2P 서비스 핵심 relation이 없습니다.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='secondary_job_services'
+      AND column_name IN ('subtitle','service_category')
+  ) OR EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='secondary_job_service_orders'
+      AND column_name='service_category_snapshot'
+  ) THEN
+    RAISE EXCEPTION 'PRECHECK FAIL: 신규 컬럼이 이미 존재합니다. 현재 Production을 다시 조사해야 합니다.';
+  END IF;
+
+  IF to_regprocedure('public.student_get_secondary_job_service_market()') IS NULL
+     OR to_regprocedure('public.student_get_secondary_job_service_reputation_board()') IS NULL
+     OR to_regprocedure('public.student_upsert_secondary_job_service(bigint,integer,text,text,bigint,text,boolean,boolean)') IS NULL
+     OR to_regprocedure('public.student_buy_secondary_job_service(bigint,text)') IS NULL
+     OR to_regprocedure('public._economy_guard_service_event_rows(integer,date,date)') IS NULL
+     OR to_regprocedure('public._economy_guard_event_rows(integer,date,date)') IS NULL THEN
+    RAISE EXCEPTION 'PRECHECK FAIL: 조사 대상 함수 signature가 달라졌습니다.';
+  END IF;
+
+  SELECT md5(pg_get_functiondef('public.student_get_secondary_job_service_market()'::regprocedure)) INTO v_hash;
+  IF v_hash <> '3eda6f9a8bc31254e6abe68cf2a43055' THEN
+    RAISE EXCEPTION 'PRECHECK FAIL: market RPC drift. current md5=%', v_hash;
+  END IF;
+
+  SELECT md5(pg_get_functiondef('public.student_get_secondary_job_service_reputation_board()'::regprocedure)) INTO v_hash;
+  IF v_hash <> '377a5a97429b7d225190fb25909d1dc1' THEN
+    RAISE EXCEPTION 'PRECHECK FAIL: reputation RPC drift. current md5=%', v_hash;
+  END IF;
+
+  SELECT md5(pg_get_functiondef('public.student_upsert_secondary_job_service(bigint,integer,text,text,bigint,text,boolean,boolean)'::regprocedure)) INTO v_hash;
+  IF v_hash <> '12455b09146c924ba1a10227d2f3c3e5' THEN
+    RAISE EXCEPTION 'PRECHECK FAIL: upsert RPC drift. current md5=%', v_hash;
+  END IF;
+
+  SELECT md5(pg_get_functiondef('public.student_buy_secondary_job_service(bigint,text)'::regprocedure)) INTO v_hash;
+  IF v_hash <> 'd3064039b5559de16e661d3527f6ce48' THEN
+    RAISE EXCEPTION 'PRECHECK FAIL: buy RPC drift. current md5=%', v_hash;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    WHERE c.conrelid='public.secondary_job_services'::regclass
+      AND c.conname='secondary_job_services_description_ck'
+      AND pg_get_constraintdef(c.oid) ILIKE '%<= 1000%'
+  ) THEN
+    RAISE EXCEPTION 'PRECHECK FAIL: description constraint가 조사 당시 상태와 다릅니다.';
+  END IF;
+END
+$preflight$;
+
+-- ============================================================
+-- 1. BASELINE SNAPSHOT (TEMP only)
+-- ============================================================
+CREATE TEMP TABLE _p2p_uiux_apply_baseline ON COMMIT DROP AS
+SELECT
+  (SELECT count(*) FROM public.secondary_job_services) AS service_count,
+  (SELECT count(*) FROM public.secondary_job_service_orders) AS order_count,
+  (SELECT count(*) FROM public.secondary_job_service_reviews) AS review_count,
+  (SELECT coalesce(sum(price_gold),0) FROM public.secondary_job_services) AS service_price_sum,
+  (SELECT coalesce(sum(price_gold_snapshot),0) FROM public.secondary_job_service_orders) AS order_price_sum,
+  (SELECT count(escrow_transaction_id) FROM public.secondary_job_service_orders) AS escrow_link_count,
+  (SELECT count(payout_transaction_id) FROM public.secondary_job_service_orders) AS payout_link_count,
+  (SELECT count(refund_transaction_id) FROM public.secondary_job_service_orders) AS refund_link_count;
+
+CREATE TEMP TABLE _p2p_uiux_apply_guard_before ON COMMIT DROP AS
+SELECT
+  c.id AS classroom_id,
+  e.event_key,
+  e.source_id,
+  e.amount,
+  e.quantity,
+  e.unit_price,
+  e.anomaly_fingerprint
+FROM public.classrooms c
+CROSS JOIN LATERAL public._economy_guard_event_rows(c.id,NULL,NULL) e
+WHERE e.source_kind='SERVICE_ORDER';
+
+-- ============================================================
+-- 2. SCHEMA APPLY
+-- ============================================================
+ALTER TABLE public.secondary_job_services
+  ADD COLUMN subtitle varchar(40),
+  ADD COLUMN service_category varchar(20);
+
+ALTER TABLE public.secondary_job_service_orders
+  ADD COLUMN service_category_snapshot varchar(20);
+
+ALTER TABLE public.secondary_job_services
+  ADD CONSTRAINT secondary_job_services_subtitle_ck
+    CHECK (
+      subtitle IS NULL
+      OR (char_length(btrim(subtitle::text)) BETWEEN 2 AND 40)
+    ),
+  ADD CONSTRAINT secondary_job_services_service_category_ck
+    CHECK (
+      service_category IS NULL
+      OR service_category::text IN ('청소','학습','제작','1인1역','생활도움','기타')
+    );
+
+ALTER TABLE public.secondary_job_service_orders
+  ADD CONSTRAINT secondary_job_service_orders_service_category_snapshot_ck
+    CHECK (
+      service_category_snapshot IS NULL
+      OR service_category_snapshot::text IN ('청소','학습','제작','1인1역','생활도움','기타')
+    );
+
+ALTER TABLE public.secondary_job_services
+  DROP CONSTRAINT secondary_job_services_description_ck;
+
+ALTER TABLE public.secondary_job_services
+  ADD CONSTRAINT secondary_job_services_description_ck
+    CHECK (
+      char_length(btrim(description)) >= 10
+      AND char_length(btrim(description)) <= 2000
+    );
+
+-- ============================================================
+-- 3. MARKET BOARD RPC
+--    기존 contract 유지 + subtitle / service_category 추가
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.student_get_secondary_job_service_market()
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_student_id integer;
+  v_classroom_id integer;
+  v_gold bigint;
+  v_asset_freeze boolean;
+BEGIN
+  v_student_id:=public.current_student_id();
+  IF v_student_id IS NULL THEN RAISE EXCEPTION '학생 로그인이 필요합니다.' USING ERRCODE='P2C10'; END IF;
+
+  SELECT s.classroom_id,w.gold
+    INTO v_classroom_id,v_gold
+    FROM public.students s
+    JOIN public.wallets w ON w.student_id=s.id
+   WHERE s.id=v_student_id AND s.transferred_at IS NULL;
+
+  IF v_classroom_id IS NULL THEN RAISE EXCEPTION '활성 학생 정보를 찾을 수 없습니다.' USING ERRCODE='P2C11'; END IF;
+  v_asset_freeze:=public.is_asset_freeze_active(v_classroom_id);
+
+  RETURN jsonb_build_object(
+    'server_now',now(),
+    'gold',v_gold,
+    'asset_freeze',v_asset_freeze,
+
+    'active_jobs',coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id',j.id,'job_name',j.job_name,'category',j.category_snapshot
+      ) ORDER BY j.job_name,j.id)
+      FROM public.secondary_jobs j
+      WHERE j.student_id=v_student_id AND j.classroom_id=v_classroom_id AND j.is_active=true
+    ),'[]'::jsonb),
+
+    'services',coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id',sv.id,
+        'seller_student_id',sv.seller_student_id,
+        'seller_name',coalesce(nullif(st.brand_name,''),st.name),
+        'secondary_job_id',sv.secondary_job_id,
+        'job_name',j.job_name,
+        'job_category',j.category_snapshot,
+        'title',sv.title,
+        'subtitle',sv.subtitle,
+        'description',sv.description,
+        'service_category',sv.service_category,
+        'price_gold',sv.price_gold,
+        'delivery_note',sv.delivery_note,
+        'allow_concurrent_orders',sv.allow_concurrent_orders,
+        'created_at',sv.created_at,
+        'can_buy',(
+          sv.seller_student_id<>v_student_id
+          AND NOT v_asset_freeze
+          AND v_gold>=sv.price_gold
+          AND j.is_active=true
+          AND st.transferred_at IS NULL
+          AND NOT EXISTS(
+            SELECT 1 FROM public.secondary_job_service_orders o
+             WHERE o.service_id=sv.id AND o.buyer_student_id=v_student_id
+               AND o.status NOT IN ('COMPLETED','REJECTED','CANCELLED')
+          )
+          AND (
+            sv.allow_concurrent_orders
+            OR NOT EXISTS(
+              SELECT 1 FROM public.secondary_job_service_orders o
+               WHERE o.service_id=sv.id
+                 AND o.status NOT IN ('COMPLETED','REJECTED','CANCELLED')
+            )
+          )
+        ),
+        'blocked_reason',CASE
+          WHEN sv.seller_student_id=v_student_id THEN '내 서비스는 구매할 수 없습니다.'
+          WHEN NOT j.is_active OR st.transferred_at IS NOT NULL THEN '현재 판매할 수 없는 서비스입니다.'
+          WHEN v_asset_freeze THEN '현재 자산동결 중이라 새 서비스를 구매할 수 없습니다.'
+          WHEN EXISTS(
+            SELECT 1 FROM public.secondary_job_service_orders o
+             WHERE o.service_id=sv.id AND o.buyer_student_id=v_student_id
+               AND o.status NOT IN ('COMPLETED','REJECTED','CANCELLED')
+          ) THEN '이미 진행 중인 같은 서비스 주문이 있습니다.'
+          WHEN NOT sv.allow_concurrent_orders AND EXISTS(
+            SELECT 1 FROM public.secondary_job_service_orders o
+             WHERE o.service_id=sv.id
+               AND o.status NOT IN ('COMPLETED','REJECTED','CANCELLED')
+          ) THEN '현재 다른 학생의 주문을 처리 중입니다. 이 서비스는 한 번에 1명만 주문할 수 있습니다.'
+          WHEN v_gold<sv.price_gold THEN format('GOLD가 부족합니다. 필요: %s',sv.price_gold)
+          ELSE NULL END
+      ) ORDER BY sv.created_at DESC,sv.id DESC)
+      FROM public.secondary_job_services sv
+      JOIN public.secondary_jobs j ON j.id=sv.secondary_job_id
+      JOIN public.students st ON st.id=sv.seller_student_id
+      WHERE sv.classroom_id=v_classroom_id
+        AND sv.deleted_at IS NULL
+        AND sv.is_active=true
+        AND j.is_active=true
+        AND st.transferred_at IS NULL
+    ),'[]'::jsonb),
+
+    'my_services',coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id',sv.id,'secondary_job_id',sv.secondary_job_id,'job_name',j.job_name,'job_category',j.category_snapshot,
+        'title',sv.title,'subtitle',sv.subtitle,'description',sv.description,'service_category',sv.service_category,
+        'price_gold',sv.price_gold,'delivery_note',sv.delivery_note,
+        'allow_concurrent_orders',sv.allow_concurrent_orders,
+        'is_active',sv.is_active,'deleted_at',sv.deleted_at,'created_at',sv.created_at,'updated_at',sv.updated_at,
+        'active_orders',(SELECT count(*) FROM public.secondary_job_service_orders o WHERE o.service_id=sv.id AND o.status NOT IN ('COMPLETED','REJECTED','CANCELLED'))
+      ) ORDER BY sv.deleted_at NULLS FIRST,sv.created_at DESC)
+      FROM public.secondary_job_services sv
+      JOIN public.secondary_jobs j ON j.id=sv.secondary_job_id
+      WHERE sv.seller_student_id=v_student_id
+    ),'[]'::jsonb),
+
+    'my_orders',coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id',o.id,'service_id',o.service_id,'seller_student_id',o.seller_student_id,
+        'seller_name',coalesce(nullif(ss.brand_name,''),ss.name),
+        'service_title',o.service_title_snapshot,'job_name',sj.job_name,'price_gold',o.price_gold_snapshot,
+        'delivery_note',o.delivery_note_snapshot,'buyer_request',o.buyer_request,'status',o.status,
+        'accepted_at',o.accepted_at,'delivered_at',o.delivered_at,'completed_at',o.completed_at,
+        'cancelled_at',o.cancelled_at,'disputed_at',o.disputed_at,'revision_requested_at',o.revision_requested_at,
+        'status_reason',o.status_reason,'created_at',o.created_at,'current_revision',o.current_revision,
+        'latest_delivery',(SELECT d.delivery_text FROM public.secondary_job_service_deliveries d WHERE d.order_id=o.id ORDER BY d.revision_no DESC LIMIT 1),
+        'latest_delivery_at',(SELECT d.created_at FROM public.secondary_job_service_deliveries d WHERE d.order_id=o.id ORDER BY d.revision_no DESC LIMIT 1)
+      ) ORDER BY o.created_at DESC)
+      FROM public.secondary_job_service_orders o
+      JOIN public.students ss ON ss.id=o.seller_student_id
+      JOIN public.secondary_jobs sj ON sj.id=o.secondary_job_id_snapshot
+      WHERE o.buyer_student_id=v_student_id
+    ),'[]'::jsonb),
+
+    'my_sales',coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id',o.id,'service_id',o.service_id,'buyer_student_id',o.buyer_student_id,
+        'buyer_name',coalesce(nullif(bs.brand_name,''),bs.name),
+        'service_title',o.service_title_snapshot,'job_name',sj.job_name,'price_gold',o.price_gold_snapshot,
+        'delivery_note',o.delivery_note_snapshot,'buyer_request',o.buyer_request,'status',o.status,
+        'accepted_at',o.accepted_at,'delivered_at',o.delivered_at,'completed_at',o.completed_at,
+        'cancelled_at',o.cancelled_at,'disputed_at',o.disputed_at,'revision_requested_at',o.revision_requested_at,
+        'status_reason',o.status_reason,'created_at',o.created_at,'current_revision',o.current_revision,
+        'latest_delivery',(SELECT d.delivery_text FROM public.secondary_job_service_deliveries d WHERE d.order_id=o.id ORDER BY d.revision_no DESC LIMIT 1),
+        'latest_delivery_at',(SELECT d.created_at FROM public.secondary_job_service_deliveries d WHERE d.order_id=o.id ORDER BY d.revision_no DESC LIMIT 1)
+      ) ORDER BY
+        CASE WHEN o.status IN ('REQUESTED','ACCEPTED','REVISION_REQUESTED','DELIVERED','DISPUTED') THEN 0 ELSE 1 END,
+        o.updated_at DESC)
+      FROM public.secondary_job_service_orders o
+      JOIN public.students bs ON bs.id=o.buyer_student_id
+      JOIN public.secondary_jobs sj ON sj.id=o.secondary_job_id_snapshot
+      WHERE o.seller_student_id=v_student_id
+    ),'[]'::jsonb)
+  );
+END
+$function$;
+
+-- ============================================================
+-- 4. REPUTATION BOARD RPC
+--    기존 seller reputation contract 유지 + service_reputations 추가
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.student_get_secondary_job_service_reputation_board()
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_student integer:=public.current_student_id();
+  v_classroom integer:=public.current_classroom_id();
+BEGIN
+  IF v_student IS NULL OR v_classroom IS NULL THEN
+    RAISE EXCEPTION '학생 로그인이 필요합니다.' USING ERRCODE='P2R10';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'seller_reputations',coalesce((
+      SELECT jsonb_agg(public.secondary_job_service_public_reputation(q.seller_student_id) ORDER BY q.seller_student_id)
+      FROM (
+        SELECT DISTINCT sv.seller_student_id
+        FROM public.secondary_job_services sv
+        WHERE sv.classroom_id=v_classroom
+      ) q
+    ),'[]'::jsonb),
+
+    'service_reputations',coalesce((
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'service_id',sv.id,
+          'seller_student_id',sv.seller_student_id,
+          'seller_name',coalesce(nullif(st.brand_name,''),st.name),
+          'rating_count',coalesce(rs.rating_count,0),
+          'average_rating',CASE
+            WHEN coalesce(rs.rating_count,0) >= 5 THEN rs.average_valid_rating
+            ELSE NULL
+          END,
+          'visible_review_count',coalesce(rs.visible_review_count,0),
+          'can_view_individual_ratings',(sv.seller_student_id=v_student),
+          'reviews',coalesce(rs.reviews,'[]'::jsonb)
+        )
+        ORDER BY sv.id
+      )
+      FROM public.secondary_job_services sv
+      JOIN public.students st ON st.id=sv.seller_student_id
+      LEFT JOIN LATERAL (
+        SELECT
+          (count(*) FILTER (WHERE r.is_rating_valid=true))::bigint AS rating_count,
+          round((avg(r.rating) FILTER (WHERE r.is_rating_valid=true))::numeric,3) AS average_valid_rating,
+          (count(*) FILTER (WHERE r.is_review_visible=true))::bigint AS visible_review_count,
+          coalesce(
+            jsonb_agg(
+              jsonb_build_object(
+                'rating',CASE
+                  WHEN sv.seller_student_id=v_student AND r.is_rating_valid=true THEN r.rating
+                  ELSE NULL
+                END,
+                'review_text',r.review_text
+              ) ORDER BY r.created_at DESC,r.id DESC
+            ) FILTER (WHERE r.is_review_visible=true),
+            '[]'::jsonb
+          ) AS reviews
+        FROM public.secondary_job_service_reviews r
+        WHERE r.service_id=sv.id
+      ) rs ON true
+      WHERE sv.classroom_id=v_classroom
+        AND sv.deleted_at IS NULL
+    ),'[]'::jsonb),
+
+    'my_seller_reputation',public.secondary_job_service_public_reputation(v_student),
+    'my_reviews',coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id',r.id,
+        'order_id',r.order_id,
+        'rating',r.rating,
+        'review_text',r.review_text,
+        'is_review_visible',r.is_review_visible,
+        'is_rating_valid',r.is_rating_valid,
+        'created_at',r.created_at
+      ) ORDER BY r.created_at DESC)
+      FROM public.secondary_job_service_reviews r
+      WHERE r.buyer_student_id=v_student
+    ),'[]'::jsonb)
+  );
+END
+$function$;
+
+-- ============================================================
+-- 5. UPSERT RPC
+--    old overload 제거 → subtitle/category 포함 새 signature
+-- ============================================================
+DROP FUNCTION public.student_upsert_secondary_job_service(
+  bigint,integer,text,text,bigint,text,boolean,boolean
+);
+
+CREATE FUNCTION public.student_upsert_secondary_job_service(
+  p_service_id bigint,
+  p_secondary_job_id integer,
+  p_title text,
+  p_subtitle text,
+  p_description text,
+  p_service_category text,
+  p_price_gold bigint,
+  p_delivery_note text,
+  p_is_active boolean,
+  p_allow_concurrent_orders boolean
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_student_id integer;
+  v_classroom_id integer;
+  v_job public.secondary_jobs%ROWTYPE;
+  v_service public.secondary_job_services%ROWTYPE;
+  v_id bigint;
+  v_title text:=btrim(coalesce(p_title,''));
+  v_subtitle text:=btrim(coalesce(p_subtitle,''));
+  v_desc text:=btrim(coalesce(p_description,''));
+  v_category text:=btrim(coalesce(p_service_category,''));
+  v_delivery text:=NULLIF(btrim(coalesce(p_delivery_note,'')),'');
+BEGIN
+  v_student_id:=public.current_student_id();
+  IF v_student_id IS NULL THEN RAISE EXCEPTION '학생 로그인이 필요합니다.' USING ERRCODE='P2C10'; END IF;
+
+  SELECT classroom_id INTO v_classroom_id FROM public.students
+   WHERE id=v_student_id AND transferred_at IS NULL;
+  IF v_classroom_id IS NULL THEN RAISE EXCEPTION '활성 학생 정보를 찾을 수 없습니다.' USING ERRCODE='P2C11'; END IF;
+
+  IF char_length(v_title)<2 OR char_length(v_title)>24 THEN RAISE EXCEPTION '서비스 제목은 2~24자입니다.' USING ERRCODE='P2C12'; END IF;
+  IF char_length(v_subtitle)<2 OR char_length(v_subtitle)>40 THEN RAISE EXCEPTION '서비스 부제목은 2~40자입니다.' USING ERRCODE='P2C18'; END IF;
+  IF char_length(v_desc)<10 OR char_length(v_desc)>2000 THEN RAISE EXCEPTION '서비스 설명은 10~2000자입니다.' USING ERRCODE='P2C13'; END IF;
+  IF v_category NOT IN ('청소','학습','제작','1인1역','생활도움','기타') THEN RAISE EXCEPTION '서비스 카테고리가 올바르지 않습니다.' USING ERRCODE='P2C19'; END IF;
+  IF p_price_gold IS NULL OR p_price_gold<1 OR p_price_gold>1000000 THEN RAISE EXCEPTION '가격은 1~1,000,000 GOLD입니다.' USING ERRCODE='P2C14'; END IF;
+  IF char_length(coalesce(v_delivery,''))>100 THEN RAISE EXCEPTION '예상 소요 안내는 100자 이하입니다.' USING ERRCODE='P2C15'; END IF;
+
+  SELECT * INTO v_job FROM public.secondary_jobs
+   WHERE id=p_secondary_job_id AND student_id=v_student_id AND classroom_id=v_classroom_id AND is_active=true;
+  IF v_job.id IS NULL THEN RAISE EXCEPTION '활성 2차직업으로만 서비스를 등록할 수 있습니다.' USING ERRCODE='P2C16'; END IF;
+
+  IF p_service_id IS NULL THEN
+    INSERT INTO public.secondary_job_services(
+      classroom_id,seller_student_id,secondary_job_id,title,subtitle,description,service_category,
+      price_gold,delivery_note,is_active,allow_concurrent_orders
+    ) VALUES(
+      v_classroom_id,v_student_id,v_job.id,v_title,v_subtitle,v_desc,v_category,
+      p_price_gold,v_delivery,coalesce(p_is_active,true),coalesce(p_allow_concurrent_orders,false)
+    ) RETURNING id INTO v_id;
+    PERFORM public.secondary_job_service_log(
+      v_classroom_id,v_id,NULL,v_student_id,'SERVICE_CREATED',
+      jsonb_build_object(
+        'title',v_title,
+        'subtitle',v_subtitle,
+        'service_category',v_category,
+        'price_gold',p_price_gold,
+        'allow_concurrent_orders',coalesce(p_allow_concurrent_orders,false)
+      )
+    );
+  ELSE
+    SELECT * INTO v_service FROM public.secondary_job_services WHERE id=p_service_id FOR UPDATE;
+    IF v_service.id IS NULL OR v_service.seller_student_id<>v_student_id OR v_service.classroom_id<>v_classroom_id OR v_service.deleted_at IS NOT NULL THEN
+      RAISE EXCEPTION '수정할 수 있는 서비스를 찾을 수 없습니다.' USING ERRCODE='P2C17';
+    END IF;
+    UPDATE public.secondary_job_services
+       SET secondary_job_id=v_job.id,
+           title=v_title,
+           subtitle=v_subtitle,
+           description=v_desc,
+           service_category=v_category,
+           price_gold=p_price_gold,
+           delivery_note=v_delivery,
+           is_active=coalesce(p_is_active,true),
+           allow_concurrent_orders=coalesce(p_allow_concurrent_orders,false),
+           updated_at=now()
+     WHERE id=v_service.id RETURNING id INTO v_id;
+    PERFORM public.secondary_job_service_log(
+      v_classroom_id,v_id,NULL,v_student_id,'SERVICE_UPDATED',
+      jsonb_build_object(
+        'title',v_title,
+        'subtitle',v_subtitle,
+        'service_category',v_category,
+        'price_gold',p_price_gold,
+        'is_active',p_is_active,
+        'allow_concurrent_orders',coalesce(p_allow_concurrent_orders,false)
+      )
+    );
+  END IF;
+
+  RETURN v_id;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION public.student_upsert_secondary_job_service(
+  bigint,integer,text,text,text,text,bigint,text,boolean,boolean
+) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.student_upsert_secondary_job_service(
+  bigint,integer,text,text,text,text,bigint,text,boolean,boolean
+) TO authenticated, service_role;
+
+-- ============================================================
+-- 6. BUY RPC
+--    기존 escrow/가격 snapshot 유지 + category snapshot만 추가
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.student_buy_secondary_job_service(p_service_id bigint, p_buyer_request text)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+DECLARE
+  v_buyer integer:=public.current_student_id();
+  v_classroom integer;
+  v_service public.secondary_job_services%ROWTYPE;
+  v_job public.secondary_jobs%ROWTYPE;
+  v_request text:=btrim(coalesce(p_buyer_request,''));
+  v_escrow bigint;
+  v_order bigint;
+BEGIN
+  IF v_buyer IS NULL THEN RAISE EXCEPTION '학생 로그인이 필요합니다.' USING ERRCODE='P2C10'; END IF;
+  SELECT classroom_id INTO v_classroom FROM public.students WHERE id=v_buyer AND transferred_at IS NULL FOR UPDATE;
+  IF v_classroom IS NULL THEN RAISE EXCEPTION '활성 학생 정보를 찾을 수 없습니다.' USING ERRCODE='P2C11'; END IF;
+  IF char_length(v_request)<10 OR char_length(v_request)>500 THEN RAISE EXCEPTION '요청 내용은 10~500자입니다.' USING ERRCODE='P2C20'; END IF;
+  IF public.is_asset_freeze_active(v_classroom) THEN RAISE EXCEPTION '현재 자산동결 중이라 새 서비스를 구매할 수 없습니다.' USING ERRCODE='P2C21'; END IF;
+
+  SELECT * INTO v_service FROM public.secondary_job_services WHERE id=p_service_id FOR UPDATE;
+  IF v_service.id IS NULL OR v_service.classroom_id<>v_classroom OR v_service.deleted_at IS NOT NULL OR NOT v_service.is_active THEN
+    RAISE EXCEPTION '현재 구매 가능한 서비스가 아닙니다.' USING ERRCODE='P2C22';
+  END IF;
+  IF v_service.seller_student_id=v_buyer THEN RAISE EXCEPTION '내 서비스는 구매할 수 없습니다.' USING ERRCODE='P2C23'; END IF;
+
+  SELECT * INTO v_job FROM public.secondary_jobs
+   WHERE id=v_service.secondary_job_id AND student_id=v_service.seller_student_id
+     AND classroom_id=v_classroom AND is_active=true;
+  IF v_job.id IS NULL THEN RAISE EXCEPTION '판매자의 연결된 2차직업이 현재 비활성입니다.' USING ERRCODE='P2C24'; END IF;
+
+  IF EXISTS(
+    SELECT 1 FROM public.secondary_job_service_orders
+     WHERE service_id=v_service.id AND buyer_student_id=v_buyer
+       AND status NOT IN ('COMPLETED','REJECTED','CANCELLED')
+  ) THEN RAISE EXCEPTION '이미 진행 중인 같은 서비스 주문이 있습니다.' USING ERRCODE='P2C25'; END IF;
+
+  IF NOT v_service.allow_concurrent_orders AND EXISTS(
+    SELECT 1 FROM public.secondary_job_service_orders
+     WHERE service_id=v_service.id
+       AND status NOT IN ('COMPLETED','REJECTED','CANCELLED')
+  ) THEN
+    RAISE EXCEPTION '현재 다른 학생의 주문을 처리 중입니다. 이 서비스는 한 번에 1명만 주문할 수 있습니다.' USING ERRCODE='P2C26';
+  END IF;
+
+  v_escrow:=public.create_transaction(
+    v_buyer,'GOLD'::public.value_token_type,-v_service.price_gold,
+    'OTHER'::public.transaction_source_type,NULL,0,
+    format('[2차직업 서비스 에스크로] %s · 판매자에게는 구매 확정 후 지급',v_service.title)
+  );
+
+  INSERT INTO public.secondary_job_service_orders(
+    classroom_id,service_id,buyer_student_id,seller_student_id,secondary_job_id_snapshot,
+    service_title_snapshot,service_description_snapshot,price_gold_snapshot,delivery_note_snapshot,
+    service_category_snapshot,buyer_request,escrow_transaction_id
+  ) VALUES(
+    v_classroom,v_service.id,v_buyer,v_service.seller_student_id,v_job.id,
+    v_service.title,v_service.description,v_service.price_gold,v_service.delivery_note,
+    coalesce(v_service.service_category,'기타'),v_request,v_escrow
+  ) RETURNING id INTO v_order;
+
+  UPDATE public.transactions SET source_id=v_order WHERE id=v_escrow;
+
+  PERFORM public.secondary_job_service_log(
+    v_classroom,v_service.id,v_order,v_buyer,'ORDER_CREATED',
+    jsonb_build_object(
+      'price_gold',v_service.price_gold,
+      'service_category',coalesce(v_service.service_category,'기타')
+    )
+  );
+  PERFORM public.secondary_job_service_send_notice(
+    v_service.seller_student_id,
+    '🛒 새로운 서비스 주문',
+    format('"%s" 서비스에 새 주문이 들어왔습니다.%s요청: %s',v_service.title,E'\n\n',v_request),
+    v_order
+  );
+  RETURN v_order;
+END
+$function$;
+
+-- ============================================================
+-- 7. ECONOMY GUARD SERVICE ADAPTER
+--    경제 semantics는 그대로, source_meta에 service_category만 추가
+-- ============================================================
+CREATE OR REPLACE FUNCTION public._economy_guard_service_event_rows(
+  p_classroom_id integer,
+  p_start_date date,
+  p_end_date date
+)
+RETURNS TABLE(
+  source_kind text,
+  source_id bigint,
+  event_key text,
+  occurred_at timestamp with time zone,
+  trade_date date,
+  sender_id integer,
+  sender_name text,
+  sender_brand_name text,
+  receiver_id integer,
+  receiver_name text,
+  receiver_brand_name text,
+  amount bigint,
+  quantity integer,
+  unit_price numeric,
+  tag text,
+  description text,
+  raw_status text,
+  economic_state text,
+  source_meta jsonb
+)
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+SELECT
+  'SERVICE_ORDER'::text source_kind,
+  o.id::bigint source_id,
+  ('SERVICE_ORDER:'||o.id::text)::text event_key,
+  o.created_at occurred_at,
+  (o.created_at AT TIME ZONE 'Asia/Seoul')::date trade_date,
+  o.buyer_student_id sender_id,
+  buyer.name::text sender_name,
+  buyer.brand_name::text sender_brand_name,
+  o.seller_student_id receiver_id,
+  seller.name::text receiver_name,
+  seller.brand_name::text receiver_brand_name,
+  o.price_gold_snapshot::bigint amount,
+  1::integer quantity,
+  o.price_gold_snapshot::numeric unit_price,
+  '#2차직업서비스'::text tag,
+  nullif(btrim(o.buyer_request),'') description,
+  o.status::text raw_status,
+  CASE
+    WHEN o.refund_transaction_id IS NOT NULL OR o.status IN ('CANCELLED','REJECTED')
+      THEN 'REFUNDED'
+    WHEN o.payout_transaction_id IS NOT NULL OR o.status='COMPLETED'
+      THEN 'SETTLED'
+    ELSE 'ESCROW_ACTIVE'
+  END::text economic_state,
+  jsonb_build_object(
+    'service_id',o.service_id,
+    'service_title',o.service_title_snapshot,
+    'service_description',o.service_description_snapshot,
+    'secondary_job_id',o.secondary_job_id_snapshot,
+    'pricing_mode','FIXED',
+    'service_category',o.service_category_snapshot,
+    'escrow_transaction_id',o.escrow_transaction_id,
+    'payout_transaction_id',o.payout_transaction_id,
+    'refund_transaction_id',o.refund_transaction_id,
+    'current_revision',o.current_revision,
+    'status_reason',o.status_reason,
+    'accepted_at',o.accepted_at,
+    'delivered_at',o.delivered_at,
+    'completed_at',o.completed_at,
+    'cancelled_at',o.cancelled_at,
+    'disputed_at',o.disputed_at,
+    'revision_requested_at',o.revision_requested_at
+  ) source_meta
+FROM public.secondary_job_service_orders o
+JOIN public.students buyer ON buyer.id=o.buyer_student_id
+JOIN public.students seller ON seller.id=o.seller_student_id
+WHERE o.classroom_id=p_classroom_id
+  AND public.is_official_participant(o.buyer_student_id)
+  AND public.is_official_participant(o.seller_student_id)
+  AND (p_start_date IS NULL OR (o.created_at AT TIME ZONE 'Asia/Seoul')::date>=p_start_date)
+  AND (p_end_date IS NULL OR (o.created_at AT TIME ZONE 'Asia/Seoul')::date<=p_end_date)
+$function$;
+
+-- ============================================================
+-- 8. IN-TRANSACTION POSTCHECK
+-- ============================================================
+DO $postcheck$
+DECLARE
+  b record;
+  v_guard_now_count bigint;
+  v_guard_before_count bigint;
+BEGIN
+  SELECT * INTO b FROM _p2p_uiux_apply_baseline;
+
+  IF (SELECT count(*) FROM public.secondary_job_services) <> b.service_count
+     OR (SELECT count(*) FROM public.secondary_job_service_orders) <> b.order_count
+     OR (SELECT count(*) FROM public.secondary_job_service_reviews) <> b.review_count THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: service/order/review row count changed.';
+  END IF;
+
+  IF (SELECT coalesce(sum(price_gold),0) FROM public.secondary_job_services) <> b.service_price_sum
+     OR (SELECT coalesce(sum(price_gold_snapshot),0) FROM public.secondary_job_service_orders) <> b.order_price_sum THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: price totals changed.';
+  END IF;
+
+  IF (SELECT count(escrow_transaction_id) FROM public.secondary_job_service_orders) <> b.escrow_link_count
+     OR (SELECT count(payout_transaction_id) FROM public.secondary_job_service_orders) <> b.payout_link_count
+     OR (SELECT count(refund_transaction_id) FROM public.secondary_job_service_orders) <> b.refund_link_count THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: transaction link counts changed.';
+  END IF;
+
+  IF (SELECT count(*) FROM public.secondary_job_services WHERE subtitle IS NOT NULL) <> 0
+     OR (SELECT count(*) FROM public.secondary_job_services WHERE service_category IS NOT NULL) <> 0
+     OR (SELECT count(*) FROM public.secondary_job_service_orders WHERE service_category_snapshot IS NOT NULL) <> 0 THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: historical rows were unexpectedly backfilled.';
+  END IF;
+
+  IF to_regprocedure('public.student_upsert_secondary_job_service(bigint,integer,text,text,bigint,text,boolean,boolean)') IS NOT NULL THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: old upsert overload still exists.';
+  END IF;
+
+  IF to_regprocedure('public.student_upsert_secondary_job_service(bigint,integer,text,text,text,text,bigint,text,boolean,boolean)') IS NULL THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: new upsert signature is missing.';
+  END IF;
+
+  IF position('''subtitle'',sv.subtitle' in replace(lower(pg_get_functiondef('public.student_get_secondary_job_service_market()'::regprocedure)),' ','')) = 0
+     OR position('''service_category'',sv.service_category' in replace(lower(pg_get_functiondef('public.student_get_secondary_job_service_market()'::regprocedure)),' ','')) = 0 THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: market RPC does not expose new fields.';
+  END IF;
+
+  IF position('service_reputations' in lower(pg_get_functiondef('public.student_get_secondary_job_service_reputation_board()'::regprocedure))) = 0 THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: service_reputations missing from reputation board.';
+  END IF;
+
+  IF position('service_category_snapshot' in lower(pg_get_functiondef('public.student_buy_secondary_job_service(bigint,text)'::regprocedure))) = 0 THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: buy RPC category snapshot missing.';
+  END IF;
+
+  IF position('service_category' in lower(pg_get_functiondef('public._economy_guard_service_event_rows(integer,date,date)'::regprocedure))) = 0 THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: Guard adapter category metadata missing.';
+  END IF;
+
+  SELECT count(*) INTO v_guard_before_count FROM _p2p_uiux_apply_guard_before;
+  SELECT count(*) INTO v_guard_now_count
+  FROM public.classrooms c
+  CROSS JOIN LATERAL public._economy_guard_event_rows(c.id,NULL,NULL) e
+  WHERE e.source_kind='SERVICE_ORDER';
+
+  IF v_guard_now_count <> v_guard_before_count THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: Guard SERVICE_ORDER event count changed. before %, after %', v_guard_before_count, v_guard_now_count;
+  END IF;
+
+  IF EXISTS (
+    WITH after_rows AS (
+      SELECT
+        c.id AS classroom_id,
+        e.event_key,
+        e.source_id,
+        e.amount,
+        e.quantity,
+        e.unit_price,
+        e.anomaly_fingerprint
+      FROM public.classrooms c
+      CROSS JOIN LATERAL public._economy_guard_event_rows(c.id,NULL,NULL) e
+      WHERE e.source_kind='SERVICE_ORDER'
+    )
+    SELECT 1
+    FROM _p2p_uiux_apply_guard_before b0
+    FULL JOIN after_rows a
+      ON a.classroom_id=b0.classroom_id
+     AND a.event_key=b0.event_key
+    WHERE b0.event_key IS NULL
+       OR a.event_key IS NULL
+       OR b0.source_id IS DISTINCT FROM a.source_id
+       OR b0.amount IS DISTINCT FROM a.amount
+       OR b0.quantity IS DISTINCT FROM a.quantity
+       OR b0.unit_price IS DISTINCT FROM a.unit_price
+       OR b0.anomaly_fingerprint IS DISTINCT FROM a.anomaly_fingerprint
+  ) THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: Guard event identity/economic value/fingerprint changed.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conrelid='public.secondary_job_services'::regclass
+      AND c.conname='secondary_job_services_description_ck'
+      AND pg_get_constraintdef(c.oid) ILIKE '%<= 2000%'
+  ) THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: description max 2000 constraint missing.';
+  END IF;
+END
+$postcheck$;
+
+
+-- ============================================================
+-- 9. COMMIT
+--    위 POSTCHECK를 모두 통과한 경우에만 실제 반영
+-- ============================================================
+COMMIT;
+
+-- ============================================================
+-- 10. POST-COMMIT VERIFICATION
+--     SQL Editor의 마지막 결과.
+-- ============================================================
+WITH checks AS (
+  SELECT
+    EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public'
+        AND table_name='secondary_job_services'
+        AND column_name='subtitle'
+        AND character_maximum_length=40
+    ) AS subtitle_present,
+    EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public'
+        AND table_name='secondary_job_services'
+        AND column_name='service_category'
+        AND character_maximum_length=20
+    ) AS service_category_present,
+    EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public'
+        AND table_name='secondary_job_service_orders'
+        AND column_name='service_category_snapshot'
+        AND character_maximum_length=20
+    ) AS order_category_snapshot_present,
+    NOT EXISTS (
+      SELECT 1 FROM public.secondary_job_services
+      WHERE subtitle IS NOT NULL OR service_category IS NOT NULL
+    ) AS historical_services_not_backfilled,
+    NOT EXISTS (
+      SELECT 1 FROM public.secondary_job_service_orders
+      WHERE service_category_snapshot IS NOT NULL
+    ) AS historical_orders_not_backfilled,
+    NOT EXISTS (
+      SELECT 1
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname='public'
+        AND p.proname='student_upsert_secondary_job_service'
+        AND pg_get_function_identity_arguments(p.oid)
+          = 'p_service_id bigint, p_secondary_job_id integer, p_title text, p_description text, p_price_gold bigint, p_delivery_note text, p_is_active boolean, p_allow_concurrent_orders boolean'
+    ) AS old_upsert_absent,
+    to_regprocedure(
+      'public.student_upsert_secondary_job_service(bigint,integer,text,text,text,text,bigint,text,boolean,boolean)'
+    ) IS NOT NULL AS new_upsert_present,
+    position(
+      '''subtitle'',sv.subtitle'
+      in replace(
+        lower(pg_get_functiondef('public.student_get_secondary_job_service_market()'::regprocedure)),
+        ' ',''
+      )
+    ) > 0 AS market_has_subtitle,
+    position(
+      '''service_category'',sv.service_category'
+      in replace(
+        lower(pg_get_functiondef('public.student_get_secondary_job_service_market()'::regprocedure)),
+        ' ',''
+      )
+    ) > 0 AS market_has_service_category,
+    position(
+      'service_reputations'
+      in lower(pg_get_functiondef(
+        'public.student_get_secondary_job_service_reputation_board()'::regprocedure
+      ))
+    ) > 0 AS reputation_has_service_reputations,
+    position(
+      'service_category_snapshot'
+      in lower(pg_get_functiondef(
+        'public.student_buy_secondary_job_service(bigint,text)'::regprocedure
+      ))
+    ) > 0 AS buy_has_category_snapshot,
+    position(
+      'service_category'
+      in lower(pg_get_functiondef(
+        'public._economy_guard_service_event_rows(integer,date,date)'::regprocedure
+      ))
+    ) > 0 AS guard_has_service_category,
+    EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.secondary_job_services'::regclass
+        AND c.conname='secondary_job_services_description_ck'
+        AND pg_get_constraintdef(c.oid) ILIKE '%<= 2000%'
+    ) AS description_2000_constraint,
+    EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.secondary_job_services'::regclass
+        AND c.conname='secondary_job_services_subtitle_ck'
+    ) AS subtitle_constraint,
+    EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.secondary_job_services'::regclass
+        AND c.conname='secondary_job_services_service_category_ck'
+    ) AS service_category_constraint,
+    EXISTS (
+      SELECT 1 FROM pg_constraint c
+      WHERE c.conrelid='public.secondary_job_service_orders'::regclass
+        AND c.conname='secondary_job_service_orders_service_category_snapshot_ck'
+    ) AS order_category_constraint
+),
+counts AS (
+  SELECT
+    (SELECT count(*) FROM public.secondary_job_services) AS service_rows,
+    (SELECT count(*) FROM public.secondary_job_service_orders) AS order_rows,
+    (SELECT count(*) FROM public.secondary_job_service_reviews) AS review_rows,
+    (SELECT count(*) FROM public.secondary_job_services WHERE subtitle IS NOT NULL) AS subtitle_populated,
+    (SELECT count(*) FROM public.secondary_job_services WHERE service_category IS NOT NULL) AS service_category_populated,
+    (SELECT count(*) FROM public.secondary_job_service_orders WHERE service_category_snapshot IS NOT NULL) AS order_category_snapshot_populated
+),
+hashes AS (
+  SELECT
+    md5(pg_get_functiondef('public.student_get_secondary_job_service_market()'::regprocedure)) AS market_rpc_md5,
+    md5(pg_get_functiondef('public.student_get_secondary_job_service_reputation_board()'::regprocedure)) AS reputation_rpc_md5,
+    md5(pg_get_functiondef(
+      'public.student_upsert_secondary_job_service(bigint,integer,text,text,text,text,bigint,text,boolean,boolean)'::regprocedure
+    )) AS upsert_rpc_md5,
+    md5(pg_get_functiondef('public.student_buy_secondary_job_service(bigint,text)'::regprocedure)) AS buy_rpc_md5,
+    md5(pg_get_functiondef(
+      'public._economy_guard_service_event_rows(integer,date,date)'::regprocedure
+    )) AS guard_adapter_md5
+)
+SELECT
+  CASE WHEN
+    c.subtitle_present
+    AND c.service_category_present
+    AND c.order_category_snapshot_present
+    AND c.historical_services_not_backfilled
+    AND c.historical_orders_not_backfilled
+    AND c.old_upsert_absent
+    AND c.new_upsert_present
+    AND c.market_has_subtitle
+    AND c.market_has_service_category
+    AND c.reputation_has_service_reputations
+    AND c.buy_has_category_snapshot
+    AND c.guard_has_service_category
+    AND c.description_2000_constraint
+    AND c.subtitle_constraint
+    AND c.service_category_constraint
+    AND c.order_category_constraint
+  THEN 'P2P_SERVICE_UIUX_STEP3_APPLY_PASS'
+  ELSE 'P2P_SERVICE_UIUX_STEP3_APPLY_POSTCHECK_FAIL'
+  END AS result,
+  jsonb_build_object(
+    'columns',jsonb_build_object(
+      'subtitle',c.subtitle_present,
+      'service_category',c.service_category_present,
+      'service_category_snapshot',c.order_category_snapshot_present
+    ),
+    'historical_rows_unchanged',jsonb_build_object(
+      'services_not_backfilled',c.historical_services_not_backfilled,
+      'orders_not_backfilled',c.historical_orders_not_backfilled
+    ),
+    'rpc_contract',jsonb_build_object(
+      'old_upsert_absent',c.old_upsert_absent,
+      'new_upsert_present',c.new_upsert_present,
+      'market_has_subtitle',c.market_has_subtitle,
+      'market_has_service_category',c.market_has_service_category,
+      'reputation_has_service_reputations',c.reputation_has_service_reputations,
+      'buy_has_category_snapshot',c.buy_has_category_snapshot
+    ),
+    'guard',jsonb_build_object(
+      'service_category_meta',c.guard_has_service_category
+    ),
+    'constraints',jsonb_build_object(
+      'description_max_2000',c.description_2000_constraint,
+      'subtitle',c.subtitle_constraint,
+      'service_category',c.service_category_constraint,
+      'order_category_snapshot',c.order_category_constraint
+    ),
+    'counts',jsonb_build_object(
+      'services',n.service_rows,
+      'orders',n.order_rows,
+      'reviews',n.review_rows,
+      'subtitle_populated',n.subtitle_populated,
+      'service_category_populated',n.service_category_populated,
+      'order_category_snapshot_populated',n.order_category_snapshot_populated
+    ),
+    'function_md5',jsonb_build_object(
+      'market',h.market_rpc_md5,
+      'reputation',h.reputation_rpc_md5,
+      'upsert',h.upsert_rpc_md5,
+      'buy',h.buy_rpc_md5,
+      'guard_adapter',h.guard_adapter_md5
+    )
+  ) AS detail
+FROM checks c
+CROSS JOIN counts n
+CROSS JOIN hashes h;

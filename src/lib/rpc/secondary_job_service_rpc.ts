@@ -33,7 +33,9 @@ export type ServiceMarketItem = {
   job_name: string;
   job_category: string | null;
   title: string;
+  subtitle: string | null;
   description: string;
+  service_category: S.ServiceCategory | null;
   price_gold: number;
   delivery_note: string | null;
   allow_concurrent_orders: boolean;
@@ -48,7 +50,9 @@ export type MyServiceItem = {
   job_name: string;
   job_category: string | null;
   title: string;
+  subtitle: string | null;
   description: string;
+  service_category: S.ServiceCategory | null;
   price_gold: number;
   delivery_note: string | null;
   allow_concurrent_orders: boolean;
