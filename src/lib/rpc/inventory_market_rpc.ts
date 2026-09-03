@@ -195,6 +195,25 @@ export interface TeacherEconomyHistoryBoard {
   students: EconomyHistoryStudent[];
 }
 
+export interface TeacherHistoryVisibilityRow {
+  event_key: string;
+  hidden: boolean;
+  reason: string;
+  changed_at: string;
+}
+
+export interface TeacherHistoryVisibilityBoard {
+  classroom_id: number;
+  rows: TeacherHistoryVisibilityRow[];
+}
+
+export interface TeacherHistoryVisibilityMutationResult {
+  classroom_id: number;
+  updated_count: number;
+  hidden: boolean;
+  reason: string;
+}
+
 export interface StudentItemHistoryRow {
   inventory_event_id: number;
   created_at: string;
@@ -290,6 +309,35 @@ export const inventoryMarketRpc = {
     p_date_from?: string | null;
     p_date_to?: string | null;
   }) => callRpc<TeacherEconomyHistoryBoard>(supabase, 'teacher_get_economy_history', input),
+
+  teacherHistoryVisibility: (supabase: SupabaseClient, input: {
+    p_classroom_id: number;
+    p_event_keys: string[];
+  }) => callRpc<TeacherHistoryVisibilityBoard>(supabase, 'teacher_get_history_visibility', input),
+
+  teacherSetHistoryVisibility: (supabase: SupabaseClient, input: {
+    p_classroom_id: number;
+    p_event_keys: string[];
+    p_hidden: boolean;
+    p_reason?: string | null;
+  }) => {
+    if (!Number.isInteger(input.p_classroom_id) || input.p_classroom_id <= 0) {
+      return Promise.resolve(validationError<TeacherHistoryVisibilityMutationResult>('학급 정보를 확인해주세요.'));
+    }
+    const keys = Array.from(new Set(input.p_event_keys.map((key) => key.trim()).filter(Boolean)));
+    if (keys.length < 1 || keys.length > 500 || keys.some((key) => key.length > 240)) {
+      return Promise.resolve(validationError<TeacherHistoryVisibilityMutationResult>('히스토리 선택 항목을 확인해주세요.'));
+    }
+    if ((input.p_reason ?? '').trim().length > 200) {
+      return Promise.resolve(validationError<TeacherHistoryVisibilityMutationResult>('숨김 사유는 200자 이하로 입력해주세요.'));
+    }
+    return callRpc<TeacherHistoryVisibilityMutationResult>(supabase, 'teacher_set_history_visibility', {
+      p_classroom_id: input.p_classroom_id,
+      p_event_keys: keys,
+      p_hidden: input.p_hidden,
+      p_reason: input.p_reason?.trim() || null,
+    });
+  },
 
   teacherSaveItem: (supabase: SupabaseClient, input: TeacherMarketSaveItemInput) => {
     const parsed = TeacherMarketSaveItemSchema.safeParse(input);

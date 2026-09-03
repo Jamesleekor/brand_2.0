@@ -23,6 +23,7 @@ import { TransactionReversalPanel } from "@/features/teacher/TransactionReversal
 import EconomyHistoryPanel from "@/features/teacher/EconomyHistoryPanel";
 import { supabase } from "@/lib/supabase/client";
 import { teacherRpc } from "@/lib/rpc/teacher_rpc";
+import { welfareAdminRpc, type WelfareFundBoard } from "@/lib/rpc/welfare_admin_rpc";
 import { useClassroomId, useCurrentStudent } from "@/stores/auth_store";
 import { formatDateTime, formatNumber, formatRelativeTime } from "@/lib/utils/format";
 import { useToastStore } from "@/stores/ui_store";
@@ -39,11 +40,6 @@ interface EmergencyState {
   reason: string;
   activatedAt: string;
   scheduledEndAt: string | null;
-}
-
-interface WelfareFundInfo {
-  totalAmount: number;
-  studentCount: number;
 }
 
 // =====================================================================
@@ -428,30 +424,32 @@ function ActivateEmergencyModal({
 
 function WelfarePanel({ classroomId }: { classroomId: number | null }) {
   const [distributeOpen, setDistributeOpen] = useState(false);
+  const [spendOpen, setSpendOpen] = useState(false);
 
-  const { data: fund, isLoading } = useQuery<WelfareFundInfo>({
-    queryKey: ["welfare-fund", classroomId],
+  const {
+    data: fund,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery<WelfareFundBoard>({
+    queryKey: ["welfare-fund-board", classroomId],
     queryFn: async () => {
-      if (!classroomId) return { totalAmount: 0, studentCount: 0 };
-
-      // 복지기금 잔액 (welfare_fund 테이블)
-      const { data: fundData } = await supabase
-        .from("welfare_funds")
-        .select("current_balance")
-        .eq("classroom_id", classroomId)
-        .maybeSingle();
-
-      const { count } = await supabase
-        .from("students")
-        .select("id", { count: "exact", head: true })
-        .eq("classroom_id", classroomId)
-        .eq("role", "STUDENT")
-        .is("transferred_at", null);
-
-      return {
-        totalAmount: Number(fundData?.current_balance ?? 0),
-        studentCount: count ?? 0,
-      };
+      if (!classroomId) {
+        return {
+          classroom_id: 0,
+          fund_id: null,
+          current_balance: 0,
+          total_collected: 0,
+          total_distributed: 0,
+          official_student_count: 0,
+          recent_spends: [],
+          server_now: new Date().toISOString(),
+        };
+      }
+      const result = await welfareAdminRpc.getBoard(supabase, classroomId);
+      if (result.success === false) throw new Error(result.error);
+      return result.data;
     },
     enabled: classroomId !== null,
   });
@@ -465,45 +463,207 @@ function WelfarePanel({ classroomId }: { classroomId: number | null }) {
         </h3>
       </div>
 
-      {isLoading || !fund ? (
+      {isLoading ? (
         <LoadingSpinner />
+      ) : isError ? (
+        <div className="rounded-card-md border border-danger/30 bg-danger-bg p-3 text-center">
+          <p className="text-xs font-bold text-danger">
+            {error instanceof Error ? error.message : "복지기금 정보를 불러오지 못했습니다."}
+          </p>
+          <button type="button" onClick={() => void refetch()} className="btn-secondary mt-3">
+            다시 불러오기
+          </button>
+        </div>
+      ) : !fund ? (
+        <div className="rounded-card-md border border-line bg-bg-deep p-3 text-center text-xs font-bold text-text-muted">
+          복지기금 정보를 찾을 수 없습니다.
+        </div>
       ) : (
         <>
           <div className="text-center py-4">
             <div className="font-display text-3xl text-success tracking-tighter mb-1">
-              {formatNumber(fund.totalAmount)}
+              {formatNumber(fund.current_balance)}
             </div>
             <div className="text-2xs font-black uppercase tracking-widest text-text-muted">
-              누적 골드
+              현재 복지기금 잔액
             </div>
             <p className="text-2xs text-text-muted font-bold mt-2">
-              {fund.studentCount}명에게 분배 시 1인{" "}
-              {formatNumber(
-                Math.floor(fund.totalAmount / Math.max(fund.studentCount, 1)),
-              )}{" "}
-              골드
+              공식 학생 {fund.official_student_count}명 · 누적 조성 {formatNumber(fund.total_collected)} · 누적 사용 {formatNumber(fund.total_distributed)}
             </p>
           </div>
 
-          <button
-            onClick={() => setDistributeOpen(true)}
-            disabled={fund.totalAmount === 0}
-            className="w-full btn-primary"
-          >
-            🎁 복지기금 분배
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              onClick={() => setSpendOpen(true)}
+              disabled={fund.current_balance <= 0}
+              className="w-full btn-primary"
+            >
+              💸 복지기금 사용
+            </button>
+            <button
+              onClick={() => setDistributeOpen(true)}
+              disabled={fund.current_balance <= 0}
+              className="w-full btn-secondary"
+            >
+              🎁 학생 분배
+            </button>
+          </div>
+
+          <div className="mt-4 border-t border-line pt-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="text-xs font-black text-text-secondary">최근 복지기금 사용</div>
+              <div className="text-2xs font-bold text-text-muted">실물 구매·기부·공공의뢰·할인 등</div>
+            </div>
+            {fund.recent_spends.length === 0 ? (
+              <div className="rounded-card-md border border-line bg-bg-deep px-3 py-4 text-center text-xs font-bold text-text-muted">
+                아직 직접 사용한 내역이 없습니다.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {fund.recent_spends.slice(0, 6).map((spend) => (
+                  <div key={spend.movement_id} className="rounded-card-md border border-line bg-bg-deep px-3 py-2.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs font-extrabold text-text-primary break-words">{spend.reason}</div>
+                        <div className="mt-1 text-2xs font-bold text-text-muted">{formatDateTime(spend.created_at)}</div>
+                      </div>
+                      <div className="flex-none font-display text-sm text-danger">-{formatNumber(spend.amount)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </>
+      )}
+
+      {spendOpen && fund && (
+        <SpendWelfareModal
+          classroomId={classroomId!}
+          fundAmount={fund.current_balance}
+          onClose={() => setSpendOpen(false)}
+        />
       )}
 
       {distributeOpen && fund && (
         <DistributeWelfareModal
           classroomId={classroomId!}
-          fundAmount={fund.totalAmount}
-          studentCount={fund.studentCount}
+          fundAmount={fund.current_balance}
+          studentCount={fund.official_student_count}
           onClose={() => setDistributeOpen(false)}
         />
       )}
     </div>
+  );
+}
+
+function SpendWelfareModal({
+  classroomId,
+  fundAmount,
+  onClose,
+}: {
+  classroomId: number;
+  fundAmount: number;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { call, isLoading } = useRpcCall();
+  const [amountText, setAmountText] = useState("");
+  const [reason, setReason] = useState("");
+
+  const amount = Number(amountText.replace(/,/g, ""));
+  const validAmount = Number.isSafeInteger(amount) && amount > 0 && amount <= fundAmount;
+  const validReason = reason.trim().length >= 2 && reason.trim().length <= 200;
+
+  const handleSpend = async () => {
+    if (!validAmount || !validReason) return;
+    if (!window.confirm(`${formatNumber(amount)} 포인트를 복지기금에서 차감할까요?\n\n사용 사유: ${reason.trim()}`)) return;
+
+    const result = await call(
+      () => welfareAdminRpc.spend(supabase, classroomId, amount, reason),
+      {
+        successTitle: "복지기금 사용 기록 완료",
+        successDescription: `${formatNumber(amount)} 포인트를 차감했습니다.`,
+      },
+    );
+
+    if (result) {
+      await queryClient.invalidateQueries({ queryKey: ["welfare-fund-board", classroomId] });
+      await queryClient.invalidateQueries({ queryKey: ["welfare-fund", classroomId] });
+      onClose();
+    }
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} title="복지기금 사용" emoji="💸" size="md">
+      <div className="space-y-4">
+        <div className="rounded-card-md border border-success/30 bg-success-bg p-3 text-center">
+          <div className="text-2xs font-black uppercase text-success mb-1">현재 잔액</div>
+          <div className="font-display text-2xl text-success">{formatNumber(fundAmount)} 포인트</div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-text-secondary mb-2">사용 금액</label>
+          <input
+            type="number"
+            min={1}
+            max={fundAmount}
+            step={1}
+            value={amountText}
+            onChange={(e) => setAmountText(e.target.value)}
+            placeholder="차감할 포인트"
+            className="input-field w-full"
+          />
+          {amountText && !validAmount && (
+            <p className="mt-1.5 text-2xs font-bold text-danger">
+              1 이상 현재 잔액 이하의 정수를 입력해주세요.
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-text-secondary mb-2">사용 사유</label>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            maxLength={200}
+            rows={4}
+            placeholder="예: 간식 시장 재고 충전, 학급 명의 기부, 공공의뢰 운영비, 상점 할인 지원"
+            className="input-field w-full resize-none"
+          />
+          <div className="mt-1 flex items-center justify-between text-2xs font-bold text-text-muted">
+            <span>2~200자 · 실제 사용 목적이 히스토리에 남습니다.</span>
+            <span>{reason.trim().length}/200</span>
+          </div>
+        </div>
+
+        {validAmount && (
+          <div className="rounded-card-md border border-line bg-bg-deep p-3">
+            <div className="flex items-center justify-between text-xs font-bold text-text-secondary">
+              <span>차감 후 예상 잔액</span>
+              <span className="font-display text-base text-gold">{formatNumber(fundAmount - amount)} 포인트</span>
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-card-md border border-warning/30 bg-warning-bg p-3">
+          <p className="text-xs font-bold leading-relaxed text-text-secondary">
+            이 기능은 학생에게 포인트를 분배하지 않습니다. 복지기금 잔액만 차감하고 사용 금액·사유·시각을 복지기금 원장에 기록합니다.
+          </p>
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button onClick={onClose} className="btn-secondary flex-1">취소</button>
+          <button
+            onClick={() => void handleSpend()}
+            disabled={!validAmount || !validReason || isLoading}
+            className="btn-primary flex-1"
+          >
+            {isLoading ? "기록 중..." : "💸 차감 및 기록"}
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -554,7 +714,7 @@ function DistributeWelfareModal({
               {
                 value: "EQUAL",
                 label: "균등 분배",
-                desc: `전체 ${studentCount}명에게 1인당 ${formatNumber(Math.floor(fundAmount / studentCount))} 골드`,
+                desc: `전체 ${studentCount}명에게 1인당 ${formatNumber(Math.floor(fundAmount / Math.max(studentCount, 1)))} 골드`,
               },
               {
                 value: "BOTTOM_30",

@@ -1,7 +1,7 @@
 # AGENTS.md — B.R.A.N.D 2.0 Repository Rules
 
 > 이 파일은 B.R.A.N.D 2.0 저장소에서 작업하는 Codex/AI 개발자가 가장 먼저 읽어야 하는 프로젝트 규칙이다.
-> 마지막 갱신: 2026-08-12
+> 마지막 갱신: 2026-09-03
 > 현재 기준선: Guild 1 COMPLETE / Guild 2 설계 확정 후 구현 대기
 
 ---
@@ -246,37 +246,28 @@ Codex는 기본적으로 파일을 수정하고 검증까지만 수행한다.
 
 # 8. Package/install/build rules
 
-현재 프로젝트에서 매 변경마다 `npm ci`를 반복하지 않는다.
+## 8.1 사용자 확정 운영 규칙 — AI는 npm 설치/빌드를 실행하지 않는다
 
-`npm ci`는 다음 경우에만 수행한다.
+2026-09-03 사용자 지시로 확정된 규칙이다. **모든 향후 인수인계서에도 반드시 유지한다.**
 
-- `node_modules`가 없는 새 환경
-- dependency/lockfile 변경 후 clean install이 필요한 경우
-- 사용자가 명시적으로 요청한 경우
+- AI/Codex/ChatGPT는 `npm ci`를 실행하지 않는다.
+- AI/Codex/ChatGPT는 `npm install`을 실행하지 않는다.
+- AI/Codex/ChatGPT는 `npm run build`를 실행하지 않는다.
+- 실제 npm 설치와 production build는 **사용자가 자신의 로컬 PC에서 직접 실행**한다.
+- AI는 코드 수정 후 사용자가 실행할 명령을 안내하고, 사용자가 전달한 build 오류를 기준으로 수정한다.
+- 이유: 원격 작업 환경에서 `npm ci`가 반복적으로 장시간 정지/실패하여 작업 시간이 크게 낭비된 이력이 있다.
 
-일반적인 코드 수정 후:
+AI가 자체 검증할 때는 npm 설치를 유발하지 않는 정적/구문 검사만 사용한다. 예:
 
-```bash
-npm run build
-```
+- 이미 환경에 존재하는 TypeScript compiler API를 이용한 `transpileModule` 구문 검사
+- `git diff`, `rg`, 정적 파일 비교
+- SQL 구조/권한/증분 migration 검토
 
-를 반드시 실행한다.
-
-가능하면 추가로:
-
-```bash
-npm run type-check
-npm run lint
-```
-
-를 실행하되, 기존 프로젝트 자체의 unrelated lint debt가 있으면 새 변경에서 발생한 문제와 구분하여 보고한다.
-
-`npm run dev`는 장시간 실행 프로세스이므로 필요할 때만 실행한다.
-사용자가 이미 dev server를 켜둔 경우 재시작을 요구하지 않는다.
+`npm run dev` 역시 사용자가 명시적으로 요청하지 않는 한 실행하지 않는다.
 
 **매 수정마다 ZIP을 만들지 않는다.**
 Git repo에서 in-place로 작업한다.
-사용자가 명시적으로 패키지/백업 ZIP을 요청할 때만 만든다.
+사용자가 명시적으로 패키지/백업 ZIP을 요청하거나, 대화 기반 전달본이 필요한 경우에만 만든다.
 
 ---
 
@@ -294,7 +285,7 @@ Git repo에서 in-place로 작업한다.
 8. teacher UI
 9. student UI
 10. realtime/cache invalidation
-11. build/type-check
+11. 사용자 로컬 build 결과 확인 / AI 정적 구문검사
 12. 기능별 E2E checklist 작성
 13. 변경 파일/SQL 적용 순서/미검증 항목 보고
 14. 최신 CURRENT_STATE/SPEC 상태 갱신
@@ -434,7 +425,7 @@ Guild 2처럼 사용자가 새로 명시한 시즌2 규칙은 최신 SPEC이 우
 - [ ] student UI (해당 시)
 - [ ] loading/error state
 - [ ] realtime/refetch
-- [ ] `npm run build` 성공
+- [ ] 사용자가 로컬에서 `npm run build`를 실행했고 결과를 공유함 (AI가 직접 실행하지 않음)
 - [ ] E2E checklist 제공
 - [ ] known deferred tests 명시
 - [ ] 문서 갱신

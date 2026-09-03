@@ -92,10 +92,9 @@ export default function DailyQuestManagerPage() {
     );
   }
 
-  if (boardQuery.isLoading || !boardQuery.data) {
-    return <ManagerLoading />;
-  }
-
+  // Error must be handled before the empty-data loading fallback.
+  // React Query keeps `data` undefined when the RPC fails; checking `!data` first
+  // traps genuine server errors on the loading screen forever.
   if (boardQuery.isError) {
     return (
       <ManagerError
@@ -103,6 +102,10 @@ export default function DailyQuestManagerPage() {
         onRetry={() => void boardQuery.refetch()}
       />
     );
+  }
+
+  if (boardQuery.isLoading || !boardQuery.data) {
+    return <ManagerLoading />;
   }
 
   const board = boardQuery.data;
