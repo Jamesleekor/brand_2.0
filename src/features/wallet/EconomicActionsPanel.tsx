@@ -19,6 +19,7 @@ import {
 import { formatNumber } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { useActiveEmergencies } from "@/hooks/useActiveEmergencies";
+import { useFinancialLifetimeSummary } from "@/hooks/useFinancialLifetimeSummary";
 import { useToastStore } from "@/stores/ui_store";
 
 interface EconomicActionsPanelProps {
@@ -601,6 +602,8 @@ function DonationModal({
   const [amount, setAmount] = useState(100);
   const [message, setMessage] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const financial = useFinancialLifetimeSummary();
+  const lifetimeDonation = financial.data?.donation_total ?? null;
 
   const { data: currentFund = 0 } = useQuery<number>({
     queryKey: ["student-welfare-fund", classroomId],
@@ -652,6 +655,9 @@ function DonationModal({
         queryKey: ["welfare-fund", classroomId],
       }),
       queryClient.invalidateQueries({
+        queryKey: ["financial-lifetime-summary", studentId],
+      }),
+      queryClient.invalidateQueries({
         queryKey: ["profile-detail", studentId],
       }),
       queryClient.invalidateQueries({ queryKey: ["teacher-dashboard"] }),
@@ -669,6 +675,7 @@ function DonationModal({
             ["기부 금액", `${formatNumber(amount)} GOLD`],
             ["기부 후 잔액", `${formatNumber(wallet.gold - amount)} GOLD`],
             ["기부 후 예상 기금", `${formatNumber(currentFund + amount)} GOLD`],
+            ["기부 후 누적 기부액", lifetimeDonation === null ? "집계 불가" : `${formatNumber(lifetimeDonation + amount)} GOLD`],
             ["메시지", message.trim() || "메시지 없음"],
           ]}
           warning="기부금은 학급 복지기금으로 이동합니다. 학생이 직접 취소할 수 없습니다."
@@ -679,12 +686,17 @@ function DonationModal({
         />
       ) : (
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <BalanceNotice label="현재 GOLD" value={wallet.gold} />
             <BalanceNotice
               label="현재 복지기금"
               value={currentFund}
               accent="success"
+            />
+            <BalanceNotice
+              label="내 누적 기부액"
+              value={lifetimeDonation}
+              accent="brand"
             />
           </div>
 
@@ -743,8 +755,8 @@ function BalanceNotice({
   accent = "gold",
 }: {
   label: string;
-  value: number;
-  accent?: "gold" | "success";
+  value: number | null;
+  accent?: "gold" | "success" | "brand";
 }) {
   return (
     <div
@@ -752,7 +764,9 @@ function BalanceNotice({
         "border rounded-card-md p-3",
         accent === "success"
           ? "bg-success-bg border-success/30"
-          : "bg-gold/10 border-gold/30",
+          : accent === "brand"
+            ? "bg-brand-primary/10 border-line-brand"
+            : "bg-gold/10 border-gold/30",
       )}
     >
       <div className="text-2xs font-black uppercase tracking-wide text-text-muted">
@@ -761,10 +775,10 @@ function BalanceNotice({
       <div
         className={cn(
           "font-display text-xl mt-1",
-          accent === "success" ? "text-success" : "text-gold",
+          accent === "success" ? "text-success" : accent === "brand" ? "text-brand-glow" : "text-gold",
         )}
       >
-        {formatNumber(value)}
+        {value === null ? "—" : formatNumber(value)}
       </div>
     </div>
   );

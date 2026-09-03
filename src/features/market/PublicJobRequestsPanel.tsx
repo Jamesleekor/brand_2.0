@@ -154,10 +154,20 @@ export default function PublicJobRequestsPanel() {
 }
 
 function RequestCard({ request, onAccept }: { request: StudentPublicRequest; onAccept: () => void }) {
+  const [expanded, setExpanded] = useState(false);
   const full = request.active_assignees >= request.max_assignees;
+  const hasLongDescription = request.description.length > 120 || request.description.split('\n').length > 4;
   return <div className="bg-bg-card border border-line rounded-card-md p-4 flex flex-col">
     <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="font-display text-base text-white">{request.title}</div><div className="text-2xs text-brand-glow font-black mt-1">{requirementLabel(request)}</div></div><div className="shrink-0 text-right"><div className="font-display text-base text-gold">🪙 {formatNumber(request.reward_gold)}</div><div className="text-2xs text-text-muted">{request.active_assignees}/{request.max_assignees}명</div></div></div>
-    <p className="text-xs text-text-secondary mt-3 whitespace-pre-wrap line-clamp-4">{request.description}</p>
+    <button
+      type="button"
+      onClick={() => hasLongDescription && setExpanded((value) => !value)}
+      className={cn('mt-3 text-left rounded-card-sm transition-colors', hasLongDescription && 'cursor-pointer hover:bg-bg-deep/60 focus:outline-none focus:ring-1 focus:ring-line-brand')}
+      aria-expanded={expanded}
+    >
+      <p className={cn('text-xs text-text-secondary whitespace-pre-wrap break-words leading-relaxed', !expanded && 'line-clamp-4')}>{request.description}</p>
+      {hasLongDescription && <div className="mt-1.5 text-2xs font-black text-brand-glow">{expanded ? '내용 접기 ▲' : '내용 더 보기 ▼'}</div>}
+    </button>
     <div className="mt-3 text-2xs text-text-muted">마감 {formatDateTime(request.due_at)} · 완료 {request.completed_count}명</div>
     {request.blocked_reason && !request.can_accept && <div className="mt-2 text-2xs font-bold text-warning">{request.blocked_reason}</div>}
     <button onClick={onAccept} disabled={!request.can_accept} className={cn('mt-3 w-full py-2 rounded-pill text-xs font-black transition-opacity', request.can_accept ? 'bg-gradient-to-r from-brand-primary to-gold text-white' : 'bg-bg-deep border border-line text-text-muted cursor-not-allowed')}>

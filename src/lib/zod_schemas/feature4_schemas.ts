@@ -7,6 +7,18 @@ import { z } from 'zod';
 const PositiveInt = z.number().int().positive();
 const DateYmd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD 형식이어야 합니다');
 
+const AttendanceRewardValue = z.object({
+  gold: z.number().int().min(0).max(1_000_000),
+  bv: z.number().int().min(0).max(1_000_000),
+  crystal: z.number().int().min(0).max(1_000_000),
+});
+const AttendanceRewardSettings = z.object({
+  '3': AttendanceRewardValue,
+  '7': AttendanceRewardValue,
+  '14': AttendanceRewardValue,
+  '28': AttendanceRewardValue,
+});
+
 export const F4A = {
   markMailRead: z.object({ p_message_id: PositiveInt }),
   markAlertRead: z.object({ p_alert_id: PositiveInt }),
@@ -64,6 +76,8 @@ export const F4B = {
 };
 
 export const F4C = {
+  getAttendanceRewardSettings: z.object({ p_classroom_id: PositiveInt }),
+  updateAttendanceRewardSettings: z.object({ p_classroom_id: PositiveInt, p_rewards: AttendanceRewardSettings }),
   attendanceBulk: z.object({
     p_classroom_id: PositiveInt,
     p_attendance_date: DateYmd,

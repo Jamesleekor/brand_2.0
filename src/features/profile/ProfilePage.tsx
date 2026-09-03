@@ -215,6 +215,11 @@ function StatsGrid({ detail }: { detail: ProfileDetail }) {
           value={`${formatNumber(detail.totalDonation)} 골드`}
           emoji="🤝"
         />
+        <StatItem
+          label="누적 납세"
+          value={`${formatNumber(detail.totalTaxPaid)} 골드`}
+          emoji="🏛️"
+        />
       </div>
 
       {/* 신용점수 */}
@@ -478,8 +483,7 @@ function useProfileDetail(studentId: number | null) {
         studentRes,
         achievementsRes,
         transactionsRes,
-        donationsRes,
-        taxRes,
+        financialRes,
         creditRes,
       ] = await Promise.all([
         supabase
@@ -500,19 +504,7 @@ function useProfileDetail(studentId: number | null) {
           .eq("student_id", studentId)
           .eq("is_reversed", false),
 
-        supabase
-          .from("transactions")
-          .select("amount")
-          .eq("student_id", studentId)
-          .eq("source_type", "DONATION")
-          .eq("is_reversed", false),
-
-        supabase
-          .from("transactions")
-          .select("tax_amount")
-          .eq("student_id", studentId)
-          .eq("is_reversed", false)
-          .gt("tax_amount", 0),
+        supabase.rpc("student_get_financial_lifetime_summary"),
 
         supabase
           .from("credit_scores")
@@ -523,14 +515,10 @@ function useProfileDetail(studentId: number | null) {
           .maybeSingle(),
       ]);
 
-      const totalDonation = (donationsRes.data ?? []).reduce(
-        (sum, tx) => sum + Math.abs(Number(tx.amount)),
-        0,
-      );
-      const totalTax = (taxRes.data ?? []).reduce(
-        (sum, tx) => sum + Number(tx.tax_amount),
-        0,
-      );
+      if (financialRes.error) throw financialRes.error;
+      const financial = (financialRes.data ?? {}) as Record<string, unknown>;
+      const totalDonation = Number(financial.donation_total ?? 0);
+      const totalTax = Number(financial.tax_paid_total ?? 0);
 
       return {
         enrolledAt: studentRes.data?.enrolled_at ?? new Date().toISOString(),

@@ -118,9 +118,25 @@ function AchievementQueue() {
     queryKey: ['review-achievements', classroomId],
     queryFn: async () => {
       if (!classroomId) return { applications: [], secret_candidates: [] };
-      const result = await achievementA3Rpc.teacherReviewBoard(supabase, classroomId);
+      const [result, studentsResult] = await Promise.all([
+        achievementA3Rpc.teacherReviewBoard(supabase, classroomId),
+        supabase
+          .from('students')
+          .select('id,name')
+          .eq('classroom_id', classroomId)
+          .is('transferred_at', null),
+      ]);
       if (result.success === false) throw new Error(result.error);
-      return result.data ?? { applications: [], secret_candidates: [] };
+      if (studentsResult.error) throw studentsResult.error;
+      const boardData = result.data ?? { applications: [], secret_candidates: [] };
+      const realNameById = new Map((studentsResult.data ?? []).map((student) => [student.id, student.name]));
+      return {
+        ...boardData,
+        applications: boardData.applications.map((app) => ({
+          ...app,
+          student_name: realNameById.get(app.student_id) ?? app.student_name,
+        })),
+      };
     },
     enabled: classroomId !== null,
   });
@@ -502,7 +518,7 @@ function SecondaryJobQueue() {
       return (data ?? []).map((j: any) => ({
         id: j.id,
         studentId: j.student_id,
-        studentName: j.student?.brand_name || j.student?.name || '학생',
+        studentName: j.student?.name || j.student?.brand_name || '학생',
         jobName: j.job_name,
         description: j.description ?? '',
         createdAt: j.created_at,

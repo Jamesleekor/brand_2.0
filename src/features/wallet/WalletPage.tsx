@@ -16,6 +16,7 @@ import {
 import { supabase } from "@/lib/supabase/client";
 import { useStudentId } from "@/stores/auth_store";
 import { useWallet, type Wallet } from "@/hooks/useWallet";
+import { useFinancialLifetimeSummary } from "@/hooks/useFinancialLifetimeSummary";
 import { EconomicActionsPanel } from "@/features/wallet/EconomicActionsPanel";
 import {
   formatNumber,
@@ -101,6 +102,7 @@ const SOURCE_LABELS: Record<string, { label: string; emoji: string }> = {
 export default function WalletPage() {
   const [filter, setFilter] = useState<Filter>("ALL");
   const { wallet, isLoading } = useWallet();
+  const financial = useFinancialLifetimeSummary();
 
   return (
     <>
@@ -108,7 +110,12 @@ export default function WalletPage() {
 
       <div className="px-4 pt-4">
         {/* 자산 요약 */}
-        <WalletSummary wallet={wallet} isLoading={isLoading} />
+        <WalletSummary
+          wallet={wallet}
+          isLoading={isLoading}
+          taxPaid={financial.data?.tax_paid_total ?? null}
+          taxStatus={financial.isLoading ? "집계 중" : financial.isError ? "집계 오류" : undefined}
+        />
 
         {/* 학생 경제 행동 */}
         <EconomicActionsPanel wallet={wallet} isLoading={isLoading} />
@@ -130,9 +137,13 @@ export default function WalletPage() {
 function WalletSummary({
   wallet,
   isLoading,
+  taxPaid,
+  taxStatus,
 }: {
   wallet: Wallet | null | undefined;
   isLoading: boolean;
+  taxPaid: number | null;
+  taxStatus?: string;
 }) {
   if (isLoading || !wallet) {
     return (
@@ -143,7 +154,7 @@ function WalletSummary({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2 mb-4">
+    <div className="grid grid-cols-2 gap-2 mb-4 sm:grid-cols-4">
       <AssetCard
         label="골드"
         emoji="🪙"
@@ -166,6 +177,14 @@ function WalletSummary({
         colorClass="text-crystal"
         borderClass="border-crystal/40"
       />
+      <AssetCard
+        label="납부한 세금"
+        emoji="🏛️"
+        amount={taxPaid}
+        colorClass="text-warning"
+        borderClass="border-warning/40"
+        subtext={taxStatus}
+      />
     </div>
   );
 }
@@ -180,7 +199,7 @@ function AssetCard({
 }: {
   label: string;
   emoji: string;
-  amount: number;
+  amount: number | null;
   colorClass: string;
   borderClass: string;
   subtext?: string;
@@ -200,7 +219,7 @@ function AssetCard({
         </span>
       </div>
       <div className={cn("font-display text-2xl leading-none", colorClass)}>
-        {formatNumber(amount)}
+        {amount === null ? '—' : formatNumber(amount)}
       </div>
       {subtext && (
         <div className="text-sm text-bv-100 font-extrabold mt-1.5 truncate">

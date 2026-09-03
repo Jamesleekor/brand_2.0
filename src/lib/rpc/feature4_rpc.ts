@@ -11,7 +11,7 @@ import type { RpcResult } from '@/lib/rpc/student_rpc';
 const RPC_DOMAIN: Record<string, 'F4A'|'F4B'|'F4C'|'F4D'> = {
   mark_mail_read:'F4A', mark_global_alert_read:'F4A', mark_all_global_alerts_read:'F4A', teacher_send_mail:'F4A', teacher_broadcast_alert:'F4A',
   activate_emergency:'F4B', terminate_emergency:'F4B', finalize_expired_emergencies_for_classroom:'F4B', teacher_create_emergency_quest:'F4B', teacher_close_emergency_quest:'F4B', request_emergency_quest_completion:'F4B', teacher_review_emergency_quest_request:'F4B', teacher_appoint_guard:'F4B', teacher_end_guard_term:'F4B',
-  teacher_record_attendance_bulk:'F4C', teacher_correct_attendance:'F4C', teacher_create_assignment:'F4C', teacher_set_assignment_status:'F4C', submit_assignment:'F4C', grade_assignment:'F4C',
+  teacher_record_attendance_bulk:'F4C', teacher_correct_attendance:'F4C', teacher_get_attendance_reward_settings:'F4C', teacher_update_attendance_reward_settings:'F4C', teacher_create_assignment:'F4C', teacher_set_assignment_status:'F4C', submit_assignment:'F4C', grade_assignment:'F4C',
   teacher_refresh_classroom_records:'F4D', teacher_add_hall_of_fame_entry:'F4D', teacher_archive_hall_of_fame_entry:'F4D', teacher_feature4_health_check:'F4D', teacher_feature4_1_health_check:'F4D', teacher_feature4_1_1_health_check:'F4D',
 };
 
@@ -34,6 +34,9 @@ async function call<T>(supabase: SupabaseClient, name: string, schema: z.ZodType
   return { success: true, data: data as T };
 }
 
+export interface AttendanceRewardValue { gold: number; bv: number; crystal: number }
+export interface AttendanceRewardSettings { '3': AttendanceRewardValue; '7': AttendanceRewardValue; '14': AttendanceRewardValue; '28': AttendanceRewardValue }
+
 export const feature4Rpc = {
   // F4A — Communication
   markMailRead: (s: SupabaseClient, i: z.input<typeof F4A.markMailRead>) => call<void>(s,'mark_mail_read',F4A.markMailRead,i),
@@ -54,6 +57,8 @@ export const feature4Rpc = {
   endGuard: (s: SupabaseClient, i: z.input<typeof F4B.endGuard>) => call<void>(s,'teacher_end_guard_term',F4B.endGuard,i),
 
   // F4C — Attendance + Assignments
+  getAttendanceRewardSettings: (s: SupabaseClient, i: z.input<typeof F4C.getAttendanceRewardSettings>) => call<AttendanceRewardSettings>(s,'teacher_get_attendance_reward_settings',F4C.getAttendanceRewardSettings,i),
+  updateAttendanceRewardSettings: (s: SupabaseClient, i: z.input<typeof F4C.updateAttendanceRewardSettings>) => call<AttendanceRewardSettings>(s,'teacher_update_attendance_reward_settings',F4C.updateAttendanceRewardSettings,i),
   recordAttendanceBulk: (s: SupabaseClient, i: z.input<typeof F4C.attendanceBulk>) => call<{recorded:any[];skipped:any[]}>(s,'teacher_record_attendance_bulk',F4C.attendanceBulk,i),
   correctAttendance: (s: SupabaseClient, i: z.input<typeof F4C.correctAttendance>) => call<number>(s,'teacher_correct_attendance',F4C.correctAttendance,i),
   createAssignment: (s: SupabaseClient, i: z.input<typeof F4C.createAssignment>) => call<number>(s,'teacher_create_assignment',F4C.createAssignment,i),

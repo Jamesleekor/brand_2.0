@@ -214,6 +214,7 @@ export function TransactionReversalPanel({
       queryClient.invalidateQueries({ queryKey: ["wallet"] }),
       queryClient.invalidateQueries({ queryKey: ["transactions"] }),
       queryClient.invalidateQueries({ queryKey: ["profile-detail"] }),
+      queryClient.invalidateQueries({ queryKey: ["financial-lifetime-summary"] }),
     ]);
 
     closeReversal();

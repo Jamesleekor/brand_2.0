@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { useRpcCall, LoadingSpinner } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
-import { feature4Rpc } from '@/lib/rpc/feature4_rpc';
+import { feature4Rpc, type AttendanceRewardSettings } from '@/lib/rpc/feature4_rpc';
 import { useClassroomId, useCurrentStudent } from '@/stores/auth_store';
 import { formatDateTime, getKstDateString } from '@/lib/utils/format';
 import { feature4QueryError } from '@/lib/feature4_debug';
@@ -35,13 +35,36 @@ function AttendanceAdmin(){
  const refresh=()=>qc.invalidateQueries({queryKey:['f4c-attendance-admin',classroomId,selectedDate]});
  if(q.isLoading)return <LoadingSpinner size="lg"/>;
  if(q.isError)return <Feature4ErrorPanel domain="F4C" error={q.error} onRetry={()=>void q.refetch()}/>;
- return <section className="glass-card p-4">
+ return <div className="space-y-4"><AttendanceRewardSettingsAdmin classroomId={classroomId!}/><section className="glass-card p-4">
   <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-4">
    <div><h2 className="font-display text-lg">출석 기록</h2><p className="text-2xs text-text-muted mt-1">달력에서 오늘 또는 과거 날짜를 선택해 조회·입력·정정할 수 있습니다. 과거 정정 시 이후 연속출석 기록과 보상을 서버에서 다시 계산합니다.</p></div>
    <label className="text-sm text-text-primary font-extrabold">📅 날짜 선택<input type="date" max={today} value={selectedDate} onChange={e=>{setSelectedDate(e.target.value);setDraft({});}} className="input-field mt-1.5 block min-w-[220px] py-3 text-base"/></label>
   </div>
   <div className="flex flex-wrap justify-between items-center gap-2 mb-3"><div className="text-sm font-extrabold">{selectedDate}{selectedDate===today?' · 오늘':' · 과거 기록'}</div>{entries.length>0&&<button disabled={isLoading} onClick={()=>call(()=>feature4Rpc.recordAttendanceBulk(supabase,{p_classroom_id:classroomId!,p_attendance_date:selectedDate,p_entries:entries}),{successTitle:'출석을 저장했어요',successDescription:`신규 ${entries.length}명 · ${selectedDate}`,onSuccess:refresh})} className="btn-primary">미입력 전체 저장</button>}</div>
   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">{q.data?.students.map((s:any)=>{const r=recorded.get(s.id);return <div key={s.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-center bg-bg-deep rounded-card-md p-3"><div className="min-w-0"><div className="text-sm font-extrabold text-text-primary truncate">{s.name}{s.brand_name?` (${s.brand_name})`:''}</div>{r&&<div className="text-xs text-text-secondary mt-1">저장됨 · 연속 {r.streak_days}일 · 누적 {r.total_attendance}일</div>}</div>{r?<div className="flex gap-1 flex-wrap justify-end">{Object.entries(STATUS).map(([v,l])=><button key={v} disabled={r.status===v||isLoading} onClick={()=>{if(r.status===v)return;const reason=prompt(`${s.name}의 ${selectedDate} 출석을 ${l}(으)로 정정하는 사유를 입력하세요`);if(!reason)return;void call(()=>feature4Rpc.correctAttendance(supabase,{p_attendance_id:r.id,p_new_status:v as AttendanceStatus,p_reason:reason}),{successTitle:'출석 기록을 정정했어요',successDescription:selectedDate,onSuccess:refresh});}} className={`px-2.5 py-1.5 rounded-pill text-xs font-bold ${r.status===v?'bg-gold text-bg-base':'bg-bg-card border border-line text-text-secondary'}`}>{l}</button>)}</div>:<select value={draft[s.id]||'PRESENT'} onChange={e=>setDraft(v=>({...v,[s.id]:e.target.value as AttendanceStatus}))} className="input-field min-w-[110px] text-sm">{Object.entries(STATUS).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>}</div>})}</div>
+ </section></div>;
+}
+
+const ATTENDANCE_MILESTONE_DAYS = [3, 7, 14, 28] as const;
+const ATTENDANCE_REWARD_TOKENS = [
+ { key: 'gold', label: 'GOLD', emoji: '🪙' },
+ { key: 'bv', label: 'BV', emoji: '⭐' },
+ { key: 'crystal', label: 'Crystal', emoji: '💎' },
+] as const;
+
+function AttendanceRewardSettingsAdmin({ classroomId }: { classroomId: number }) {
+ const qc=useQueryClient(),{call,isLoading}=useRpcCall();
+ const q=useQuery<AttendanceRewardSettings>({queryKey:['f4c-attendance-reward-settings',classroomId],queryFn:async()=>{const r=await feature4Rpc.getAttendanceRewardSettings(supabase,{p_classroom_id:classroomId});if(r.success===false)throw new Error(r.error);return r.data;}});
+ const [draft,setDraft]=useState<AttendanceRewardSettings|null>(null);
+ useEffect(()=>{if(q.data)setDraft(q.data);},[q.data]);
+ const dirty=Boolean(draft&&q.data&&JSON.stringify(draft)!==JSON.stringify(q.data));
+ const setReward=(day:(typeof ATTENDANCE_MILESTONE_DAYS)[number],token:(typeof ATTENDANCE_REWARD_TOKENS)[number]['key'],value:number)=>{setDraft(current=>current?{...current,[String(day)]:{...current[String(day) as keyof AttendanceRewardSettings],[token]:Math.max(0,Math.min(1_000_000,Number.isFinite(value)?Math.trunc(value):0))}}:current);};
+ const save=async()=>{if(!draft)return;await call(()=>feature4Rpc.updateAttendanceRewardSettings(supabase,{p_classroom_id:classroomId,p_rewards:draft}),{successTitle:'연속 출석 보상을 저장했어요',successDescription:'변경 후 새로 마일스톤을 달성하는 학생부터 적용됩니다.',onSuccess:(data)=>{setDraft(data);qc.setQueryData(['f4c-attendance-reward-settings',classroomId],data);void qc.invalidateQueries({queryKey:['attendance-dashboard']});}});};
+ if(q.isLoading||!draft)return <section className="glass-card p-4"><div className="flex items-center gap-2"><LoadingSpinner/><span className="text-sm text-text-muted">출석 보상 설정을 불러오는 중...</span></div></section>;
+ if(q.isError)return <Feature4ErrorPanel domain="F4C" error={q.error} onRetry={()=>void q.refetch()}/>;
+ return <section className="glass-card p-4">
+  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"><div><h2 className="font-display text-lg">🎁 연속 출석 보상 설정</h2><p className="text-2xs text-text-muted mt-1">3·7·14·28일 마일스톤의 GOLD·BV·Crystal을 직접 설정합니다. 0이면 해당 재화는 지급하지 않습니다.</p><p className="text-2xs text-warning mt-1">이미 지급된 마일스톤 보상은 소급 변경되지 않습니다.</p></div><div className="flex gap-2"><button className="btn-secondary" disabled={!dirty||isLoading} onClick={()=>q.data&&setDraft(q.data)}>변경 취소</button><button className="btn-primary" disabled={!dirty||isLoading} onClick={()=>void save()}>{isLoading?'저장 중...':'보상 설정 저장'}</button></div></div>
+  <div className="mt-4 overflow-x-auto"><div className="min-w-[620px] grid grid-cols-[90px_repeat(3,minmax(130px,1fr))] gap-2"><div className="text-2xs font-black text-text-muted px-2">마일스톤</div>{ATTENDANCE_REWARD_TOKENS.map(t=><div key={t.key} className="text-2xs font-black text-text-muted px-2">{t.emoji} {t.label}</div>)}{ATTENDANCE_MILESTONE_DAYS.map(day=><div key={day} className="contents"><div className="flex items-center px-2 font-display text-lg text-gold">{day}일</div>{ATTENDANCE_REWARD_TOKENS.map(token=><label key={token.key} className="block"><input type="number" min={0} max={1_000_000} step={1} value={draft[String(day) as keyof AttendanceRewardSettings][token.key]} onChange={e=>setReward(day,token.key,Number(e.target.value))} className="input-field w-full text-right"/><span className="sr-only">{day}일 {token.label}</span></label>)}</div>)}</div></div>
  </section>;
 }
 
