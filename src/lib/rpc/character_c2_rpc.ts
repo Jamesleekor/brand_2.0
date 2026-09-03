@@ -8,6 +8,7 @@ export interface StudentCharacterCollectionRow {
   character_uid: string;
   name: string;
   epithet: string | null;
+  description: string | null;
   resource_kind: CharacterResourceKind;
   resource_url: string | null;
   emoji: string | null;

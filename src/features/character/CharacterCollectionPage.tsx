@@ -565,10 +565,7 @@ function CharacterDetailModal({
             onClick={(event) => event.stopPropagation()}
           >
             <div className="relative min-h-[300px] bg-bg-deep md:min-h-[560px]">
-              <div className={cn(
-                'absolute inset-0',
-                !character.is_owned && 'grayscale brightness-[0.56] saturate-[0.62]',
-              )}>
+              <div className="absolute inset-0">
                 <CharacterDetailArtwork character={character} />
               </div>
               <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-bg-base to-transparent md:hidden" />
@@ -616,6 +613,13 @@ function CharacterDetailModal({
                         : '아직 영입 조건을 달성하지 못했습니다.'}
                     </p>
                   )}
+                </div>
+
+                <div className="mt-3 rounded-card-lg border border-line bg-bg-card p-4">
+                  <div className="text-[10px] font-black uppercase tracking-[0.13em] text-text-muted">편린 소개</div>
+                  <p className="mt-1.5 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-text-primary">
+                    {character.description?.trim() || '아직 등록된 소개가 없습니다.'}
+                  </p>
                 </div>
 
                 {!character.is_owned && (
@@ -863,9 +867,31 @@ function useCharacterCollection() {
       if (result.success === false) {
         throw new Error(result.error);
       }
-      return [...result.data].sort(
-        (a, b) => a.sort_order - b.sort_order || a.character_uid.localeCompare(b.character_uid),
-      );
+      const rows = result.data ?? [];
+      const characterIds = rows
+        .map((row) => Number(row.character_id))
+        .filter((id) => Number.isFinite(id) && id > 0);
+      const descriptionById = new Map<number, string | null>();
+
+      if (characterIds.length > 0) {
+        const { data: masters, error } = await supabase
+          .from('characters')
+          .select('id,description')
+          .in('id', characterIds);
+
+        if (!error) {
+          (masters ?? []).forEach((master) => {
+            descriptionById.set(Number(master.id), master.description ?? null);
+          });
+        }
+      }
+
+      return rows
+        .map((row) => ({
+          ...row,
+          description: descriptionById.get(Number(row.character_id)) ?? row.description ?? null,
+        }))
+        .sort((a, b) => a.sort_order - b.sort_order || a.character_uid.localeCompare(b.character_uid));
     },
     staleTime: 20_000,
   });
