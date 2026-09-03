@@ -561,10 +561,10 @@ function CharacterDetailModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ duration: 0.18 }}
-            className="grid max-h-[calc(100dvh-24px)] w-full max-w-[820px] overflow-hidden rounded-card-xl border border-line-strong bg-bg-base shadow-2xl md:grid-cols-[minmax(280px,0.9fr)_minmax(320px,1.1fr)]"
+            className="flex h-[calc(100dvh-24px)] w-full max-w-[820px] flex-col overflow-hidden rounded-card-xl border border-line-strong bg-bg-base shadow-2xl sm:h-[calc(100dvh-40px)] md:grid md:max-h-[760px] md:grid-cols-[minmax(280px,0.9fr)_minmax(320px,1.1fr)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="relative min-h-[300px] bg-bg-deep md:min-h-[560px]">
+            <div className="relative h-[240px] min-h-[240px] flex-none bg-bg-deep sm:h-[280px] sm:min-h-[280px] md:h-auto md:min-h-0">
               <div className="absolute inset-0">
                 <CharacterDetailArtwork character={character} />
               </div>
@@ -574,7 +574,7 @@ function CharacterDetailModal({
               </div>
             </div>
 
-            <div className="flex min-h-0 flex-col">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="flex items-start justify-between border-b border-line p-4 lg:p-5">
                 <div className="min-w-0 pr-3">
                   <p className="text-xs font-black text-brand-primary">
@@ -654,7 +654,7 @@ function CharacterDetailModal({
               </div>
 
               {character.is_owned && (
-                <div className="border-t border-line bg-bg-card/70 p-4 lg:p-5">
+                <div className="flex-none border-t border-line bg-bg-card/95 p-4 backdrop-blur-sm lg:p-5">
                   {character.is_equipped ? (
                     <button
                       onClick={() => void handleEquip(null)}
