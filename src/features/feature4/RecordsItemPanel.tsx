@@ -97,7 +97,7 @@ export function RecordsItemPanel({ rows, total }: { rows: StudentItemHistoryRow[
                   </div>
                   {open && (
                     <div className="mt-2 rounded-card-sm border border-line bg-bg-deep px-3 py-2 text-2xs text-text-secondary">
-                      Event #{row.inventory_event_id} · 수량 변동 {formatDelta(row.quantity)}
+                      Event #{row.inventory_event_id} · 수량 변동 {formatDelta(row.quantity_delta)}
                       {row.fulfillment_status ? ` · 전달 상태 ${fulfillmentLabel(row.fulfillment_status)}` : ''}
                     </div>
                   )}
