@@ -10,7 +10,12 @@ import { feature4QueryError } from '@/lib/feature4_debug';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
 import { achievementA1Rpc, type AchievementCatalogRow } from '@/lib/rpc/achievement_a1_rpc';
 import { inventoryMarketRpc, type StudentItemHistoryRow } from '@/lib/rpc/inventory_market_rpc';
-import { recordsRpc, type LegacyAssetHistoryRow } from '@/lib/rpc/records_rpc';
+import {
+  recordsRpc,
+  type AttendanceDashboard,
+  type AttendanceHistoryRow,
+  type LegacyAssetHistoryRow,
+} from '@/lib/rpc/records_rpc';
 
 const RANK_LABEL: Record<string, string> = {
   TIER: '티어',
@@ -33,14 +38,6 @@ type LiveTransaction = {
   tax_amount: number;
   memo: string | null;
   created_at: string;
-};
-
-type AttendanceRow = {
-  id: number;
-  attendance_date: string;
-  status: 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED';
-  streak_days: number;
-  total_attendance: number;
 };
 
 const SOURCE_LABELS: Record<string, { emoji: string; label: string }> = {
@@ -68,7 +65,7 @@ const SOURCE_LABELS: Record<string, { emoji: string; label: string }> = {
   OTHER: { emoji: '📌', label: '기타' },
 };
 
-const ATTENDANCE_LABEL: Record<AttendanceRow['status'], { label: string; className: string }> = {
+const ATTENDANCE_LABEL: Record<AttendanceHistoryRow['status'], { label: string; className: string }> = {
   PRESENT: { label: '출석', className: 'text-success border-success/30 bg-success/10' },
   LATE: { label: '지각', className: 'text-warning border-warning/30 bg-warning/10' },
   ABSENT: { label: '결석', className: 'text-danger border-danger/30 bg-danger/10' },
@@ -132,7 +129,15 @@ export default function RecordsPage() {
     queryKey: ['f4d-my-records', studentId],
     enabled: mainTab === 'MY' && !!studentId,
     queryFn: async () => {
-      const [liveTxResult, liveTxCountResult, legacy, achievementsResult, itemHistoryResult, attendanceResult] = await Promise.all([
+      const [
+        liveTxResult,
+        liveTxCountResult,
+        legacy,
+        achievementsResult,
+        itemHistoryResult,
+        attendanceDashboard,
+        attendanceHistory,
+      ] = await Promise.all([
         supabase
           .from('transactions')
           .select('id,value_token,amount,balance_after,source_type,tax_amount,memo,created_at')
@@ -148,18 +153,14 @@ export default function RecordsPage() {
         recordsRpc.myLegacyAssetHistory(supabase, { p_limit: 100, p_offset: 0 }),
         achievementA1Rpc.studentCatalog(supabase),
         inventoryMarketRpc.myItemHistory(supabase, { p_limit: 30, p_offset: 0 }),
-        supabase
-          .from('attendances')
-          .select('id,attendance_date,status,streak_days,total_attendance')
-          .eq('student_id', studentId!)
-          .order('attendance_date', { ascending: false }),
+        recordsRpc.myAttendanceDashboard(supabase),
+        recordsRpc.myAttendanceHistory(supabase, { p_limit: 100, p_offset: 0 }),
       ]);
 
       if (liveTxResult.error) throw feature4QueryError('F4D', 'my-live-transactions', liveTxResult.error);
       if (liveTxCountResult.error) throw feature4QueryError('F4D', 'my-live-transaction-count', liveTxCountResult.error);
       if (achievementsResult.success === false) throw new Error(achievementsResult.error || '업적 기록을 불러오지 못했습니다.');
       if (itemHistoryResult.success === false) throw new Error(itemHistoryResult.error || '아이템 기록을 불러오지 못했습니다.');
-      if (attendanceResult.error) throw feature4QueryError('F4D', 'my-attendance-history', attendanceResult.error);
 
       const earned = achievementsResult.data
         .filter((row) => row.is_earned)
@@ -171,7 +172,8 @@ export default function RecordsPage() {
         legacy,
         achievements: earned,
         itemHistory: itemHistoryResult.data,
-        attendance: (attendanceResult.data ?? []) as AttendanceRow[],
+        attendanceDashboard,
+        attendanceHistory,
       };
     },
   });
@@ -313,16 +315,16 @@ function HonorRecords({ data, grouped, studentId }: { data: any; grouped: Map<st
 }
 
 function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTab: (tab: MyTab) => void }) {
-  const attendance = data.attendance as AttendanceRow[];
-  const presentCount = attendance.filter((row) => row.status === 'PRESENT' || row.status === 'LATE').length;
-  const latestAttendance = attendance[0];
-  const latestStreak = latestAttendance?.streak_days ?? 0;
+  const attendanceDashboard = data.attendanceDashboard as AttendanceDashboard;
+  const attendanceHistory = data.attendanceHistory as { total_count: number; rows: AttendanceHistoryRow[] };
+  const attendance = attendanceHistory.rows;
+  const latestStreak = attendanceDashboard.current_streak;
 
   const nav: Array<{ key: MyTab; emoji: string; label: string; count: number }> = [
     { key: 'ASSET', emoji: '💰', label: '자산', count: data.liveTransactionCount + data.legacy.total },
     { key: 'ACHIEVEMENT', emoji: '🏆', label: '업적', count: data.achievements.length },
     { key: 'ITEM', emoji: '🎒', label: '아이템', count: data.itemHistory.total_count },
-    { key: 'ATTENDANCE', emoji: '📅', label: '출석', count: attendance.length },
+    { key: 'ATTENDANCE', emoji: '📅', label: '출석', count: attendanceHistory.total_count },
   ];
 
   return (
@@ -362,7 +364,7 @@ function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTa
       {myTab === 'ASSET' && <AssetHistory live={data.liveTransactions} liveTotal={data.liveTransactionCount} legacy={data.legacy.rows} legacyTotal={data.legacy.total} />}
       {myTab === 'ACHIEVEMENT' && <AchievementHistory rows={data.achievements} />}
       {myTab === 'ITEM' && <ItemHistory rows={data.itemHistory.rows} total={data.itemHistory.total_count} />}
-      {myTab === 'ATTENDANCE' && <AttendanceHistory rows={attendance} presentCount={presentCount} />}
+      {myTab === 'ATTENDANCE' && <AttendanceHistory rows={attendance} dashboard={attendanceDashboard} total={attendanceHistory.total_count} />}
     </div>
   );
 }
@@ -526,18 +528,39 @@ function ItemHistory({ rows, total }: { rows: StudentItemHistoryRow[]; total: nu
   );
 }
 
-function AttendanceHistory({ rows, presentCount }: { rows: AttendanceRow[]; presentCount: number }) {
+function AttendanceHistory({
+  rows,
+  dashboard,
+  total,
+}: {
+  rows: AttendanceHistoryRow[];
+  dashboard: AttendanceDashboard;
+  total: number;
+}) {
   const late = rows.filter((row) => row.status === 'LATE').length;
   const absent = rows.filter((row) => row.status === 'ABSENT').length;
   const excused = rows.filter((row) => row.status === 'EXCUSED').length;
+
   return (
     <section className="space-y-3">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <Mini label="출석 인정" value={`${formatNumber(presentCount)}일`} />
+      <div className="rounded-card-md border border-line bg-bg-deep/70 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <SourceBadge label="B.R.A.N.D 2.0" />
+          <span className="text-xs text-text-muted font-bold">서버 확정 출석 기록</span>
+        </div>
+        <p className="text-xs text-text-secondary mt-2">
+          현재 연속 출석과 누적 출석은 서버의 출석 대시보드 기준으로 표시하며, 아래 타임라인은 본인에게만 허용된 출석 이력을 읽습니다.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <Mini label="누적 출석 인정" value={`${formatNumber(dashboard.total_attendance)}일`} />
+        <Mini label="현재 연속 출석" value={`${formatNumber(dashboard.current_streak)}일`} />
         <Mini label="지각" value={`${formatNumber(late)}일`} />
         <Mini label="결석" value={`${formatNumber(absent)}일`} />
         <Mini label="인정결석" value={`${formatNumber(excused)}일`} />
       </div>
+
       <div className="bg-bg-card border border-line rounded-card-md p-4">
         <div className="mb-3">
           <h3 className="font-display text-lg text-text-primary">📅 출석 타임라인</h3>
@@ -557,6 +580,11 @@ function AttendanceHistory({ rows, presentCount }: { rows: AttendanceRow[]; pres
                 </div>
               );
             })}
+          </div>
+        )}
+        {total > rows.length && (
+          <div className="text-2xs text-text-muted font-bold mt-3 text-right">
+            총 {formatNumber(total)}건 중 최근 {rows.length}건 표시
           </div>
         )}
       </div>
