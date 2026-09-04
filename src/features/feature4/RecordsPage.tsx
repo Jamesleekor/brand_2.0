@@ -9,6 +9,7 @@ import { formatDate, formatDateTime, formatDelta, formatNumber } from '@/lib/uti
 import { feature4QueryError } from '@/lib/feature4_debug';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
 import { RecordsAssetEconomyPanel } from '@/features/feature4/RecordsAssetEconomyPanel';
+import { RecordsGuildPanel } from '@/features/feature4/RecordsGuildPanel';
 import { achievementA1Rpc, type AchievementCatalogRow } from '@/lib/rpc/achievement_a1_rpc';
 import { inventoryMarketRpc, type StudentItemHistoryRow } from '@/lib/rpc/inventory_market_rpc';
 import {
@@ -28,7 +29,7 @@ const RANK_LABEL: Record<string, string> = {
 };
 
 type MainTab = 'HONOR' | 'MY';
-type MyTab = 'ASSET' | 'ACHIEVEMENT' | 'ITEM' | 'ATTENDANCE';
+type MyTab = 'ASSET' | 'ACHIEVEMENT' | 'ITEM' | 'ATTENDANCE' | 'GUILD';
 
 type LiveTransaction = {
   id: number;
@@ -211,7 +212,7 @@ export default function RecordsPage() {
       <div className="px-4 py-4 pb-28 max-w-5xl mx-auto space-y-5">
         <div className="rounded-card-md border border-gold/20 bg-bg-card p-2 grid grid-cols-2 gap-2">
           <MainTabButton active={mainTab === 'HONOR'} onClick={() => setMainTab('HONOR')} emoji="🏆" title="명예 기록" subtitle="MVP · 명예의 전당 · 공식 랭킹" />
-          <MainTabButton active={mainTab === 'MY'} onClick={() => setMainTab('MY')} emoji="📜" title="내 기록" subtitle="자산·경제 · 업적 · 아이템 · 출석" />
+          <MainTabButton active={mainTab === 'MY'} onClick={() => setMainTab('MY')} emoji="📜" title="내 기록" subtitle="자산·경제 · 업적 · 아이템 · 출석 · 길드" />
         </div>
 
         {mainTab === 'HONOR' ? (
@@ -321,11 +322,12 @@ function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTa
   const attendance = attendanceHistory.rows;
   const latestStreak = attendanceDashboard.current_streak;
 
-  const nav: Array<{ key: MyTab; emoji: string; label: string; count: number }> = [
+  const nav: Array<{ key: MyTab; emoji: string; label: string; count?: number }> = [
     { key: 'ASSET', emoji: '💰', label: '자산·경제', count: data.liveTransactionCount + data.legacy.total },
     { key: 'ACHIEVEMENT', emoji: '🏆', label: '업적', count: data.achievements.length },
     { key: 'ITEM', emoji: '🎒', label: '아이템', count: data.itemHistory.total_count },
     { key: 'ATTENDANCE', emoji: '📅', label: '출석', count: attendanceHistory.total_count },
+    { key: 'GUILD', emoji: '🛡️', label: '길드' },
   ];
 
   return (
@@ -347,7 +349,7 @@ function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTa
         </div>
       </section>
 
-      <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2">
         {nav.map((item) => (
           <button
             key={item.key}
@@ -357,7 +359,7 @@ function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTa
           >
             <div className="text-lg sm:text-xl">{item.emoji}</div>
             <div className="text-xs sm:text-sm font-black mt-1 truncate">{item.label}</div>
-            <div className="text-2xs text-text-muted font-bold mt-0.5">{formatNumber(item.count)}건</div>
+            <div className="text-2xs text-text-muted font-bold mt-0.5">{item.count == null ? '기록 보기' : `${formatNumber(item.count)}건`}</div>
           </button>
         ))}
       </div>
@@ -366,6 +368,7 @@ function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTa
       {myTab === 'ACHIEVEMENT' && <AchievementHistory rows={data.achievements} />}
       {myTab === 'ITEM' && <ItemHistory rows={data.itemHistory.rows} total={data.itemHistory.total_count} />}
       {myTab === 'ATTENDANCE' && <AttendanceHistory rows={attendance} dashboard={attendanceDashboard} total={attendanceHistory.total_count} />}
+      {myTab === 'GUILD' && <RecordsGuildPanel />}
     </div>
   );
 }
