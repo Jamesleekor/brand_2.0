@@ -32,6 +32,19 @@ export interface RecordsLiveTransaction {
 
 type EconomyFilter = 'ALL' | 'TRANSACTION' | 'FINANCE' | 'TAX_DONATION';
 
+type FinanceData = {
+  savings: StudentSavingsBank;
+  installments: StudentInstallmentBank;
+};
+
+type QueryState<T> = {
+  data: T | undefined;
+  isLoading: boolean;
+  isError: boolean;
+  error: Error | null;
+  refetch: () => Promise<unknown>;
+};
+
 type Props = {
   live: RecordsLiveTransaction[];
   liveTotal: number;
@@ -97,26 +110,29 @@ export function RecordsAssetEconomyPanel({ live, liveTotal, legacy, legacyTotal 
   const [filter, setFilter] = useState<EconomyFilter>('ALL');
   const financial = useFinancialLifetimeSummary();
 
-  const economyQ = useQuery({
-    queryKey: ['f4d-my-economy-records', financial.studentId],
+  const financeQ = useQuery<FinanceData>({
+    queryKey: ['f4d-my-finance-records', financial.studentId],
     enabled: financial.studentId !== null,
     staleTime: 15_000,
     queryFn: async () => {
-      const [savingsResult, installmentResult, serviceResult] = await Promise.all([
+      const [savingsResult, installmentResult] = await Promise.all([
         savingsRpc.getMyBank(supabase),
         installmentSavingsRpc.getMyBank(supabase),
-        secondaryJobServiceStudentRpc.board(supabase),
       ]);
-
       if (savingsResult.success === false) throw new Error(savingsResult.error || '예금 기록을 불러오지 못했습니다.');
       if (installmentResult.success === false) throw new Error(installmentResult.error || '적금 기록을 불러오지 못했습니다.');
-      if (serviceResult.success === false) throw new Error(serviceResult.error || '서비스 거래 기록을 불러오지 못했습니다.');
+      return { savings: savingsResult.data, installments: installmentResult.data };
+    },
+  });
 
-      return {
-        savings: savingsResult.data,
-        installments: installmentResult.data,
-        services: serviceResult.data,
-      };
+  const serviceQ = useQuery<ServiceMarketBoard>({
+    queryKey: ['f4d-my-service-records', financial.studentId],
+    enabled: financial.studentId !== null,
+    staleTime: 15_000,
+    queryFn: async () => {
+      const result = await secondaryJobServiceStudentRpc.board(supabase);
+      if (result.success === false) throw new Error(result.error || '서비스 거래 기록을 불러오지 못했습니다.');
+      return result.data;
     },
   });
 
@@ -150,12 +166,12 @@ export function RecordsAssetEconomyPanel({ live, liveTotal, legacy, legacyTotal 
       {showTransactions && (
         <>
           <LiveLedger live={live} liveTotal={liveTotal} />
-          <ServiceHistory state={economyQ} />
+          <ServiceHistory state={serviceQ} />
           <LegacyLedger rows={legacy} total={legacyTotal} />
         </>
       )}
 
-      {showFinance && <FinanceHistory state={economyQ} />}
+      {showFinance && <FinanceHistory state={financeQ} />}
 
       {filter === 'TAX_DONATION' && (
         <TaxDonationLedger rows={taxDonationTransactions} liveTotal={liveTotal} />
@@ -187,12 +203,8 @@ function LifetimeSummary({
   error: Error | null;
   onRetry: () => void;
 }) {
-  if (isLoading) {
-    return <InlineLoading text="누적 세금·기부 기록을 불러오는 중..." />;
-  }
-  if (error) {
-    return <Feature4ErrorPanel domain="F4D" error={error} onRetry={onRetry} />;
-  }
+  if (isLoading) return <InlineLoading text="누적 세금·기부 기록을 불러오는 중..." />;
+  if (error) return <Feature4ErrorPanel domain="F4D" error={error} onRetry={onRetry} />;
   if (!data) return null;
 
   return (
@@ -210,16 +222,8 @@ function LifetimeSummary({
       </div>
 
       <div className="grid sm:grid-cols-2 gap-2 mt-3">
-        <BreakdownCard
-          title="납세 구성"
-          archive={data.baseline_tax_paid}
-          current={data.season2_tax_paid}
-        />
-        <BreakdownCard
-          title="기부 구성"
-          archive={data.baseline_donation_total}
-          current={data.season2_donation_total}
-        />
+        <BreakdownCard title="납세 구성" archive={data.baseline_tax_paid} current={data.season2_tax_paid} />
+        <BreakdownCard title="기부 구성" archive={data.baseline_donation_total} current={data.season2_donation_total} />
       </div>
     </section>
   );
@@ -241,17 +245,12 @@ function LiveLedger({ live, liveTotal }: { live: RecordsLiveTransaction[]; liveT
   return (
     <section className="bg-bg-card border border-line rounded-card-md p-4">
       <div className="mb-3">
-        <div className="flex items-center gap-2">
-          <SourceBadge label="B.R.A.N.D 2.0" />
-          <span className="text-xs text-text-muted font-bold">현재 운영 원장</span>
-        </div>
+        <div className="flex items-center gap-2"><SourceBadge label="B.R.A.N.D 2.0" /><span className="text-xs text-text-muted font-bold">현재 운영 원장</span></div>
         <h3 className="font-display text-lg text-text-primary mt-2">🧾 최근 자산 거래</h3>
         <p className="text-xs text-text-secondary mt-1">2.0 거래 원장의 최근 50건입니다. 취소된 원본 거래는 제외하고, 취소·복구 자체가 별도 거래로 기록된 경우에는 표시합니다.</p>
       </div>
       {live.length === 0 ? <CompactEmpty text="아직 B.R.A.N.D 2.0 자산 거래가 없습니다." /> : (
-        <div className="divide-y divide-line/60">
-          {live.map((row) => <LiveTransactionRow key={row.id} row={row} />)}
-        </div>
+        <div className="divide-y divide-line/60">{live.map((row) => <LiveTransactionRow key={row.id} row={row} />)}</div>
       )}
       {liveTotal > live.length && <CountFooter total={liveTotal} shown={live.length} />}
     </section>
@@ -280,12 +279,12 @@ function LiveTransactionRow({ row }: { row: RecordsLiveTransaction }) {
   );
 }
 
-function ServiceHistory({ state }: { state: ReturnType<typeof useEconomyStateShape> }) {
+function ServiceHistory({ state }: { state: QueryState<ServiceMarketBoard> }) {
   if (state.isLoading) return <InlineLoading text="서비스 거래 기록을 불러오는 중..." />;
   if (state.isError) return <Feature4ErrorPanel domain="F4D" error={state.error} onRetry={() => void state.refetch()} />;
   if (!state.data) return null;
 
-  const rows = normalizeServiceOrders(state.data.services);
+  const rows = normalizeServiceOrders(state.data);
   return (
     <section className="bg-bg-card border border-line rounded-card-md p-4">
       <div className="mb-3">
@@ -341,17 +340,11 @@ function servicePrice(row: ServicePurchaseOrder | ServiceSaleOrder) {
   return value === null ? null : Number(value);
 }
 
-function FinanceHistory({ state }: { state: ReturnType<typeof useEconomyStateShape> }) {
+function FinanceHistory({ state }: { state: QueryState<FinanceData> }) {
   if (state.isLoading) return <InlineLoading text="예금·적금 기록을 불러오는 중..." />;
   if (state.isError) return <Feature4ErrorPanel domain="F4D" error={state.error} onRetry={() => void state.refetch()} />;
   if (!state.data) return null;
-
-  return (
-    <div className="space-y-4">
-      <DepositHistory bank={state.data.savings} />
-      <InstallmentHistory bank={state.data.installments} />
-    </div>
-  );
+  return <div className="space-y-4"><DepositHistory bank={state.data.savings} /><InstallmentHistory bank={state.data.installments} /></div>;
 }
 
 function DepositHistory({ bank }: { bank: StudentSavingsBank }) {
@@ -366,10 +359,7 @@ function DepositHistory({ bank }: { bank: StudentSavingsBank }) {
           {rows.map((row) => (
             <div key={row.id} className="rounded-card-md border border-line bg-bg-deep p-3">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-2xs font-black text-bv">{DEPOSIT_STATUS[row.status]}</div>
-                  <div className="text-sm font-extrabold text-text-primary mt-1 break-words">{row.product_name_snapshot}</div>
-                </div>
+                <div className="min-w-0"><div className="text-2xs font-black text-bv">{DEPOSIT_STATUS[row.status]}</div><div className="text-sm font-extrabold text-text-primary mt-1 break-words">{row.product_name_snapshot}</div></div>
                 <span className="text-xs font-black text-gold">{formatNumber(row.principal)} GOLD</span>
               </div>
               <div className="text-2xs text-text-secondary font-bold mt-2">{row.deposit_weeks}주 · 적용금리 {formatPercent(row.effective_interest_rate_snapshot)}</div>
@@ -395,10 +385,7 @@ function InstallmentHistory({ bank }: { bank: StudentInstallmentBank }) {
           {rows.map((row) => (
             <div key={row.id} className="rounded-card-md border border-line bg-bg-deep p-3">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-2xs font-black text-bv">{INSTALLMENT_STATUS[row.status]}</div>
-                  <div className="text-sm font-extrabold text-text-primary mt-1 break-words">{row.product_name_snapshot}</div>
-                </div>
+                <div className="min-w-0"><div className="text-2xs font-black text-bv">{INSTALLMENT_STATUS[row.status]}</div><div className="text-sm font-extrabold text-text-primary mt-1 break-words">{row.product_name_snapshot}</div></div>
                 <span className="text-xs font-black text-gold">회차당 {formatNumber(row.installment_amount)}</span>
               </div>
               <div className="text-2xs text-text-secondary font-bold mt-2">납입 {row.paid_rounds}/{row.total_rounds}회 · 누적 원금 {formatNumber(row.actual_principal)} GOLD</div>
@@ -437,20 +424,14 @@ function LegacyLedger({ rows, total }: { rows: LegacyAssetHistoryRow[]; total: n
           {rows.map((row) => (
             <div key={row.source_row} className="py-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-extrabold text-text-primary break-words">{row.memo || '시즌 1 자산 변동'}</div>
-                  <div className="text-2xs text-text-muted font-bold mt-1">{formatDateOnly(row.event_date)}</div>
-                </div>
+                <div className="min-w-0 flex-1"><div className="text-sm font-extrabold text-text-primary break-words">{row.memo || '시즌 1 자산 변동'}</div><div className="text-2xs text-text-muted font-bold mt-1">{formatDateOnly(row.event_date)}</div></div>
                 <div className="flex flex-wrap justify-end gap-1.5">
                   {Number(row.gold_delta) !== 0 && <DeltaPill label="GOLD" value={Number(row.gold_delta)} />}
                   {Number(row.bv_delta) !== 0 && <DeltaPill label="BV" value={Number(row.bv_delta)} tone="bv" />}
                   {Number(row.gold_delta) === 0 && Number(row.bv_delta) === 0 && <span className="text-2xs text-text-muted border border-line rounded-pill px-2 py-1">변동 0</span>}
                 </div>
               </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 text-2xs text-text-muted mt-2">
-                <span>기록 후 GOLD {formatNumber(Number(row.balance_after_gold))}</span>
-                <span>BV {formatNumber(Number(row.balance_after_bv))}</span>
-              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-2xs text-text-muted mt-2"><span>기록 후 GOLD {formatNumber(Number(row.balance_after_gold))}</span><span>BV {formatNumber(Number(row.balance_after_bv))}</span></div>
             </div>
           ))}
         </div>
@@ -460,21 +441,8 @@ function LegacyLedger({ rows, total }: { rows: LegacyAssetHistoryRow[]; total: n
   );
 }
 
-function useEconomyStateShape() {
-  return useQuery<{
-    savings: StudentSavingsBank;
-    installments: StudentInstallmentBank;
-    services: ServiceMarketBoard;
-  }>({ queryKey: ['__records-economy-shape-only'], enabled: false, queryFn: async () => { throw new Error('shape only'); } });
-}
-
 function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-card-md border border-line bg-bg-deep p-3">
-      <div className="text-2xs text-text-muted font-bold">{label}</div>
-      <div className="font-display text-lg text-gold mt-1">{value}</div>
-    </div>
-  );
+  return <div className="rounded-card-md border border-line bg-bg-deep p-3"><div className="text-2xs text-text-muted font-bold">{label}</div><div className="font-display text-lg text-gold mt-1">{value}</div></div>;
 }
 
 function SourceBadge({ label, tone = 'gold' }: { label: string; tone?: 'gold' | 'bv' }) {
@@ -491,12 +459,7 @@ function CompactEmpty({ text }: { text: string }) {
 }
 
 function InlineLoading({ text }: { text: string }) {
-  return (
-    <div className="rounded-card-md border border-line bg-bg-card px-4 py-8 flex items-center justify-center gap-3 text-sm text-text-muted font-bold">
-      <LoadingSpinner />
-      <span>{text}</span>
-    </div>
-  );
+  return <div className="rounded-card-md border border-line bg-bg-card px-4 py-8 flex items-center justify-center gap-3 text-sm text-text-muted font-bold"><LoadingSpinner /><span>{text}</span></div>;
 }
 
 function CountFooter({ total, shown }: { total: number; shown: number }) {
