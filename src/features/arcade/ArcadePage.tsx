@@ -5,6 +5,7 @@ import { FocusReactionGame, type FocusPlaySummary } from '@/features/arcade/Focu
 import { arcadeErrorMessage, arcadeStudentRpc, type ArcadeRunBootstrap, type ArcadeRunSubmissionResult } from '@/lib/rpc/arcade_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
+import { useClassroomStudentGuilds } from '@/hooks/useStudentGuilds';
 
 interface ArcadeGameRow {
   id: number;
@@ -27,6 +28,7 @@ interface ArcadePeriodRow {
 
 export default function ArcadePage() {
   const classroomId = useClassroomId();
+  const { byStudentId: guildsByStudentId } = useClassroomStudentGuilds();
   const queryClient = useQueryClient();
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
   const [bootstrap, setBootstrap] = useState<ArcadeRunBootstrap | null>(null);
@@ -143,16 +145,16 @@ export default function ArcadePage() {
         {selectedPeriod && <section className="glass-card p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-display text-xl text-white">{selectedPeriod.display_name} Top 10</h2><p className="mt-1 text-xs text-text-secondary">동점은 공식 점수 → 먼저 게임 종료 → 기록 번호 순서로 결정됩니다.</p></div><span className={`rounded-pill px-3 py-1 text-xs font-black ${selectedPeriod.status === 'FINALIZED' ? 'bg-success/15 text-success' : 'bg-brand-primary/15 text-brand-primary'}`}>{selectedPeriod.status === 'FINALIZED' ? '월간 순위 확정' : '실시간 초안'}</span></div>
           {leaderboardQuery.isLoading && <div className="py-10 text-center"><LoadingSpinner /></div>}
           {leaderboardQuery.isError && <p className="mt-4 rounded-card-md bg-danger/10 p-3 text-sm text-danger">랭킹을 불러오지 못했어요. <button className="underline" onClick={() => void leaderboardQuery.refetch()}>다시 시도</button></p>}
-          {leaderboardQuery.data && <Leaderboard rows={leaderboardQuery.data.top10} myRank={leaderboardQuery.data.my_rank} myScore={leaderboardQuery.data.my_score} />}
+          {leaderboardQuery.data && <Leaderboard rows={leaderboardQuery.data.top10} myRank={leaderboardQuery.data.my_rank} myScore={leaderboardQuery.data.my_score} guildNameByStudentId={new Map(Array.from(guildsByStudentId.entries()).map(([id, guild]) => [id, guild.guildName]))} />}
         </section>}
       </>}
     </main>
   </div>;
 }
 
-function Leaderboard({ rows, myRank, myScore }: { rows: Array<{ rank: number; student_id: number; student_name: string; official_score: number; game_over_at: string }>; myRank: number | null; myScore: number | null }) {
+function Leaderboard({ rows, myRank, myScore, guildNameByStudentId }: { rows: Array<{ rank: number; student_id: number; student_name: string; official_score: number; game_over_at: string }>; myRank: number | null; myScore: number | null; guildNameByStudentId: Map<number, string> }) {
   if (!rows.length) return <p className="py-10 text-center text-sm text-text-secondary">아직 공식 기록이 없습니다. 첫 도전의 주인공이 되어보세요.</p>;
-  return <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[480px] text-sm"><thead className="border-b border-line text-left text-xs text-text-secondary"><tr><th className="p-2">순위</th><th className="p-2">학생</th><th className="p-2 text-right">공식 점수</th><th className="p-2 text-right">기록 시각</th></tr></thead><tbody>{rows.map((row) => <tr key={row.rank} className="border-b border-line/70 last:border-0"><td className="p-2 font-display text-lg text-gold">{row.rank}</td><td className="p-2 font-black text-white">{row.student_name}</td><td className="p-2 text-right font-black text-white">{Number(row.official_score).toLocaleString('ko-KR')}</td><td className="p-2 text-right text-xs text-text-secondary">{formatKstDateTime(row.game_over_at)}</td></tr>)}</tbody></table><div className="mt-3 rounded-card-md bg-bg-deep p-3 text-xs text-text-secondary">내 순위: <b className="text-white">{myRank ? `${myRank}위` : 'Top 10 밖'}</b>{myScore !== null && <span className="ml-3">내 최고점: <b className="text-gold">{Number(myScore).toLocaleString('ko-KR')}</b></span>}</div></div>;
+  return <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[560px] text-sm"><thead className="border-b border-line text-left text-xs text-text-secondary"><tr><th className="p-2">순위</th><th className="p-2">학생</th><th className="p-2">소속 길드</th><th className="p-2 text-right">공식 점수</th><th className="p-2 text-right">기록 시각</th></tr></thead><tbody>{rows.map((row) => <tr key={row.rank} className="border-b border-line/70 last:border-0"><td className="p-2 font-display text-lg text-gold">{row.rank}</td><td className="p-2 font-black text-white">{row.student_name}</td><td className="p-2 text-xs font-black text-bv-100">{guildNameByStudentId.get(Number(row.student_id)) ?? '무소속'}</td><td className="p-2 text-right font-black text-white">{Number(row.official_score).toLocaleString('ko-KR')}</td><td className="p-2 text-right text-xs text-text-secondary">{formatKstDateTime(row.game_over_at)}</td></tr>)}</tbody></table><div className="mt-3 rounded-card-md bg-bg-deep p-3 text-xs text-text-secondary">내 순위: <b className="text-white">{myRank ? `${myRank}위` : 'Top 10 밖'}</b>{myScore !== null && <span className="ml-3">내 최고점: <b className="text-gold">{Number(myScore).toLocaleString('ko-KR')}</b></span>}</div></div>;
 }
 
 function ResultCard({ result, summary, myRank, myBestScore, isRankingUpdating, onRetry }: { result: ArcadeRunSubmissionResult; summary: FocusPlaySummary | null; myRank: number | null; myBestScore: number | null; isRankingUpdating: boolean; onRetry: () => void }) {

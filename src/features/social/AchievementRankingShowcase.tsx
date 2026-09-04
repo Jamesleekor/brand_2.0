@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { AchievementTitleBadge } from '@/components/shared/AchievementTitleBadge';
+import { GuildNameBadge } from '@/components/shared/GuildNameBadge';
 import { cn } from '@/lib/utils/cn';
 import { formatNumber } from '@/lib/utils/format';
 import type { EquippedAchievementTitle } from '@/lib/rpc/achievement_a1_rpc';
@@ -10,6 +11,7 @@ export type AchievementRankingEntry = {
   studentId: number;
   name: string;
   brandName: string | null;
+  guildName?: string | null;
   tier: Tier;
   value: number;
   isMe: boolean;
@@ -228,7 +230,11 @@ function PodiumCard({
         <RankAvatar item={item} size={avatarSize} priority={isChampion} />
       </div>
 
-      <div className="mt-2 sm:mt-3 flex min-h-[22px] max-w-full items-center justify-center overflow-visible">
+      <div className="mt-2 sm:mt-3 flex max-w-full justify-center">
+        <GuildNameBadge guildName={item.guildName} compact />
+      </div>
+
+      <div className="mt-1.5 flex min-h-[22px] max-w-full items-center justify-center overflow-visible">
         {achievementTitle?.title ? (
           <AchievementTitleBadge
             title={achievementTitle.title}
@@ -244,11 +250,6 @@ function PodiumCard({
       <div className={cn('mt-1.5 max-w-full truncate px-0.5 font-display font-black text-white', isChampion ? 'text-lg sm:text-[22px]' : 'text-base sm:text-xl')}>
         {item.name}
       </div>
-      {item.brandName && (
-        <div className="mt-0.5 max-w-full truncate px-0.5 text-xs sm:text-sm font-bold text-slate-300">
-          {item.brandName}
-        </div>
-      )}
       {item.isMe && (
         <div className="mt-1 rounded-pill border border-gold/25 bg-gold/10 px-2 py-0.5 text-[8px] font-black text-gold">나</div>
       )}
@@ -285,14 +286,14 @@ function EliteRankCard({
       </div>
       <RankAvatar item={item} size="elite" />
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-[17px] sm:text-xl font-black text-white">{item.name}</span>
-          {item.isMe && <MeBadge />}
-        </div>
-        {item.brandName && <div className="mt-0.5 truncate text-xs font-bold text-slate-300">{item.brandName}</div>}
+        <div className="flex min-w-0"><GuildNameBadge guildName={item.guildName} compact /></div>
         <div className="mt-1 flex min-w-0 items-center">
           <AchievementTitleBadge title={achievementTitle?.title} grade={achievementTitle?.grade} prominent className="max-w-full !px-2.5 !py-1.5 !text-xs sm:!text-sm" />
           {!achievementTitle?.title && <span className="text-[11px] font-bold text-slate-300">칭호 미장착</span>}
+        </div>
+        <div className="mt-1 flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-[17px] sm:text-xl font-black text-white">{item.name}</span>
+          {item.isMe && <MeBadge />}
         </div>
       </div>
       <div className="shrink-0 text-right">
@@ -323,12 +324,15 @@ function TopTenRow({
       <div className="w-7 shrink-0 text-center font-display text-sm font-black text-gold-200/85">{rank}</div>
       <RankAvatar item={item} size="top10" />
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <div className="flex min-w-0"><GuildNameBadge guildName={item.guildName} compact /></div>
+        <div className="mt-1 flex min-w-0 items-center">
           <AchievementTitleBadge title={achievementTitle?.title} grade={achievementTitle?.grade} prominent className="max-w-full !px-2.5 !py-1.5 !text-xs sm:!text-sm" />
+          {!achievementTitle?.title && <span className="text-[11px] font-bold text-slate-300">칭호 미장착</span>}
+        </div>
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="truncate text-[17px] sm:text-xl font-black text-white">{item.name}</span>
           {item.isMe && <MeBadge />}
         </div>
-        <div className="mt-0.5 truncate text-xs sm:text-[13px] font-bold text-slate-300">{item.brandName || item.tier}</div>
       </div>
       <div className="shrink-0 font-mono text-base font-black text-success">{formatNumber(item.value)}개</div>
     </motion.article>
@@ -354,11 +358,7 @@ function StandardRankRow({
       <div className="w-7 shrink-0 text-center font-mono text-sm font-black text-slate-300">{rank}</div>
       <RankAvatar item={item} size="standard" />
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-base font-black text-white sm:text-lg">{item.name}</span>
-          {item.isMe && <MeBadge />}
-        </div>
-        {item.brandName && <div className="mt-0.5 truncate text-xs font-bold text-slate-300">{item.brandName}</div>}
+        <div className="flex min-w-0"><GuildNameBadge guildName={item.guildName} compact /></div>
         <div className="mt-1 flex min-w-0 items-center">
           <AchievementTitleBadge
             title={achievementTitle?.title}
@@ -367,6 +367,10 @@ function StandardRankRow({
             className="max-w-full !px-2.5 !py-1.5 !text-xs sm:!text-sm"
           />
           {!achievementTitle?.title && <span className="text-[11px] font-bold text-slate-300">칭호 미장착</span>}
+        </div>
+        <div className="mt-1 flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-base font-black text-white sm:text-lg">{item.name}</span>
+          {item.isMe && <MeBadge />}
         </div>
       </div>
       <div className="shrink-0 font-mono text-base font-black text-success">{formatNumber(item.value)}개</div>
@@ -384,7 +388,7 @@ function RankAvatar({
   priority?: boolean;
 }) {
   const imageUrl = item.equippedCharacterUrl || item.profileImageUrl || null;
-  const fallbackText = (item.brandName || item.name || '?').trim().charAt(0) || '?';
+  const fallbackText = (item.name || '?').trim().charAt(0) || '?';
   const paletteIndex = stableHash(`${item.studentId}:${item.name}`) % AVATAR_PALETTES.length;
   const palette = AVATAR_PALETTES[paletteIndex];
   const sizeClass = AVATAR_SIZE_CLASS[size];
@@ -394,7 +398,7 @@ function RankAvatar({
       <div className={cn('relative shrink-0 overflow-hidden rounded-[16px] bg-bg-deep', sizeClass)}>
         <img
           src={imageUrl}
-          alt={`${item.brandName || item.name} 캐릭터`}
+          alt={`${item.name} 캐릭터`}
           className="h-full w-full object-contain"
           loading={priority ? 'eager' : 'lazy'}
         />
@@ -404,7 +408,7 @@ function RankAvatar({
 
   if (item.characterEmoji) {
     return (
-      <div className={cn('flex shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-bg-deep text-center', sizeClass, AVATAR_EMOJI_CLASS[size])} aria-label={`${item.brandName || item.name} 캐릭터`}>
+      <div className={cn('flex shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-bg-deep text-center', sizeClass, AVATAR_EMOJI_CLASS[size])} aria-label={`${item.name} 캐릭터`}>
         {item.characterEmoji}
       </div>
     );
@@ -413,7 +417,7 @@ function RankAvatar({
   return (
     <div
       className={cn('flex shrink-0 items-center justify-center rounded-[16px] border font-display font-black shadow-inner', sizeClass, palette.className, AVATAR_TEXT_CLASS[size])}
-      aria-label={`${item.brandName || item.name} 기본 아바타`}
+      aria-label={`${item.name} 기본 아바타`}
     >
       {fallbackText}
     </div>

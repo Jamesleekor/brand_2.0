@@ -13,6 +13,8 @@ import { useWallet } from '@/hooks/useWallet';
 import { useMyAchievementTitle } from '@/hooks/useAchievementTitles';
 import { AchievementTitleBadge } from '@/components/shared/AchievementTitleBadge';
 import { getEquippedCharacterImageUrl, useMyEquippedCharacter } from '@/hooks/useEquippedCharacters';
+import { useClassroomStudentGuilds } from '@/hooks/useStudentGuilds';
+import { GuildNameBadge } from '@/components/shared/GuildNameBadge';
 
 // =====================================================================
 // TopHeader
@@ -42,6 +44,7 @@ function IdentityBlock({ bvMonthlyDelta = 0 }: { bvMonthlyDelta?: number }) {
   const student = useCurrentStudent();
   const { wallet } = useWallet();
   const { title: equippedTitle } = useMyAchievementTitle();
+  const { myGuild } = useClassroomStudentGuilds();
   
   if (!student) return null;
   
@@ -56,6 +59,7 @@ function IdentityBlock({ bvMonthlyDelta = 0 }: { bvMonthlyDelta?: number }) {
       <div className="flex flex-col gap-1 min-w-0 flex-1">
         <div className="flex items-center gap-2 min-w-0 flex-wrap">
           <div className="font-display text-xl text-brand-gradient tracking-tighter leading-tight truncate">{displayName}</div>
+          <GuildNameBadge guildName={myGuild?.guildName} compact />
           <AchievementTitleBadge
             title={equippedTitle?.title}
             grade={equippedTitle?.grade}

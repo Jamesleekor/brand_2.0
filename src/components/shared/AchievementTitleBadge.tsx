@@ -40,7 +40,7 @@ export function AchievementTitleBadge({
         isPrestige && 'ring-1 ring-white/10',
         className,
       )}
-      title={`[${title}] · ${safeGrade}`}
+      title={`${title} · ${safeGrade}`}
     >
       {isPrestige && (
         <span aria-hidden="true" className="mr-1 text-[0.9em] opacity-95">
@@ -48,7 +48,7 @@ export function AchievementTitleBadge({
         </span>
       )}
       <span className={cn('truncate', prominent ? 'max-w-[260px]' : 'max-w-[180px]')}>
-        [{title}]
+        {title}
       </span>
       {isPrestige && (
         <span aria-hidden="true" className="ml-1 text-[0.9em] opacity-95">

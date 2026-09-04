@@ -24,6 +24,8 @@ import { AchievementTitleBadge } from '@/components/shared/AchievementTitleBadge
 import type { EquippedAchievementTitle } from '@/lib/rpc/achievement_a1_rpc';
 import { AchievementRankingShowcase, type AchievementRankingEntry } from '@/features/social/AchievementRankingShowcase';
 import { getEquippedCharacterImageUrl, useClassroomEquippedCharacters } from '@/hooks/useEquippedCharacters';
+import { useClassroomStudentGuilds } from '@/hooks/useStudentGuilds';
+import { GuildNameBadge } from '@/components/shared/GuildNameBadge';
 
 // =====================================================================
 // FriendsPage — 학급 학생 디렉토리
@@ -33,6 +35,7 @@ export function FriendsPage() {
   const classroomId = useClassroomId();
   const studentId = useStudentId();
   const { byStudentId: achievementTitles } = useClassroomAchievementTitles();
+  const { byStudentId: guildsByStudentId } = useClassroomStudentGuilds();
   const [search, setSearch] = useState('');
   
   const { data: classmates, isLoading } = useQuery({
@@ -62,8 +65,10 @@ export function FriendsPage() {
   const filtered = (classmates ?? []).filter((c) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
+    const guildName = guildsByStudentId.get(c.id)?.guildName ?? '';
     return c.name.toLowerCase().includes(q) 
-      || (c.brandName?.toLowerCase().includes(q) ?? false);
+      || (c.brandName?.toLowerCase().includes(q) ?? false)
+      || guildName.toLowerCase().includes(q);
   });
   
   return (
@@ -95,6 +100,7 @@ export function FriendsPage() {
                   key={classmate.id}
                   friend={classmate}
                   achievementTitle={achievementTitles.get(classmate.id) ?? null}
+                  guildName={guildsByStudentId.get(classmate.id)?.guildName ?? null}
                 />
               ))}
             </div>
@@ -108,9 +114,11 @@ export function FriendsPage() {
 function FriendCard({ 
   friend,
   achievementTitle,
+  guildName,
 }: { 
   friend: { id: number; name: string; brandName: string | null; tier: Tier; isMe: boolean };
   achievementTitle: EquippedAchievementTitle | null;
+  guildName: string | null;
 }) {
   return (
     <motion.div
@@ -144,6 +152,7 @@ function FriendCard({
               나
             </span>
           )}
+          <GuildNameBadge guildName={guildName} compact />
         </div>
         {achievementTitle?.title && (
           <div className="mt-1.5 flex min-w-0">
@@ -217,6 +226,7 @@ function RankingList({ type }: { type: RankingType }) {
   const studentId = useStudentId();
   const { byStudentId: achievementTitles } = useClassroomAchievementTitles();
   const { byStudentId: equippedCharacters } = useClassroomEquippedCharacters();
+  const { byStudentId: guildsByStudentId } = useClassroomStudentGuilds();
   
   const { data: ranks, isLoading } = useQuery({
     queryKey: ['rankings', classroomId, type],
@@ -295,6 +305,7 @@ function RankingList({ type }: { type: RankingType }) {
       const character = equippedCharacters.get(Number(rank.studentId)) ?? null;
       return {
         ...(rank as AchievementRankingEntry),
+        guildName: guildsByStudentId.get(Number(rank.studentId))?.guildName ?? null,
         equippedCharacterUrl: getEquippedCharacterImageUrl(character, 'avatar'),
         characterEmoji: character?.emoji ?? null,
       };
@@ -317,6 +328,7 @@ function RankingList({ type }: { type: RankingType }) {
           item={rank}
           type={type}
           achievementTitle={achievementTitles.get(rank.studentId) ?? null}
+          guildName={guildsByStudentId.get(rank.studentId)?.guildName ?? null}
         />
       ))}
     </div>
@@ -324,12 +336,13 @@ function RankingList({ type }: { type: RankingType }) {
 }
 
 function RankItem({ 
-  rank, item, type, achievementTitle,
+  rank, item, type, achievementTitle, guildName,
 }: { 
   rank: number;
   item: { studentId: number; name: string; brandName: string | null; tier: Tier; value: number; isMe: boolean };
   type: RankingType;
   achievementTitle: EquippedAchievementTitle | null;
+  guildName: string | null;
 }) {
   const isTop3 = rank <= 3;
   const rankBg = rank === 1 ? 'bg-gold' 
@@ -368,6 +381,9 @@ function RankItem({
           {item.isMe && (
             <span className="text-[9px] font-black text-gold bg-gold/20 px-1.5 py-0.5 rounded-pill">나</span>
           )}
+        </div>
+        <div className="mt-1 flex min-w-0">
+          <GuildNameBadge guildName={guildName} compact />
         </div>
         {achievementTitle?.title && (
           <div className="mt-1.5 flex min-w-0">

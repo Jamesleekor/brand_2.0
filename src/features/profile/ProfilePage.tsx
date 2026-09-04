@@ -32,6 +32,8 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { useMyAchievementTitle } from "@/hooks/useAchievementTitles";
 import { AchievementTitleBadge } from "@/components/shared/AchievementTitleBadge";
+import { GuildNameBadge } from "@/components/shared/GuildNameBadge";
+import { useClassroomStudentGuilds } from "@/hooks/useStudentGuilds";
 
 // =====================================================================
 // ProfilePage
@@ -42,6 +44,7 @@ export default function ProfilePage() {
   const studentId = useStudentId();
   const { wallet } = useWallet();
   const { title: equippedTitle } = useMyAchievementTitle();
+  const { myGuild } = useClassroomStudentGuilds();
   const [editBrandOpen, setEditBrandOpen] = useState(false);
   const [editPasswordOpen, setEditPasswordOpen] = useState(false);
   const logout = useAuthStore((s) => s.logout);
@@ -83,6 +86,10 @@ export default function ProfilePage() {
             <h2 className="font-display text-2xl text-brand-gradient tracking-tighter">
               {student.brandName || student.studentName}
             </h2>
+          </div>
+
+          <div className="mb-2 flex justify-center">
+            <GuildNameBadge guildName={myGuild?.guildName} />
           </div>
 
           {/* 본명 + 학년반 */}
