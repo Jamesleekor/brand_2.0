@@ -57,6 +57,101 @@ export interface AttendanceHistoryBoard {
   rows: AttendanceHistoryRow[];
 }
 
+export interface GuildMissionHistoryRow {
+  mission_id: number;
+  title: string;
+  lifecycle_state: string;
+  teaser_only: boolean;
+  description?: string | null;
+  student_success_criteria?: string | null;
+  due_at?: string | null;
+  activity_record_due_at?: string | null;
+  submission_scope?: string | null;
+  submission_requirement?: string | null;
+  special_rule_note?: string | null;
+  guild_result?: string | null;
+  my_grade?: string | null;
+  my_activity_record?: string | null;
+  my_activity_record_revision?: number | null;
+  current_submission?: string | null;
+  current_submission_revision?: number | null;
+}
+
+export interface GuildMissionScoreSummaryRow {
+  year_month: string;
+  points: number;
+  status: string;
+  max_points: number;
+}
+
+export interface GuildMonthlyStudentSnapshot {
+  student_id: number;
+  student_name_at_close: string;
+  brand_name_at_close: string | null;
+  guild_id: number;
+  guild_name_at_close: string;
+  role_at_close: string;
+  bv_at_close: number;
+  peer_points: number;
+  mission_points: number;
+  session_points: number;
+  observation_points: number;
+  basic_total: number;
+  arcade_raw_total: number;
+  arcade_applied: number;
+  final_contribution: number;
+  peer_status: string;
+  mission_status: string;
+  session_status: string;
+  observation_status: string;
+  arcade_status: string;
+  source_flags: Record<string, unknown>;
+}
+
+export interface GuildMonthlyGuildSnapshot {
+  guild_id: number;
+  guild_name_at_close: string;
+  guild_logo_url_at_close: string | null;
+  roster_count: number;
+  roster_bv_sum: number;
+  individual_subtotal: number;
+  official_mission_gs: number;
+  compensation_amount: number;
+  manual_adjustment_total: number;
+  total_gs: number;
+  rank_position: number;
+  cumulative_final_gs: number;
+}
+
+export interface GuildMonthlyTerritorySnapshot extends Record<string, unknown> {
+  territory_slot_no: number | null;
+  tax_rate_percent: number | null;
+  territory_description: string | null;
+}
+
+export interface GuildMonthlyRankingRow {
+  guild_id: number;
+  guild_name_at_close: string;
+  guild_logo_url_at_close: string | null;
+  rank_position: number;
+  total_gs: number;
+  territory: string | null;
+  territory_id: number | null;
+  territory_slot_no: number | null;
+  tax_rate_percent: number | null;
+  territory_description: string | null;
+}
+
+export interface GuildMonthlyHistoryRow {
+  year_month: string;
+  version_no: number;
+  finalized_at: string;
+  my_contribution: GuildMonthlyStudentSnapshot;
+  my_guild: GuildMonthlyGuildSnapshot;
+  territory: GuildMonthlyTerritorySnapshot | null;
+  rankings: GuildMonthlyRankingRow[];
+}
+
 export const recordsRpc = {
   myLegacyAssetHistory: async (
     supabase: SupabaseClient,
@@ -91,5 +186,23 @@ export const recordsRpc = {
     const { data, error } = await supabase.rpc('student_get_my_attendance_history', input);
     if (error) throw error;
     return (data ?? { total_count: 0, limit: input.p_limit ?? 100, offset: input.p_offset ?? 0, rows: [] }) as AttendanceHistoryBoard;
+  },
+
+  myGuildMissionHistory: async (supabase: SupabaseClient): Promise<GuildMissionHistoryRow[]> => {
+    const { data, error } = await supabase.rpc('student_get_guild3_mission_board');
+    if (error) throw error;
+    return (data ?? []) as GuildMissionHistoryRow[];
+  },
+
+  myGuildMissionScoreSummary: async (supabase: SupabaseClient): Promise<GuildMissionScoreSummaryRow[]> => {
+    const { data, error } = await supabase.rpc('student_get_guild3_mission_score_summary');
+    if (error) throw error;
+    return (data ?? []) as GuildMissionScoreSummaryRow[];
+  },
+
+  myGuildMonthlyHistory: async (supabase: SupabaseClient): Promise<GuildMonthlyHistoryRow[]> => {
+    const { data, error } = await supabase.rpc('student_get_guild5_monthly_history');
+    if (error) throw error;
+    return (data ?? []) as GuildMonthlyHistoryRow[];
   },
 };
