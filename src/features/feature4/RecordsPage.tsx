@@ -8,6 +8,7 @@ import { useClassroomId, useStudentId } from '@/stores/auth_store';
 import { formatDate, formatDateTime, formatDelta, formatNumber } from '@/lib/utils/format';
 import { feature4QueryError } from '@/lib/feature4_debug';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
+import { RecordsAssetEconomyPanel } from '@/features/feature4/RecordsAssetEconomyPanel';
 import { achievementA1Rpc, type AchievementCatalogRow } from '@/lib/rpc/achievement_a1_rpc';
 import { inventoryMarketRpc, type StudentItemHistoryRow } from '@/lib/rpc/inventory_market_rpc';
 import {
@@ -210,7 +211,7 @@ export default function RecordsPage() {
       <div className="px-4 py-4 pb-28 max-w-5xl mx-auto space-y-5">
         <div className="rounded-card-md border border-gold/20 bg-bg-card p-2 grid grid-cols-2 gap-2">
           <MainTabButton active={mainTab === 'HONOR'} onClick={() => setMainTab('HONOR')} emoji="🏆" title="명예 기록" subtitle="MVP · 명예의 전당 · 공식 랭킹" />
-          <MainTabButton active={mainTab === 'MY'} onClick={() => setMainTab('MY')} emoji="📜" title="내 기록" subtitle="자산 · 업적 · 아이템 · 출석" />
+          <MainTabButton active={mainTab === 'MY'} onClick={() => setMainTab('MY')} emoji="📜" title="내 기록" subtitle="자산·경제 · 업적 · 아이템 · 출석" />
         </div>
 
         {mainTab === 'HONOR' ? (
@@ -321,7 +322,7 @@ function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTa
   const latestStreak = attendanceDashboard.current_streak;
 
   const nav: Array<{ key: MyTab; emoji: string; label: string; count: number }> = [
-    { key: 'ASSET', emoji: '💰', label: '자산', count: data.liveTransactionCount + data.legacy.total },
+    { key: 'ASSET', emoji: '💰', label: '자산·경제', count: data.liveTransactionCount + data.legacy.total },
     { key: 'ACHIEVEMENT', emoji: '🏆', label: '업적', count: data.achievements.length },
     { key: 'ITEM', emoji: '🎒', label: '아이템', count: data.itemHistory.total_count },
     { key: 'ATTENDANCE', emoji: '📅', label: '출석', count: attendanceHistory.total_count },
@@ -361,7 +362,7 @@ function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTa
         ))}
       </div>
 
-      {myTab === 'ASSET' && <AssetHistory live={data.liveTransactions} liveTotal={data.liveTransactionCount} legacy={data.legacy.rows} legacyTotal={data.legacy.total} />}
+      {myTab === 'ASSET' && <RecordsAssetEconomyPanel live={data.liveTransactions} liveTotal={data.liveTransactionCount} legacy={data.legacy.rows} legacyTotal={data.legacy.total} />}
       {myTab === 'ACHIEVEMENT' && <AchievementHistory rows={data.achievements} />}
       {myTab === 'ITEM' && <ItemHistory rows={data.itemHistory.rows} total={data.itemHistory.total_count} />}
       {myTab === 'ATTENDANCE' && <AttendanceHistory rows={attendance} dashboard={attendanceDashboard} total={attendanceHistory.total_count} />}
