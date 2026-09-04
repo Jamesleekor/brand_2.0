@@ -10,6 +10,7 @@ import { feature4QueryError } from '@/lib/feature4_debug';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
 import { RecordsAssetEconomyPanel } from '@/features/feature4/RecordsAssetEconomyPanel';
 import { RecordsGuildPanel } from '@/features/feature4/RecordsGuildPanel';
+import { RecordsArcadePanel } from '@/features/feature4/RecordsArcadePanel';
 import { achievementA1Rpc, type AchievementCatalogRow } from '@/lib/rpc/achievement_a1_rpc';
 import { inventoryMarketRpc, type StudentItemHistoryRow } from '@/lib/rpc/inventory_market_rpc';
 import {
@@ -29,7 +30,7 @@ const RANK_LABEL: Record<string, string> = {
 };
 
 type MainTab = 'HONOR' | 'MY';
-type MyTab = 'ASSET' | 'ACHIEVEMENT' | 'ITEM' | 'ATTENDANCE' | 'GUILD';
+type MyTab = 'ASSET' | 'ACHIEVEMENT' | 'ITEM' | 'ATTENDANCE' | 'GUILD' | 'ARCADE';
 
 type LiveTransaction = {
   id: number;
@@ -212,7 +213,7 @@ export default function RecordsPage() {
       <div className="px-4 py-4 pb-28 max-w-5xl mx-auto space-y-5">
         <div className="rounded-card-md border border-gold/20 bg-bg-card p-2 grid grid-cols-2 gap-2">
           <MainTabButton active={mainTab === 'HONOR'} onClick={() => setMainTab('HONOR')} emoji="🏆" title="명예 기록" subtitle="MVP · 명예의 전당 · 공식 랭킹" />
-          <MainTabButton active={mainTab === 'MY'} onClick={() => setMainTab('MY')} emoji="📜" title="내 기록" subtitle="자산·경제 · 업적 · 아이템 · 출석 · 길드" />
+          <MainTabButton active={mainTab === 'MY'} onClick={() => setMainTab('MY')} emoji="📜" title="내 기록" subtitle="자산·경제 · 업적 · 아이템 · 출석 · 길드 · Arcade" />
         </div>
 
         {mainTab === 'HONOR' ? (
@@ -328,6 +329,7 @@ function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTa
     { key: 'ITEM', emoji: '🎒', label: '아이템', count: data.itemHistory.total_count },
     { key: 'ATTENDANCE', emoji: '📅', label: '출석', count: attendanceHistory.total_count },
     { key: 'GUILD', emoji: '🛡️', label: '길드' },
+    { key: 'ARCADE', emoji: '🕹️', label: 'Arcade' },
   ];
 
   return (
@@ -349,7 +351,7 @@ function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTa
         </div>
       </section>
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-1.5 sm:gap-2">
         {nav.map((item) => (
           <button
             key={item.key}
@@ -369,6 +371,7 @@ function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTa
       {myTab === 'ITEM' && <ItemHistory rows={data.itemHistory.rows} total={data.itemHistory.total_count} />}
       {myTab === 'ATTENDANCE' && <AttendanceHistory rows={attendance} dashboard={attendanceDashboard} total={attendanceHistory.total_count} />}
       {myTab === 'GUILD' && <RecordsGuildPanel />}
+      {myTab === 'ARCADE' && <RecordsArcadePanel />}
     </div>
   );
 }
