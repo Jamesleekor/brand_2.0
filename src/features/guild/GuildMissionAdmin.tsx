@@ -58,16 +58,202 @@ function MissionDetailPanel({detail,busy,run,refresh}:{detail:Guild3MissionDetai
   </div>;
 }
 
-function InstancePanel({row,missionState,busy,run}:{row:Guild3MissionDetail['instances'][number];missionState:string;busy:boolean;run:(p:Promise<any>)=>Promise<unknown>}){
-  const i=row.instance; const canJudge=missionState==='CLOSED'; const correction=missionState==='FINALIZED';
-  const [displayResult,setDisplayResult]=useState(String(i.current_guild_result??'UNDECIDED'));
-  useEffect(()=>setDisplayResult(String(i.current_guild_result??'UNDECIDED')),[i.current_guild_result]);
-  const setResult=async(result:'CLEARED'|'FAILED')=>{const r=window.prompt(correction?'공식 결과 정정 사유를 입력하세요.':'판정 메모 (선택)')??null;if(r===null)return;try{await run(correction?guild3TeacherRpc.correctResult(supabase,{p_mission_instance_id:Number(i.id),p_guild_result:result,p_reason:r.trim()||'공식 결과 정정'}):guild3TeacherRpc.setResult(supabase,{p_mission_instance_id:Number(i.id),p_guild_result:result,p_reason:r.trim()||null}));setDisplayResult(result);}catch{return;}};
-  const setNote=()=>{const note=window.prompt('이 길드에만 보일 특별 안내를 입력하세요. 빈칸이면 삭제합니다.',String(i.special_rule_note??''));if(note!==null)void run(guild3TeacherRpc.setNote(supabase,{p_mission_instance_id:Number(i.id),p_special_rule_note:note.trim()||null})).catch(()=>undefined);};
-  return <div className="rounded-card-md border border-line bg-bg-deep overflow-hidden"><div className="p-3 flex flex-wrap items-center justify-between gap-2"><div><b>{i.guild_name_at_snapshot??`길드 #${i.guild_id}`}</b><span className={`ml-2 inline-flex rounded-full px-2 py-1 text-2xs font-black ${displayResult==='CLEARED'?'bg-success/15 text-success':displayResult==='FAILED'?'bg-danger/15 text-danger':'bg-bg-card text-text-muted'}`}>현재 {displayResult}</span></div><div className="flex gap-2">{['ACTIVE','CLOSED'].includes(missionState)&&<button className="btn-secondary text-xs" disabled={busy} onClick={setNote}>특별 안내</button>}{(canJudge||correction)&&<><button aria-pressed={displayResult==='CLEARED'} className={`text-xs rounded-card-md border px-4 py-2 font-black transition ${displayResult==='CLEARED'?'border-success bg-success/20 text-success ring-2 ring-success/30':'border-line bg-bg-card text-text-primary hover:border-success/50'}`} disabled={busy} onClick={()=>void setResult('CLEARED')}>{displayResult==='CLEARED'?'✓ CLEARED':'✅ CLEARED'}</button><button aria-pressed={displayResult==='FAILED'} className={`text-xs rounded-card-md border px-4 py-2 font-black transition ${displayResult==='FAILED'?'border-danger bg-danger/20 text-danger ring-2 ring-danger/30':'border-line bg-bg-card text-text-primary hover:border-danger/50'}`} disabled={busy} onClick={()=>void setResult('FAILED')}>{displayResult==='FAILED'?'✓ FAILED':'❌ FAILED'}</button></>}</div></div>{i.special_rule_note&&<div className="px-3 pb-3 text-xs text-warning">특별 안내: {i.special_rule_note}</div>}
-    <div className="border-t border-line divide-y divide-line">{row.participants.map(p=><ParticipantRow key={String(p.participant.id)} item={p} missionState={missionState} busy={busy} run={run}/>)}</div>
-    {row.submissions.length>0&&<details className="border-t border-line"><summary className="p-3 cursor-pointer text-xs font-black">제출 이력 {row.submissions.length}건</summary><div className="px-3 pb-3 space-y-2">{row.submissions.map((s:any)=>{const href=safeExternalHref(s.reference_url);return <div key={s.id} className="rounded bg-bg-card p-2 text-xs"><b>{s.submission_scope} · revision {s.revision_number}</b><div className="mt-1 whitespace-pre-wrap">{s.content}</div>{s.reference_url&&(href?<a href={href} target="_blank" rel="noopener noreferrer" className="text-bv mt-1 inline-flex max-w-full items-center gap-1 break-all underline underline-offset-2 hover:opacity-80">🔗 {s.reference_url}<span className="shrink-0">↗</span></a>:<div className="text-warning mt-1 break-all">참고 링크 형식을 확인하세요: {s.reference_url}</div>)}</div>})}</div></details>}
-  </div>;
+function InstancePanel({
+  row,
+  missionState,
+  busy,
+  run,
+}: {
+  row: Guild3MissionDetail['instances'][number];
+  missionState: string;
+  busy: boolean;
+  run: (p: Promise<any>) => Promise<unknown>;
+}) {
+  const i = row.instance;
+  const canJudge = missionState === 'CLOSED';
+  const correction = missionState === 'FINALIZED';
+
+  const guildName =
+    row.participants?.[0]?.participant?.guild_name_at_snapshot?.trim() ||
+    `길드 #${i.guild_id}`;
+
+  const [displayResult, setDisplayResult] = useState(
+    String(i.current_guild_result ?? 'UNDECIDED'),
+  );
+
+  useEffect(() => {
+    setDisplayResult(String(i.current_guild_result ?? 'UNDECIDED'));
+  }, [i.current_guild_result]);
+
+  const setResult = async (result: 'CLEARED' | 'FAILED') => {
+    const r =
+      window.prompt(
+        correction
+          ? '공식 결과 정정 사유를 입력하세요.'
+          : '판정 메모 (선택)',
+      ) ?? null;
+
+    if (r === null) return;
+
+    try {
+      await run(
+        correction
+          ? guild3TeacherRpc.correctResult(supabase, {
+              p_mission_instance_id: Number(i.id),
+              p_guild_result: result,
+              p_reason: r.trim() || '공식 결과 정정',
+            })
+          : guild3TeacherRpc.setResult(supabase, {
+              p_mission_instance_id: Number(i.id),
+              p_guild_result: result,
+              p_reason: r.trim() || null,
+            }),
+      );
+
+      setDisplayResult(result);
+    } catch {
+      return;
+    }
+  };
+
+  const setNote = () => {
+    const note = window.prompt(
+      '이 길드에만 보일 특별 안내를 입력하세요. 빈칸이면 삭제합니다.',
+      String(i.special_rule_note ?? ''),
+    );
+
+    if (note !== null) {
+      void run(
+        guild3TeacherRpc.setNote(supabase, {
+          p_mission_instance_id: Number(i.id),
+          p_special_rule_note: note.trim() || null,
+        }),
+      ).catch(() => undefined);
+    }
+  };
+
+  return (
+    <div className="rounded-card-md border border-line bg-bg-deep overflow-hidden">
+      <div className="p-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <b>{guildName}</b>
+
+          <span
+            className={`ml-2 inline-flex rounded-full px-2 py-1 text-2xs font-black ${
+              displayResult === 'CLEARED'
+                ? 'bg-success/15 text-success'
+                : displayResult === 'FAILED'
+                  ? 'bg-danger/15 text-danger'
+                  : 'bg-bg-card text-text-muted'
+            }`}
+          >
+            현재 {displayResult}
+          </span>
+        </div>
+
+        <div className="flex gap-2">
+          {['ACTIVE', 'CLOSED'].includes(missionState) && (
+            <button
+              className="btn-secondary text-xs"
+              disabled={busy}
+              onClick={setNote}
+            >
+              특별 안내
+            </button>
+          )}
+
+          {(canJudge || correction) && (
+            <>
+              <button
+                aria-pressed={displayResult === 'CLEARED'}
+                className={`text-xs rounded-card-md border px-4 py-2 font-black transition ${
+                  displayResult === 'CLEARED'
+                    ? 'border-success bg-success/20 text-success ring-2 ring-success/30'
+                    : 'border-line bg-bg-card text-text-primary hover:border-success/50'
+                }`}
+                disabled={busy}
+                onClick={() => void setResult('CLEARED')}
+              >
+                {displayResult === 'CLEARED' ? '✓ CLEARED' : '✅ CLEARED'}
+              </button>
+
+              <button
+                aria-pressed={displayResult === 'FAILED'}
+                className={`text-xs rounded-card-md border px-4 py-2 font-black transition ${
+                  displayResult === 'FAILED'
+                    ? 'border-danger bg-danger/20 text-danger ring-2 ring-danger/30'
+                    : 'border-line bg-bg-card text-text-primary hover:border-danger/50'
+                }`}
+                disabled={busy}
+                onClick={() => void setResult('FAILED')}
+              >
+                {displayResult === 'FAILED' ? '✓ FAILED' : '❌ FAILED'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {i.special_rule_note && (
+        <div className="px-3 pb-3 text-xs text-warning">
+          특별 안내: {i.special_rule_note}
+        </div>
+      )}
+
+      <div className="border-t border-line divide-y divide-line">
+        {row.participants.map((p) => (
+          <ParticipantRow
+            key={String(p.participant.id)}
+            item={p}
+            missionState={missionState}
+            busy={busy}
+            run={run}
+          />
+        ))}
+      </div>
+
+      {row.submissions.length > 0 && (
+        <details className="border-t border-line">
+          <summary className="p-3 cursor-pointer text-xs font-black">
+            제출 이력 {row.submissions.length}건
+          </summary>
+
+          <div className="px-3 pb-3 space-y-2">
+            {row.submissions.map((s: any) => {
+              const href = safeExternalHref(s.reference_url);
+
+              return (
+                <div key={s.id} className="rounded bg-bg-card p-2 text-xs">
+                  <b>
+                    {s.submission_scope} · revision {s.revision_number}
+                  </b>
+
+                  <div className="mt-1 whitespace-pre-wrap">{s.content}</div>
+
+                  {s.reference_url &&
+                    (href ? (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-bv mt-1 inline-flex max-w-full items-center gap-1 break-all underline underline-offset-2 hover:opacity-80"
+                      >
+                        🔗 {s.reference_url}
+                        <span className="shrink-0">↗</span>
+                      </a>
+                    ) : (
+                      <div className="text-warning mt-1 break-all">
+                        참고 링크 형식을 확인하세요: {s.reference_url}
+                      </div>
+                    ))}
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      )}
+    </div>
+  );
 }
 
 function ParticipantRow({item,missionState,busy,run}:{item:any;missionState:string;busy:boolean;run:(p:Promise<any>)=>Promise<unknown>}){
