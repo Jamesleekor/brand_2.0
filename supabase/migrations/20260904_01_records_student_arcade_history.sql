@@ -2,7 +2,7 @@
 -- Student-safe, period-scoped Arcade history reader.
 -- Production applied once on 2026-09-04 after rollback rehearsal and postcheck.
 
-create function public.student_get_my_arcade_history(
+create or replace function public.student_get_my_arcade_history(
   p_period_id bigint,
   p_limit integer default 50,
   p_offset integer default 0,
