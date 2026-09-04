@@ -152,6 +152,34 @@ export interface GuildMonthlyHistoryRow {
   rankings: GuildMonthlyRankingRow[];
 }
 
+export interface ArcadeHistoryRow {
+  run_id: number;
+  game_code: string;
+  game_name: string;
+  status: 'VERIFIED' | 'REJECTED';
+  official_score: number | null;
+  official_duration_ms: number | null;
+  game_over_at: string | null;
+  submitted_at: string | null;
+  occurred_at: string;
+  rejection_code: string | null;
+  rejection_reason: string | null;
+  is_invalidated: boolean;
+  invalidation_reason: string | null;
+  invalidated_at: string | null;
+}
+
+export interface ArcadeHistoryBoard {
+  period_id: number;
+  period_kind: 'MONTHLY' | 'SEASON';
+  display_name: string;
+  period_status: 'ACTIVE' | 'FINALIZED';
+  total_count: number;
+  limit: number;
+  offset: number;
+  rows: ArcadeHistoryRow[];
+}
+
 export const recordsRpc = {
   myLegacyAssetHistory: async (
     supabase: SupabaseClient,
@@ -204,5 +232,23 @@ export const recordsRpc = {
     const { data, error } = await supabase.rpc('student_get_guild5_monthly_history');
     if (error) throw error;
     return (data ?? []) as GuildMonthlyHistoryRow[];
+  },
+
+  myArcadeHistory: async (
+    supabase: SupabaseClient,
+    input: { p_period_id: number; p_limit?: number; p_offset?: number; p_game_code?: string | null },
+  ): Promise<ArcadeHistoryBoard> => {
+    const { data, error } = await supabase.rpc('student_get_my_arcade_history', input);
+    if (error) throw error;
+    return (data ?? {
+      period_id: input.p_period_id,
+      period_kind: 'MONTHLY',
+      display_name: '',
+      period_status: 'ACTIVE',
+      total_count: 0,
+      limit: input.p_limit ?? 50,
+      offset: input.p_offset ?? 0,
+      rows: [],
+    }) as ArcadeHistoryBoard;
   },
 };
