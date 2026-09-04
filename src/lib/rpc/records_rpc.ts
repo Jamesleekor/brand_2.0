@@ -152,6 +152,13 @@ export interface GuildMonthlyHistoryRow {
   rankings: GuildMonthlyRankingRow[];
 }
 
+export interface GuildOfficialHistoryRow {
+  year_month: string;
+  version_no: number;
+  finalized_at: string;
+  rankings: GuildMonthlyRankingRow[];
+}
+
 export interface ArcadeHistoryRow {
   run_id: number;
   game_code: string;
@@ -232,6 +239,12 @@ export const recordsRpc = {
     const { data, error } = await supabase.rpc('student_get_guild5_monthly_history');
     if (error) throw error;
     return (data ?? []) as GuildMonthlyHistoryRow[];
+  },
+
+  guildOfficialHistory: async (supabase: SupabaseClient): Promise<GuildOfficialHistoryRow[]> => {
+    const { data, error } = await supabase.rpc('student_get_guild5_official_history');
+    if (error) throw error;
+    return (data ?? []) as GuildOfficialHistoryRow[];
   },
 
   myArcadeHistory: async (
