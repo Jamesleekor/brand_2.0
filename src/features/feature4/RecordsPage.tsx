@@ -11,6 +11,7 @@ import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
 import { RecordsAssetEconomyPanel } from '@/features/feature4/RecordsAssetEconomyPanel';
 import { RecordsGuildPanel } from '@/features/feature4/RecordsGuildPanel';
 import { RecordsArcadePanel } from '@/features/feature4/RecordsArcadePanel';
+import { RecordsHonorPanel } from '@/features/feature4/RecordsHonorPanel';
 import { achievementA1Rpc, type AchievementCatalogRow } from '@/lib/rpc/achievement_a1_rpc';
 import { inventoryMarketRpc, type StudentItemHistoryRow } from '@/lib/rpc/inventory_market_rpc';
 import {
@@ -217,7 +218,7 @@ export default function RecordsPage() {
         </div>
 
         {mainTab === 'HONOR' ? (
-          <HonorRecords data={q.data} grouped={grouped} studentId={studentId} />
+          <RecordsHonorPanel data={q.data} grouped={grouped} studentId={studentId} />
         ) : myQ.isLoading ? (
           <div className="py-14 flex flex-col items-center gap-3 text-text-muted">
             <LoadingSpinner size="lg" />
