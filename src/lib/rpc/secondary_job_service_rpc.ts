@@ -25,6 +25,14 @@ export type ServiceActiveJob = {
   category: string | null;
 };
 
+export type ServiceOption = {
+  id: number;
+  name: string;
+  price_gold: number;
+  is_active: boolean;
+  sort_order: number;
+};
+
 export type ServiceMarketItem = {
   id: number;
   seller_student_id: number;
@@ -36,7 +44,12 @@ export type ServiceMarketItem = {
   subtitle: string | null;
   description: string;
   service_category: S.ServiceCategory | null;
-  price_gold: number;
+  pricing_mode: S.ServicePricingMode;
+  quantity_unit: string;
+  price_gold: number | null;
+  price_min_gold: number | null;
+  price_max_gold: number | null;
+  options: ServiceOption[];
   delivery_note: string | null;
   allow_concurrent_orders: boolean;
   created_at: string;
@@ -53,7 +66,12 @@ export type MyServiceItem = {
   subtitle: string | null;
   description: string;
   service_category: S.ServiceCategory | null;
-  price_gold: number;
+  pricing_mode: S.ServicePricingMode;
+  quantity_unit: string;
+  price_gold: number | null;
+  price_min_gold: number | null;
+  price_max_gold: number | null;
+  options: ServiceOption[];
   delivery_note: string | null;
   allow_concurrent_orders: boolean;
   is_active: boolean;
@@ -61,16 +79,32 @@ export type MyServiceItem = {
   created_at: string;
   updated_at: string;
   active_orders: number;
+  open_quote_requests: number;
 };
 
-export type ServicePurchaseOrder = {
+export type ServiceOrderPricingFields = {
+  price_gold: number | null;
+  total_price_gold: number | null;
+  pricing_mode: S.ServicePricingMode;
+  option_id?: number | null;
+  option_name: string | null;
+  unit_price_gold: number | null;
+  quantity: number | null;
+  requested_quantity: number | null;
+  quantity_unit: string;
+  buyer_note: string | null;
+  seller_quote_note: string | null;
+  quote_offered_at: string | null;
+  quote_accepted_at: string | null;
+};
+
+export type ServicePurchaseOrder = ServiceOrderPricingFields & {
   id: number;
   service_id: number;
   seller_student_id: number;
   seller_name: string;
   service_title: string;
   job_name: string;
-  price_gold: number;
   delivery_note: string | null;
   buyer_request: string;
   status: S.ServiceOrderStatus;
@@ -87,14 +121,13 @@ export type ServicePurchaseOrder = {
   latest_delivery_at: string | null;
 };
 
-export type ServiceSaleOrder = {
+export type ServiceSaleOrder = ServiceOrderPricingFields & {
   id: number;
   service_id: number;
   buyer_student_id: number;
   buyer_name: string;
   service_title: string;
   job_name: string;
-  price_gold: number;
   delivery_note: string | null;
   buyer_request: string;
   status: S.ServiceOrderStatus;
@@ -122,11 +155,10 @@ export type ServiceMarketBoard = {
   my_sales: ServiceSaleOrder[];
 };
 
-export type TeacherServiceOrder = {
+export type TeacherServiceOrder = ServiceOrderPricingFields & {
   id: number;
   service_id: number;
   service_title: string;
-  price_gold: number;
   buyer_student_id: number;
   buyer_name: string;
   seller_student_id: number;
@@ -157,7 +189,7 @@ export const secondaryJobServiceStudentRpc = {
 
   upsertService: (c: SupabaseClient, i: S.UpsertSecondaryJobServiceInput) =>
     call<S.UpsertSecondaryJobServiceInput, number>(
-      c, 'student_upsert_secondary_job_service', S.UpsertSecondaryJobServiceSchema, i,
+      c, 'student_upsert_secondary_job_service_v2', S.UpsertSecondaryJobServiceSchema, i,
     ),
 
   toggleService: (c: SupabaseClient, i: S.ToggleSecondaryJobServiceInput) =>
@@ -173,6 +205,21 @@ export const secondaryJobServiceStudentRpc = {
   buy: (c: SupabaseClient, i: S.BuySecondaryJobServiceInput) =>
     call<S.BuySecondaryJobServiceInput, number>(
       c, 'student_buy_secondary_job_service', S.BuySecondaryJobServiceSchema, i,
+    ),
+
+  order: (c: SupabaseClient, i: S.OrderSecondaryJobServiceV2Input) =>
+    call<S.OrderSecondaryJobServiceV2Input, number>(
+      c, 'student_order_secondary_job_service_v2', S.OrderSecondaryJobServiceV2Schema, i,
+    ),
+
+  offerQuote: (c: SupabaseClient, i: S.OfferSecondaryJobServiceQuoteInput) =>
+    call<S.OfferSecondaryJobServiceQuoteInput, number>(
+      c, 'student_offer_secondary_job_service_quote', S.OfferSecondaryJobServiceQuoteSchema, i,
+    ),
+
+  acceptQuote: (c: SupabaseClient, i: S.AcceptSecondaryJobServiceQuoteInput) =>
+    call<S.AcceptSecondaryJobServiceQuoteInput, number>(
+      c, 'student_accept_secondary_job_service_quote', S.AcceptSecondaryJobServiceQuoteSchema, i,
     ),
 
   buyerAction: (c: SupabaseClient, i: S.ServiceOrderActionInput) =>
@@ -198,7 +245,7 @@ export const secondaryJobServiceTeacherRpc = {
     ),
 
   resolve: (c: SupabaseClient, i: S.TeacherResolveServiceOrderInput) =>
-    call<S.TeacherResolveServiceOrderInput, number>(
+    call<S.TeacherResolveServiceOrderInput, number | null>(
       c, 'teacher_resolve_secondary_job_service_order', S.TeacherResolveServiceOrderSchema, i,
     ),
 };

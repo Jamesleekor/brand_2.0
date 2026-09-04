@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { EmptyState, LoadingSpinner, Modal, useRpcCall } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
 import { formatNumber } from '@/lib/utils/format';
+import { orderPriceSummary, servicePriceSummary } from '@/lib/utils/secondary_job_service_pricing';
 import { cn } from '@/lib/utils/cn';
 import {
   secondaryJobServiceStudentRpc,
@@ -11,7 +12,7 @@ import {
   type ServicePurchaseOrder,
   type ServiceSaleOrder,
 } from '@/lib/rpc/secondary_job_service_rpc';
-import type { ServiceCategory, ServiceOrderStatus } from '@/lib/zod_schemas/secondary_job_service_schemas';
+import type { ServiceCategory, ServiceOptionInput, ServiceOrderStatus, ServicePricingMode } from '@/lib/zod_schemas/secondary_job_service_schemas';
 import {
   secondaryJobServiceReviewStudentRpc,
   type MyServiceReview,
@@ -31,6 +32,8 @@ import {
 type ViewTab = 'market' | 'orders' | 'sales' | 'services';
 
 const STATUS_LABEL: Record<ServiceOrderStatus, string> = {
+  QUOTE_REQUESTED: '견적 요청중',
+  QUOTE_OFFERED: '견적 도착',
   REQUESTED: '판매자 확인 대기',
   ACCEPTED: '작업 중',
   DELIVERED: '납품 완료',
@@ -42,6 +45,8 @@ const STATUS_LABEL: Record<ServiceOrderStatus, string> = {
 };
 
 const STATUS_CLASS: Record<ServiceOrderStatus, string> = {
+  QUOTE_REQUESTED: 'text-warning',
+  QUOTE_OFFERED: 'text-gold',
   REQUESTED: 'text-warning',
   ACCEPTED: 'text-bv',
   DELIVERED: 'text-success',
@@ -56,6 +61,8 @@ function dt(v: string | null | undefined) {
   if (!v) return null;
   return new Date(v).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
+
+const QUANTITY_UNIT_PRESETS = ['회','개','건','분','시간','일'] as const;
 
 export default function SecondaryJobServicesPanel() {
   const queryClient = useQueryClient();
@@ -138,6 +145,7 @@ export default function SecondaryJobServicesPanel() {
     const channel = supabase
       .channel('secondary-job-service-market-ui')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'secondary_job_services' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'secondary_job_service_options' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'secondary_job_service_orders' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'secondary_job_service_deliveries' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'secondary_job_service_reviews' }, refresh)
@@ -173,7 +181,7 @@ export default function SecondaryJobServicesPanel() {
           <div className="font-display text-lg text-gold">🪙 {formatNumber(data.gold)}</div>
         </div>
       </div>
-      {data.asset_freeze && <div className="mt-3 bg-danger-bg border border-danger/40 rounded-card-md p-3 text-xs text-danger font-bold">🚫 자산동결 중이라 신규 구매는 할 수 없습니다. 이미 결제된 주문의 수락·납품·환불·정산은 계속 처리할 수 있습니다.</div>}
+      {data.asset_freeze && <div className="mt-3 bg-danger-bg border border-danger/40 rounded-card-md p-3 text-xs text-danger font-bold">🚫 자산동결 중이라 신규 주문·견적 요청은 만들 수 없습니다. 이미 결제된 주문의 수락·납품·환불·정산은 계속 처리할 수 있습니다.</div>}
     </div>
 
     {reviewNeeded>0 && <button type="button" onClick={()=>setTab('orders')} className="w-full text-left bg-brand-primary/10 border border-brand-primary/30 rounded-card-md p-3">
@@ -202,6 +210,7 @@ export default function SecondaryJobServicesPanel() {
       reputations={reputationByService}
       studentNames={studentNames.data ?? new Map()}
       serverNow={data.server_now}
+      gold={data.gold}
       busy={isLoading}
       onDone={refresh}
       deepLinkServiceId={requestedServiceId}
@@ -211,7 +220,7 @@ export default function SecondaryJobServicesPanel() {
         setSearchParams(next,{replace:true});
       }}
     />}
-    {tab==='orders' && <BuyerOrders items={data.my_orders} myReviews={myReviewByOrder} studentNames={studentNames.data ?? new Map()} busy={isLoading} onDone={refresh} />}
+    {tab==='orders' && <BuyerOrders items={data.my_orders} myReviews={myReviewByOrder} studentNames={studentNames.data ?? new Map()} gold={data.gold} busy={isLoading} onDone={refresh} />}
     {tab==='sales' && <SellerOrders items={data.my_sales} busy={isLoading} onDone={refresh} />}
     {tab==='services' && <MyServices items={data.my_services} jobs={data.active_jobs} reputation={reputationData.my_seller_reputation} adBoard={adBoard.data ?? null} adLoading={adBoard.isLoading} adError={adBoard.isError ? (adBoard.error instanceof Error ? adBoard.error.message : '광고 정보를 불러오지 못했습니다.') : null} busy={isLoading} onDone={refresh} />}
 
@@ -223,18 +232,35 @@ export default function SecondaryJobServicesPanel() {
   </div>;
 }
 
-function BuyerOrders({ items, myReviews, studentNames, busy, onDone }: { items: ServicePurchaseOrder[]; myReviews: Map<number,MyServiceReview>; studentNames: Map<number,string>; busy:boolean; onDone:()=>void }) {
+function BuyerOrders({ items, myReviews, studentNames, gold, busy, onDone }: { items: ServicePurchaseOrder[]; myReviews: Map<number,MyServiceReview>; studentNames: Map<number,string>; gold:number; busy:boolean; onDone:()=>void }) {
   const { call, isLoading: rpcLoading } = useRpcCall();
   const actionBusy = busy || rpcLoading;
-  const [action,setAction] = useState<{order:ServicePurchaseOrder;type:'CANCEL'|'REVISION'|'DISPUTE'}|null>(null);
+  const [action,setAction] = useState<{order:ServicePurchaseOrder;type:'CANCEL'|'DECLINE_QUOTE'|'REVISION'|'DISPUTE'}|null>(null);
   const [reason,setReason] = useState('');
 
-  const run = async (order:ServicePurchaseOrder,type:'CANCEL'|'CONFIRM'|'REVISION'|'DISPUTE') => {
+  const run = async (order:ServicePurchaseOrder,type:'CANCEL'|'DECLINE_QUOTE'|'CONFIRM'|'REVISION'|'DISPUTE') => {
     const needsReason = type==='REVISION'||type==='DISPUTE';
     if (needsReason && reason.trim().length<2) return;
+    const quotePreEscrow = order.pricing_mode==='QUOTE' && (order.status==='QUOTE_REQUESTED'||order.status==='QUOTE_OFFERED');
     await call(()=>secondaryJobServiceStudentRpc.buyerAction(supabase,{p_order_id:order.id,p_action:type,p_reason:reason.trim()||null}),{
-      successTitle:type==='CONFIRM'?'구매 확정 완료':type==='CANCEL'?'주문 취소 및 환불 완료':type==='REVISION'?'수정 요청 완료':'분쟁 접수 완료',
+      successTitle:type==='CONFIRM'
+        ? '구매 확정 완료'
+        : type==='DECLINE_QUOTE'
+          ? '견적 거절 완료'
+          : type==='CANCEL'
+            ? quotePreEscrow ? '견적 요청 취소 완료' : '주문 취소 및 환불 완료'
+            : type==='REVISION' ? '수정 요청 완료' : '분쟁 접수 완료',
       onSuccess:()=>{setAction(null);setReason('');onDone();},
+    });
+  };
+
+  const acceptQuote = async (order: ServicePurchaseOrder) => {
+    const total=order.total_price_gold;
+    if (order.status!=='QUOTE_OFFERED' || total===null) return;
+    await call(()=>secondaryJobServiceStudentRpc.acceptQuote(supabase,{p_order_id:order.id}),{
+      successTitle:'견적 수락 완료',
+      successDescription:`${formatNumber(total)} GOLD가 거래 완료 전까지 보류됩니다. 판매자는 바로 작업을 진행할 수 있습니다.`,
+      onSuccess:onDone,
     });
   };
 
@@ -246,14 +272,29 @@ function BuyerOrders({ items, myReviews, studentNames, busy, onDone }: { items: 
         <span className={cn('text-xs font-black',STATUS_CLASS[o.status])}>{STATUS_LABEL[o.status]}</span>
       </div>
       <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
-        <div className="bg-bg-deep rounded-card-sm p-2"><span className="text-text-muted">결제</span><div className="font-black text-gold">{formatNumber(o.price_gold)} GOLD</div></div>
+        <div className="bg-bg-deep rounded-card-sm p-2"><span className="text-text-muted">금액/수량</span><div className="font-black text-gold">{orderPriceSummary(o)}</div></div>
         <div className="bg-bg-deep rounded-card-sm p-2"><span className="text-text-muted">주문</span><div>{dt(o.created_at)}</div></div>
       </div>
+      {o.pricing_mode==='QUOTE' && o.requested_quantity && <div className="mt-2 rounded-card-sm bg-bg-deep p-2.5 text-xs text-text-secondary"><b className="text-white">희망 수량</b> · {formatNumber(o.requested_quantity)}{o.quantity_unit}</div>}
+      {o.option_name && <div className="mt-2 text-xs text-text-secondary"><b className="text-white">선택 옵션</b> · {o.option_name}</div>}
       <div className="text-xs text-text-secondary mt-3 whitespace-pre-wrap"><b className="text-white">내 요청</b><br/>{o.buyer_request}</div>
+      {o.buyer_note && <div className="mt-2 whitespace-pre-wrap rounded-card-sm bg-bg-deep p-2.5 text-xs text-text-secondary"><b className="text-white">내 추가 메모</b><br/>{o.buyer_note}</div>}
+      {o.status==='QUOTE_OFFERED' && <div className="mt-3 rounded-card-md border border-gold/30 bg-gold/5 p-3 text-xs">
+        <div className="font-black text-gold">💬 판매자 견적</div>
+        <div className="mt-1 text-text-primary">단가 {formatNumber(o.unit_price_gold ?? 0)} GOLD / {o.quantity_unit} · 수량 {formatNumber(o.quantity ?? 0)}{o.quantity_unit}</div>
+        <div className="mt-1 font-display text-base text-gold">총 {formatNumber(o.total_price_gold ?? 0)} GOLD</div>
+        {o.seller_quote_note && <div className="mt-2 whitespace-pre-wrap text-text-secondary">판매자 메모: {o.seller_quote_note}</div>}
+        <div className="mt-2 text-2xs text-text-muted">이 견적을 수락하는 순간에만 총액이 GOLD에서 보류됩니다.</div>
+      </div>}
       {o.latest_delivery && <div className="bg-success-bg border border-success/30 rounded-card-sm p-3 mt-3 text-xs whitespace-pre-wrap"><b className="text-success">📦 최신 납품 #{o.current_revision}</b><div className="mt-1 text-text-primary">{o.latest_delivery}</div><div className="text-2xs text-text-muted mt-1">{dt(o.latest_delivery_at)}</div></div>}
       {o.status_reason && <div className="text-xs text-warning mt-2">사유/안내: {o.status_reason}</div>}
 
       <div className="flex flex-wrap gap-2 mt-3">
+        {o.status==='QUOTE_REQUESTED' && <button className="btn-secondary" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'CANCEL'});setReason('');}}>견적 요청 취소</button>}
+        {o.status==='QUOTE_OFFERED' && <>
+          <button className="btn-primary" disabled={actionBusy||o.total_price_gold===null||(o.total_price_gold??0)>gold} onClick={()=>acceptQuote(o)}>견적 수락 · {formatNumber(o.total_price_gold ?? 0)}G</button>
+          <button className="btn-secondary text-danger" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'DECLINE_QUOTE'});setReason('');}}>견적 거절</button>
+        </>}
         {o.status==='REQUESTED' && <button className="btn-secondary" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'CANCEL'});setReason('');}}>주문 취소</button>}
         {o.status==='DELIVERED' && <>
           <button className="btn-primary" disabled={actionBusy} onClick={()=>run(o,'CONFIRM')}>구매 확정</button>
@@ -263,6 +304,8 @@ function BuyerOrders({ items, myReviews, studentNames, busy, onDone }: { items: 
         {(o.status==='ACCEPTED'||o.status==='REVISION_REQUESTED') && <button className="btn-secondary text-danger" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'DISPUTE'});setReason('');}}>취소/분쟁 요청</button>}
       </div>
 
+      {o.status==='QUOTE_REQUESTED' && <div className="text-2xs text-text-muted mt-2">판매자의 견적을 기다리는 중입니다. 아직 GOLD는 이동하지 않았습니다.</div>}
+      {o.status==='QUOTE_OFFERED' && o.total_price_gold!==null && o.total_price_gold>gold && <div className="text-xs font-bold text-warning mt-2">현재 GOLD가 부족해 견적을 수락할 수 없습니다. 필요 {formatNumber(o.total_price_gold)}G · 보유 {formatNumber(gold)}G</div>}
       {o.status==='REQUESTED' && <div className="text-2xs text-text-muted mt-2">판매자 수락 전까지는 즉시 취소·전액 환불할 수 있습니다.</div>}
       {o.status==='ACCEPTED' && <div className="text-2xs text-text-muted mt-2">판매자가 작업을 시작했습니다. 일방 취소 대신 문제가 있으면 분쟁 요청을 이용하세요.</div>}
       {o.status==='DISPUTED' && <div className="text-xs text-warning mt-2">교사 확인 대기 중입니다. 보류된 GOLD는 아직 판매자에게 지급되지 않았습니다.</div>}
@@ -270,13 +313,17 @@ function BuyerOrders({ items, myReviews, studentNames, busy, onDone }: { items: 
     </div>)}
 
     <Modal isOpen={!!action} onClose={()=>setAction(null)}
-      title={action?.type==='CANCEL'?'주문 취소':action?.type==='REVISION'?'수정 요청':'분쟁/취소 요청'} emoji="⚠️">
+      title={action?.type==='CANCEL'?'주문/견적 취소':action?.type==='DECLINE_QUOTE'?'견적 거절':action?.type==='REVISION'?'수정 요청':'분쟁/취소 요청'} emoji="⚠️">
       {action && <div className="space-y-3">
         <p className="text-sm text-text-secondary">
-          {action.type==='CANCEL'?'판매자가 아직 수락하지 않은 주문입니다. 취소하면 보류된 GOLD가 즉시 환불됩니다.':'상대방과 교사가 상황을 이해할 수 있도록 이유를 적어주세요.'}
+          {action.type==='CANCEL'
+            ? action.order.pricing_mode==='QUOTE' ? '아직 결제 전 견적 단계입니다. 취소해도 GOLD 이동이나 환불 transaction은 발생하지 않습니다.' : '판매자가 아직 수락하지 않은 주문입니다. 취소하면 보류된 GOLD가 즉시 환불됩니다.'
+            : action.type==='DECLINE_QUOTE'
+              ? '제안된 견적을 거절하면 거래가 종료되며 GOLD는 이동하지 않습니다.'
+              : '상대방과 교사가 상황을 이해할 수 있도록 이유를 적어주세요.'}
         </p>
-        {action.type!=='CANCEL' && <textarea rows={4} maxLength={500} className="input-field w-full resize-none" value={reason} onChange={(e)=>setReason(e.target.value)} placeholder="사유를 2자 이상 입력" />}
-        <button className="btn-primary w-full" disabled={actionBusy||(action.type!=='CANCEL'&&reason.trim().length<2)}
+        {(action.type==='REVISION'||action.type==='DISPUTE') && <textarea rows={4} maxLength={500} className="input-field w-full resize-none" value={reason} onChange={(e)=>setReason(e.target.value)} placeholder="사유를 2자 이상 입력" />}
+        <button className="btn-primary w-full" disabled={actionBusy||((action.type==='REVISION'||action.type==='DISPUTE')&&reason.trim().length<2)}
           onClick={()=>run(action.order,action.type)}>확정</button>
       </div>}
     </Modal>
@@ -286,20 +333,52 @@ function BuyerOrders({ items, myReviews, studentNames, busy, onDone }: { items: 
 function SellerOrders({ items, busy, onDone }: { items: ServiceSaleOrder[]; busy:boolean; onDone:()=>void }) {
   const { call, isLoading: rpcLoading } = useRpcCall();
   const actionBusy = busy || rpcLoading;
-  const [action,setAction] = useState<{order:ServiceSaleOrder;type:'REJECT'|'CANCEL'|'DELIVER'}|null>(null);
+  const [action,setAction] = useState<{order:ServiceSaleOrder;type:'REJECT'|'CANCEL'|'DELIVER'|'OFFER_QUOTE'}|null>(null);
   const [text,setText] = useState('');
+  const [quoteUnitPrice,setQuoteUnitPrice] = useState(1);
+  const [quoteQuantity,setQuoteQuantity] = useState(1);
 
   const sellerAction = async (order:ServiceSaleOrder,type:'ACCEPT'|'REJECT'|'CANCEL') => {
     if ((type==='REJECT'||type==='CANCEL') && text.trim().length<2) return;
+    const quotePreEscrow = order.pricing_mode==='QUOTE' && (order.status==='QUOTE_REQUESTED'||order.status==='QUOTE_OFFERED');
     await call(()=>secondaryJobServiceStudentRpc.sellerAction(supabase,{p_order_id:order.id,p_action:type,p_reason:text.trim()||null}),{
-      successTitle:type==='ACCEPT'?'주문 수락 완료':type==='REJECT'?'주문 거절 및 환불 완료':'주문 취소 및 환불 완료',
+      successTitle:type==='ACCEPT'
+        ? '주문 수락 완료'
+        : type==='REJECT'
+          ? quotePreEscrow ? '견적 요청 거절 완료' : '주문 거절 및 환불 완료'
+          : quotePreEscrow ? '견적 진행 취소 완료' : '주문 취소 및 환불 완료',
       onSuccess:()=>{setAction(null);setText('');onDone();},
     });
   };
+
   const deliver = async (order:ServiceSaleOrder) => {
     if (text.trim().length<10) return;
     await call(()=>secondaryJobServiceStudentRpc.deliver(supabase,{p_order_id:order.id,p_delivery_text:text}),{
       successTitle:'납품 완료',
+      onSuccess:()=>{setAction(null);setText('');onDone();},
+    });
+  };
+
+  const openQuote = (order: ServiceSaleOrder) => {
+    setAction({order,type:'OFFER_QUOTE'});
+    setQuoteUnitPrice(order.unit_price_gold ?? 1);
+    setQuoteQuantity(order.quantity ?? order.requested_quantity ?? 1);
+    setText(order.seller_quote_note ?? '');
+  };
+
+  const offerQuote = async (order: ServiceSaleOrder) => {
+    const total = quoteUnitPrice * quoteQuantity;
+    if (!Number.isInteger(quoteUnitPrice)||quoteUnitPrice<1||quoteUnitPrice>1_000_000) return;
+    if (!Number.isInteger(quoteQuantity)||quoteQuantity<1||quoteQuantity>1_000_000) return;
+    if (total<1||total>1_000_000) return;
+    await call(()=>secondaryJobServiceStudentRpc.offerQuote(supabase,{
+      p_order_id:order.id,
+      p_unit_price_gold:quoteUnitPrice,
+      p_quantity:quoteQuantity,
+      p_seller_note:text.trim()||null,
+    }),{
+      successTitle:order.status==='QUOTE_OFFERED'?'견적 재제안 완료':'견적 제안 완료',
+      successDescription:`총 ${formatNumber(total)} GOLD 견적을 보냈습니다. 구매자가 수락하기 전까지 GOLD는 이동하지 않습니다.`,
       onSuccess:()=>{setAction(null);setText('');onDone();},
     });
   };
@@ -312,10 +391,25 @@ function SellerOrders({ items, busy, onDone }: { items: ServiceSaleOrder[]; busy
         <span className={cn('text-xs font-black',STATUS_CLASS[o.status])}>{STATUS_LABEL[o.status]}</span>
       </div>
       <div className="text-xs text-text-secondary mt-3 whitespace-pre-wrap"><b className="text-white">구매자 요청</b><br/>{o.buyer_request}</div>
-      <div className="text-xs text-gold font-bold mt-2">거래금액 {formatNumber(o.price_gold)} GOLD</div>
+      {o.buyer_note && <div className="mt-2 whitespace-pre-wrap rounded-card-sm bg-bg-deep p-2.5 text-xs text-text-secondary"><b className="text-white">구매자 추가 메모</b><br/>{o.buyer_note}</div>}
+      <div className="text-xs text-gold font-bold mt-2">{orderPriceSummary(o)}</div>
+      {o.pricing_mode==='QUOTE' && o.requested_quantity && <div className="mt-1 text-xs text-text-secondary">희망 수량 {formatNumber(o.requested_quantity)}{o.quantity_unit}</div>}
+      {o.status==='QUOTE_OFFERED' && <div className="mt-3 rounded-card-sm border border-gold/30 bg-gold/5 p-3 text-xs">
+        <div className="font-black text-gold">현재 제안 · 총 {formatNumber(o.total_price_gold ?? 0)} GOLD</div>
+        <div className="mt-1 text-text-secondary">단가 {formatNumber(o.unit_price_gold ?? 0)} GOLD / {o.quantity_unit} · 수량 {formatNumber(o.quantity ?? 0)}{o.quantity_unit}</div>
+        {o.seller_quote_note && <div className="mt-1 whitespace-pre-wrap text-text-secondary">메모: {o.seller_quote_note}</div>}
+      </div>}
       {o.status_reason && <div className="text-xs text-warning mt-2">사유/안내: {o.status_reason}</div>}
       {o.latest_delivery && <div className="bg-bg-deep rounded-card-sm p-2.5 mt-2 text-xs whitespace-pre-wrap">최근 납품 #{o.current_revision}<br/>{o.latest_delivery}</div>}
       <div className="flex flex-wrap gap-2 mt-3">
+        {o.status==='QUOTE_REQUESTED' && <>
+          <button className="btn-primary" disabled={actionBusy} onClick={()=>openQuote(o)}>견적 제안</button>
+          <button className="btn-secondary text-danger" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'REJECT'});setText('');}}>요청 거절</button>
+        </>}
+        {o.status==='QUOTE_OFFERED' && <>
+          <button className="btn-primary" disabled={actionBusy} onClick={()=>openQuote(o)}>견적 다시 제안</button>
+          <button className="btn-secondary text-danger" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'CANCEL'});setText('');}}>견적 취소</button>
+        </>}
         {o.status==='REQUESTED' && <>
           <button className="btn-primary" disabled={actionBusy} onClick={()=>sellerAction(o,'ACCEPT')}>주문 수락</button>
           <button className="btn-secondary" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'REJECT'});setText('');}}>거절</button>
@@ -325,18 +419,38 @@ function SellerOrders({ items, busy, onDone }: { items: ServiceSaleOrder[]; busy
           <button className="btn-secondary text-danger" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'CANCEL'});setText('');}}>판매 취소</button>
         </>}
       </div>
+      {o.status==='QUOTE_REQUESTED' && <div className="text-2xs text-text-muted mt-2">견적을 제안하기 전에는 구매자의 GOLD가 이동하지 않습니다.</div>}
+      {o.status==='QUOTE_OFFERED' && <div className="text-2xs text-text-muted mt-2">구매자가 견적을 수락하면 바로 ACCEPTED 상태가 되며 총액이 escrow로 보류됩니다.</div>}
       {o.status==='DELIVERED' && <div className="text-2xs text-text-muted mt-2">구매자의 구매 확정 또는 수정 요청을 기다리는 중입니다.</div>}
       {o.status==='DISPUTED' && <div className="text-xs text-warning mt-2">분쟁이 접수되어 교사 확인을 기다리고 있습니다.</div>}
     </div>)}
 
     <Modal isOpen={!!action} onClose={()=>setAction(null)}
-      title={action?.type==='DELIVER'?'서비스 납품':action?.type==='REJECT'?'주문 거절':'판매 취소'} emoji={action?.type==='DELIVER'?'📦':'⚠️'}>
-      {action && <div className="space-y-3">
+      title={action?.type==='DELIVER'?'서비스 납품':action?.type==='OFFER_QUOTE'?'서비스 견적 제안':action?.type==='REJECT'?'주문/견적 거절':'판매/견적 취소'} emoji={action?.type==='DELIVER'?'📦':action?.type==='OFFER_QUOTE'?'💬':'⚠️'}>
+      {action && action.type==='OFFER_QUOTE' ? <div className="space-y-3">
+        <div className="rounded-card-md bg-bg-deep p-3 text-xs text-text-secondary">
+          구매자 희망 수량 · <b className="text-white">{formatNumber(action.order.requested_quantity ?? 1)}{action.order.quantity_unit}</b>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block"><span className="text-xs font-bold text-text-secondary">제안 단가 (GOLD / {action.order.quantity_unit})</span><input type="number" min={1} max={1_000_000} className="input-field mt-1 w-full" value={quoteUnitPrice} onChange={(e)=>setQuoteUnitPrice(Number(e.target.value))}/></label>
+          <label className="block"><span className="text-xs font-bold text-text-secondary">제안 수량 ({action.order.quantity_unit})</span><input type="number" min={1} max={1_000_000} className="input-field mt-1 w-full" value={quoteQuantity} onChange={(e)=>setQuoteQuantity(Number(e.target.value))}/></label>
+        </div>
+        <div className="rounded-card-md border border-gold/25 bg-gold/5 p-3">
+          <div className="text-2xs font-black text-text-muted">총 견적금액</div>
+          <div className="mt-1 font-display text-xl text-gold">{formatNumber(quoteUnitPrice*quoteQuantity)} GOLD</div>
+        </div>
+        <textarea rows={4} maxLength={500} className="input-field w-full resize-none" value={text} onChange={(e)=>setText(e.target.value)} placeholder="판매자 메모 (선택, 최대 500자)"/>
+        <div className="text-xs text-text-muted">견적 제안만으로는 GOLD가 이동하지 않습니다.</div>
+        <button className="btn-primary w-full" disabled={actionBusy||!Number.isInteger(quoteUnitPrice)||quoteUnitPrice<1||!Number.isInteger(quoteQuantity)||quoteQuantity<1||quoteUnitPrice*quoteQuantity>1_000_000} onClick={()=>offerQuote(action.order)}>견적 보내기</button>
+      </div> : action && <div className="space-y-3">
         <textarea rows={5} maxLength={action.type==='DELIVER'?2000:500} className="input-field w-full resize-none"
           value={text} onChange={(e)=>setText(e.target.value)}
           placeholder={action.type==='DELIVER'?'완료한 내용, 전달 방법 등을 10자 이상 적어주세요.':'사유를 2자 이상 적어주세요.'} />
         <button className="btn-primary w-full" disabled={actionBusy||text.trim().length<(action.type==='DELIVER'?10:2)}
-          onClick={()=>action.type==='DELIVER'?deliver(action.order):sellerAction(action.order,action.type)}>확정</button>
+          onClick={()=>{
+            if(action.type==='DELIVER') return deliver(action.order);
+            if(action.type==='REJECT'||action.type==='CANCEL') return sellerAction(action.order,action.type);
+          }}>확정</button>
       </div>}
     </Modal>
   </div>;
@@ -367,7 +481,10 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
   const [subtitle,setSubtitle] = useState('');
   const [category,setCategory] = useState<ServiceCategory|''>('');
   const [desc,setDesc] = useState('');
+  const [pricingMode,setPricingMode] = useState<ServicePricingMode>('FIXED');
   const [price,setPrice] = useState(100);
+  const [quantityUnit,setQuantityUnit] = useState('회');
+  const [options,setOptions] = useState<ServiceOptionInput[]>([]);
   const [delivery,setDelivery] = useState('');
   const [allowConcurrent,setAllowConcurrent] = useState(false);
   const [deleteTarget,setDeleteTarget] = useState<MyServiceItem|null>(null);
@@ -375,15 +492,54 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
   const [adPickerOpen,setAdPickerOpen] = useState(false);
   const [adDuration,setAdDuration] = useState<1|2|3>(1);
 
-  const openNew=()=>{setForm('NEW');setJobId(jobs[0]?.id??0);setTitle('');setSubtitle('');setCategory('');setDesc('');setPrice(100);setDelivery('');setAllowConcurrent(false);};
-  const openEdit=(s:MyServiceItem)=>{setForm(s);setJobId(s.secondary_job_id);setTitle(s.title);setSubtitle(s.subtitle??'');setCategory(s.service_category??'');setDesc(s.description);setPrice(s.price_gold);setDelivery(s.delivery_note??'');setAllowConcurrent(s.allow_concurrent_orders);};
+  const openNew=()=>{
+    setForm('NEW');setJobId(jobs[0]?.id??0);setTitle('');setSubtitle('');setCategory('');setDesc('');
+    setPricingMode('FIXED');setPrice(100);setQuantityUnit('회');setOptions([]);setDelivery('');setAllowConcurrent(false);
+  };
+  const openEdit=(s:MyServiceItem)=>{
+    setForm(s);setJobId(s.secondary_job_id);setTitle(s.title);setSubtitle(s.subtitle??'');setCategory(s.service_category??'');setDesc(s.description);
+    setPricingMode(s.pricing_mode);setPrice(s.price_gold??100);setQuantityUnit(s.quantity_unit||'회');
+    setOptions(s.options.map((option)=>({name:option.name,price_gold:option.price_gold,is_active:option.is_active})));
+    setDelivery(s.delivery_note??'');setAllowConcurrent(s.allow_concurrent_orders);
+  };
+
+  const normalizedOptions = options.map((option)=>({
+    name:option.name.trim(),
+    price_gold:Math.trunc(Number(option.price_gold)),
+    is_active:option.is_active!==false,
+  }));
+  const optionNames = normalizedOptions.map((option)=>option.name);
+  const optionsValid = pricingMode!=='OPTION' || (
+    normalizedOptions.length>=1 && normalizedOptions.length<=20
+    && normalizedOptions.some((option)=>option.is_active)
+    && normalizedOptions.every((option)=>option.name.length>=1&&option.name.length<=40&&Number.isInteger(option.price_gold)&&option.price_gold>=1&&option.price_gold<=1_000_000)
+    && new Set(optionNames).size===optionNames.length
+  );
+  const priceValid = pricingMode!=='FIXED' || (Number.isInteger(price)&&price>=1&&price<=1_000_000);
+  const unitValid = quantityUnit.trim().length>=1&&quantityUnit.trim().length<=20;
+  const formValid = !!jobId
+    && title.trim().length>=2&&title.trim().length<=24
+    && subtitle.trim().length>=2&&subtitle.trim().length<=40
+    && !!category
+    && desc.trim().length>=10&&desc.trim().length<=2000
+    && priceValid&&unitValid&&optionsValid;
 
   const save=async()=>{
     const existing=form!=='NEW'&&form?form:null;
-    if (!jobId||title.trim().length<2||title.trim().length>24||subtitle.trim().length<2||subtitle.trim().length>40||!category||desc.trim().length<10||desc.trim().length>2000||price<1) return;
+    if (!formValid || !category) return;
     await call(()=>secondaryJobServiceStudentRpc.upsertService(supabase,{
-      p_service_id:existing?.id??null,p_secondary_job_id:jobId,p_title:title,p_subtitle:subtitle,p_description:desc,
-      p_service_category:category,p_price_gold:price,p_delivery_note:delivery,p_is_active:existing?.is_active??true,
+      p_service_id:existing?.id??null,
+      p_secondary_job_id:jobId,
+      p_title:title,
+      p_subtitle:subtitle,
+      p_description:desc,
+      p_service_category:category,
+      p_pricing_mode:pricingMode,
+      p_price_gold:pricingMode==='FIXED'?price:null,
+      p_quantity_unit:quantityUnit,
+      p_options:pricingMode==='OPTION'?normalizedOptions:[],
+      p_delivery_note:delivery,
+      p_is_active:existing?.is_active??true,
       p_allow_concurrent_orders:allowConcurrent,
     }),{successTitle:existing?'서비스 수정 완료':'서비스 등록 완료',onSuccess:()=>{setForm(null);onDone();}});
   };
@@ -441,6 +597,7 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
 
   const feeOptions=adBoard?.fee_options ?? [];
   const selectedFee=feeOptions.find((x)=>x.duration_days===adDuration)?.fee_gold ?? null;
+  const unitPreset = QUANTITY_UNIT_PRESETS.includes(quantityUnit as (typeof QUANTITY_UNIT_PRESETS)[number]) ? quantityUnit : 'CUSTOM';
 
   return <>
     <MySellerReputationCard reputation={reputation} />
@@ -483,7 +640,7 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
           <div className="min-w-0">
             <div className="truncate text-xs font-black text-white">{openAd.service_title}</div>
             <div className="mt-0.5 text-2xs text-text-muted">
-              {openAd.duration_days}일 · {formatNumber(openAd.fee_gold)} GOLD
+              {servicePriceSummary(openAd)} · {openAd.duration_days}일 · {formatNumber(openAd.fee_gold)} GOLD
               {openAd.status==='ACTIVE' && openAd.ends_at ? ` · ${dt(openAd.ends_at)}까지` : ' · 교사 승인 대기'}
             </div>
           </div>
@@ -495,7 +652,7 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
     </div>
 
     <div className="flex items-center justify-between gap-3">
-      <div><h3 className="font-display text-lg text-white">내 판매 서비스</h3><p className="text-xs text-text-secondary">활성 2차직업을 서비스 상품으로 등록합니다.</p></div>
+      <div><h3 className="font-display text-lg text-white">내 판매 서비스</h3><p className="text-xs text-text-secondary">고정가격·옵션가격·견적형으로 서비스를 등록할 수 있습니다.</p></div>
       <button className="btn-primary" onClick={openNew} disabled={actionBusy||jobs.length===0}>+ 서비스 등록</button>
     </div>
     {jobs.length===0 && <div className="text-xs text-warning">활성 2차직업이 없어 등록 버튼이 비활성화되었습니다.</div>}
@@ -505,10 +662,10 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
         const canRequestAd=!!adBoard?.can_submit && s.is_active && !thisOpenAd;
         return <div key={s.id} className="bg-bg-card border border-line rounded-card-md p-3.5">
           <div className="flex justify-between gap-2"><div><div className="text-2xs text-brand-glow font-black">{s.job_name}</div><div className="font-display text-base text-white">{s.title}</div></div><span className={cn('text-2xs font-black',s.is_active?'text-success':'text-text-muted')}>{s.is_active?'판매중':'일시정지'}</span></div>
-          <div className="text-sm text-gold font-black mt-2">🪙 {formatNumber(s.price_gold)}</div>
-          <div className="text-[11px] font-bold text-text-muted mt-1">{s.allow_concurrent_orders?'👥 동시 주문 허용':'👤 1명씩 주문'}</div>
+          <div className="text-sm text-gold font-black mt-2">🪙 {servicePriceSummary(s)}</div>
+          <div className="text-[11px] font-bold text-text-muted mt-1">{s.pricing_mode==='QUOTE'?'💬 견적형':s.pricing_mode==='OPTION'?'🧩 옵션가격':'🏷️ 고정가격'} · {s.allow_concurrent_orders?'👥 동시 주문 허용':'👤 1명씩 주문'}</div>
           <p className="text-xs text-text-secondary mt-2 line-clamp-3">{s.description}</p>
-          {s.active_orders>0 && <div className="text-xs text-warning mt-2">진행 중 주문 {s.active_orders}건</div>}
+          {(s.active_orders>0||s.open_quote_requests>0) && <div className="text-xs text-warning mt-2">진행 주문 {s.active_orders}건{s.open_quote_requests>0?` · 열린 견적 ${s.open_quote_requests}건`:''}</div>}
           {thisOpenAd && (
             <div className={cn(
               'mt-2 rounded-card-sm border px-2 py-1.5 text-[11px] font-black',
@@ -531,7 +688,7 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
       })}
     </div>}
 
-    <Modal isOpen={form!==null} onClose={()=>setForm(null)} title={form==='NEW'?'서비스 등록':'서비스 수정'} emoji="🧰">
+    <Modal isOpen={form!==null} onClose={()=>setForm(null)} title={form==='NEW'?'서비스 등록':'서비스 수정'} emoji="🧰" size="lg">
       <div className="space-y-3">
         <label className="block"><span className="text-xs font-bold text-text-secondary">연결할 2차직업</span>
           <select className="input-field w-full mt-1" value={jobId} onChange={(e)=>setJobId(Number(e.target.value))}>
@@ -555,24 +712,71 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
           <span className="flex items-center justify-between text-xs font-bold text-text-secondary"><span>상세 설명</span><span className="text-text-muted">{desc.trim().length}/2000</span></span>
           <textarea rows={6} maxLength={2000} placeholder="실제 서비스 내용과 조건을 자세히 안내" className="input-field w-full mt-1 resize-none" value={desc} onChange={(e)=>setDesc(e.target.value)} />
         </label>
-        <label className="block"><span className="text-xs font-bold text-text-secondary">가격 GOLD</span><input type="number" min={1} max={1000000} className="input-field w-full mt-1" value={price} onChange={(e)=>setPrice(Number(e.target.value))} /></label>
+
+        <div>
+          <div className="mb-1.5 text-xs font-bold text-text-secondary">가격 방식</div>
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              ['FIXED','고정가격','정해진 단가 × 수량'],
+              ['OPTION','옵션가격','옵션별 단가 × 수량'],
+              ['QUOTE','견적형','요청 후 판매자가 가격 제안'],
+            ] as const).map(([mode,label,help])=><button key={mode} type="button" onClick={()=>setPricingMode(mode)} className={cn('rounded-card-md border p-3 text-left',pricingMode===mode?'border-gold bg-gold/10':'border-line bg-bg-deep')}>
+              <div className="text-xs font-black text-white">{label}</div><div className="mt-1 text-[10px] leading-4 text-text-muted">{help}</div>
+            </button>)}
+          </div>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="block"><span className="text-xs font-bold text-text-secondary">수량 단위</span>
+            <select className="input-field w-full mt-1" value={unitPreset} onChange={(e)=>{
+              const value=e.target.value;
+              if(value==='CUSTOM'){
+                if(QUANTITY_UNIT_PRESETS.includes(quantityUnit as (typeof QUANTITY_UNIT_PRESETS)[number]))setQuantityUnit('');
+              }else setQuantityUnit(value);
+            }}>
+              {QUANTITY_UNIT_PRESETS.map((unit)=><option key={unit} value={unit}>{unit}</option>)}
+              <option value="CUSTOM">직접 입력</option>
+            </select>
+          </label>
+          {unitPreset==='CUSTOM' ? <label className="block"><span className="text-xs font-bold text-text-secondary">직접 입력 단위 (1~20자)</span><input maxLength={20} placeholder="예: 장, 페이지" className="input-field w-full mt-1" value={quantityUnit} onChange={(e)=>setQuantityUnit(e.target.value)}/></label> : <div className="rounded-card-md bg-bg-deep p-3 text-xs text-text-secondary"><div className="text-2xs font-black text-text-muted">표시 예시</div><div className="mt-1">수량 3{quantityUnit}</div></div>}
+        </div>
+
+        {pricingMode==='FIXED' && <label className="block"><span className="text-xs font-bold text-text-secondary">단가 GOLD / {quantityUnit||'단위'}</span><input type="number" min={1} max={1000000} className="input-field w-full mt-1" value={price} onChange={(e)=>setPrice(Number(e.target.value))} /></label>}
+
+        {pricingMode==='OPTION' && <div className="rounded-card-md border border-line bg-bg-deep p-3">
+          <div className="flex items-center justify-between gap-2"><div><div className="text-xs font-black text-white">가격 옵션</div><div className="mt-0.5 text-[10px] text-text-muted">1~20개 · 활성 옵션이 최소 1개 필요합니다.</div></div><button type="button" className="btn-secondary" disabled={options.length>=20} onClick={()=>setOptions((current)=>[...current,{name:'',price_gold:100,is_active:true}])}>+ 옵션</button></div>
+          <div className="mt-3 space-y-2">
+            {options.map((option,index)=><div key={index} className="grid grid-cols-[1fr_110px_auto_auto] items-end gap-2 rounded-card-sm border border-line/70 bg-bg-card p-2.5">
+              <label className="block"><span className="text-[10px] font-bold text-text-muted">옵션명</span><input maxLength={40} className="input-field mt-1 w-full" value={option.name} onChange={(e)=>setOptions((current)=>current.map((item,i)=>i===index?{...item,name:e.target.value}:item))}/></label>
+              <label className="block"><span className="text-[10px] font-bold text-text-muted">단가</span><input type="number" min={1} max={1_000_000} className="input-field mt-1 w-full" value={option.price_gold} onChange={(e)=>setOptions((current)=>current.map((item,i)=>i===index?{...item,price_gold:Number(e.target.value)}:item))}/></label>
+              <button type="button" className={cn('rounded-pill border px-2 py-2 text-[10px] font-black',option.is_active!==false?'border-success/30 bg-success-bg text-success':'border-line text-text-muted')} onClick={()=>setOptions((current)=>current.map((item,i)=>i===index?{...item,is_active:item.is_active===false}:item))}>{option.is_active!==false?'활성':'비활성'}</button>
+              <button type="button" className="btn-secondary text-danger" onClick={()=>setOptions((current)=>current.filter((_,i)=>i!==index))}>삭제</button>
+            </div>)}
+            {!options.length && <div className="py-3 text-center text-xs text-warning">옵션을 1개 이상 추가해주세요.</div>}
+          </div>
+        </div>}
+
+        {pricingMode==='QUOTE' && <div className="rounded-card-md border border-gold/25 bg-gold/5 p-3 text-xs leading-5 text-text-secondary">
+          구매자가 요청 내용과 희망 수량을 보내면 판매자가 단가·수량을 제안합니다. <b className="text-white">구매자가 견적을 수락하기 전까지는 GOLD가 이동하지 않습니다.</b>
+        </div>}
+
         <label className="block"><span className="text-xs font-bold text-text-secondary">예상 소요 안내 (선택)</span><input maxLength={100} placeholder="예: 쉬는시간 2번 정도 / 오늘 안에" className="input-field w-full mt-1" value={delivery} onChange={(e)=>setDelivery(e.target.value)} /></label>
         <div>
           <div className="text-xs font-bold text-text-secondary mb-1.5">동시 주문 방식</div>
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={()=>setAllowConcurrent(false)} className={cn('rounded-card-md border p-3 text-left',!allowConcurrent?'border-brand-primary bg-brand-primary/15':'border-line bg-bg-deep')}>
               <div className="text-xs font-black text-white">👤 한 번에 1명</div>
-              <div className="text-[11px] text-text-muted mt-1">진행 중 주문이 끝나야 다른 학생이 주문할 수 있어요.</div>
+              <div className="text-[11px] text-text-muted mt-1">실제 결제된 진행 주문을 한 번에 1건만 처리해요.</div>
             </button>
             <button type="button" onClick={()=>setAllowConcurrent(true)} className={cn('rounded-card-md border p-3 text-left',allowConcurrent?'border-brand-primary bg-brand-primary/15':'border-line bg-bg-deep')}>
               <div className="text-xs font-black text-white">👥 여러 명 동시</div>
-              <div className="text-[11px] text-text-muted mt-1">서로 다른 학생이 동시에 주문을 넣을 수 있어요.</div>
+              <div className="text-[11px] text-text-muted mt-1">서로 다른 학생의 결제 주문을 동시에 처리할 수 있어요.</div>
             </button>
           </div>
-          <div className="text-[11px] text-text-muted mt-1.5">같은 학생이 같은 서비스에 진행 중 주문을 중복으로 넣는 것은 두 방식 모두 차단됩니다.</div>
+          <div className="text-[11px] text-text-muted mt-1.5">견적 요청/제안 단계는 아직 결제 전이라 처리 용량을 차지하지 않습니다. 같은 학생의 같은 서비스 중복 요청은 항상 차단됩니다.</div>
         </div>
-        <button className="btn-primary w-full" onClick={save} disabled={actionBusy||!jobId||title.trim().length<2||title.trim().length>24||subtitle.trim().length<2||subtitle.trim().length>40||!category||desc.trim().length<10||desc.trim().length>2000||price<1}>저장</button>
-        {(title.trim().length<2||title.trim().length>24||subtitle.trim().length<2||subtitle.trim().length>40||!category||desc.trim().length<10||desc.trim().length>2000||price<1) && <div className="text-xs text-warning text-center">제목 2~24자, 부제목 2~40자, 카테고리 선택, 상세 설명 10~2000자, 가격 1 GOLD+ 조건을 확인해주세요.</div>}
+        <button className="btn-primary w-full" onClick={save} disabled={actionBusy||!formValid}>저장</button>
+        {!formValid && <div className="text-xs text-warning text-center">제목·부제목·카테고리·상세설명·수량단위와 현재 가격 방식의 필수값을 확인해주세요.</div>}
       </div>
     </Modal>
 
@@ -592,7 +796,7 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
           >
             <div className="text-2xs font-black text-brand-glow">{service.job_name}</div>
             <div className="mt-0.5 font-display text-sm text-white">{service.title}</div>
-            <div className="mt-1 text-xs font-black text-gold">🪙 {formatNumber(service.price_gold)}</div>
+            <div className="mt-1 text-xs font-black text-gold">🪙 {servicePriceSummary(service)}</div>
           </button>
         ))}
       </div>
@@ -604,7 +808,7 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
           <div className="rounded-card-md bg-bg-deep p-3">
             <div className="text-2xs font-black text-brand-glow">{adTarget.job_name}</div>
             <div className="mt-0.5 font-display text-base text-white">{adTarget.title}</div>
-            <div className="mt-1 text-xs text-text-secondary">서비스 가격 · {formatNumber(adTarget.price_gold)} GOLD</div>
+            <div className="mt-1 text-xs text-text-secondary">서비스 가격 · {servicePriceSummary(adTarget)}</div>
           </div>
 
           <div>

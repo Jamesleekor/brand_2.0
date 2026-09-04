@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import type { RpcResult } from '@/lib/rpc/student_rpc';
 import { validateInput } from '@/lib/zod_schemas/student_schemas';
+import type { ServicePricingMode } from '@/lib/zod_schemas/secondary_job_service_schemas';
 
 const NoArgsSchema = z.object({}).strict();
 
@@ -69,11 +70,18 @@ export type ServiceAdFeeOption = {
   fee_gold: number;
 };
 
-export type MyServiceAd = {
+export type ServiceAdPricingFields = {
+  service_price_gold: number | null;
+  pricing_mode: ServicePricingMode;
+  quantity_unit: string;
+  price_min_gold: number | null;
+  price_max_gold: number | null;
+};
+
+export type MyServiceAd = ServiceAdPricingFields & {
   id: number;
   service_id: number;
   service_title: string;
-  service_price_gold: number;
   job_name: string;
   duration_days: 1 | 2 | 3;
   fee_gold: number;
@@ -103,13 +111,12 @@ export type StudentServiceAdMutationResult = {
   ends_at?: string;
 };
 
-export type TeacherServiceAd = {
+export type TeacherServiceAd = ServiceAdPricingFields & {
   id: number;
   student_id: number;
   seller_name: string;
   service_id: number;
   service_title: string;
-  service_price_gold: number;
   job_name: string;
   duration_days: 1 | 2 | 3;
   fee_gold: number;
@@ -128,14 +135,13 @@ export type TeacherServiceAdBoard = {
   ads: TeacherServiceAd[];
 };
 
-export type HomeServiceAd = {
+export type HomeServiceAd = ServiceAdPricingFields & {
   ad_id: number;
   service_id: number;
   seller_student_id: number;
   seller_name: string;
   job_name: string;
   service_title: string;
-  service_price_gold: number;
   ends_at: string;
 };
 

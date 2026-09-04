@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
 import { formatNumber } from '@/lib/utils/format';
+import { orderPriceSummary, servicePriceSummary } from '@/lib/utils/secondary_job_service_pricing';
 import {
   secondaryJobServiceTeacherRpc,
   type TeacherServiceOrder,
@@ -18,10 +19,11 @@ import {
 import type { ServiceOrderStatus } from '@/lib/zod_schemas/secondary_job_service_schemas';
 
 const STATUS_LABEL: Record<ServiceOrderStatus,string> = {
+  QUOTE_REQUESTED:'견적 요청중', QUOTE_OFFERED:'견적 제안됨',
   REQUESTED:'판매자 확인 대기', ACCEPTED:'작업 중', DELIVERED:'납품 완료', REVISION_REQUESTED:'수정 요청',
   COMPLETED:'완료', REJECTED:'거절', CANCELLED:'취소', DISPUTED:'분쟁',
 };
-const ACTIVE = new Set<ServiceOrderStatus>(['REQUESTED','ACCEPTED','DELIVERED','REVISION_REQUESTED','DISPUTED']);
+const ACTIVE = new Set<ServiceOrderStatus>(['QUOTE_REQUESTED','QUOTE_OFFERED','REQUESTED','ACCEPTED','DELIVERED','REVISION_REQUESTED','DISPUTED']);
 
 const AD_STATUS_LABEL: Record<TeacherServiceAd['status'],string> = {
   PENDING:'승인 대기',
@@ -99,10 +101,12 @@ export default function SecondaryJobServiceAdmin(){
 
   const runResolve=async()=>{
     if(!resolve||reason.trim().length<2)return;
+    const preEscrowQuote=resolve.order.pricing_mode==='QUOTE'&&resolve.order.escrow_transaction_id===null;
     await call(()=>secondaryJobServiceTeacherRpc.resolve(supabase,{
       p_order_id:resolve.order.id,p_action:resolve.action,p_reason:reason,
     }),{
-      successTitle:resolve.action==='REFUND'?'구매자 환불 처리 완료':'판매자 지급 확정 완료',
+      successTitle:resolve.action==='REFUND'?(preEscrowQuote?'견적 거래 종료 완료':'구매자 환불 처리 완료'):'판매자 지급 확정 완료',
+      successDescription:preEscrowQuote?'결제 전 견적 단계이므로 GOLD 이동이나 환불 transaction 없이 종료되었습니다.':undefined,
       onSuccess:()=>{setResolve(null);setReason('');refresh();},
     });
   };
@@ -168,7 +172,7 @@ export default function SecondaryJobServiceAdmin(){
             </div>
             <div className="text-right">
               <div className={cn('text-xs font-black',o.status==='DISPUTED'?'text-danger':o.status==='COMPLETED'?'text-success':'text-warning')}>{STATUS_LABEL[o.status]}</div>
-              <div className="font-display text-sm text-gold mt-1">🪙 {formatNumber(o.price_gold)}</div>
+              <div className="font-display text-sm text-gold mt-1">🪙 {orderPriceSummary(o)}</div>
             </div>
           </div>
 
@@ -197,10 +201,10 @@ export default function SecondaryJobServiceAdmin(){
           </details>
 
           {ACTIVE.has(o.status)&&<div className="flex flex-wrap gap-2 mt-3">
-            <button className="btn-secondary text-danger" disabled={isLoading} onClick={()=>{setResolve({order:o,action:'REFUND'});setReason('');}}>구매자 환불 / 거래 종료</button>
+            <button className="btn-secondary text-danger" disabled={isLoading} onClick={()=>{setResolve({order:o,action:'REFUND'});setReason('');}}>{o.escrow_transaction_id===null?'견적 종료 (자산 이동 없음)':'구매자 환불 / 거래 종료'}</button>
             {(o.status==='DELIVERED'||o.status==='DISPUTED')&&<button className="btn-primary" disabled={isLoading} onClick={()=>{setResolve({order:o,action:'PAY_SELLER'});setReason('');}}>판매자 지급 확정</button>}
           </div>}
-          {ACTIVE.has(o.status)&&<div className="text-2xs text-text-muted mt-2">버튼을 숨기지 않습니다. 판매자 지급은 납품 완료 또는 분쟁 상태에서만 가능합니다.</div>}
+          {ACTIVE.has(o.status)&&<div className="text-2xs text-text-muted mt-2">{o.escrow_transaction_id===null?'아직 결제 전 견적 단계이므로 종료해도 환불 transaction이 생기지 않습니다.':'판매자 지급은 납품 완료 또는 분쟁 상태에서만 가능합니다.'}</div>}
         </div>)}</div>}
     </> : <>
       <div className="rounded-card-md border border-gold/25 bg-gold/5 p-3 text-xs text-text-secondary">
@@ -217,7 +221,7 @@ export default function SecondaryJobServiceAdmin(){
               <div className="min-w-0">
                 <div className="text-2xs font-black text-brand-glow">{ad.job_name} · 광고 #{ad.id}</div>
                 <div className="mt-0.5 font-display text-base text-white">{ad.service_title}</div>
-                <div className="mt-1 text-xs text-text-secondary">판매자 <b className="text-white">{ad.seller_name}</b> · 서비스 가격 {formatNumber(ad.service_price_gold)} GOLD</div>
+                <div className="mt-1 text-xs text-text-secondary">판매자 <b className="text-white">{ad.seller_name}</b> · 서비스 가격 {servicePriceSummary(ad)}</div>
               </div>
               <div className="text-right">
                 <div className={cn('text-xs font-black',ad.status==='PENDING'?'text-warning':ad.status==='ACTIVE'?'text-success':ad.status==='REJECTED'?'text-danger':'text-text-muted')}>{AD_STATUS_LABEL[ad.status]}</div>
@@ -243,14 +247,14 @@ export default function SecondaryJobServiceAdmin(){
         </div>}
     </>}
 
-    <Modal isOpen={!!resolve} onClose={()=>setResolve(null)} title={resolve?.action==='REFUND'?'거래 환불 처리':'판매자 지급 확정'} emoji="⚖️">
+    <Modal isOpen={!!resolve} onClose={()=>setResolve(null)} title={resolve?.action==='REFUND'?(resolve.order.escrow_transaction_id===null?'견적 거래 종료':'거래 환불 처리'):'판매자 지급 확정'} emoji="⚖️">
       {resolve&&<div className="space-y-3">
         <div className="bg-bg-deep rounded-card-md p-3 text-sm">
           <div className="font-bold text-white">{resolve.order.service_title}</div>
-          <div className="text-xs text-text-secondary mt-1">{resolve.order.buyer_name} → {resolve.order.seller_name} · {formatNumber(resolve.order.price_gold)} GOLD</div>
+          <div className="text-xs text-text-secondary mt-1">{resolve.order.buyer_name} → {resolve.order.seller_name} · {orderPriceSummary(resolve.order)}</div>
         </div>
         <textarea rows={4} maxLength={500} className="input-field w-full resize-none" value={reason} onChange={(e)=>setReason(e.target.value)} placeholder="감사 이력에 남길 처리 사유를 2자 이상 입력하세요."/>
-        <button className="btn-primary w-full" disabled={isLoading||reason.trim().length<2} onClick={runResolve}>{resolve.action==='REFUND'?'환불 확정':'판매자 지급 확정'}</button>
+        <button className="btn-primary w-full" disabled={isLoading||reason.trim().length<2} onClick={runResolve}>{resolve.action==='REFUND'?(resolve.order.escrow_transaction_id===null?'견적 종료 확정':'환불 확정'):'판매자 지급 확정'}</button>
         {reason.trim().length<2&&<div className="text-xs text-warning text-center">사유 2자 이상 입력 후 버튼이 활성화됩니다.</div>}
       </div>}
     </Modal>

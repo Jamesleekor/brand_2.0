@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase/client';
 import { secondaryJobServiceAdHomeRpc } from '@/lib/rpc/secondary_job_service_ad_rpc';
 import { useClassroomId, useStudentId } from '@/stores/auth_store';
-import { formatNumber } from '@/lib/utils/format';
+import { servicePriceSummary } from '@/lib/utils/secondary_job_service_pricing';
 
 const ROTATE_MS = 8_000;
 
@@ -116,7 +116,7 @@ export function HomeServiceAdStrip() {
             {ad.service_title}
           </span>
           <span className="flex-none text-2xs font-black text-gold">
-            🪙 {formatNumber(ad.service_price_gold)}
+            🪙 {servicePriceSummary(ad)}
           </span>
         </div>
       </div>

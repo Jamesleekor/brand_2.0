@@ -1,0 +1,2980 @@
+-- B.R.A.N.D 2.0
+-- P2P 서비스 가격방식/수량/견적 확장
+-- Production APPLY
+-- 작성일: 2026-09-04
+--
+-- 목표
+--   * FIXED / OPTION / QUOTE 가격 방식
+--   * 구매 수량 / 수량 단위
+--   * 옵션 테이블
+--   * QUOTE_REQUESTED -> QUOTE_OFFERED -> ACCEPTED (buyer accept 시 escrow)
+--   * 기존 28개 서비스 / 29개 주문 호환
+--   * 기존 Guard event 경제값/fingerprint 불변
+--
+-- 중요
+--   * V3 ROLLBACK rehearsal에서 PASS한 동일 변경 본문을 적용한다.
+--   * 모든 in-transaction postcheck PASS 후에만 COMMIT한다.
+--   * 중간 오류가 발생하면 COMMIT에 도달하지 않는다.
+
+-- ============================================================
+-- 0. CURRENT PRODUCTION CONTRACT PREFLIGHT
+-- ============================================================
+DO $preflight$
+DECLARE
+  v_hash text;
+BEGIN
+  IF EXISTS(
+    WITH required(table_name,column_name) AS (
+      VALUES
+        ('students','id'),
+        ('students','classroom_id'),
+        ('students','transferred_at'),
+        ('secondary_jobs','id'),
+        ('secondary_jobs','student_id'),
+        ('secondary_jobs','classroom_id'),
+        ('secondary_jobs','is_active'),
+        ('transactions','id'),
+        ('transactions','source_id'),
+        ('secondary_job_services','id'),
+        ('secondary_job_services','price_gold'),
+        ('secondary_job_services','seller_student_id'),
+        ('secondary_job_services','secondary_job_id'),
+        ('secondary_job_service_orders','id'),
+        ('secondary_job_service_orders','price_gold_snapshot'),
+        ('secondary_job_service_orders','escrow_transaction_id')
+    )
+    SELECT 1
+    FROM required r
+    WHERE NOT EXISTS(
+      SELECT 1
+      FROM information_schema.columns c
+      WHERE c.table_schema='public'
+        AND c.table_name=r.table_name
+        AND c.column_name=r.column_name
+    )
+  ) THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: one or more required Production columns are missing.';
+  END IF;
+
+  IF to_regclass('public.secondary_job_services') IS NULL
+     OR to_regclass('public.secondary_job_service_orders') IS NULL
+     OR to_regclass('public.secondary_job_service_events') IS NULL
+     OR to_regclass('public.secondary_job_service_options') IS NOT NULL THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: relation contract mismatch.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='secondary_job_services'
+      AND column_name IN ('pricing_mode','quantity_unit')
+  ) OR EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='secondary_job_service_orders'
+      AND column_name IN (
+        'pricing_mode_snapshot','option_id_snapshot','option_name_snapshot',
+        'unit_price_gold_snapshot','quantity','requested_quantity',
+        'quantity_unit_snapshot','buyer_note','seller_quote_note',
+        'quote_offered_at','quote_accepted_at'
+      )
+  ) THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: pricing/quantity/quote columns already exist.';
+  END IF;
+
+  -- Current Production function hashes from 2026-09-04 discovery.
+  SELECT md5(pg_get_functiondef('public.student_get_secondary_job_service_market()'::regprocedure))
+  INTO v_hash;
+  IF v_hash <> '763a29516068b35b9b18fa8368bf5cac' THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: market RPC drift: %',v_hash;
+  END IF;
+
+  SELECT md5(pg_get_functiondef(
+    'public.student_upsert_secondary_job_service(bigint,integer,text,text,text,text,bigint,text,boolean,boolean)'::regprocedure
+  )) INTO v_hash;
+  IF v_hash <> '2a07afbc90f0b8bb986f9b041b4bc2f0' THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: legacy upsert RPC drift: %',v_hash;
+  END IF;
+
+  SELECT md5(pg_get_functiondef(
+    'public.student_buy_secondary_job_service(bigint,text)'::regprocedure
+  )) INTO v_hash;
+  IF v_hash <> '4bc8d6f64ed0766baf5bbce1bc9802d8' THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: legacy buy RPC drift: %',v_hash;
+  END IF;
+
+  SELECT md5(pg_get_functiondef(
+    'public.student_act_secondary_job_service_purchase(bigint,text,text)'::regprocedure
+  )) INTO v_hash;
+  IF v_hash <> '84f4cb4b7e8749e61902f77dfa03c839' THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: buyer action RPC drift: %',v_hash;
+  END IF;
+
+  SELECT md5(pg_get_functiondef(
+    'public.student_act_secondary_job_service_sale(bigint,text,text)'::regprocedure
+  )) INTO v_hash;
+  IF v_hash <> '37984778e660dac1be6986270b1fcfcb' THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: seller action RPC drift: %',v_hash;
+  END IF;
+
+  SELECT md5(pg_get_functiondef(
+    'public.teacher_get_secondary_job_service_orders(integer)'::regprocedure
+  )) INTO v_hash;
+  IF v_hash <> '88546fd622f47de6b78eeed4d9c0a85a' THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: teacher board RPC drift: %',v_hash;
+  END IF;
+
+  SELECT md5(pg_get_functiondef(
+    'public.teacher_resolve_secondary_job_service_order(bigint,text,text)'::regprocedure
+  )) INTO v_hash;
+  IF v_hash <> 'c940ca393cf3b8e80f913dbf0e9d8991' THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: teacher resolve RPC drift: %',v_hash;
+  END IF;
+
+  SELECT md5(pg_get_functiondef(
+    'public.student_get_home_secondary_job_service_ads()'::regprocedure
+  )) INTO v_hash;
+  IF v_hash <> '9b1221229210f7c752cc55a13522f2bb' THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: home ad RPC drift: %',v_hash;
+  END IF;
+
+  SELECT md5(pg_get_functiondef(
+    'public.student_get_secondary_job_service_ad_board()'::regprocedure
+  )) INTO v_hash;
+  IF v_hash <> '9c1259e817aaa850046b6fd21cd11b11' THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: student ad board RPC drift: %',v_hash;
+  END IF;
+
+  SELECT md5(pg_get_functiondef(
+    'public.teacher_get_secondary_job_service_ads(integer)'::regprocedure
+  )) INTO v_hash;
+  IF v_hash <> 'e342e745f02123a6b5d45af48531e20e' THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: teacher ad board RPC drift: %',v_hash;
+  END IF;
+
+  SELECT md5(pg_get_functiondef(
+    'public._economy_guard_service_event_rows(integer,date,date)'::regprocedure
+  )) INTO v_hash;
+  IF v_hash <> '37380994e4bc44ac660a677f94ef4083' THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: Guard service adapter drift: %',v_hash;
+  END IF;
+
+  IF to_regprocedure(
+    'public.student_upsert_secondary_job_service_v2(bigint,integer,text,text,text,text,text,bigint,text,jsonb,text,boolean,boolean)'
+  ) IS NOT NULL
+  OR to_regprocedure(
+    'public.student_order_secondary_job_service_v2(bigint,bigint,integer,text,text)'
+  ) IS NOT NULL
+  OR to_regprocedure(
+    'public.student_offer_secondary_job_service_quote(bigint,bigint,integer,text)'
+  ) IS NOT NULL
+  OR to_regprocedure(
+    'public.student_accept_secondary_job_service_quote(bigint)'
+  ) IS NOT NULL THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: V2 pricing RPC already exists.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='secondary_job_services'
+      AND column_name='price_gold'
+      AND is_nullable='NO'
+  ) THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: current service price_gold is not NOT NULL.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='secondary_job_service_orders'
+      AND column_name='price_gold_snapshot'
+      AND is_nullable='NO'
+  ) THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: current order price_gold_snapshot is not NOT NULL.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint c
+    WHERE c.conrelid='public.secondary_job_service_orders'::regclass
+      AND c.conname='secondary_job_service_orders_status_ck'
+      AND pg_get_constraintdef(c.oid) NOT ILIKE '%QUOTE_REQUESTED%'
+      AND pg_get_constraintdef(c.oid) NOT ILIKE '%QUOTE_OFFERED%'
+  ) THEN
+    RAISE EXCEPTION 'PREFLIGHT FAIL: current order status constraint drift.';
+  END IF;
+END
+$preflight$;
+
+BEGIN;
+
+-- ============================================================
+-- 1. BASELINE SNAPSHOT
+-- ============================================================
+CREATE TEMP TABLE _p2p_pricing_baseline ON COMMIT DROP AS
+SELECT
+  (SELECT count(*) FROM public.secondary_job_services) AS service_count,
+  (SELECT count(*) FROM public.secondary_job_service_orders) AS order_count,
+  (SELECT count(*) FROM public.secondary_job_service_reviews) AS review_count,
+  (SELECT count(*) FROM public.secondary_job_service_events) AS event_count,
+  (SELECT count(*) FROM public.transactions) AS transaction_count,
+  (SELECT coalesce(sum(price_gold),0) FROM public.secondary_job_services) AS service_price_sum,
+  (SELECT coalesce(sum(price_gold_snapshot),0) FROM public.secondary_job_service_orders) AS order_price_sum,
+  (SELECT count(escrow_transaction_id) FROM public.secondary_job_service_orders) AS escrow_links,
+  (SELECT count(payout_transaction_id) FROM public.secondary_job_service_orders) AS payout_links,
+  (SELECT count(refund_transaction_id) FROM public.secondary_job_service_orders) AS refund_links;
+
+CREATE TEMP TABLE _p2p_pricing_guard_before ON COMMIT DROP AS
+SELECT
+  c.id AS classroom_id,
+  e.event_key,
+  e.source_id,
+  e.amount,
+  e.quantity,
+  e.unit_price,
+  e.anomaly_fingerprint
+FROM public.classrooms c
+CROSS JOIN LATERAL public._economy_guard_event_rows(c.id,NULL,NULL) e
+WHERE e.source_kind='SERVICE_ORDER';
+
+-- ============================================================
+-- 2. SCHEMA
+-- ============================================================
+ALTER TABLE public.secondary_job_services
+  ADD COLUMN pricing_mode varchar(16) NOT NULL DEFAULT 'FIXED',
+  ADD COLUMN quantity_unit varchar(20) NOT NULL DEFAULT '회';
+
+ALTER TABLE public.secondary_job_services
+  ALTER COLUMN price_gold DROP NOT NULL;
+
+ALTER TABLE public.secondary_job_services
+  DROP CONSTRAINT secondary_job_services_price_ck;
+
+ALTER TABLE public.secondary_job_services
+  ADD CONSTRAINT secondary_job_services_pricing_mode_ck
+  CHECK (pricing_mode IN ('FIXED','OPTION','QUOTE')),
+  ADD CONSTRAINT secondary_job_services_quantity_unit_ck
+  CHECK (
+    char_length(btrim(quantity_unit)) >= 1
+    AND char_length(btrim(quantity_unit)) <= 20
+  ),
+  ADD CONSTRAINT secondary_job_services_price_ck
+  CHECK (
+    (pricing_mode='FIXED' AND price_gold BETWEEN 1 AND 1000000)
+    OR
+    (pricing_mode IN ('OPTION','QUOTE') AND price_gold IS NULL)
+  );
+
+CREATE TABLE public.secondary_job_service_options (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  service_id bigint NOT NULL
+    REFERENCES public.secondary_job_services(id) ON DELETE CASCADE,
+  option_name varchar(40) NOT NULL,
+  price_gold bigint NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT secondary_job_service_options_name_ck
+    CHECK (
+      char_length(btrim(option_name)) >= 1
+      AND char_length(btrim(option_name)) <= 40
+    ),
+  CONSTRAINT secondary_job_service_options_price_ck
+    CHECK (price_gold BETWEEN 1 AND 1000000),
+  CONSTRAINT secondary_job_service_options_sort_ck
+    CHECK (sort_order BETWEEN 0 AND 1000),
+  CONSTRAINT secondary_job_service_options_name_uq
+    UNIQUE(service_id,option_name)
+);
+
+CREATE INDEX idx_secondary_job_service_options_service
+ON public.secondary_job_service_options(service_id,sort_order,id);
+
+ALTER TABLE public.secondary_job_service_options ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.secondary_job_service_options FROM PUBLIC, anon, authenticated;
+
+ALTER TABLE public.secondary_job_service_orders
+  ADD COLUMN pricing_mode_snapshot varchar(16) NOT NULL DEFAULT 'FIXED',
+  ADD COLUMN option_id_snapshot bigint NULL,
+  ADD COLUMN option_name_snapshot varchar(40) NULL,
+  ADD COLUMN unit_price_gold_snapshot bigint NULL,
+  ADD COLUMN quantity integer NULL,
+  ADD COLUMN requested_quantity integer NULL,
+  ADD COLUMN quantity_unit_snapshot varchar(20) NOT NULL DEFAULT '회',
+  ADD COLUMN buyer_note text NULL,
+  ADD COLUMN seller_quote_note text NULL,
+  ADD COLUMN quote_offered_at timestamptz NULL,
+  ADD COLUMN quote_accepted_at timestamptz NULL;
+
+UPDATE public.secondary_job_service_orders
+SET
+  unit_price_gold_snapshot=price_gold_snapshot,
+  quantity=1
+WHERE unit_price_gold_snapshot IS NULL
+   OR quantity IS NULL;
+
+ALTER TABLE public.secondary_job_service_orders
+  ALTER COLUMN price_gold_snapshot DROP NOT NULL;
+
+ALTER TABLE public.secondary_job_service_orders
+  DROP CONSTRAINT secondary_job_service_orders_price_ck,
+  DROP CONSTRAINT secondary_job_service_orders_status_ck;
+
+ALTER TABLE public.secondary_job_service_orders
+  ADD CONSTRAINT secondary_job_service_orders_price_ck
+    CHECK (
+      price_gold_snapshot IS NULL
+      OR price_gold_snapshot BETWEEN 1 AND 1000000
+    ),
+  ADD CONSTRAINT secondary_job_service_orders_pricing_mode_ck
+    CHECK (pricing_mode_snapshot IN ('FIXED','OPTION','QUOTE')),
+  ADD CONSTRAINT secondary_job_service_orders_unit_price_ck
+    CHECK (
+      unit_price_gold_snapshot IS NULL
+      OR unit_price_gold_snapshot BETWEEN 1 AND 1000000
+    ),
+  ADD CONSTRAINT secondary_job_service_orders_quantity_ck
+    CHECK (
+      quantity IS NULL
+      OR quantity BETWEEN 1 AND 1000000
+    ),
+  ADD CONSTRAINT secondary_job_service_orders_requested_quantity_ck
+    CHECK (
+      requested_quantity IS NULL
+      OR requested_quantity BETWEEN 1 AND 1000000
+    ),
+  ADD CONSTRAINT secondary_job_service_orders_quantity_unit_ck
+    CHECK (
+      char_length(btrim(quantity_unit_snapshot)) >= 1
+      AND char_length(btrim(quantity_unit_snapshot)) <= 20
+    ),
+  ADD CONSTRAINT secondary_job_service_orders_option_name_ck
+    CHECK (
+      option_name_snapshot IS NULL
+      OR (
+        char_length(btrim(option_name_snapshot)) >= 1
+        AND char_length(btrim(option_name_snapshot)) <= 40
+      )
+    ),
+  ADD CONSTRAINT secondary_job_service_orders_buyer_note_ck
+    CHECK (
+      buyer_note IS NULL
+      OR char_length(btrim(buyer_note)) <= 500
+    ),
+  ADD CONSTRAINT secondary_job_service_orders_seller_quote_note_ck
+    CHECK (
+      seller_quote_note IS NULL
+      OR char_length(btrim(seller_quote_note)) <= 500
+    ),
+  ADD CONSTRAINT secondary_job_service_orders_total_math_ck
+    CHECK (
+      price_gold_snapshot IS NULL
+      OR unit_price_gold_snapshot IS NULL
+      OR quantity IS NULL
+      OR price_gold_snapshot = unit_price_gold_snapshot::bigint * quantity::bigint
+    ),
+  ADD CONSTRAINT secondary_job_service_orders_option_snapshot_ck
+    CHECK (
+      (pricing_mode_snapshot='OPTION'
+       AND option_id_snapshot IS NOT NULL
+       AND option_name_snapshot IS NOT NULL)
+      OR
+      (pricing_mode_snapshot IN ('FIXED','QUOTE')
+       AND option_id_snapshot IS NULL
+       AND option_name_snapshot IS NULL)
+    ),
+  ADD CONSTRAINT secondary_job_service_orders_requested_quantity_mode_ck
+    CHECK (
+      (pricing_mode_snapshot='QUOTE' AND requested_quantity IS NOT NULL)
+      OR
+      (pricing_mode_snapshot IN ('FIXED','OPTION') AND requested_quantity IS NULL)
+    ),
+  ADD CONSTRAINT secondary_job_service_orders_pricing_state_ck
+    CHECK (
+      (
+        pricing_mode_snapshot='QUOTE'
+        AND status='QUOTE_REQUESTED'
+        AND escrow_transaction_id IS NULL
+        AND price_gold_snapshot IS NULL
+        AND unit_price_gold_snapshot IS NULL
+        AND quantity IS NULL
+      )
+      OR
+      (
+        pricing_mode_snapshot='QUOTE'
+        AND status='QUOTE_OFFERED'
+        AND escrow_transaction_id IS NULL
+        AND price_gold_snapshot IS NOT NULL
+        AND unit_price_gold_snapshot IS NOT NULL
+        AND quantity IS NOT NULL
+      )
+      OR
+      (
+        pricing_mode_snapshot='QUOTE'
+        AND status IN ('CANCELLED','REJECTED')
+        AND escrow_transaction_id IS NULL
+      )
+      OR
+      (
+        status NOT IN ('QUOTE_REQUESTED','QUOTE_OFFERED')
+        AND escrow_transaction_id IS NOT NULL
+        AND price_gold_snapshot IS NOT NULL
+        AND unit_price_gold_snapshot IS NOT NULL
+        AND quantity IS NOT NULL
+      )
+    ),
+  ADD CONSTRAINT secondary_job_service_orders_status_ck
+    CHECK (
+      status IN (
+        'QUOTE_REQUESTED','QUOTE_OFFERED',
+        'REQUESTED','ACCEPTED','DELIVERED','REVISION_REQUESTED',
+        'COMPLETED','REJECTED','CANCELLED','DISPUTED'
+      )
+    );
+
+-- ============================================================
+-- 3. V2 SERVICE UPSERT
+-- ============================================================
+CREATE FUNCTION public.student_upsert_secondary_job_service_v2(
+  p_service_id bigint,
+  p_secondary_job_id integer,
+  p_title text,
+  p_subtitle text,
+  p_description text,
+  p_service_category text,
+  p_pricing_mode text,
+  p_price_gold bigint,
+  p_quantity_unit text,
+  p_options jsonb,
+  p_delivery_note text,
+  p_is_active boolean,
+  p_allow_concurrent_orders boolean
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+DECLARE
+  v_student_id integer:=public.current_student_id();
+  v_classroom_id integer;
+  v_job public.secondary_jobs%ROWTYPE;
+  v_service public.secondary_job_services%ROWTYPE;
+  v_id bigint;
+  v_title text:=btrim(coalesce(p_title,''));
+  v_subtitle text:=btrim(coalesce(p_subtitle,''));
+  v_desc text:=btrim(coalesce(p_description,''));
+  v_category text:=btrim(coalesce(p_service_category,''));
+  v_mode text:=upper(btrim(coalesce(p_pricing_mode,'')));
+  v_unit text:=btrim(coalesce(p_quantity_unit,''));
+  v_delivery text:=NULLIF(btrim(coalesce(p_delivery_note,'')),'');
+  v_options jsonb:=coalesce(p_options,'[]'::jsonb);
+  v_option jsonb;
+  v_option_name text;
+  v_option_price bigint;
+  v_option_active boolean;
+  v_option_count integer:=0;
+  v_active_count integer:=0;
+  v_sort integer:=0;
+BEGIN
+  IF v_student_id IS NULL THEN
+    RAISE EXCEPTION '학생 로그인이 필요합니다.' USING ERRCODE='P2C10';
+  END IF;
+
+  SELECT classroom_id INTO v_classroom_id
+  FROM public.students
+  WHERE id=v_student_id AND transferred_at IS NULL;
+
+  IF v_classroom_id IS NULL THEN
+    RAISE EXCEPTION '활성 학생 정보를 찾을 수 없습니다.' USING ERRCODE='P2C11';
+  END IF;
+
+  IF char_length(v_title)<2 OR char_length(v_title)>24 THEN
+    RAISE EXCEPTION '서비스 제목은 2~24자입니다.' USING ERRCODE='P2C12';
+  END IF;
+  IF char_length(v_subtitle)<2 OR char_length(v_subtitle)>40 THEN
+    RAISE EXCEPTION '서비스 부제목은 2~40자입니다.' USING ERRCODE='P2C18';
+  END IF;
+  IF char_length(v_desc)<10 OR char_length(v_desc)>2000 THEN
+    RAISE EXCEPTION '서비스 설명은 10~2000자입니다.' USING ERRCODE='P2C13';
+  END IF;
+  IF v_category NOT IN ('청소','학습','제작','1인1역','생활도움','기타') THEN
+    RAISE EXCEPTION '서비스 카테고리가 올바르지 않습니다.' USING ERRCODE='P2C19';
+  END IF;
+  IF v_mode NOT IN ('FIXED','OPTION','QUOTE') THEN
+    RAISE EXCEPTION '가격 방식이 올바르지 않습니다.' USING ERRCODE='P2C80';
+  END IF;
+  IF char_length(v_unit)<1 OR char_length(v_unit)>20 THEN
+    RAISE EXCEPTION '수량 단위는 1~20자입니다.' USING ERRCODE='P2C81';
+  END IF;
+  IF char_length(coalesce(v_delivery,''))>100 THEN
+    RAISE EXCEPTION '예상 소요 안내는 100자 이하입니다.' USING ERRCODE='P2C15';
+  END IF;
+
+  IF jsonb_typeof(v_options)<>'array' THEN
+    RAISE EXCEPTION '서비스 옵션은 배열 형식이어야 합니다.' USING ERRCODE='P2C82';
+  END IF;
+
+  IF v_mode='FIXED' THEN
+    IF p_price_gold IS NULL OR p_price_gold<1 OR p_price_gold>1000000 THEN
+      RAISE EXCEPTION '고정 단가는 1~1,000,000 GOLD입니다.' USING ERRCODE='P2C14';
+    END IF;
+    IF jsonb_array_length(v_options)<>0 THEN
+      RAISE EXCEPTION '고정가격형에는 옵션을 등록할 수 없습니다.' USING ERRCODE='P2C83';
+    END IF;
+  ELSIF v_mode='QUOTE' THEN
+    IF p_price_gold IS NOT NULL THEN
+      RAISE EXCEPTION '견적형은 등록 단계에서 단가를 지정하지 않습니다.' USING ERRCODE='P2C84';
+    END IF;
+    IF jsonb_array_length(v_options)<>0 THEN
+      RAISE EXCEPTION '견적형에는 가격 옵션을 등록할 수 없습니다.' USING ERRCODE='P2C85';
+    END IF;
+  ELSE
+    IF p_price_gold IS NOT NULL THEN
+      RAISE EXCEPTION '옵션가격형의 대표 단가는 별도로 입력하지 않습니다.' USING ERRCODE='P2C86';
+    END IF;
+    v_option_count:=jsonb_array_length(v_options);
+    IF v_option_count<1 OR v_option_count>20 THEN
+      RAISE EXCEPTION '옵션은 1~20개 등록할 수 있습니다.' USING ERRCODE='P2C87';
+    END IF;
+
+    FOR v_option IN SELECT value FROM jsonb_array_elements(v_options)
+    LOOP
+      IF jsonb_typeof(v_option)<>'object' THEN
+        RAISE EXCEPTION '각 옵션은 객체 형식이어야 합니다.' USING ERRCODE='P2C88';
+      END IF;
+
+      v_option_name:=btrim(coalesce(v_option->>'name',''));
+      IF char_length(v_option_name)<1 OR char_length(v_option_name)>40 THEN
+        RAISE EXCEPTION '옵션명은 1~40자입니다.' USING ERRCODE='P2C89';
+      END IF;
+
+      IF coalesce(v_option->>'price_gold','') !~ '^[0-9]+$' THEN
+        RAISE EXCEPTION '옵션 단가는 정수여야 합니다.' USING ERRCODE='P2C90';
+      END IF;
+      v_option_price:=(v_option->>'price_gold')::bigint;
+      IF v_option_price<1 OR v_option_price>1000000 THEN
+        RAISE EXCEPTION '옵션 단가는 1~1,000,000 GOLD입니다.' USING ERRCODE='P2C91';
+      END IF;
+
+      IF v_option ? 'is_active' THEN
+        IF jsonb_typeof(v_option->'is_active')<>'boolean' THEN
+          RAISE EXCEPTION '옵션 활성 여부가 올바르지 않습니다.' USING ERRCODE='P2C92';
+        END IF;
+        v_option_active:=(v_option->>'is_active')::boolean;
+      ELSE
+        v_option_active:=true;
+      END IF;
+
+      IF v_option_active THEN v_active_count:=v_active_count+1; END IF;
+    END LOOP;
+
+    IF v_active_count<1 THEN
+      RAISE EXCEPTION '옵션가격형에는 활성 옵션이 1개 이상 필요합니다.' USING ERRCODE='P2C93';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM (
+        SELECT btrim(value->>'name') AS option_name
+        FROM jsonb_array_elements(v_options)
+      ) x
+      GROUP BY option_name
+      HAVING count(*)>1
+    ) THEN
+      RAISE EXCEPTION '같은 옵션명을 중복 등록할 수 없습니다.' USING ERRCODE='P2C94';
+    END IF;
+  END IF;
+
+  SELECT * INTO v_job
+  FROM public.secondary_jobs
+  WHERE id=p_secondary_job_id
+    AND student_id=v_student_id
+    AND classroom_id=v_classroom_id
+    AND is_active=true;
+
+  IF v_job.id IS NULL THEN
+    RAISE EXCEPTION '활성 2차직업으로만 서비스를 등록할 수 있습니다.' USING ERRCODE='P2C16';
+  END IF;
+
+  IF p_service_id IS NULL THEN
+    INSERT INTO public.secondary_job_services(
+      classroom_id,seller_student_id,secondary_job_id,
+      title,subtitle,description,service_category,
+      pricing_mode,price_gold,quantity_unit,delivery_note,
+      is_active,allow_concurrent_orders
+    ) VALUES(
+      v_classroom_id,v_student_id,v_job.id,
+      v_title,v_subtitle,v_desc,v_category,
+      v_mode,
+      CASE WHEN v_mode='FIXED' THEN p_price_gold ELSE NULL END,
+      v_unit,v_delivery,
+      coalesce(p_is_active,true),
+      coalesce(p_allow_concurrent_orders,false)
+    )
+    RETURNING id INTO v_id;
+  ELSE
+    SELECT * INTO v_service
+    FROM public.secondary_job_services
+    WHERE id=p_service_id
+    FOR UPDATE;
+
+    IF v_service.id IS NULL
+       OR v_service.seller_student_id<>v_student_id
+       OR v_service.classroom_id<>v_classroom_id
+       OR v_service.deleted_at IS NOT NULL THEN
+      RAISE EXCEPTION '수정할 수 있는 서비스를 찾을 수 없습니다.' USING ERRCODE='P2C17';
+    END IF;
+
+    UPDATE public.secondary_job_services
+    SET
+      secondary_job_id=v_job.id,
+      title=v_title,
+      subtitle=v_subtitle,
+      description=v_desc,
+      service_category=v_category,
+      pricing_mode=v_mode,
+      price_gold=CASE WHEN v_mode='FIXED' THEN p_price_gold ELSE NULL END,
+      quantity_unit=v_unit,
+      delivery_note=v_delivery,
+      is_active=coalesce(p_is_active,true),
+      allow_concurrent_orders=coalesce(p_allow_concurrent_orders,false),
+      updated_at=now()
+    WHERE id=v_service.id
+    RETURNING id INTO v_id;
+  END IF;
+
+  DELETE FROM public.secondary_job_service_options
+  WHERE service_id=v_id;
+
+  IF v_mode='OPTION' THEN
+    v_sort:=0;
+    FOR v_option IN SELECT value FROM jsonb_array_elements(v_options)
+    LOOP
+      v_sort:=v_sort+1;
+      v_option_name:=btrim(v_option->>'name');
+      v_option_price:=(v_option->>'price_gold')::bigint;
+      v_option_active:=CASE
+        WHEN v_option ? 'is_active' THEN (v_option->>'is_active')::boolean
+        ELSE true
+      END;
+
+      INSERT INTO public.secondary_job_service_options(
+        service_id,option_name,price_gold,is_active,sort_order
+      ) VALUES(
+        v_id,v_option_name,v_option_price,v_option_active,v_sort
+      );
+    END LOOP;
+  END IF;
+
+  PERFORM public.secondary_job_service_log(
+    v_classroom_id,
+    v_id,
+    NULL,
+    v_student_id,
+    CASE WHEN p_service_id IS NULL THEN 'SERVICE_CREATED' ELSE 'SERVICE_UPDATED' END,
+    jsonb_build_object(
+      'title',v_title,
+      'subtitle',v_subtitle,
+      'service_category',v_category,
+      'pricing_mode',v_mode,
+      'price_gold',CASE WHEN v_mode='FIXED' THEN p_price_gold ELSE NULL END,
+      'quantity_unit',v_unit,
+      'option_count',CASE WHEN v_mode='OPTION' THEN jsonb_array_length(v_options) ELSE 0 END,
+      'is_active',coalesce(p_is_active,true),
+      'allow_concurrent_orders',coalesce(p_allow_concurrent_orders,false)
+    )
+  );
+
+  RETURN v_id;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION public.student_upsert_secondary_job_service_v2(
+  bigint,integer,text,text,text,text,text,bigint,text,jsonb,text,boolean,boolean
+) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.student_upsert_secondary_job_service_v2(
+  bigint,integer,text,text,text,text,text,bigint,text,jsonb,text,boolean,boolean
+) TO authenticated,service_role;
+
+-- ============================================================
+-- 4. LEGACY UPSERT COMPATIBILITY
+--    기존 FIXED 서비스를 구 UI가 수정해도 custom quantity_unit을 보존한다.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.student_upsert_secondary_job_service(
+  p_service_id bigint,
+  p_secondary_job_id integer,
+  p_title text,
+  p_subtitle text,
+  p_description text,
+  p_service_category text,
+  p_price_gold bigint,
+  p_delivery_note text,
+  p_is_active boolean,
+  p_allow_concurrent_orders boolean
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+DECLARE
+  v_mode text;
+  v_unit text:='회';
+BEGIN
+  IF p_service_id IS NOT NULL THEN
+    SELECT pricing_mode,quantity_unit
+    INTO v_mode,v_unit
+    FROM public.secondary_job_services
+    WHERE id=p_service_id;
+
+    IF v_mode IS NOT NULL AND v_mode<>'FIXED' THEN
+      RAISE EXCEPTION '옵션형/견적형 서비스는 새 서비스 편집 화면에서 수정해주세요.'
+        USING ERRCODE='P2C95';
+    END IF;
+
+    v_unit:=coalesce(nullif(btrim(v_unit),''),'회');
+  END IF;
+
+  RETURN public.student_upsert_secondary_job_service_v2(
+    p_service_id,
+    p_secondary_job_id,
+    p_title,
+    p_subtitle,
+    p_description,
+    p_service_category,
+    'FIXED',
+    p_price_gold,
+    v_unit,
+    '[]'::jsonb,
+    p_delivery_note,
+    p_is_active,
+    p_allow_concurrent_orders
+  );
+END
+$function$;
+
+-- ============================================================
+-- 5. V2 ORDER ENTRY
+-- ============================================================
+CREATE FUNCTION public.student_order_secondary_job_service_v2(
+  p_service_id bigint,
+  p_option_id bigint,
+  p_quantity integer,
+  p_buyer_request text,
+  p_buyer_note text
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+DECLARE
+  v_buyer integer:=public.current_student_id();
+  v_classroom integer;
+  v_service public.secondary_job_services%ROWTYPE;
+  v_job public.secondary_jobs%ROWTYPE;
+  v_option public.secondary_job_service_options%ROWTYPE;
+  v_request text:=btrim(coalesce(p_buyer_request,''));
+  v_note text:=NULLIF(btrim(coalesce(p_buyer_note,'')),'');
+  v_unit_price bigint;
+  v_total bigint;
+  v_escrow bigint;
+  v_order bigint;
+BEGIN
+  IF v_buyer IS NULL THEN
+    RAISE EXCEPTION '학생 로그인이 필요합니다.' USING ERRCODE='P2C10';
+  END IF;
+
+  SELECT classroom_id INTO v_classroom
+  FROM public.students
+  WHERE id=v_buyer AND transferred_at IS NULL;
+
+  IF v_classroom IS NULL THEN
+    RAISE EXCEPTION '활성 학생 정보를 찾을 수 없습니다.' USING ERRCODE='P2C11';
+  END IF;
+
+  IF public.is_asset_freeze_active(v_classroom) THEN
+    RAISE EXCEPTION '현재 자산동결 중이라 새 서비스 주문/견적 요청을 만들 수 없습니다.'
+      USING ERRCODE='P2C20';
+  END IF;
+
+  IF char_length(v_request)<10 OR char_length(v_request)>500 THEN
+    RAISE EXCEPTION '요청 내용은 10~500자입니다.' USING ERRCODE='P2C21';
+  END IF;
+  IF v_note IS NOT NULL AND char_length(v_note)>500 THEN
+    RAISE EXCEPTION '추가 메모는 500자 이하입니다.' USING ERRCODE='P2C96';
+  END IF;
+  IF p_quantity IS NULL OR p_quantity<1 OR p_quantity>1000000 THEN
+    RAISE EXCEPTION '수량은 1~1,000,000입니다.' USING ERRCODE='P2C97';
+  END IF;
+
+  SELECT * INTO v_service
+  FROM public.secondary_job_services
+  WHERE id=p_service_id
+    AND classroom_id=v_classroom
+    AND is_active=true
+    AND deleted_at IS NULL
+  FOR UPDATE;
+
+  IF v_service.id IS NULL THEN
+    RAISE EXCEPTION '구매할 서비스를 찾을 수 없습니다.' USING ERRCODE='P2C22';
+  END IF;
+  IF v_service.seller_student_id=v_buyer THEN
+    RAISE EXCEPTION '내 서비스는 구매할 수 없습니다.' USING ERRCODE='P2C23';
+  END IF;
+
+  SELECT * INTO v_job
+  FROM public.secondary_jobs
+  WHERE id=v_service.secondary_job_id
+    AND student_id=v_service.seller_student_id
+    AND classroom_id=v_classroom
+    AND is_active=true;
+
+  IF v_job.id IS NULL THEN
+    RAISE EXCEPTION '판매자의 연결된 2차직업이 현재 비활성입니다.' USING ERRCODE='P2C24';
+  END IF;
+
+  IF EXISTS(
+    SELECT 1
+    FROM public.secondary_job_service_orders
+    WHERE service_id=v_service.id
+      AND buyer_student_id=v_buyer
+      AND status NOT IN ('COMPLETED','REJECTED','CANCELLED')
+  ) THEN
+    RAISE EXCEPTION '이미 진행 중인 같은 서비스 주문 또는 견적 요청이 있습니다.'
+      USING ERRCODE='P2C25';
+  END IF;
+
+  IF v_service.pricing_mode IN ('FIXED','OPTION')
+     AND NOT v_service.allow_concurrent_orders
+     AND EXISTS(
+       SELECT 1
+       FROM public.secondary_job_service_orders
+       WHERE service_id=v_service.id
+         AND status IN ('REQUESTED','ACCEPTED','DELIVERED','REVISION_REQUESTED','DISPUTED')
+     ) THEN
+    RAISE EXCEPTION '현재 다른 학생의 주문을 처리 중입니다. 이 서비스는 한 번에 1명만 주문할 수 있습니다.'
+      USING ERRCODE='P2C26';
+  END IF;
+
+  IF v_service.pricing_mode='QUOTE' THEN
+    IF p_option_id IS NOT NULL THEN
+      RAISE EXCEPTION '견적형 서비스에는 옵션을 선택하지 않습니다.' USING ERRCODE='P2C98';
+    END IF;
+
+    INSERT INTO public.secondary_job_service_orders(
+      classroom_id,service_id,buyer_student_id,seller_student_id,secondary_job_id_snapshot,
+      service_title_snapshot,service_description_snapshot,price_gold_snapshot,delivery_note_snapshot,
+      service_category_snapshot,buyer_request,status,
+      pricing_mode_snapshot,requested_quantity,quantity_unit_snapshot,buyer_note
+    ) VALUES(
+      v_classroom,v_service.id,v_buyer,v_service.seller_student_id,v_job.id,
+      v_service.title,v_service.description,NULL,v_service.delivery_note,
+      coalesce(v_service.service_category,'기타'),v_request,'QUOTE_REQUESTED',
+      'QUOTE',p_quantity,v_service.quantity_unit,v_note
+    )
+    RETURNING id INTO v_order;
+
+    PERFORM public.secondary_job_service_log(
+      v_classroom,v_service.id,v_order,v_buyer,'QUOTE_REQUESTED',
+      jsonb_build_object(
+        'requested_quantity',p_quantity,
+        'quantity_unit',v_service.quantity_unit,
+        'buyer_note',v_note,
+        'service_category',coalesce(v_service.service_category,'기타')
+      )
+    );
+
+    PERFORM public.secondary_job_service_send_notice(
+      v_service.seller_student_id,
+      '💬 새로운 서비스 견적 요청',
+      format(
+        '"%s" 서비스에 견적 요청이 들어왔습니다.%s희망 수량: %s%s%s요청: %s',
+        v_service.title,E'\n\n',p_quantity,v_service.quantity_unit,E'\n\n',v_request
+      ),
+      v_order
+    );
+
+    RETURN v_order;
+  END IF;
+
+  IF v_service.pricing_mode='FIXED' THEN
+    IF p_option_id IS NOT NULL THEN
+      RAISE EXCEPTION '고정가격형 서비스에는 옵션을 선택하지 않습니다.' USING ERRCODE='P2C99';
+    END IF;
+    v_unit_price:=v_service.price_gold;
+  ELSE
+    IF p_option_id IS NULL THEN
+      RAISE EXCEPTION '옵션가격형 서비스는 옵션을 선택해야 합니다.' USING ERRCODE='P2D00';
+    END IF;
+
+    SELECT * INTO v_option
+    FROM public.secondary_job_service_options
+    WHERE id=p_option_id
+      AND service_id=v_service.id
+      AND is_active=true
+    FOR SHARE;
+
+    IF v_option.id IS NULL THEN
+      RAISE EXCEPTION '현재 선택할 수 없는 서비스 옵션입니다.' USING ERRCODE='P2D01';
+    END IF;
+    v_unit_price:=v_option.price_gold;
+  END IF;
+
+  v_total:=v_unit_price * p_quantity::bigint;
+  IF v_total<1 OR v_total>1000000 THEN
+    RAISE EXCEPTION '총 결제금액은 1~1,000,000 GOLD 범위여야 합니다.'
+      USING ERRCODE='P2D02';
+  END IF;
+
+  v_escrow:=public.create_transaction(
+    v_buyer,
+    'GOLD'::public.value_token_type,
+    -v_total,
+    'OTHER'::public.transaction_source_type,
+    NULL,
+    0,
+    format(
+      '[2차직업 서비스 에스크로] %s · %s GOLD × %s%s = %s GOLD',
+      v_service.title,v_unit_price,p_quantity,v_service.quantity_unit,v_total
+    )
+  );
+
+  INSERT INTO public.secondary_job_service_orders(
+    classroom_id,service_id,buyer_student_id,seller_student_id,secondary_job_id_snapshot,
+    service_title_snapshot,service_description_snapshot,price_gold_snapshot,delivery_note_snapshot,
+    service_category_snapshot,buyer_request,escrow_transaction_id,
+    pricing_mode_snapshot,option_id_snapshot,option_name_snapshot,
+    unit_price_gold_snapshot,quantity,quantity_unit_snapshot,buyer_note
+  ) VALUES(
+    v_classroom,v_service.id,v_buyer,v_service.seller_student_id,v_job.id,
+    v_service.title,v_service.description,v_total,v_service.delivery_note,
+    coalesce(v_service.service_category,'기타'),v_request,v_escrow,
+    v_service.pricing_mode,
+    CASE WHEN v_service.pricing_mode='OPTION' THEN v_option.id ELSE NULL END,
+    CASE WHEN v_service.pricing_mode='OPTION' THEN v_option.option_name ELSE NULL END,
+    v_unit_price,p_quantity,v_service.quantity_unit,v_note
+  )
+  RETURNING id INTO v_order;
+
+  UPDATE public.transactions
+  SET source_id=v_order
+  WHERE id=v_escrow;
+
+  PERFORM public.secondary_job_service_log(
+    v_classroom,v_service.id,v_order,v_buyer,'ORDER_CREATED',
+    jsonb_build_object(
+      'pricing_mode',v_service.pricing_mode,
+      'option_id',CASE WHEN v_service.pricing_mode='OPTION' THEN v_option.id ELSE NULL END,
+      'option_name',CASE WHEN v_service.pricing_mode='OPTION' THEN v_option.option_name ELSE NULL END,
+      'unit_price_gold',v_unit_price,
+      'quantity',p_quantity,
+      'quantity_unit',v_service.quantity_unit,
+      'total_price_gold',v_total,
+      'service_category',coalesce(v_service.service_category,'기타')
+    )
+  );
+
+  PERFORM public.secondary_job_service_send_notice(
+    v_service.seller_student_id,
+    '🛒 새로운 서비스 주문',
+    format(
+      '"%s" 서비스에 새 주문이 들어왔습니다.%s수량: %s%s · 총액: %s GOLD%s요청: %s',
+      v_service.title,E'\n\n',p_quantity,v_service.quantity_unit,v_total,E'\n\n',v_request
+    ),
+    v_order
+  );
+
+  RETURN v_order;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION public.student_order_secondary_job_service_v2(
+  bigint,bigint,integer,text,text
+) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.student_order_secondary_job_service_v2(
+  bigint,bigint,integer,text,text
+) TO authenticated,service_role;
+
+-- ============================================================
+-- 6. LEGACY BUY = FIXED x 1 ONLY
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.student_buy_secondary_job_service(
+  p_service_id bigint,
+  p_buyer_request text
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+DECLARE
+  v_mode text;
+BEGIN
+  SELECT pricing_mode INTO v_mode
+  FROM public.secondary_job_services
+  WHERE id=p_service_id;
+
+  IF v_mode IS DISTINCT FROM 'FIXED' THEN
+    RAISE EXCEPTION '옵션형/견적형 서비스는 새 주문 화면에서 이용해주세요.'
+      USING ERRCODE='P2D03';
+  END IF;
+
+  RETURN public.student_order_secondary_job_service_v2(
+    p_service_id,NULL,1,p_buyer_request,NULL
+  );
+END
+$function$;
+
+-- ============================================================
+-- 7. QUOTE OFFER
+-- ============================================================
+CREATE FUNCTION public.student_offer_secondary_job_service_quote(
+  p_order_id bigint,
+  p_unit_price_gold bigint,
+  p_quantity integer,
+  p_seller_note text
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+DECLARE
+  v_seller integer:=public.current_student_id();
+  o public.secondary_job_service_orders%ROWTYPE;
+  v_note text:=NULLIF(btrim(coalesce(p_seller_note,'')),'');
+  v_total bigint;
+BEGIN
+  IF v_seller IS NULL THEN
+    RAISE EXCEPTION '학생 로그인이 필요합니다.' USING ERRCODE='P2C10';
+  END IF;
+  IF p_unit_price_gold IS NULL OR p_unit_price_gold<1 OR p_unit_price_gold>1000000 THEN
+    RAISE EXCEPTION '견적 단가는 1~1,000,000 GOLD입니다.' USING ERRCODE='P2D10';
+  END IF;
+  IF p_quantity IS NULL OR p_quantity<1 OR p_quantity>1000000 THEN
+    RAISE EXCEPTION '견적 수량은 1~1,000,000입니다.' USING ERRCODE='P2D11';
+  END IF;
+  IF v_note IS NOT NULL AND char_length(v_note)>500 THEN
+    RAISE EXCEPTION '판매자 메모는 500자 이하입니다.' USING ERRCODE='P2D12';
+  END IF;
+
+  v_total:=p_unit_price_gold * p_quantity::bigint;
+  IF v_total<1 OR v_total>1000000 THEN
+    RAISE EXCEPTION '총 견적금액은 1~1,000,000 GOLD 범위여야 합니다.'
+      USING ERRCODE='P2D13';
+  END IF;
+
+  SELECT * INTO o
+  FROM public.secondary_job_service_orders
+  WHERE id=p_order_id
+  FOR UPDATE;
+
+  IF o.id IS NULL OR o.seller_student_id<>v_seller THEN
+    RAISE EXCEPTION '내 견적 요청을 찾을 수 없습니다.' USING ERRCODE='P2D14';
+  END IF;
+  IF o.pricing_mode_snapshot<>'QUOTE'
+     OR o.status NOT IN ('QUOTE_REQUESTED','QUOTE_OFFERED')
+     OR o.escrow_transaction_id IS NOT NULL THEN
+    RAISE EXCEPTION '현재 상태에서는 견적을 제안할 수 없습니다.' USING ERRCODE='P2D15';
+  END IF;
+
+  IF NOT EXISTS(
+    SELECT 1
+    FROM public.secondary_job_services sv
+    JOIN public.secondary_jobs j ON j.id=sv.secondary_job_id
+    WHERE sv.id=o.service_id
+      AND sv.classroom_id=o.classroom_id
+      AND sv.seller_student_id=v_seller
+      AND sv.is_active=true
+      AND sv.deleted_at IS NULL
+      AND j.id=o.secondary_job_id_snapshot
+      AND j.student_id=v_seller
+      AND j.classroom_id=o.classroom_id
+      AND j.is_active=true
+  ) THEN
+    RAISE EXCEPTION '현재 판매 중인 서비스/2차직업이 아니어서 견적을 제안할 수 없습니다.'
+      USING ERRCODE='P2D16';
+  END IF;
+
+  UPDATE public.secondary_job_service_orders
+  SET
+    unit_price_gold_snapshot=p_unit_price_gold,
+    quantity=p_quantity,
+    price_gold_snapshot=v_total,
+    seller_quote_note=v_note,
+    quote_offered_at=now(),
+    status='QUOTE_OFFERED',
+    status_reason=NULL,
+    updated_at=now()
+  WHERE id=o.id;
+
+  PERFORM public.secondary_job_service_log(
+    o.classroom_id,o.service_id,o.id,v_seller,'QUOTE_OFFERED',
+    jsonb_build_object(
+      'unit_price_gold',p_unit_price_gold,
+      'quantity',p_quantity,
+      'quantity_unit',o.quantity_unit_snapshot,
+      'total_price_gold',v_total,
+      'seller_note',v_note
+    )
+  );
+
+  PERFORM public.secondary_job_service_send_notice(
+    o.buyer_student_id,
+    '💬 서비스 견적이 도착했습니다',
+    format(
+      '"%s" 견적이 도착했습니다.%s단가: %s GOLD / %s · 수량: %s%s · 총액: %s GOLD',
+      o.service_title_snapshot,E'\n\n',p_unit_price_gold,o.quantity_unit_snapshot,
+      p_quantity,o.quantity_unit_snapshot,v_total
+    ),
+    o.id
+  );
+
+  RETURN v_total;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION public.student_offer_secondary_job_service_quote(
+  bigint,bigint,integer,text
+) FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.student_offer_secondary_job_service_quote(
+  bigint,bigint,integer,text
+) TO authenticated,service_role;
+
+-- ============================================================
+-- 8. QUOTE ACCEPT -> CREATE ESCROW -> ACCEPTED
+-- ============================================================
+CREATE FUNCTION public.student_accept_secondary_job_service_quote(
+  p_order_id bigint
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+DECLARE
+  v_buyer integer:=public.current_student_id();
+  o public.secondary_job_service_orders%ROWTYPE;
+  v_service public.secondary_job_services%ROWTYPE;
+  v_job public.secondary_jobs%ROWTYPE;
+  v_escrow bigint;
+BEGIN
+  IF v_buyer IS NULL THEN
+    RAISE EXCEPTION '학생 로그인이 필요합니다.' USING ERRCODE='P2C10';
+  END IF;
+
+  SELECT * INTO o
+  FROM public.secondary_job_service_orders
+  WHERE id=p_order_id
+  FOR UPDATE;
+
+  IF o.id IS NULL OR o.buyer_student_id<>v_buyer THEN
+    RAISE EXCEPTION '내 견적 주문을 찾을 수 없습니다.' USING ERRCODE='P2D20';
+  END IF;
+  IF o.pricing_mode_snapshot<>'QUOTE'
+     OR o.status<>'QUOTE_OFFERED'
+     OR o.escrow_transaction_id IS NOT NULL THEN
+    RAISE EXCEPTION '수락할 수 있는 견적 상태가 아닙니다.' USING ERRCODE='P2D21';
+  END IF;
+  IF o.unit_price_gold_snapshot IS NULL
+     OR o.quantity IS NULL
+     OR o.price_gold_snapshot IS NULL THEN
+    RAISE EXCEPTION '견적 금액 정보가 완성되지 않았습니다.' USING ERRCODE='P2D22';
+  END IF;
+
+  IF public.is_asset_freeze_active(o.classroom_id) THEN
+    RAISE EXCEPTION '현재 자산동결 중이라 견적을 수락할 수 없습니다.'
+      USING ERRCODE='P2D23';
+  END IF;
+
+  SELECT * INTO v_service
+  FROM public.secondary_job_services
+  WHERE id=o.service_id
+    AND classroom_id=o.classroom_id
+    AND seller_student_id=o.seller_student_id
+    AND deleted_at IS NULL
+    AND is_active=true
+  FOR UPDATE;
+
+  IF v_service.id IS NULL THEN
+    RAISE EXCEPTION '현재 판매 중인 서비스가 아니어서 견적을 수락할 수 없습니다.'
+      USING ERRCODE='P2D24';
+  END IF;
+
+  IF NOT EXISTS(
+    SELECT 1
+    FROM public.students s
+    WHERE s.id=o.seller_student_id
+      AND s.classroom_id=o.classroom_id
+      AND s.transferred_at IS NULL
+  ) THEN
+    RAISE EXCEPTION '판매자가 현재 학급의 활성 학생이 아니어서 견적을 수락할 수 없습니다.'
+      USING ERRCODE='P2D27';
+  END IF;
+
+  SELECT * INTO v_job
+  FROM public.secondary_jobs
+  WHERE id=o.secondary_job_id_snapshot
+    AND student_id=o.seller_student_id
+    AND classroom_id=o.classroom_id
+    AND is_active=true;
+
+  IF v_job.id IS NULL THEN
+    RAISE EXCEPTION '판매자의 연결된 2차직업이 현재 비활성입니다.'
+      USING ERRCODE='P2D25';
+  END IF;
+
+  IF NOT v_service.allow_concurrent_orders
+     AND EXISTS(
+       SELECT 1
+       FROM public.secondary_job_service_orders x
+       WHERE x.service_id=o.service_id
+         AND x.id<>o.id
+         AND x.status IN ('REQUESTED','ACCEPTED','DELIVERED','REVISION_REQUESTED','DISPUTED')
+     ) THEN
+    RAISE EXCEPTION '현재 다른 주문을 처리 중이라 이 견적을 지금 수락할 수 없습니다.'
+      USING ERRCODE='P2D26';
+  END IF;
+
+  v_escrow:=public.create_transaction(
+    v_buyer,
+    'GOLD'::public.value_token_type,
+    -o.price_gold_snapshot,
+    'OTHER'::public.transaction_source_type,
+    NULL,
+    0,
+    format(
+      '[2차직업 서비스 견적 에스크로] %s · %s GOLD × %s%s = %s GOLD',
+      o.service_title_snapshot,o.unit_price_gold_snapshot,o.quantity,
+      o.quantity_unit_snapshot,o.price_gold_snapshot
+    )
+  );
+
+  UPDATE public.secondary_job_service_orders
+  SET
+    escrow_transaction_id=v_escrow,
+    status='ACCEPTED',
+    accepted_at=now(),
+    quote_accepted_at=now(),
+    status_reason=NULL,
+    updated_at=now()
+  WHERE id=o.id;
+
+  UPDATE public.transactions
+  SET source_id=o.id
+  WHERE id=v_escrow;
+
+  PERFORM public.secondary_job_service_log(
+    o.classroom_id,o.service_id,o.id,v_buyer,'QUOTE_ACCEPTED',
+    jsonb_build_object(
+      'escrow_transaction_id',v_escrow,
+      'unit_price_gold',o.unit_price_gold_snapshot,
+      'quantity',o.quantity,
+      'quantity_unit',o.quantity_unit_snapshot,
+      'total_price_gold',o.price_gold_snapshot
+    )
+  );
+
+  PERFORM public.secondary_job_service_send_notice(
+    o.seller_student_id,
+    '✅ 서비스 견적 수락',
+    format(
+      '구매자가 "%s" 견적을 수락했습니다.%s에스크로: %s GOLD · 바로 서비스를 진행해주세요.',
+      o.service_title_snapshot,E'\n\n',o.price_gold_snapshot
+    ),
+    o.id
+  );
+
+  RETURN v_escrow;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION public.student_accept_secondary_job_service_quote(bigint)
+FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.student_accept_secondary_job_service_quote(bigint)
+TO authenticated,service_role;
+
+-- ============================================================
+-- 9. BUYER ACTION: PRE-ESCROW QUOTE CANCEL
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.student_act_secondary_job_service_purchase(
+  p_order_id bigint,
+  p_action text,
+  p_reason text DEFAULT NULL::text
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+DECLARE
+  v_buyer integer:=public.current_student_id();
+  o public.secondary_job_service_orders%ROWTYPE;
+  v_action text:=upper(btrim(coalesce(p_action,'')));
+  v_reason text:=NULLIF(btrim(coalesce(p_reason,'')),'');
+  v_tx bigint:=NULL;
+BEGIN
+  IF v_buyer IS NULL THEN
+    RAISE EXCEPTION '학생 로그인이 필요합니다.' USING ERRCODE='P2C10';
+  END IF;
+
+  SELECT * INTO o
+  FROM public.secondary_job_service_orders
+  WHERE id=p_order_id
+  FOR UPDATE;
+
+  IF o.id IS NULL OR o.buyer_student_id<>v_buyer THEN
+    RAISE EXCEPTION '내 구매 주문을 찾을 수 없습니다.' USING ERRCODE='P2C30';
+  END IF;
+
+  IF v_action='CANCEL' THEN
+    IF o.status IN ('QUOTE_REQUESTED','QUOTE_OFFERED')
+       AND o.escrow_transaction_id IS NULL THEN
+      UPDATE public.secondary_job_service_orders
+      SET
+        status='CANCELLED',
+        cancelled_at=now(),
+        resolved_at=now(),
+        status_reason=coalesce(v_reason,'구매자 견적 요청 취소'),
+        updated_at=now()
+      WHERE id=o.id;
+
+      PERFORM public.secondary_job_service_log(
+        o.classroom_id,o.service_id,o.id,v_buyer,'BUYER_QUOTE_CANCELLED',
+        jsonb_build_object('reason',v_reason)
+      );
+      PERFORM public.secondary_job_service_send_notice(
+        o.seller_student_id,
+        '❌ 서비스 견적 요청 취소',
+        format('구매자가 "%s" 견적 요청을 취소했습니다.',o.service_title_snapshot),
+        o.id
+      );
+    ELSE
+      IF o.status<>'REQUESTED' THEN
+        RAISE EXCEPTION '판매자 수락 전 주문만 즉시 취소할 수 있습니다.'
+          USING ERRCODE='P2C31';
+      END IF;
+      v_tx:=public.secondary_job_service_refund_locked(
+        o.id,coalesce(v_reason,'구매자 주문 취소'),'CANCELLED'
+      );
+      PERFORM public.secondary_job_service_log(
+        o.classroom_id,o.service_id,o.id,v_buyer,'BUYER_CANCELLED',
+        jsonb_build_object('reason',v_reason)
+      );
+      PERFORM public.secondary_job_service_send_notice(
+        o.seller_student_id,'❌ 서비스 주문 취소',
+        format('구매자가 "%s" 주문을 취소했습니다.',o.service_title_snapshot),o.id
+      );
+    END IF;
+
+  ELSIF v_action='DECLINE_QUOTE' THEN
+    IF o.status<>'QUOTE_OFFERED'
+       OR o.pricing_mode_snapshot<>'QUOTE'
+       OR o.escrow_transaction_id IS NOT NULL THEN
+      RAISE EXCEPTION '제안된 미결제 견적만 거절할 수 있습니다.'
+        USING ERRCODE='P2D30';
+    END IF;
+
+    UPDATE public.secondary_job_service_orders
+    SET
+      status='CANCELLED',
+      cancelled_at=now(),
+      resolved_at=now(),
+      status_reason=coalesce(v_reason,'구매자 견적 거절'),
+      updated_at=now()
+    WHERE id=o.id;
+
+    PERFORM public.secondary_job_service_log(
+      o.classroom_id,o.service_id,o.id,v_buyer,'BUYER_QUOTE_DECLINED',
+      jsonb_build_object('reason',v_reason)
+    );
+    PERFORM public.secondary_job_service_send_notice(
+      o.seller_student_id,
+      '❌ 서비스 견적 거절',
+      format('구매자가 "%s" 견적을 거절했습니다.',o.service_title_snapshot),
+      o.id
+    );
+
+  ELSIF v_action='CONFIRM' THEN
+    IF o.status<>'DELIVERED' THEN
+      RAISE EXCEPTION '납품 완료 상태에서만 구매 확정할 수 있습니다.' USING ERRCODE='P2C32';
+    END IF;
+    v_tx:=public.secondary_job_service_payout_locked(o.id,'구매자 구매 확정');
+    PERFORM public.secondary_job_service_log(
+      o.classroom_id,o.service_id,o.id,v_buyer,'BUYER_CONFIRMED',
+      jsonb_build_object('payout_transaction_id',v_tx)
+    );
+    PERFORM public.secondary_job_service_send_notice(
+      o.seller_student_id,'💰 서비스 거래 완료',
+      format(
+        '"%s" 주문이 구매 확정되었습니다.%s정산: %s GOLD',
+        o.service_title_snapshot,E'\n\n',o.price_gold_snapshot
+      ),
+      o.id
+    );
+
+  ELSIF v_action='REVISION' THEN
+    IF o.status<>'DELIVERED' THEN
+      RAISE EXCEPTION '납품 완료 상태에서만 수정 요청할 수 있습니다.' USING ERRCODE='P2C33';
+    END IF;
+    IF v_reason IS NULL OR char_length(v_reason)<2 OR char_length(v_reason)>500 THEN
+      RAISE EXCEPTION '수정 요청 사유는 2~500자입니다.' USING ERRCODE='P2C34';
+    END IF;
+    UPDATE public.secondary_job_service_orders
+    SET
+      status='REVISION_REQUESTED',
+      revision_requested_at=now(),
+      status_reason=v_reason,
+      updated_at=now()
+    WHERE id=o.id;
+    PERFORM public.secondary_job_service_log(
+      o.classroom_id,o.service_id,o.id,v_buyer,'REVISION_REQUESTED',
+      jsonb_build_object('reason',v_reason)
+    );
+    PERFORM public.secondary_job_service_send_notice(
+      o.seller_student_id,'🔄 서비스 수정 요청',
+      format(
+        '"%s" 주문에 수정 요청이 들어왔습니다.%s사유: %s',
+        o.service_title_snapshot,E'\n\n',v_reason
+      ),
+      o.id
+    );
+
+  ELSIF v_action='DISPUTE' THEN
+    IF o.status NOT IN ('ACCEPTED','DELIVERED','REVISION_REQUESTED') THEN
+      RAISE EXCEPTION '현재 상태에서는 분쟁을 접수할 수 없습니다.' USING ERRCODE='P2C35';
+    END IF;
+    IF v_reason IS NULL OR char_length(v_reason)<2 OR char_length(v_reason)>500 THEN
+      RAISE EXCEPTION '분쟁 사유는 2~500자입니다.' USING ERRCODE='P2C36';
+    END IF;
+    UPDATE public.secondary_job_service_orders
+    SET
+      status='DISPUTED',
+      disputed_at=now(),
+      status_reason=v_reason,
+      updated_at=now()
+    WHERE id=o.id;
+    PERFORM public.secondary_job_service_log(
+      o.classroom_id,o.service_id,o.id,v_buyer,'DISPUTED',
+      jsonb_build_object('reason',v_reason)
+    );
+    PERFORM public.secondary_job_service_send_notice(
+      o.seller_student_id,'⚠️ 서비스 거래 분쟁',
+      format(
+        '"%s" 주문에 분쟁이 접수되었습니다.%s사유: %s',
+        o.service_title_snapshot,E'\n\n',v_reason
+      ),
+      o.id
+    );
+  ELSE
+    RAISE EXCEPTION '지원하지 않는 구매자 행동입니다: %',v_action USING ERRCODE='P2C39';
+  END IF;
+
+  RETURN v_tx;
+END
+$function$;
+
+-- ============================================================
+-- 10. SELLER ACTION: PRE-ESCROW QUOTE REJECT/CANCEL
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.student_act_secondary_job_service_sale(
+  p_order_id bigint,
+  p_action text,
+  p_reason text DEFAULT NULL::text
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+DECLARE
+  v_seller integer:=public.current_student_id();
+  o public.secondary_job_service_orders%ROWTYPE;
+  v_action text:=upper(btrim(coalesce(p_action,'')));
+  v_reason text:=NULLIF(btrim(coalesce(p_reason,'')),'');
+  v_tx bigint:=NULL;
+BEGIN
+  IF v_seller IS NULL THEN
+    RAISE EXCEPTION '학생 로그인이 필요합니다.' USING ERRCODE='P2C10';
+  END IF;
+
+  SELECT * INTO o
+  FROM public.secondary_job_service_orders
+  WHERE id=p_order_id
+  FOR UPDATE;
+
+  IF o.id IS NULL OR o.seller_student_id<>v_seller THEN
+    RAISE EXCEPTION '내 판매 주문을 찾을 수 없습니다.' USING ERRCODE='P2C50';
+  END IF;
+
+  IF v_action='ACCEPT' THEN
+    IF o.status<>'REQUESTED' THEN
+      RAISE EXCEPTION '새 주문만 수락할 수 있습니다.' USING ERRCODE='P2C51';
+    END IF;
+    UPDATE public.secondary_job_service_orders
+    SET status='ACCEPTED',accepted_at=now(),status_reason=NULL,updated_at=now()
+    WHERE id=o.id;
+    PERFORM public.secondary_job_service_log(
+      o.classroom_id,o.service_id,o.id,v_seller,'SELLER_ACCEPTED','{}'::jsonb
+    );
+    PERFORM public.secondary_job_service_send_notice(
+      o.buyer_student_id,'✅ 서비스 주문 수락',
+      format('판매자가 "%s" 주문을 수락했습니다.',o.service_title_snapshot),o.id
+    );
+
+  ELSIF v_action='REJECT' THEN
+    IF v_reason IS NULL OR char_length(v_reason)<2 OR char_length(v_reason)>500 THEN
+      RAISE EXCEPTION '거절 사유는 2~500자입니다.' USING ERRCODE='P2C53';
+    END IF;
+
+    IF o.status IN ('QUOTE_REQUESTED','QUOTE_OFFERED')
+       AND o.escrow_transaction_id IS NULL THEN
+      UPDATE public.secondary_job_service_orders
+      SET
+        status='REJECTED',
+        cancelled_at=now(),
+        resolved_at=now(),
+        status_reason=v_reason,
+        updated_at=now()
+      WHERE id=o.id;
+
+      PERFORM public.secondary_job_service_log(
+        o.classroom_id,o.service_id,o.id,v_seller,'SELLER_QUOTE_REJECTED',
+        jsonb_build_object('reason',v_reason)
+      );
+      PERFORM public.secondary_job_service_send_notice(
+        o.buyer_student_id,'❌ 서비스 견적 거절',
+        format(
+          '"%s" 견적 요청이 거절되었습니다.%s사유: %s',
+          o.service_title_snapshot,E'\n\n',v_reason
+        ),
+        o.id
+      );
+    ELSE
+      IF o.status<>'REQUESTED' THEN
+        RAISE EXCEPTION '새 주문만 거절할 수 있습니다.' USING ERRCODE='P2C52';
+      END IF;
+      v_tx:=public.secondary_job_service_refund_locked(o.id,v_reason,'REJECTED');
+      PERFORM public.secondary_job_service_log(
+        o.classroom_id,o.service_id,o.id,v_seller,'SELLER_REJECTED',
+        jsonb_build_object('reason',v_reason)
+      );
+      PERFORM public.secondary_job_service_send_notice(
+        o.buyer_student_id,'❌ 서비스 주문 거절',
+        format(
+          '"%s" 주문이 거절되어 결제 금액이 환불되었습니다.%s사유: %s',
+          o.service_title_snapshot,E'\n\n',v_reason
+        ),
+        o.id
+      );
+    END IF;
+
+  ELSIF v_action='CANCEL' THEN
+    IF v_reason IS NULL OR char_length(v_reason)<2 OR char_length(v_reason)>500 THEN
+      RAISE EXCEPTION '취소 사유는 2~500자입니다.' USING ERRCODE='P2C55';
+    END IF;
+
+    IF o.status IN ('QUOTE_REQUESTED','QUOTE_OFFERED')
+       AND o.escrow_transaction_id IS NULL THEN
+      UPDATE public.secondary_job_service_orders
+      SET
+        status='CANCELLED',
+        cancelled_at=now(),
+        resolved_at=now(),
+        status_reason=v_reason,
+        updated_at=now()
+      WHERE id=o.id;
+
+      PERFORM public.secondary_job_service_log(
+        o.classroom_id,o.service_id,o.id,v_seller,'SELLER_QUOTE_CANCELLED',
+        jsonb_build_object('reason',v_reason)
+      );
+      PERFORM public.secondary_job_service_send_notice(
+        o.buyer_student_id,'❌ 서비스 견적 취소',
+        format(
+          '판매자가 "%s" 견적 진행을 취소했습니다.%s사유: %s',
+          o.service_title_snapshot,E'\n\n',v_reason
+        ),
+        o.id
+      );
+    ELSE
+      IF o.status NOT IN ('REQUESTED','ACCEPTED','REVISION_REQUESTED') THEN
+        RAISE EXCEPTION '현재 상태에서는 판매자가 주문을 취소할 수 없습니다.'
+          USING ERRCODE='P2C54';
+      END IF;
+      v_tx:=public.secondary_job_service_refund_locked(o.id,v_reason,'CANCELLED');
+      PERFORM public.secondary_job_service_log(
+        o.classroom_id,o.service_id,o.id,v_seller,'SELLER_CANCELLED',
+        jsonb_build_object('reason',v_reason)
+      );
+      PERFORM public.secondary_job_service_send_notice(
+        o.buyer_student_id,'❌ 서비스 판매 취소',
+        format(
+          '판매자가 "%s" 주문을 취소하여 결제 금액이 환불되었습니다.%s사유: %s',
+          o.service_title_snapshot,E'\n\n',v_reason
+        ),
+        o.id
+      );
+    END IF;
+  ELSE
+    RAISE EXCEPTION '지원하지 않는 판매자 행동입니다: %',v_action USING ERRCODE='P2C59';
+  END IF;
+
+  RETURN v_tx;
+END
+$function$;
+
+-- ============================================================
+-- 11. TEACHER RESOLVE: PRE-ESCROW QUOTE DIRECT CANCEL
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.teacher_resolve_secondary_job_service_order(
+  p_order_id bigint,
+  p_action text,
+  p_reason text
+)
+RETURNS bigint
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+DECLARE
+  o public.secondary_job_service_orders%ROWTYPE;
+  v_action text:=upper(btrim(coalesce(p_action,'')));
+  v_reason text:=btrim(coalesce(p_reason,''));
+  v_tx bigint:=NULL;
+BEGIN
+  PERFORM public.ensure_teacher_role();
+
+  IF char_length(v_reason)<2 OR char_length(v_reason)>500 THEN
+    RAISE EXCEPTION '처리 사유는 2~500자입니다.' USING ERRCODE='P2C71';
+  END IF;
+
+  SELECT * INTO o
+  FROM public.secondary_job_service_orders
+  WHERE id=p_order_id
+  FOR UPDATE;
+
+  IF o.id IS NULL THEN
+    RAISE EXCEPTION '서비스 주문을 찾을 수 없습니다.' USING ERRCODE='P2C40';
+  END IF;
+  IF NOT public.is_classroom_member(o.classroom_id) THEN
+    RAISE EXCEPTION '다른 학급 주문은 처리할 수 없습니다.' USING ERRCODE='P2C72';
+  END IF;
+  IF o.status IN ('COMPLETED','REJECTED','CANCELLED') THEN
+    RAISE EXCEPTION '이미 종료된 주문입니다.' USING ERRCODE='P2C73';
+  END IF;
+
+  IF v_action='REFUND' THEN
+    IF o.escrow_transaction_id IS NULL
+       AND o.status IN ('QUOTE_REQUESTED','QUOTE_OFFERED') THEN
+      UPDATE public.secondary_job_service_orders
+      SET
+        status='CANCELLED',
+        cancelled_at=now(),
+        resolved_by=auth.uid(),
+        resolved_at=now(),
+        status_reason=v_reason,
+        updated_at=now()
+      WHERE id=o.id;
+
+      PERFORM public.secondary_job_service_log(
+        o.classroom_id,o.service_id,o.id,NULL,'TEACHER_QUOTE_CANCELLED',
+        jsonb_build_object('reason',v_reason)
+      );
+    ELSE
+      v_tx:=public.secondary_job_service_refund_locked(
+        o.id,'교사 환불: '||v_reason,'CANCELLED'
+      );
+      UPDATE public.secondary_job_service_orders
+      SET resolved_by=auth.uid(),resolved_at=now(),status_reason=v_reason
+      WHERE id=o.id;
+
+      PERFORM public.secondary_job_service_log(
+        o.classroom_id,o.service_id,o.id,NULL,'TEACHER_REFUNDED',
+        jsonb_build_object('reason',v_reason,'transaction_id',v_tx)
+      );
+    END IF;
+
+    PERFORM public.secondary_job_service_send_notice(
+      o.buyer_student_id,'💰 서비스 거래 처리',
+      CASE
+        WHEN o.escrow_transaction_id IS NULL
+          THEN format('"%s" 견적 요청이 교사 처리로 취소되었습니다.%s사유: %s',o.service_title_snapshot,E'\n\n',v_reason)
+        ELSE format('"%s" 주문이 교사 처리로 환불되었습니다.%s사유: %s',o.service_title_snapshot,E'\n\n',v_reason)
+      END,
+      o.id
+    );
+    PERFORM public.secondary_job_service_send_notice(
+      o.seller_student_id,'⚖️ 서비스 거래 처리',
+      format('"%s" 거래가 교사 처리되었습니다.%s사유: %s',o.service_title_snapshot,E'\n\n',v_reason),
+      o.id
+    );
+
+  ELSIF v_action='PAY_SELLER' THEN
+    IF o.status NOT IN ('DELIVERED','DISPUTED') THEN
+      RAISE EXCEPTION '납품 완료 또는 분쟁 상태에서만 판매자 지급 확정이 가능합니다.'
+        USING ERRCODE='P2C74';
+    END IF;
+    v_tx:=public.secondary_job_service_payout_locked(o.id,'교사 지급 확정: '||v_reason);
+    UPDATE public.secondary_job_service_orders
+    SET resolved_by=auth.uid(),resolved_at=now(),status_reason=v_reason
+    WHERE id=o.id;
+
+    PERFORM public.secondary_job_service_log(
+      o.classroom_id,o.service_id,o.id,NULL,'TEACHER_PAID_SELLER',
+      jsonb_build_object('reason',v_reason,'transaction_id',v_tx)
+    );
+    PERFORM public.secondary_job_service_send_notice(
+      o.buyer_student_id,'⚖️ 서비스 거래 처리',
+      format('"%s" 주문이 판매자 지급 확정으로 처리되었습니다.%s사유: %s',o.service_title_snapshot,E'\n\n',v_reason),
+      o.id
+    );
+    PERFORM public.secondary_job_service_send_notice(
+      o.seller_student_id,'💰 서비스 거래 정산',
+      format('"%s" 주문이 교사 확인으로 완료되었습니다.%s정산: %s GOLD',o.service_title_snapshot,E'\n\n',o.price_gold_snapshot),
+      o.id
+    );
+  ELSE
+    RAISE EXCEPTION '지원하지 않는 교사 처리입니다: %',v_action USING ERRCODE='P2C79';
+  END IF;
+
+  RETURN v_tx;
+END
+$function$;
+
+-- ============================================================
+-- 12. MARKET BOARD
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.student_get_secondary_job_service_market()
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+DECLARE
+  v_student_id integer;
+  v_classroom_id integer;
+  v_gold bigint;
+  v_asset_freeze boolean;
+BEGIN
+  v_student_id:=public.current_student_id();
+  IF v_student_id IS NULL THEN
+    RAISE EXCEPTION '학생 로그인이 필요합니다.' USING ERRCODE='P2C10';
+  END IF;
+
+  SELECT s.classroom_id,w.gold
+  INTO v_classroom_id,v_gold
+  FROM public.students s
+  JOIN public.wallets w ON w.student_id=s.id
+  WHERE s.id=v_student_id AND s.transferred_at IS NULL;
+
+  IF v_classroom_id IS NULL THEN
+    RAISE EXCEPTION '활성 학생 정보를 찾을 수 없습니다.' USING ERRCODE='P2C11';
+  END IF;
+
+  v_asset_freeze:=public.is_asset_freeze_active(v_classroom_id);
+
+  RETURN jsonb_build_object(
+    'server_now',now(),
+    'gold',v_gold,
+    'asset_freeze',v_asset_freeze,
+
+    'active_jobs',coalesce((
+      SELECT jsonb_agg(
+        jsonb_build_object('id',j.id,'job_name',j.job_name,'category',j.category_snapshot)
+        ORDER BY j.job_name,j.id
+      )
+      FROM public.secondary_jobs j
+      WHERE j.student_id=v_student_id
+        AND j.classroom_id=v_classroom_id
+        AND j.is_active=true
+    ),'[]'::jsonb),
+
+    'services',coalesce((
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'id',sv.id,
+          'seller_student_id',sv.seller_student_id,
+          'seller_name',coalesce(nullif(st.brand_name,''),st.name),
+          'secondary_job_id',sv.secondary_job_id,
+          'job_name',j.job_name,
+          'job_category',j.category_snapshot,
+          'title',sv.title,
+          'subtitle',sv.subtitle,
+          'description',sv.description,
+          'service_category',sv.service_category,
+          'pricing_mode',sv.pricing_mode,
+          'quantity_unit',sv.quantity_unit,
+          'price_gold',sv.price_gold,
+          'price_min_gold',CASE
+            WHEN sv.pricing_mode='FIXED' THEN sv.price_gold
+            WHEN sv.pricing_mode='OPTION' THEN (
+              SELECT min(op.price_gold)
+              FROM public.secondary_job_service_options op
+              WHERE op.service_id=sv.id AND op.is_active=true
+            )
+            ELSE NULL
+          END,
+          'price_max_gold',CASE
+            WHEN sv.pricing_mode='FIXED' THEN sv.price_gold
+            WHEN sv.pricing_mode='OPTION' THEN (
+              SELECT max(op.price_gold)
+              FROM public.secondary_job_service_options op
+              WHERE op.service_id=sv.id AND op.is_active=true
+            )
+            ELSE NULL
+          END,
+          'options',CASE
+            WHEN sv.pricing_mode='OPTION' THEN coalesce((
+              SELECT jsonb_agg(
+                jsonb_build_object(
+                  'id',op.id,
+                  'name',op.option_name,
+                  'price_gold',op.price_gold,
+                  'is_active',op.is_active,
+                  'sort_order',op.sort_order
+                )
+                ORDER BY op.sort_order,op.id
+              )
+              FROM public.secondary_job_service_options op
+              WHERE op.service_id=sv.id AND op.is_active=true
+            ),'[]'::jsonb)
+            ELSE '[]'::jsonb
+          END,
+          'delivery_note',sv.delivery_note,
+          'allow_concurrent_orders',sv.allow_concurrent_orders,
+          'created_at',sv.created_at,
+          'can_buy',(
+            sv.seller_student_id<>v_student_id
+            AND NOT v_asset_freeze
+            AND j.is_active=true
+            AND st.transferred_at IS NULL
+            AND NOT EXISTS(
+              SELECT 1
+              FROM public.secondary_job_service_orders o
+              WHERE o.service_id=sv.id
+                AND o.buyer_student_id=v_student_id
+                AND o.status NOT IN ('COMPLETED','REJECTED','CANCELLED')
+            )
+            AND (
+              sv.allow_concurrent_orders
+              OR NOT EXISTS(
+                SELECT 1
+                FROM public.secondary_job_service_orders o
+                WHERE o.service_id=sv.id
+                  AND o.status IN ('REQUESTED','ACCEPTED','DELIVERED','REVISION_REQUESTED','DISPUTED')
+              )
+              OR sv.pricing_mode='QUOTE'
+            )
+            AND (
+              sv.pricing_mode='QUOTE'
+              OR (
+                sv.pricing_mode='FIXED'
+                AND sv.price_gold IS NOT NULL
+                AND v_gold>=sv.price_gold
+              )
+              OR (
+                sv.pricing_mode='OPTION'
+                AND EXISTS(
+                  SELECT 1
+                  FROM public.secondary_job_service_options op
+                  WHERE op.service_id=sv.id
+                    AND op.is_active=true
+                    AND v_gold>=op.price_gold
+                )
+              )
+            )
+          ),
+          'blocked_reason',CASE
+            WHEN sv.seller_student_id=v_student_id
+              THEN '내 서비스는 구매할 수 없습니다.'
+            WHEN NOT j.is_active OR st.transferred_at IS NOT NULL
+              THEN '현재 판매할 수 없는 서비스입니다.'
+            WHEN v_asset_freeze
+              THEN '현재 자산동결 중이라 새 서비스 주문/견적 요청을 만들 수 없습니다.'
+            WHEN EXISTS(
+              SELECT 1
+              FROM public.secondary_job_service_orders o
+              WHERE o.service_id=sv.id
+                AND o.buyer_student_id=v_student_id
+                AND o.status NOT IN ('COMPLETED','REJECTED','CANCELLED')
+            ) THEN '이미 진행 중인 같은 서비스 주문 또는 견적 요청이 있습니다.'
+            WHEN sv.pricing_mode='OPTION'
+              AND NOT EXISTS(
+                SELECT 1
+                FROM public.secondary_job_service_options op
+                WHERE op.service_id=sv.id AND op.is_active=true
+              ) THEN '현재 구매 가능한 옵션이 없습니다.'
+            WHEN sv.pricing_mode<>'QUOTE'
+              AND NOT sv.allow_concurrent_orders
+              AND EXISTS(
+                SELECT 1
+                FROM public.secondary_job_service_orders o
+                WHERE o.service_id=sv.id
+                  AND o.status IN ('REQUESTED','ACCEPTED','DELIVERED','REVISION_REQUESTED','DISPUTED')
+              ) THEN '현재 다른 학생의 주문을 처리 중입니다. 이 서비스는 한 번에 1명만 주문할 수 있습니다.'
+            WHEN sv.pricing_mode='FIXED' AND v_gold<sv.price_gold
+              THEN format('GOLD가 부족합니다. 최소 필요: %s',sv.price_gold)
+            WHEN sv.pricing_mode='OPTION' AND NOT EXISTS(
+              SELECT 1
+              FROM public.secondary_job_service_options op
+              WHERE op.service_id=sv.id
+                AND op.is_active=true
+                AND v_gold>=op.price_gold
+            ) THEN format(
+              'GOLD가 부족합니다. 최소 필요: %s',
+              (
+                SELECT min(op.price_gold)
+                FROM public.secondary_job_service_options op
+                WHERE op.service_id=sv.id AND op.is_active=true
+              )
+            )
+            ELSE NULL
+          END
+        )
+        ORDER BY sv.created_at DESC,sv.id DESC
+      )
+      FROM public.secondary_job_services sv
+      JOIN public.secondary_jobs j ON j.id=sv.secondary_job_id
+      JOIN public.students st ON st.id=sv.seller_student_id
+      WHERE sv.classroom_id=v_classroom_id
+        AND sv.deleted_at IS NULL
+        AND sv.is_active=true
+        AND j.is_active=true
+        AND st.transferred_at IS NULL
+    ),'[]'::jsonb),
+
+    'my_services',coalesce((
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'id',sv.id,
+          'secondary_job_id',sv.secondary_job_id,
+          'job_name',j.job_name,
+          'job_category',j.category_snapshot,
+          'title',sv.title,
+          'subtitle',sv.subtitle,
+          'description',sv.description,
+          'service_category',sv.service_category,
+          'pricing_mode',sv.pricing_mode,
+          'quantity_unit',sv.quantity_unit,
+          'price_gold',sv.price_gold,
+          'price_min_gold',CASE
+            WHEN sv.pricing_mode='FIXED' THEN sv.price_gold
+            WHEN sv.pricing_mode='OPTION' THEN (
+              SELECT min(op.price_gold)
+              FROM public.secondary_job_service_options op
+              WHERE op.service_id=sv.id AND op.is_active=true
+            )
+            ELSE NULL
+          END,
+          'price_max_gold',CASE
+            WHEN sv.pricing_mode='FIXED' THEN sv.price_gold
+            WHEN sv.pricing_mode='OPTION' THEN (
+              SELECT max(op.price_gold)
+              FROM public.secondary_job_service_options op
+              WHERE op.service_id=sv.id AND op.is_active=true
+            )
+            ELSE NULL
+          END,
+          'options',CASE
+            WHEN sv.pricing_mode='OPTION' THEN coalesce((
+              SELECT jsonb_agg(
+                jsonb_build_object(
+                  'id',op.id,'name',op.option_name,'price_gold',op.price_gold,
+                  'is_active',op.is_active,'sort_order',op.sort_order
+                )
+                ORDER BY op.sort_order,op.id
+              )
+              FROM public.secondary_job_service_options op
+              WHERE op.service_id=sv.id
+            ),'[]'::jsonb)
+            ELSE '[]'::jsonb
+          END,
+          'delivery_note',sv.delivery_note,
+          'allow_concurrent_orders',sv.allow_concurrent_orders,
+          'is_active',sv.is_active,
+          'deleted_at',sv.deleted_at,
+          'created_at',sv.created_at,
+          'updated_at',sv.updated_at,
+          'active_orders',(
+            SELECT count(*)
+            FROM public.secondary_job_service_orders o
+            WHERE o.service_id=sv.id
+              AND o.status IN ('REQUESTED','ACCEPTED','DELIVERED','REVISION_REQUESTED','DISPUTED')
+          ),
+          'open_quote_requests',(
+            SELECT count(*)
+            FROM public.secondary_job_service_orders o
+            WHERE o.service_id=sv.id
+              AND o.status IN ('QUOTE_REQUESTED','QUOTE_OFFERED')
+          )
+        )
+        ORDER BY sv.deleted_at NULLS FIRST,sv.created_at DESC
+      )
+      FROM public.secondary_job_services sv
+      JOIN public.secondary_jobs j ON j.id=sv.secondary_job_id
+      WHERE sv.seller_student_id=v_student_id
+    ),'[]'::jsonb),
+
+    'my_orders',coalesce((
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'id',o.id,
+          'service_id',o.service_id,
+          'seller_student_id',o.seller_student_id,
+          'seller_name',coalesce(nullif(ss.brand_name,''),ss.name),
+          'service_title',o.service_title_snapshot,
+          'job_name',sj.job_name,
+          'price_gold',o.price_gold_snapshot,
+          'total_price_gold',o.price_gold_snapshot,
+          'pricing_mode',o.pricing_mode_snapshot,
+          'option_id',o.option_id_snapshot,
+          'option_name',o.option_name_snapshot,
+          'unit_price_gold',o.unit_price_gold_snapshot,
+          'quantity',o.quantity,
+          'requested_quantity',o.requested_quantity,
+          'quantity_unit',o.quantity_unit_snapshot,
+          'buyer_note',o.buyer_note,
+          'seller_quote_note',o.seller_quote_note,
+          'quote_offered_at',o.quote_offered_at,
+          'quote_accepted_at',o.quote_accepted_at,
+          'delivery_note',o.delivery_note_snapshot,
+          'buyer_request',o.buyer_request,
+          'status',o.status,
+          'accepted_at',o.accepted_at,
+          'delivered_at',o.delivered_at,
+          'completed_at',o.completed_at,
+          'cancelled_at',o.cancelled_at,
+          'disputed_at',o.disputed_at,
+          'revision_requested_at',o.revision_requested_at,
+          'status_reason',o.status_reason,
+          'created_at',o.created_at,
+          'current_revision',o.current_revision,
+          'latest_delivery',(
+            SELECT d.delivery_text
+            FROM public.secondary_job_service_deliveries d
+            WHERE d.order_id=o.id
+            ORDER BY d.revision_no DESC
+            LIMIT 1
+          ),
+          'latest_delivery_at',(
+            SELECT d.created_at
+            FROM public.secondary_job_service_deliveries d
+            WHERE d.order_id=o.id
+            ORDER BY d.revision_no DESC
+            LIMIT 1
+          )
+        )
+        ORDER BY o.created_at DESC
+      )
+      FROM public.secondary_job_service_orders o
+      JOIN public.students ss ON ss.id=o.seller_student_id
+      JOIN public.secondary_jobs sj ON sj.id=o.secondary_job_id_snapshot
+      WHERE o.buyer_student_id=v_student_id
+    ),'[]'::jsonb),
+
+    'my_sales',coalesce((
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'id',o.id,
+          'service_id',o.service_id,
+          'buyer_student_id',o.buyer_student_id,
+          'buyer_name',coalesce(nullif(bs.brand_name,''),bs.name),
+          'service_title',o.service_title_snapshot,
+          'job_name',sj.job_name,
+          'price_gold',o.price_gold_snapshot,
+          'total_price_gold',o.price_gold_snapshot,
+          'pricing_mode',o.pricing_mode_snapshot,
+          'option_id',o.option_id_snapshot,
+          'option_name',o.option_name_snapshot,
+          'unit_price_gold',o.unit_price_gold_snapshot,
+          'quantity',o.quantity,
+          'requested_quantity',o.requested_quantity,
+          'quantity_unit',o.quantity_unit_snapshot,
+          'buyer_note',o.buyer_note,
+          'seller_quote_note',o.seller_quote_note,
+          'quote_offered_at',o.quote_offered_at,
+          'quote_accepted_at',o.quote_accepted_at,
+          'delivery_note',o.delivery_note_snapshot,
+          'buyer_request',o.buyer_request,
+          'status',o.status,
+          'accepted_at',o.accepted_at,
+          'delivered_at',o.delivered_at,
+          'completed_at',o.completed_at,
+          'cancelled_at',o.cancelled_at,
+          'disputed_at',o.disputed_at,
+          'revision_requested_at',o.revision_requested_at,
+          'status_reason',o.status_reason,
+          'created_at',o.created_at,
+          'current_revision',o.current_revision,
+          'latest_delivery',(
+            SELECT d.delivery_text
+            FROM public.secondary_job_service_deliveries d
+            WHERE d.order_id=o.id
+            ORDER BY d.revision_no DESC
+            LIMIT 1
+          ),
+          'latest_delivery_at',(
+            SELECT d.created_at
+            FROM public.secondary_job_service_deliveries d
+            WHERE d.order_id=o.id
+            ORDER BY d.revision_no DESC
+            LIMIT 1
+          )
+        )
+        ORDER BY
+          CASE
+            WHEN o.status IN ('QUOTE_REQUESTED','QUOTE_OFFERED','REQUESTED','ACCEPTED','REVISION_REQUESTED','DELIVERED','DISPUTED')
+              THEN 0
+            ELSE 1
+          END,
+          o.updated_at DESC
+      )
+      FROM public.secondary_job_service_orders o
+      JOIN public.students bs ON bs.id=o.buyer_student_id
+      JOIN public.secondary_jobs sj ON sj.id=o.secondary_job_id_snapshot
+      WHERE o.seller_student_id=v_student_id
+    ),'[]'::jsonb)
+  );
+END
+$function$;
+
+-- ============================================================
+-- 13. TEACHER ORDER BOARD
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.teacher_get_secondary_job_service_orders(
+  p_classroom_id integer
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+BEGIN
+  PERFORM public.ensure_teacher_role();
+  IF NOT public.is_classroom_member(p_classroom_id) THEN
+    RAISE EXCEPTION '담당 학급만 조회할 수 있습니다.' USING ERRCODE='P2C70';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'orders',coalesce((
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'id',o.id,
+          'service_id',o.service_id,
+          'service_title',o.service_title_snapshot,
+          'price_gold',o.price_gold_snapshot,
+          'total_price_gold',o.price_gold_snapshot,
+          'pricing_mode',o.pricing_mode_snapshot,
+          'option_name',o.option_name_snapshot,
+          'unit_price_gold',o.unit_price_gold_snapshot,
+          'quantity',o.quantity,
+          'requested_quantity',o.requested_quantity,
+          'quantity_unit',o.quantity_unit_snapshot,
+          'buyer_note',o.buyer_note,
+          'seller_quote_note',o.seller_quote_note,
+          'quote_offered_at',o.quote_offered_at,
+          'quote_accepted_at',o.quote_accepted_at,
+          'buyer_student_id',o.buyer_student_id,
+          'buyer_name',coalesce(nullif(b.brand_name,''),b.name),
+          'seller_student_id',o.seller_student_id,
+          'seller_name',coalesce(nullif(s.brand_name,''),s.name),
+          'job_name',j.job_name,
+          'buyer_request',o.buyer_request,
+          'status',o.status,
+          'status_reason',o.status_reason,
+          'created_at',o.created_at,
+          'accepted_at',o.accepted_at,
+          'delivered_at',o.delivered_at,
+          'completed_at',o.completed_at,
+          'cancelled_at',o.cancelled_at,
+          'disputed_at',o.disputed_at,
+          'current_revision',o.current_revision,
+          'escrow_transaction_id',o.escrow_transaction_id,
+          'payout_transaction_id',o.payout_transaction_id,
+          'refund_transaction_id',o.refund_transaction_id,
+          'latest_delivery',(
+            SELECT d.delivery_text
+            FROM public.secondary_job_service_deliveries d
+            WHERE d.order_id=o.id
+            ORDER BY d.revision_no DESC
+            LIMIT 1
+          ),
+          'latest_delivery_at',(
+            SELECT d.created_at
+            FROM public.secondary_job_service_deliveries d
+            WHERE d.order_id=o.id
+            ORDER BY d.revision_no DESC
+            LIMIT 1
+          )
+        )
+        ORDER BY
+          CASE
+            WHEN o.status='DISPUTED' THEN 0
+            WHEN o.status IN (
+              'QUOTE_REQUESTED','QUOTE_OFFERED',
+              'REQUESTED','ACCEPTED','REVISION_REQUESTED','DELIVERED'
+            ) THEN 1
+            ELSE 2
+          END,
+          o.updated_at DESC
+      )
+      FROM public.secondary_job_service_orders o
+      JOIN public.students b ON b.id=o.buyer_student_id
+      JOIN public.students s ON s.id=o.seller_student_id
+      JOIN public.secondary_jobs j ON j.id=o.secondary_job_id_snapshot
+      WHERE o.classroom_id=p_classroom_id
+    ),'[]'::jsonb)
+  );
+END
+$function$;
+
+-- ============================================================
+-- 14. AD READ BOARDS — ORIGINAL BEHAVIOR PRESERVED + PRICE SUMMARY
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.student_get_home_secondary_job_service_ads()
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+DECLARE
+  v_student_id integer;
+  v_classroom_id integer;
+BEGIN
+  v_student_id := public.current_student_id();
+
+  SELECT s.classroom_id
+  INTO v_classroom_id
+  FROM public.students s
+  WHERE s.id=v_student_id
+    AND s.role::text='STUDENT'
+    AND s.transferred_at IS NULL;
+
+  IF v_student_id IS NULL OR v_classroom_id IS NULL THEN
+    RAISE EXCEPTION '학생 계정만 홈 광고를 조회할 수 있습니다.'
+      USING ERRCODE='P3A10';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'server_now',now(),
+    'ads',COALESCE((
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'ad_id',a.id,
+          'service_id',sv.id,
+          'seller_student_id',s.id,
+          'seller_name',coalesce(nullif(s.brand_name,''),s.name),
+          'job_name',j.job_name,
+          'service_title',sv.title,
+          'service_price_gold',sv.price_gold,
+          'pricing_mode',sv.pricing_mode,
+          'quantity_unit',sv.quantity_unit,
+          'price_min_gold',CASE
+            WHEN sv.pricing_mode='FIXED' THEN sv.price_gold
+            WHEN sv.pricing_mode='OPTION' THEN (
+              SELECT min(op.price_gold)
+              FROM public.secondary_job_service_options op
+              WHERE op.service_id=sv.id AND op.is_active=true
+            )
+            ELSE NULL
+          END,
+          'price_max_gold',CASE
+            WHEN sv.pricing_mode='FIXED' THEN sv.price_gold
+            WHEN sv.pricing_mode='OPTION' THEN (
+              SELECT max(op.price_gold)
+              FROM public.secondary_job_service_options op
+              WHERE op.service_id=sv.id AND op.is_active=true
+            )
+            ELSE NULL
+          END,
+          'ends_at',a.ends_at
+        )
+        ORDER BY a.id
+      )
+      FROM public.secondary_job_service_ads a
+      JOIN public.secondary_job_services sv
+        ON sv.id=a.service_id
+      JOIN public.secondary_jobs j
+        ON j.id=sv.secondary_job_id
+      JOIN public.students s
+        ON s.id=a.student_id
+      WHERE a.classroom_id=v_classroom_id
+        AND a.status='ACTIVE'
+        AND a.starts_at<=now()
+        AND a.ends_at>now()
+        AND sv.classroom_id=v_classroom_id
+        AND sv.seller_student_id=a.student_id
+        AND sv.is_active=true
+        AND sv.deleted_at IS NULL
+        AND j.id=sv.secondary_job_id
+        AND j.student_id=a.student_id
+        AND j.classroom_id=v_classroom_id
+        AND j.is_active=true
+        AND s.classroom_id=v_classroom_id
+        AND s.role::text='STUDENT'
+        AND s.transferred_at IS NULL
+    ),'[]'::jsonb)
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.student_get_secondary_job_service_ad_board()
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+DECLARE
+  v_student_id integer;
+  v_classroom_id integer;
+BEGIN
+  v_student_id := public.current_student_id();
+
+  SELECT s.classroom_id
+  INTO v_classroom_id
+  FROM public.students s
+  WHERE s.id = v_student_id
+    AND s.role::text = 'STUDENT'
+    AND s.transferred_at IS NULL;
+
+  IF v_student_id IS NULL OR v_classroom_id IS NULL THEN
+    RAISE EXCEPTION '학생 계정만 광고 기능을 사용할 수 있습니다.'
+      USING ERRCODE='P3A10';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'server_now', now(),
+    'fee_options', jsonb_build_array(
+      jsonb_build_object('duration_days',1,'fee_gold',100),
+      jsonb_build_object('duration_days',2,'fee_gold',190),
+      jsonb_build_object('duration_days',3,'fee_gold',250)
+    ),
+    'can_submit',
+      NOT EXISTS (
+        SELECT 1
+        FROM public.secondary_job_service_ads a
+        WHERE a.student_id=v_student_id
+          AND (
+            a.status='PENDING'
+            OR (
+              a.status='ACTIVE'
+              AND a.ends_at > now()
+            )
+          )
+      ),
+    'my_ads',
+      COALESCE((
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id',a.id,
+            'service_id',a.service_id,
+            'service_title',sv.title,
+            'service_price_gold',sv.price_gold,
+            'pricing_mode',sv.pricing_mode,
+            'quantity_unit',sv.quantity_unit,
+            'price_min_gold',CASE
+              WHEN sv.pricing_mode='FIXED' THEN sv.price_gold
+              WHEN sv.pricing_mode='OPTION' THEN (
+                SELECT min(op.price_gold)
+                FROM public.secondary_job_service_options op
+                WHERE op.service_id=sv.id AND op.is_active=true
+              )
+              ELSE NULL
+            END,
+            'price_max_gold',CASE
+              WHEN sv.pricing_mode='FIXED' THEN sv.price_gold
+              WHEN sv.pricing_mode='OPTION' THEN (
+                SELECT max(op.price_gold)
+                FROM public.secondary_job_service_options op
+                WHERE op.service_id=sv.id AND op.is_active=true
+              )
+              ELSE NULL
+            END,
+            'job_name',j.job_name,
+            'duration_days',a.duration_days,
+            'fee_gold',a.fee_gold_snapshot,
+            'status',
+              CASE
+                WHEN a.status='ACTIVE'
+                 AND a.ends_at <= now()
+                THEN 'EXPIRED'
+                ELSE a.status
+              END,
+            'submitted_at',a.submitted_at,
+            'reviewed_at',a.reviewed_at,
+            'starts_at',a.starts_at,
+            'ends_at',a.ends_at,
+            'review_note',a.review_note
+          )
+          ORDER BY a.submitted_at DESC,a.id DESC
+        )
+        FROM public.secondary_job_service_ads a
+        JOIN public.secondary_job_services sv
+          ON sv.id=a.service_id
+        JOIN public.secondary_jobs j
+          ON j.id=sv.secondary_job_id
+        WHERE a.student_id=v_student_id
+      ),'[]'::jsonb)
+  );
+END;
+$function$;
+
+CREATE OR REPLACE FUNCTION public.teacher_get_secondary_job_service_ads(
+  p_classroom_id integer
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+BEGIN
+  PERFORM public.ensure_teacher_role();
+
+  IF NOT public.is_classroom_member(p_classroom_id) THEN
+    RAISE EXCEPTION '해당 학급의 광고를 조회할 권한이 없습니다.'
+      USING ERRCODE='P3A20';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'server_now',now(),
+    'ads',COALESCE((
+      SELECT jsonb_agg(
+        jsonb_build_object(
+          'id',a.id,
+          'student_id',a.student_id,
+          'seller_name',coalesce(nullif(s.brand_name,''),s.name),
+          'service_id',sv.id,
+          'service_title',sv.title,
+          'service_price_gold',sv.price_gold,
+          'pricing_mode',sv.pricing_mode,
+          'quantity_unit',sv.quantity_unit,
+          'price_min_gold',CASE
+            WHEN sv.pricing_mode='FIXED' THEN sv.price_gold
+            WHEN sv.pricing_mode='OPTION' THEN (
+              SELECT min(op.price_gold)
+              FROM public.secondary_job_service_options op
+              WHERE op.service_id=sv.id AND op.is_active=true
+            )
+            ELSE NULL
+          END,
+          'price_max_gold',CASE
+            WHEN sv.pricing_mode='FIXED' THEN sv.price_gold
+            WHEN sv.pricing_mode='OPTION' THEN (
+              SELECT max(op.price_gold)
+              FROM public.secondary_job_service_options op
+              WHERE op.service_id=sv.id AND op.is_active=true
+            )
+            ELSE NULL
+          END,
+          'job_name',j.job_name,
+          'duration_days',a.duration_days,
+          'fee_gold',a.fee_gold_snapshot,
+          'status',
+            CASE
+              WHEN a.status='ACTIVE'
+               AND a.ends_at<=now()
+              THEN 'EXPIRED'
+              ELSE a.status
+            END,
+          'submitted_at',a.submitted_at,
+          'reviewed_at',a.reviewed_at,
+          'reviewed_by',a.reviewed_by,
+          'starts_at',a.starts_at,
+          'ends_at',a.ends_at,
+          'review_note',a.review_note,
+          'service_active',(
+            sv.is_active
+            AND sv.deleted_at IS NULL
+            AND j.is_active
+            AND s.transferred_at IS NULL
+            AND s.role::text='STUDENT'
+          )
+        )
+        ORDER BY
+          CASE
+            WHEN a.status='PENDING' THEN 0
+            WHEN a.status='ACTIVE' AND a.ends_at>now() THEN 1
+            ELSE 2
+          END,
+          a.submitted_at DESC,
+          a.id DESC
+      )
+      FROM public.secondary_job_service_ads a
+      JOIN public.secondary_job_services sv ON sv.id=a.service_id
+      JOIN public.secondary_jobs j ON j.id=sv.secondary_job_id
+      JOIN public.students s ON s.id=a.student_id
+      WHERE a.classroom_id=p_classroom_id
+    ),'[]'::jsonb)
+  );
+END;
+$function$;
+
+-- ============================================================
+-- 15. ECONOMY GUARD ADAPTER
+-- ============================================================
+CREATE OR REPLACE FUNCTION public._economy_guard_service_event_rows(
+  p_classroom_id integer,
+  p_start_date date,
+  p_end_date date
+)
+RETURNS TABLE(
+  source_kind text,
+  source_id bigint,
+  event_key text,
+  occurred_at timestamptz,
+  trade_date date,
+  sender_id integer,
+  sender_name text,
+  sender_brand_name text,
+  receiver_id integer,
+  receiver_name text,
+  receiver_brand_name text,
+  amount bigint,
+  quantity integer,
+  unit_price numeric,
+  tag text,
+  description text,
+  raw_status text,
+  economic_state text,
+  source_meta jsonb
+)
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path TO 'public','pg_temp'
+AS $function$
+SELECT
+  'SERVICE_ORDER'::text AS source_kind,
+  o.id::bigint AS source_id,
+  ('SERVICE_ORDER:'||o.id::text)::text AS event_key,
+  coalesce(o.quote_accepted_at,o.created_at) AS occurred_at,
+  (coalesce(o.quote_accepted_at,o.created_at) AT TIME ZONE 'Asia/Seoul')::date AS trade_date,
+  o.buyer_student_id AS sender_id,
+  buyer.name::text AS sender_name,
+  buyer.brand_name::text AS sender_brand_name,
+  o.seller_student_id AS receiver_id,
+  seller.name::text AS receiver_name,
+  seller.brand_name::text AS receiver_brand_name,
+  o.price_gold_snapshot::bigint AS amount,
+  coalesce(o.quantity,1)::integer AS quantity,
+  coalesce(o.unit_price_gold_snapshot,o.price_gold_snapshot)::numeric AS unit_price,
+  '#2차직업서비스'::text AS tag,
+  nullif(btrim(o.buyer_request),'') AS description,
+  o.status::text AS raw_status,
+  CASE
+    WHEN o.refund_transaction_id IS NOT NULL OR o.status IN ('CANCELLED','REJECTED')
+      THEN 'REFUNDED'
+    WHEN o.payout_transaction_id IS NOT NULL OR o.status='COMPLETED'
+      THEN 'SETTLED'
+    ELSE 'ESCROW_ACTIVE'
+  END::text AS economic_state,
+  jsonb_build_object(
+    'service_id',o.service_id,
+    'service_title',o.service_title_snapshot,
+    'service_description',o.service_description_snapshot,
+    'secondary_job_id',o.secondary_job_id_snapshot,
+    'pricing_mode',o.pricing_mode_snapshot,
+    'service_category',o.service_category_snapshot,
+    'option_id',o.option_id_snapshot,
+    'option_name',o.option_name_snapshot,
+    'quantity_unit',o.quantity_unit_snapshot,
+    'requested_quantity',o.requested_quantity,
+    'buyer_note',o.buyer_note,
+    'seller_quote_note',o.seller_quote_note,
+    'quote_offered_at',o.quote_offered_at,
+    'quote_accepted_at',o.quote_accepted_at,
+    'escrow_transaction_id',o.escrow_transaction_id,
+    'payout_transaction_id',o.payout_transaction_id,
+    'refund_transaction_id',o.refund_transaction_id,
+    'current_revision',o.current_revision,
+    'status_reason',o.status_reason,
+    'accepted_at',o.accepted_at,
+    'delivered_at',o.delivered_at,
+    'completed_at',o.completed_at,
+    'cancelled_at',o.cancelled_at,
+    'disputed_at',o.disputed_at,
+    'revision_requested_at',o.revision_requested_at
+  ) AS source_meta
+FROM public.secondary_job_service_orders o
+JOIN public.students buyer ON buyer.id=o.buyer_student_id
+JOIN public.students seller ON seller.id=o.seller_student_id
+WHERE o.classroom_id=p_classroom_id
+  AND o.escrow_transaction_id IS NOT NULL
+  AND public.is_official_participant(o.buyer_student_id)
+  AND public.is_official_participant(o.seller_student_id)
+  AND (
+    p_start_date IS NULL
+    OR (coalesce(o.quote_accepted_at,o.created_at) AT TIME ZONE 'Asia/Seoul')::date>=p_start_date
+  )
+  AND (
+    p_end_date IS NULL
+    OR (coalesce(o.quote_accepted_at,o.created_at) AT TIME ZONE 'Asia/Seoul')::date<=p_end_date
+  )
+$function$;
+
+-- ============================================================
+-- 16. IN-TRANSACTION POSTCHECK
+-- ============================================================
+DO $postcheck$
+DECLARE
+  b record;
+  v_guard_before bigint;
+  v_guard_after bigint;
+BEGIN
+  SELECT * INTO b FROM _p2p_pricing_baseline;
+
+  IF (SELECT count(*) FROM public.secondary_job_services)<>b.service_count
+     OR (SELECT count(*) FROM public.secondary_job_service_orders)<>b.order_count
+     OR (SELECT count(*) FROM public.secondary_job_service_reviews)<>b.review_count
+     OR (SELECT count(*) FROM public.secondary_job_service_events)<>b.event_count
+     OR (SELECT count(*) FROM public.transactions)<>b.transaction_count THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: existing row counts changed during migration rehearsal.';
+  END IF;
+
+  IF (SELECT count(*) FROM public.secondary_job_service_options)<>0 THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: migration unexpectedly created option rows.';
+  END IF;
+
+  IF NOT (
+    SELECT c.relrowsecurity
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public'
+      AND c.relname='secondary_job_service_options'
+  ) THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: service options RLS is not enabled.';
+  END IF;
+
+  IF has_table_privilege('authenticated','public.secondary_job_service_options','SELECT')
+     OR has_table_privilege('authenticated','public.secondary_job_service_options','INSERT')
+     OR has_table_privilege('authenticated','public.secondary_job_service_options','UPDATE')
+     OR has_table_privilege('authenticated','public.secondary_job_service_options','DELETE')
+     OR has_table_privilege('anon','public.secondary_job_service_options','SELECT') THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: direct client privileges exist on service options.';
+  END IF;
+
+  IF EXISTS(
+    SELECT 1 FROM public.secondary_job_services
+    WHERE pricing_mode<>'FIXED'
+       OR quantity_unit<>'회'
+  ) THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: existing services did not migrate to FIXED / 회.';
+  END IF;
+
+  IF EXISTS(
+    SELECT 1 FROM public.secondary_job_service_orders
+    WHERE pricing_mode_snapshot<>'FIXED'
+       OR unit_price_gold_snapshot IS DISTINCT FROM price_gold_snapshot
+       OR quantity<>1
+       OR quantity_unit_snapshot<>'회'
+       OR requested_quantity IS NOT NULL
+       OR option_id_snapshot IS NOT NULL
+       OR option_name_snapshot IS NOT NULL
+       OR buyer_note IS NOT NULL
+       OR seller_quote_note IS NOT NULL
+       OR quote_offered_at IS NOT NULL
+       OR quote_accepted_at IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: historical order snapshot compatibility backfill mismatch.';
+  END IF;
+
+  IF (SELECT coalesce(sum(price_gold),0) FROM public.secondary_job_services)<>b.service_price_sum
+     OR (SELECT coalesce(sum(price_gold_snapshot),0) FROM public.secondary_job_service_orders)<>b.order_price_sum
+     OR (SELECT count(escrow_transaction_id) FROM public.secondary_job_service_orders)<>b.escrow_links
+     OR (SELECT count(payout_transaction_id) FROM public.secondary_job_service_orders)<>b.payout_links
+     OR (SELECT count(refund_transaction_id) FROM public.secondary_job_service_orders)<>b.refund_links THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: historical economic totals/links changed.';
+  END IF;
+
+  IF NOT EXISTS(
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='secondary_job_services'
+      AND column_name='price_gold'
+      AND is_nullable='YES'
+  )
+  OR NOT EXISTS(
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name='secondary_job_service_orders'
+      AND column_name='price_gold_snapshot'
+      AND is_nullable='YES'
+  ) THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: nullable pricing columns were not applied.';
+  END IF;
+
+  IF NOT EXISTS(
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid='public.secondary_job_service_orders'::regclass
+      AND conname='secondary_job_service_orders_pricing_state_ck'
+  )
+  OR NOT EXISTS(
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid='public.secondary_job_service_orders'::regclass
+      AND conname='secondary_job_service_orders_option_snapshot_ck'
+  )
+  OR NOT EXISTS(
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid='public.secondary_job_service_orders'::regclass
+      AND conname='secondary_job_service_orders_requested_quantity_mode_ck'
+  ) THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: order pricing invariant constraints missing.';
+  END IF;
+
+  IF to_regprocedure(
+    'public.student_upsert_secondary_job_service_v2(bigint,integer,text,text,text,text,text,bigint,text,jsonb,text,boolean,boolean)'
+  ) IS NULL
+  OR to_regprocedure(
+    'public.student_order_secondary_job_service_v2(bigint,bigint,integer,text,text)'
+  ) IS NULL
+  OR to_regprocedure(
+    'public.student_offer_secondary_job_service_quote(bigint,bigint,integer,text)'
+  ) IS NULL
+  OR to_regprocedure(
+    'public.student_accept_secondary_job_service_quote(bigint)'
+  ) IS NULL THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: one or more V2 pricing RPCs missing.';
+  END IF;
+
+  IF NOT has_function_privilege(
+    'authenticated',
+    'public.student_upsert_secondary_job_service_v2(bigint,integer,text,text,text,text,text,bigint,text,jsonb,text,boolean,boolean)',
+    'EXECUTE'
+  )
+  OR NOT has_function_privilege(
+    'authenticated',
+    'public.student_order_secondary_job_service_v2(bigint,bigint,integer,text,text)',
+    'EXECUTE'
+  )
+  OR NOT has_function_privilege(
+    'authenticated',
+    'public.student_offer_secondary_job_service_quote(bigint,bigint,integer,text)',
+    'EXECUTE'
+  )
+  OR NOT has_function_privilege(
+    'authenticated',
+    'public.student_accept_secondary_job_service_quote(bigint)',
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: authenticated RPC grants missing.';
+  END IF;
+
+  IF position('QUOTE_REQUESTED' in pg_get_constraintdef((
+    SELECT oid FROM pg_constraint
+    WHERE conrelid='public.secondary_job_service_orders'::regclass
+      AND conname='secondary_job_service_orders_status_ck'
+  )))=0
+  OR position('QUOTE_OFFERED' in pg_get_constraintdef((
+    SELECT oid FROM pg_constraint
+    WHERE conrelid='public.secondary_job_service_orders'::regclass
+      AND conname='secondary_job_service_orders_status_ck'
+  )))=0 THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: quote statuses missing.';
+  END IF;
+
+  IF position('pricing_mode' in lower(pg_get_functiondef(
+    'public.student_get_secondary_job_service_market()'::regprocedure
+  )))=0
+  OR position('price_min_gold' in lower(pg_get_functiondef(
+    'public.student_get_secondary_job_service_market()'::regprocedure
+  )))=0
+  OR position('requested_quantity' in lower(pg_get_functiondef(
+    'public.student_get_secondary_job_service_market()'::regprocedure
+  )))=0 THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: market V2 contract missing.';
+  END IF;
+
+  SELECT count(*) INTO v_guard_before FROM _p2p_pricing_guard_before;
+  SELECT count(*) INTO v_guard_after
+  FROM public.classrooms c
+  CROSS JOIN LATERAL public._economy_guard_event_rows(c.id,NULL,NULL) e
+  WHERE e.source_kind='SERVICE_ORDER';
+
+  IF v_guard_after<>v_guard_before THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: historical Guard event count changed. before %, after %',
+      v_guard_before,v_guard_after;
+  END IF;
+
+  IF EXISTS(
+    WITH after_rows AS (
+      SELECT
+        c.id AS classroom_id,
+        e.event_key,
+        e.source_id,
+        e.amount,
+        e.quantity,
+        e.unit_price,
+        e.anomaly_fingerprint
+      FROM public.classrooms c
+      CROSS JOIN LATERAL public._economy_guard_event_rows(c.id,NULL,NULL) e
+      WHERE e.source_kind='SERVICE_ORDER'
+    )
+    SELECT 1
+    FROM _p2p_pricing_guard_before b0
+    FULL JOIN after_rows a
+      ON a.classroom_id=b0.classroom_id
+     AND a.event_key=b0.event_key
+    WHERE b0.event_key IS NULL
+       OR a.event_key IS NULL
+       OR b0.source_id IS DISTINCT FROM a.source_id
+       OR b0.amount IS DISTINCT FROM a.amount
+       OR b0.quantity IS DISTINCT FROM a.quantity
+       OR b0.unit_price IS DISTINCT FROM a.unit_price
+       OR b0.anomaly_fingerprint IS DISTINCT FROM a.anomaly_fingerprint
+  ) THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: historical Guard identity/economic value/fingerprint changed.';
+  END IF;
+
+  IF EXISTS(
+    SELECT 1
+    FROM public.secondary_job_service_orders o
+    WHERE o.escrow_transaction_id IS NULL
+      AND EXISTS(
+        SELECT 1
+        FROM public._economy_guard_service_event_rows(o.classroom_id,NULL,NULL) g
+        WHERE g.source_id=o.id
+      )
+  ) THEN
+    RAISE EXCEPTION 'POSTCHECK FAIL: pre-escrow order is projected into Economy Guard.';
+  END IF;
+END
+$postcheck$;
+
+SELECT
+  'P2P_SERVICE_PRICING_QUANTITY_QUOTE_APPLY_IN_TX_PASS' AS result,
+  jsonb_build_object(
+    'services',(SELECT count(*) FROM public.secondary_job_services),
+    'orders',(SELECT count(*) FROM public.secondary_job_service_orders),
+    'options',(SELECT count(*) FROM public.secondary_job_service_options),
+    'legacy_services_fixed',NOT EXISTS(
+      SELECT 1 FROM public.secondary_job_services
+      WHERE pricing_mode<>'FIXED' OR quantity_unit<>'회'
+    ),
+    'legacy_orders_quantity_one',NOT EXISTS(
+      SELECT 1 FROM public.secondary_job_service_orders
+      WHERE pricing_mode_snapshot<>'FIXED'
+         OR quantity<>1
+         OR unit_price_gold_snapshot IS DISTINCT FROM price_gold_snapshot
+    ),
+    'quote_statuses_added',true,
+    'v2_rpc_contract',true,
+    'guard_historical_fingerprint_unchanged',true
+  ) AS detail;
+
+-- ============================================================
+-- 17. COMMIT + POSTGREST SCHEMA RELOAD
+-- ============================================================
+NOTIFY pgrst, 'reload schema';
+COMMIT;
+
+-- ============================================================
+-- 18. POST-COMMIT CONFIRMATION (READ ONLY)
+-- ============================================================
+WITH checks AS (
+  SELECT
+    to_regclass('public.secondary_job_service_options') IS NOT NULL AS options_table_present,
+    EXISTS(
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='secondary_job_services'
+        AND column_name='pricing_mode'
+    ) AS pricing_mode_present,
+    EXISTS(
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='secondary_job_services'
+        AND column_name='quantity_unit'
+    ) AS quantity_unit_present,
+    EXISTS(
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='secondary_job_service_orders'
+        AND column_name='pricing_mode_snapshot'
+    ) AS order_pricing_mode_present,
+    EXISTS(
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='secondary_job_service_orders'
+        AND column_name='quantity'
+    ) AS order_quantity_present,
+    EXISTS(
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='secondary_job_service_orders'
+        AND column_name='unit_price_gold_snapshot'
+    ) AS unit_price_snapshot_present,
+    EXISTS(
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='secondary_job_service_orders'
+        AND column_name='quote_accepted_at'
+    ) AS quote_accepted_at_present,
+    to_regprocedure(
+      'public.student_upsert_secondary_job_service_v2(bigint,integer,text,text,text,text,text,bigint,text,jsonb,text,boolean,boolean)'
+    ) IS NOT NULL AS upsert_v2_present,
+    to_regprocedure(
+      'public.student_order_secondary_job_service_v2(bigint,bigint,integer,text,text)'
+    ) IS NOT NULL AS order_v2_present,
+    to_regprocedure(
+      'public.student_offer_secondary_job_service_quote(bigint,bigint,integer,text)'
+    ) IS NOT NULL AS offer_quote_present,
+    to_regprocedure(
+      'public.student_accept_secondary_job_service_quote(bigint)'
+    ) IS NOT NULL AS accept_quote_present,
+    NOT EXISTS(
+      SELECT 1 FROM public.secondary_job_services
+      WHERE pricing_mode<>'FIXED' OR quantity_unit<>'회'
+    ) AS legacy_services_compatible,
+    NOT EXISTS(
+      SELECT 1 FROM public.secondary_job_service_orders
+      WHERE pricing_mode_snapshot<>'FIXED'
+         OR quantity<>1
+         OR unit_price_gold_snapshot IS DISTINCT FROM price_gold_snapshot
+    ) AS legacy_orders_compatible
+)
+SELECT
+  CASE WHEN
+    options_table_present
+    AND pricing_mode_present
+    AND quantity_unit_present
+    AND order_pricing_mode_present
+    AND order_quantity_present
+    AND unit_price_snapshot_present
+    AND quote_accepted_at_present
+    AND upsert_v2_present
+    AND order_v2_present
+    AND offer_quote_present
+    AND accept_quote_present
+    AND legacy_services_compatible
+    AND legacy_orders_compatible
+  THEN 'P2P_SERVICE_PRICING_QUANTITY_QUOTE_APPLY_PASS'
+  ELSE 'P2P_SERVICE_PRICING_QUANTITY_QUOTE_APPLY_POSTCOMMIT_FAIL'
+  END AS result,
+  jsonb_build_object(
+    'schema',jsonb_build_object(
+      'options_table',options_table_present,
+      'pricing_mode',pricing_mode_present,
+      'quantity_unit',quantity_unit_present,
+      'order_pricing_mode',order_pricing_mode_present,
+      'order_quantity',order_quantity_present,
+      'unit_price_snapshot',unit_price_snapshot_present,
+      'quote_accepted_at',quote_accepted_at_present
+    ),
+    'rpc',jsonb_build_object(
+      'upsert_v2',upsert_v2_present,
+      'order_v2',order_v2_present,
+      'offer_quote',offer_quote_present,
+      'accept_quote',accept_quote_present
+    ),
+    'compatibility',jsonb_build_object(
+      'legacy_services',legacy_services_compatible,
+      'legacy_orders',legacy_orders_compatible
+    ),
+    'counts',jsonb_build_object(
+      'services',(SELECT count(*) FROM public.secondary_job_services),
+      'orders',(SELECT count(*) FROM public.secondary_job_service_orders),
+      'options',(SELECT count(*) FROM public.secondary_job_service_options)
+    )
+  ) AS detail
+FROM checks;

@@ -156,7 +156,7 @@ export function sortServices(
   if (mode === 'NEWEST') {
     return [...items].sort((a, b) => {
       const timeDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      return timeDiff || b.id - a.id;
+      return timeDiff || stableRank(a) - stableRank(b) || b.id - a.id;
     });
   }
 
