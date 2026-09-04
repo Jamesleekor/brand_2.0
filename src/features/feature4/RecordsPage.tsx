@@ -13,11 +13,12 @@ import { RecordsAttendancePanel } from '@/features/feature4/RecordsAttendancePan
 import { RecordsGuildPanel } from '@/features/feature4/RecordsGuildPanel';
 import { RecordsArcadePanel } from '@/features/feature4/RecordsArcadePanel';
 import { RecordsHonorPanel } from '@/features/feature4/RecordsHonorPanel';
+import { RecordsMonthlyMvpPanel } from '@/features/feature4/RecordsMonthlyMvpPanel';
 import { achievementA1Rpc } from '@/lib/rpc/achievement_a1_rpc';
 import { inventoryMarketRpc } from '@/lib/rpc/inventory_market_rpc';
 import { recordsRpc, type AttendanceDashboard, type AttendanceHistoryRow } from '@/lib/rpc/records_rpc';
 
-type MainTab = 'HONOR' | 'MY';
+type MainTab = 'HONOR' | 'MVP' | 'MY';
 type MyTab = 'ASSET' | 'ACHIEVEMENT' | 'ITEM' | 'ATTENDANCE' | 'GUILD' | 'ARCADE';
 
 type LiveTransaction = {
@@ -31,11 +32,21 @@ type LiveTransaction = {
   created_at: string;
 };
 
+type StudentHistoryProfile = {
+  cached_tier: string;
+};
+
+type StudentHistoryWallet = {
+  gold: number;
+  crystal: number;
+  bv: number;
+};
+
 export default function RecordsPage() {
   const classroomId = useClassroomId();
   const studentId = useStudentId();
   const [mainTab, setMainTab] = useState<MainTab>('HONOR');
-  const [myTab, setMyTab] = useState<MyTab>('ASSET');
+  const [myTab, setMyTab] = useState<MyTab | null>(null);
 
   const honorQ = useQuery({
     queryKey: ['f4d-record-room', classroomId],
@@ -96,6 +107,8 @@ export default function RecordsPage() {
         itemHistoryResult,
         attendanceDashboard,
         attendanceHistory,
+        profileResult,
+        walletResult,
       ] = await Promise.all([
         supabase
           .from('transactions')
@@ -114,10 +127,14 @@ export default function RecordsPage() {
         inventoryMarketRpc.myItemHistory(supabase, { p_limit: 30, p_offset: 0 }),
         recordsRpc.myAttendanceDashboard(supabase),
         recordsRpc.myAttendanceHistory(supabase, { p_limit: 100, p_offset: 0 }),
+        supabase.from('students').select('cached_tier').eq('id', studentId!).single(),
+        supabase.from('wallets').select('gold,crystal,bv').eq('student_id', studentId!).single(),
       ]);
 
       if (liveTxResult.error) throw feature4QueryError('F4D', 'my-live-transactions', liveTxResult.error);
       if (liveTxCountResult.error) throw feature4QueryError('F4D', 'my-live-transaction-count', liveTxCountResult.error);
+      if (profileResult.error) throw feature4QueryError('F4D', 'my-history-profile', profileResult.error);
+      if (walletResult.error) throw feature4QueryError('F4D', 'my-history-wallet', walletResult.error);
       if (achievementsResult.success === false) throw new Error(achievementsResult.error || '업적 기록을 불러오지 못했습니다.');
       if (itemHistoryResult.success === false) throw new Error(itemHistoryResult.error || '아이템 기록을 불러오지 못했습니다.');
 
@@ -133,6 +150,8 @@ export default function RecordsPage() {
         itemHistory: itemHistoryResult.data,
         attendanceDashboard,
         attendanceHistory,
+        profile: profileResult.data as StudentHistoryProfile,
+        wallet: walletResult.data as StudentHistoryWallet,
       };
     },
   });
@@ -167,17 +186,20 @@ export default function RecordsPage() {
     <>
       <PageHeader title="기록실" emoji="🏛️" />
       <div className="px-3 sm:px-4 py-4 pb-28 max-w-5xl mx-auto space-y-5">
-        <div className="rounded-card-md border border-gold/20 bg-bg-card p-2 grid grid-cols-2 gap-2">
-          <MainTabButton active={mainTab === 'HONOR'} onClick={() => setMainTab('HONOR')} emoji="🏆" title="명예 기록" subtitle="MVP · 공식 확정 기록" />
-          <MainTabButton active={mainTab === 'MY'} onClick={() => setMainTab('MY')} emoji="📜" title="내 기록" subtitle="나의 발자취 · 6개 분야" />
+        <div className="rounded-card-md border border-gold/20 bg-bg-card p-2 grid grid-cols-3 gap-2">
+          <MainTabButton active={mainTab === 'HONOR'} onClick={() => setMainTab('HONOR')} emoji="🏛️" title="명예 기록" subtitle="전 시즌 위대한 기록" />
+          <MainTabButton active={mainTab === 'MVP'} onClick={() => setMainTab('MVP')} emoji="👑" title="월간 MVP" subtitle="2023~ 역대 MVP" />
+          <MainTabButton active={mainTab === 'MY'} onClick={() => setMainTab('MY')} emoji="📜" title="나의 발자취" subtitle="나의 B.R.A.N.D 역사" />
         </div>
 
         {mainTab === 'HONOR' ? (
           <RecordsHonorPanel data={honorQ.data} grouped={grouped} studentId={studentId} />
+        ) : mainTab === 'MVP' ? (
+          <RecordsMonthlyMvpPanel />
         ) : myQ.isLoading ? (
           <div className="py-14 flex flex-col items-center gap-3 text-text-muted">
             <LoadingSpinner size="lg" />
-            <div className="text-sm font-bold">나의 발자취를 모으고 있어요.</div>
+            <div className="text-sm font-bold">나의 B.R.A.N.D 역사를 모으고 있어요.</div>
           </div>
         ) : myQ.isError ? (
           <Feature4ErrorPanel domain="F4D" error={myQ.error} onRetry={() => void myQ.refetch()} />
@@ -195,21 +217,30 @@ function MainTabButton({ active, onClick, emoji, title, subtitle }: { active: bo
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-card-md p-3 text-left border transition ${active ? 'border-gold/50 bg-gold/10 shadow-brand-glow' : 'border-line bg-bg-deep hover:border-gold/25'}`}
+      className={`min-w-0 rounded-card-md p-2.5 sm:p-3 text-left border transition ${active ? 'border-gold/50 bg-gold/10 shadow-brand-glow' : 'border-line bg-bg-deep hover:border-gold/25'}`}
     >
-      <div className="flex items-center gap-2">
-        <span className="text-xl">{emoji}</span>
-        <span className={`font-display text-base ${active ? 'text-gold' : 'text-text-primary'}`}>{title}</span>
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <span className="text-lg sm:text-xl">{emoji}</span>
+        <span className={`font-display text-xs sm:text-base truncate ${active ? 'text-gold' : 'text-text-primary'}`}>{title}</span>
       </div>
-      <div className="text-2xs text-text-muted font-bold mt-1 hidden sm:block">{subtitle}</div>
+      <div className="text-2xs text-text-muted font-bold mt-1 hidden sm:block truncate">{subtitle}</div>
     </button>
   );
 }
 
-function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTab: (tab: MyTab) => void }) {
+function MyRecords({
+  data,
+  myTab,
+  setMyTab,
+}: {
+  data: any;
+  myTab: MyTab | null;
+  setMyTab: (tab: MyTab | null) => void;
+}) {
   const attendanceDashboard = data.attendanceDashboard as AttendanceDashboard;
   const attendanceHistory = data.attendanceHistory as { total_count: number; rows: AttendanceHistoryRow[] };
-  const latestStreak = attendanceDashboard.current_streak;
+  const profile = data.profile as StudentHistoryProfile;
+  const wallet = data.wallet as StudentHistoryWallet;
 
   const nav: Array<{ key: MyTab; emoji: string; label: string; count?: number }> = [
     { key: 'ASSET', emoji: '💰', label: '자산·경제', count: data.liveTransactionCount + data.legacy.total },
@@ -222,38 +253,47 @@ function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTa
 
   return (
     <div className="space-y-5">
-      <section className="relative overflow-hidden rounded-card-lg border border-bv/30 bg-bg-card p-4 sm:p-5">
+      <section className="relative overflow-hidden rounded-card-lg border border-bv/35 bg-[linear-gradient(145deg,rgba(177,151,252,0.10),rgba(255,217,61,0.05)_55%,rgba(15,11,26,0.84))] p-4 sm:p-5">
         <div className="absolute -right-8 -top-10 text-8xl opacity-[0.06] pointer-events-none">📜</div>
         <div className="relative">
-          <div className="text-2xs font-black text-bv tracking-widest">MY BRAND HISTORY</div>
+          <div className="text-2xs font-black text-bv tracking-[0.18em]">MY B.R.A.N.D LEGACY</div>
           <h2 className="font-display text-xl sm:text-2xl text-brand-gradient mt-1">나의 발자취</h2>
-          <p className="text-xs sm:text-sm text-text-secondary font-bold mt-2 max-w-2xl">
-            시즌 1에서 이어진 기록과 B.R.A.N.D 2.0의 현재 기록을 한곳에서 확인합니다. 과거 아카이브와 현재 운영 기록은 서로 섞지 않고 출처를 구분해 보여줍니다.
+          <p className="text-xs sm:text-sm text-text-secondary font-bold mt-2 max-w-3xl">
+            B.R.A.N.D에서 내가 쌓아 올린 대표 성취와 결과를 한눈에 전시하는 개인 역사관입니다. 세세한 활동 로그는 아래 보조 기록에서 필요할 때만 열어볼 수 있습니다.
           </p>
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
-            <RecordStat emoji="🏆" label="획득 업적" value={`${formatNumber(data.achievements.length)}개`} />
-            <RecordStat emoji="🧾" label="2.0 자산 거래" value={`${formatNumber(data.liveTransactionCount)}건`} />
-            <RecordStat emoji="🕰️" label="시즌 1 자산 기록" value={`${formatNumber(data.legacy.total)}건`} />
-            <RecordStat emoji="🔥" label="최근 연속 출석" value={`${formatNumber(latestStreak)}일`} />
+            <LegacyStat emoji="🏔️" label="현재 티어" value={profile.cached_tier || '-'} />
+            <LegacyStat emoji="⭐" label="현재 BV" value={formatNumber(wallet.bv)} />
+            <LegacyStat emoji="🪙" label="보유 GOLD" value={formatNumber(wallet.gold)} />
+            <LegacyStat emoji="💎" label="보유 CRYSTAL" value={formatNumber(wallet.crystal)} />
           </div>
         </div>
       </section>
 
-      <nav aria-label="나의 기록 분야" className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
-        {nav.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => setMyTab(item.key)}
-            aria-pressed={myTab === item.key}
-            className={`min-w-0 rounded-card-md border px-1.5 py-2.5 sm:px-3 transition ${myTab === item.key ? 'border-gold/50 bg-gold/10 text-gold' : 'border-line bg-bg-card text-text-secondary hover:border-gold/25'}`}
-          >
-            <div className="text-lg sm:text-xl">{item.emoji}</div>
-            <div className="text-[11px] sm:text-sm font-black mt-1 truncate">{item.label}</div>
-            <div className="text-[9px] sm:text-2xs text-text-muted font-bold mt-0.5 truncate">{item.count == null ? '기록 보기' : `${formatNumber(item.count)}건`}</div>
-          </button>
-        ))}
-      </nav>
+      <section className="space-y-3">
+        <div>
+          <div className="text-2xs font-black tracking-[0.14em] text-text-muted">SUPPORTING RECORDS</div>
+          <h3 className="font-display text-lg text-text-primary mt-1">세부 기록 열람</h3>
+          <p className="text-xs text-text-secondary mt-1">대표 성취를 뒷받침하는 세부 기록입니다. 기본은 닫힌 상태이며 필요한 분야만 선택해 확인합니다.</p>
+        </div>
+
+        <nav aria-label="나의 세부 기록 분야" className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-2">
+          {nav.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setMyTab(myTab === item.key ? null : item.key)}
+              aria-pressed={myTab === item.key}
+              className={`min-w-0 rounded-card-md border px-1.5 py-2.5 sm:px-3 transition ${myTab === item.key ? 'border-gold/50 bg-gold/10 text-gold' : 'border-line bg-bg-card text-text-secondary hover:border-gold/25'}`}
+            >
+              <div className="text-lg sm:text-xl">{item.emoji}</div>
+              <div className="text-[11px] sm:text-sm font-black mt-1 truncate">{item.label}</div>
+              <div className="text-[9px] sm:text-2xs text-text-muted font-bold mt-0.5 truncate">{item.count == null ? '기록 보기' : `${formatNumber(item.count)}건`}</div>
+            </button>
+          ))}
+        </nav>
+      </section>
 
       {myTab === 'ASSET' && <RecordsAssetEconomyPanel live={data.liveTransactions} liveTotal={data.liveTransactionCount} legacy={data.legacy.rows} legacyTotal={data.legacy.total} />}
       {myTab === 'ACHIEVEMENT' && <RecordsAchievementPanel rows={data.achievements} />}
@@ -265,11 +305,11 @@ function MyRecords({ data, myTab, setMyTab }: { data: any; myTab: MyTab; setMyTa
   );
 }
 
-function RecordStat({ emoji, label, value }: { emoji: string; label: string; value: string }) {
+function LegacyStat({ emoji, label, value }: { emoji: string; label: string; value: string }) {
   return (
     <div className="rounded-card-md border border-line bg-bg-deep/80 p-3">
       <div className="flex items-center gap-1.5 text-2xs text-text-muted font-black"><span>{emoji}</span><span>{label}</span></div>
-      <div className="font-display text-base sm:text-lg text-text-primary mt-1">{value}</div>
+      <div className="font-display text-base sm:text-lg text-text-primary mt-1 break-words">{value}</div>
     </div>
   );
 }
