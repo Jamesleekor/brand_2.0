@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { EmptyState, LoadingSpinner } from '@/components/shared/components';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
 import { supabase } from '@/lib/supabase/client';
+import { useStudentId } from '@/stores/auth_store';
 import {
   recordsRpc,
   type GuildMissionHistoryRow,
@@ -44,9 +45,11 @@ const scoreStatusLabel = (value: string | null | undefined) => {
 };
 
 export function RecordsGuildPanel() {
+  const studentId = useStudentId();
   const [tab, setTab] = useState<GuildRecordTab>('MISSION');
   const query = useQuery({
-    queryKey: ['records-guild-history'],
+    queryKey: ['records-guild-history', studentId],
+    enabled: !!studentId,
     queryFn: async () => {
       const [missions, missionScores, monthly] = await Promise.all([
         recordsRpc.myGuildMissionHistory(supabase),
