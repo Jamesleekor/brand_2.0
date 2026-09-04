@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { EmptyState, LoadingSpinner } from '@/components/shared/components';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
 import { arcadeErrorMessage, arcadeStudentRpc, type ArcadeLeaderboardResult } from '@/lib/rpc/arcade_rpc';
-import { recordsRpc, type GuildMonthlyHistoryRow } from '@/lib/rpc/records_rpc';
+import { recordsRpc, type GuildOfficialHistoryRow } from '@/lib/rpc/records_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId, useStudentId } from '@/stores/auth_store';
 import { formatDateTime, formatNumber } from '@/lib/utils/format';
@@ -39,7 +39,7 @@ export function RecordsHonorOfficialPanels() {
     enabled: !!classroomId && !!studentId,
     queryFn: async () => {
       const [guildHistory, gamesResult, periodsResult] = await Promise.all([
-        recordsRpc.myGuildMonthlyHistory(supabase),
+        recordsRpc.guildOfficialHistory(supabase),
         supabase
           .from('arcade_games')
           .select('id,code,internal_name,available_from,available_until')
@@ -102,7 +102,7 @@ export function RecordsHonorOfficialPanels() {
   );
 }
 
-function OfficialGuildSection({ rows }: { rows: GuildMonthlyHistoryRow[] }) {
+function OfficialGuildSection({ rows }: { rows: GuildOfficialHistoryRow[] }) {
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const selected = rows.find((row) => row.year_month === selectedMonth) ?? rows[0] ?? null;
 
