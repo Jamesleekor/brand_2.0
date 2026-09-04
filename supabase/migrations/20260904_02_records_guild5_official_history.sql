@@ -3,7 +3,7 @@
 -- Allows current authenticated classroom members, including non-official test accounts,
 -- to view official finalized history without including them in the official calculation.
 
-create function public.student_get_guild5_official_history()
+create or replace function public.student_get_guild5_official_history()
 returns jsonb
 language plpgsql
 security definer
