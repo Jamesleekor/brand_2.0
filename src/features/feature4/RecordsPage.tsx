@@ -16,7 +16,12 @@ import { RecordsHonorPanel } from '@/features/feature4/RecordsHonorPanel';
 import { RecordsMonthlyMvpPanel } from '@/features/feature4/RecordsMonthlyMvpPanel';
 import { achievementA1Rpc } from '@/lib/rpc/achievement_a1_rpc';
 import { inventoryMarketRpc } from '@/lib/rpc/inventory_market_rpc';
-import { recordsRpc, type AttendanceDashboard, type AttendanceHistoryRow } from '@/lib/rpc/records_rpc';
+import {
+  recordsRpc,
+  type AttendanceDashboard,
+  type AttendanceHistoryRow,
+  type RecordsLegacySummary,
+} from '@/lib/rpc/records_rpc';
 
 type MainTab = 'HONOR' | 'MVP' | 'MY';
 type MyTab = 'ASSET' | 'ACHIEVEMENT' | 'ITEM' | 'ATTENDANCE' | 'GUILD' | 'ARCADE';
@@ -30,16 +35,6 @@ type LiveTransaction = {
   tax_amount: number;
   memo: string | null;
   created_at: string;
-};
-
-type StudentHistoryProfile = {
-  cached_tier: string;
-};
-
-type StudentHistoryWallet = {
-  gold: number;
-  crystal: number;
-  bv: number;
 };
 
 export default function RecordsPage() {
@@ -103,12 +98,11 @@ export default function RecordsPage() {
         liveTxResult,
         liveTxCountResult,
         legacy,
+        legacySummary,
         achievementsResult,
         itemHistoryResult,
         attendanceDashboard,
         attendanceHistory,
-        profileResult,
-        walletResult,
       ] = await Promise.all([
         supabase
           .from('transactions')
@@ -123,18 +117,15 @@ export default function RecordsPage() {
           .eq('student_id', studentId!)
           .eq('is_reversed', false),
         recordsRpc.myLegacyAssetHistory(supabase, { p_limit: 100, p_offset: 0 }),
+        recordsRpc.myLegacySummary(supabase),
         achievementA1Rpc.studentCatalog(supabase),
         inventoryMarketRpc.myItemHistory(supabase, { p_limit: 30, p_offset: 0 }),
         recordsRpc.myAttendanceDashboard(supabase),
         recordsRpc.myAttendanceHistory(supabase, { p_limit: 100, p_offset: 0 }),
-        supabase.from('students').select('cached_tier').eq('id', studentId!).single(),
-        supabase.from('wallets').select('gold,crystal,bv').eq('student_id', studentId!).single(),
       ]);
 
       if (liveTxResult.error) throw feature4QueryError('F4D', 'my-live-transactions', liveTxResult.error);
       if (liveTxCountResult.error) throw feature4QueryError('F4D', 'my-live-transaction-count', liveTxCountResult.error);
-      if (profileResult.error) throw feature4QueryError('F4D', 'my-history-profile', profileResult.error);
-      if (walletResult.error) throw feature4QueryError('F4D', 'my-history-wallet', walletResult.error);
       if (achievementsResult.success === false) throw new Error(achievementsResult.error || '업적 기록을 불러오지 못했습니다.');
       if (itemHistoryResult.success === false) throw new Error(itemHistoryResult.error || '아이템 기록을 불러오지 못했습니다.');
 
@@ -146,12 +137,11 @@ export default function RecordsPage() {
         liveTransactions: (liveTxResult.data ?? []) as LiveTransaction[],
         liveTransactionCount: liveTxCountResult.count ?? 0,
         legacy,
+        legacySummary,
         achievements: earned,
         itemHistory: itemHistoryResult.data,
         attendanceDashboard,
         attendanceHistory,
-        profile: profileResult.data as StudentHistoryProfile,
-        wallet: walletResult.data as StudentHistoryWallet,
       };
     },
   });
@@ -239,8 +229,8 @@ function MyRecords({
 }) {
   const attendanceDashboard = data.attendanceDashboard as AttendanceDashboard;
   const attendanceHistory = data.attendanceHistory as { total_count: number; rows: AttendanceHistoryRow[] };
-  const profile = data.profile as StudentHistoryProfile;
-  const wallet = data.wallet as StudentHistoryWallet;
+  const legacy = data.legacySummary as RecordsLegacySummary;
+  const current = legacy.current;
 
   const nav: Array<{ key: MyTab; emoji: string; label: string; count?: number }> = [
     { key: 'ASSET', emoji: '💰', label: '자산·경제', count: data.liveTransactionCount + data.legacy.total },
@@ -256,18 +246,82 @@ function MyRecords({
       <section className="relative overflow-hidden rounded-card-lg border border-bv/35 bg-[linear-gradient(145deg,rgba(177,151,252,0.10),rgba(255,217,61,0.05)_55%,rgba(15,11,26,0.84))] p-4 sm:p-5">
         <div className="absolute -right-8 -top-10 text-8xl opacity-[0.06] pointer-events-none">📜</div>
         <div className="relative">
-          <div className="text-2xs font-black text-bv tracking-[0.18em]">MY B.R.A.N.D LEGACY</div>
-          <h2 className="font-display text-xl sm:text-2xl text-brand-gradient mt-1">나의 발자취</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-2xs font-black text-bv tracking-[0.18em]">MY B.R.A.N.D LEGACY</div>
+              <h2 className="font-display text-xl sm:text-2xl text-brand-gradient mt-1">나의 발자취</h2>
+            </div>
+            <div className="rounded-pill border border-line bg-bg-deep/70 px-3 py-1.5 text-2xs font-bold text-text-muted">
+              {legacy.first_recorded_on ? `${legacy.first_recorded_on}부터 기록` : `${legacy.school_year} 기록`}
+            </div>
+          </div>
           <p className="text-xs sm:text-sm text-text-secondary font-bold mt-2 max-w-3xl">
-            B.R.A.N.D에서 내가 쌓아 올린 대표 성취와 결과를 한눈에 전시하는 개인 역사관입니다. 세세한 활동 로그는 아래 보조 기록에서 필요할 때만 열어볼 수 있습니다.
+            지금 가진 것뿐 아니라, B.R.A.N.D에서 내가 실제로 도달했던 최고점과 공식 성취를 함께 남기는 개인 역사관입니다.
           </p>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
-            <LegacyStat emoji="🏔️" label="현재 티어" value={profile.cached_tier || '-'} />
-            <LegacyStat emoji="⭐" label="현재 BV" value={formatNumber(wallet.bv)} />
-            <LegacyStat emoji="🪙" label="보유 GOLD" value={formatNumber(wallet.gold)} />
-            <LegacyStat emoji="💎" label="보유 CRYSTAL" value={formatNumber(wallet.crystal)} />
+          <div className="mt-4 rounded-card-md border border-line/80 bg-bg-deep/55 p-3">
+            <div className="text-[10px] font-black tracking-[0.14em] text-text-muted">CURRENT STATUS · 현재의 나</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2 mt-2">
+              <CurrentStat label="티어" value={current.tier || '-'} />
+              <CurrentStat label="BV" value={formatNumber(current.bv)} />
+              <CurrentStat label="GOLD" value={formatNumber(current.gold)} />
+              <CurrentStat label="CRYSTAL" value={formatNumber(current.crystal)} />
+            </div>
           </div>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <div className="text-2xs font-black tracking-[0.14em] text-bv">LEGACY HIGHLIGHTS</div>
+          <h3 className="font-display text-lg text-text-primary mt-1">대표 발자취</h3>
+          <p className="text-xs text-text-secondary mt-1">일시적인 현재 수치가 아니라, 공식 기록 속에서 내가 남긴 대표적인 성취를 요약합니다.</p>
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <LegacyHighlight
+            label="역대 최고 BV"
+            value={formatNumber(legacy.peaks.bv.value)}
+            detail={formatRecordDate(legacy.peaks.bv.occurred_on)}
+          />
+          <LegacyHighlight
+            label="역대 최고 GOLD"
+            value={formatNumber(legacy.peaks.gold.value)}
+            detail={formatRecordDate(legacy.peaks.gold.occurred_on)}
+          />
+          <LegacyHighlight
+            label="유효 업적"
+            value={`${formatNumber(legacy.achievements.valid_count)}개`}
+            detail={`도감 ${legacy.achievements.completion_percent.toFixed(2)}% · 유일 ${legacy.achievements.unique_count} · 초월 ${legacy.achievements.transcend_count}`}
+          />
+          <LegacyHighlight
+            label="월간 MVP"
+            value={`${formatNumber(legacy.mvp.win_count)}회`}
+            detail={legacy.mvp.win_count > 0 ? `${formatPeriod(legacy.mvp.first_win_period)} 첫 수상` : '아직 수상 기록 없음'}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          <LegacySecondaryStat
+            label="길드 월간 우승 참여"
+            value={`${formatNumber(legacy.guild.win_months)}회`}
+            detail={legacy.guild.finalized_months > 0 ? `FINAL ${legacy.guild.finalized_months}개월` : '아직 FINAL 기록 없음'}
+          />
+          <LegacySecondaryStat
+            label="Arcade 월간 우승"
+            value={`${formatNumber(legacy.arcade.win_count)}회`}
+            detail={`TOP3 ${formatNumber(legacy.arcade.top3_count)}회`}
+          />
+          <LegacySecondaryStat
+            label="누적 출석"
+            value={`${formatNumber(legacy.attendance.attended_days)}일`}
+            detail="출석·지각 포함 공식 출석"
+          />
+          <LegacySecondaryStat
+            label="최고 연속 출석"
+            value={`${formatNumber(legacy.attendance.best_streak)}일`}
+            detail={attendanceDashboard.current_streak > 0 ? `현재 ${attendanceDashboard.current_streak}일 연속` : '현재 연속 기록 없음'}
+          />
         </div>
       </section>
 
@@ -305,11 +359,45 @@ function MyRecords({
   );
 }
 
-function LegacyStat({ emoji, label, value }: { emoji: string; label: string; value: string }) {
+function CurrentStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-card-md border border-line bg-bg-deep/80 p-3">
-      <div className="flex items-center gap-1.5 text-2xs text-text-muted font-black"><span>{emoji}</span><span>{label}</span></div>
-      <div className="font-display text-base sm:text-lg text-text-primary mt-1 break-words">{value}</div>
+    <div className="min-w-0">
+      <div className="text-[10px] text-text-muted font-black">{label}</div>
+      <div className="text-sm sm:text-base text-text-primary font-extrabold mt-0.5 truncate">{value}</div>
     </div>
   );
+}
+
+function LegacyHighlight({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-card-lg border border-gold/25 bg-[linear-gradient(145deg,rgba(255,217,61,0.07),rgba(15,11,26,0.72))] p-4 min-h-[118px] flex flex-col justify-between">
+      <div className="text-2xs text-text-muted font-black">{label}</div>
+      <div>
+        <div className="font-display text-xl sm:text-2xl text-gold break-words">{value}</div>
+        <div className="text-[10px] sm:text-2xs text-text-muted font-bold mt-1.5 leading-relaxed">{detail}</div>
+      </div>
+    </div>
+  );
+}
+
+function LegacySecondaryStat({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-card-md border border-line bg-bg-card p-3 min-h-[92px]">
+      <div className="text-2xs text-text-muted font-black">{label}</div>
+      <div className="font-display text-lg text-text-primary mt-1">{value}</div>
+      <div className="text-[10px] text-text-muted font-bold mt-1 leading-relaxed">{detail}</div>
+    </div>
+  );
+}
+
+function formatRecordDate(value: string | null) {
+  if (!value) return '기록 시점 없음';
+  const [year, month, day] = value.split('-');
+  return `${year}.${month}.${day} 기록`;
+}
+
+function formatPeriod(value: string | null) {
+  if (!value) return '-';
+  const [year, month] = value.split('-');
+  return `${year}.${month}`;
 }
