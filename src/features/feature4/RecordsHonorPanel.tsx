@@ -1,9 +1,32 @@
 import { useQuery } from '@tanstack/react-query';
+import {
+  BarChart3,
+  Coins,
+  Crown,
+  DoorOpen,
+  Gamepad2,
+  Gem,
+  Landmark,
+  LineChart,
+  Medal,
+  Rocket,
+  ScrollText,
+  ShieldCheck,
+  Sparkles,
+  Swords,
+  Trophy,
+  type LucideIcon,
+} from 'lucide-react';
 import { EmptyState, LoadingSpinner } from '@/components/shared/components';
 import { RecordsHonorOfficialPanels } from '@/features/feature4/RecordsHonorOfficialPanels';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
 import { supabase } from '@/lib/supabase/client';
-import { recordsHistoryRpc, type HallKey, type HallOfGloryEntry } from '@/lib/rpc/records_history_rpc';
+import {
+  recordsHistoryRpc,
+  type HallAchievementDetail,
+  type HallKey,
+  type HallOfGloryEntry,
+} from '@/lib/rpc/records_history_rpc';
 import { formatNumber } from '@/lib/utils/format';
 
 const RANK_LABEL: Record<string, string> = {
@@ -17,22 +40,22 @@ const RANK_LABEL: Record<string, string> = {
 
 type HallDefinition = {
   key: HallKey;
-  emoji: string;
+  icon: LucideIcon;
   title: string;
   subtitle: string;
   special?: boolean;
 };
 
 const HALLS: HallDefinition[] = [
-  { key: 'PIONEERS', emoji: '🚪', title: 'B.R.A.N.D의 개척자', subtitle: '누가 처음 문을 열었는가' },
-  { key: 'THRONE', emoji: '👑', title: '정점의 왕좌', subtitle: '현재까지 숫자로 증명된 절대 정점' },
-  { key: 'REPEATED_CROWNS', emoji: '♛', title: '왕관을 거듭 쓴 자', subtitle: '월간 MVP 무대에 반복해서 이름을 올린 이들' },
-  { key: 'ASCENT', emoji: '☄️', title: '비상의 궤적', subtitle: '가장 가파른 성장의 순간' },
-  { key: 'GOLDEN_CHRONICLE', emoji: '🪙', title: '황금의 연대기', subtitle: 'B.R.A.N.D 경제를 움직이고 나눈 기록' },
-  { key: 'GUILD_HEGEMONY', emoji: '⚔️', title: '길드 패권사', subtitle: '길드의 승리와 기여가 남긴 역사' },
-  { key: 'ARCADE_RULERS', emoji: '🕹️', title: '아케이드의 지배자', subtitle: 'FINALIZED 기록으로 증명되는 게임의 왕좌' },
-  { key: 'CONSTELLATION', emoji: '🌌', title: '위업의 성좌', subtitle: '희귀하고 높은 업적을 세운 이들의 특별관', special: true },
-  { key: 'SOVEREIGN_PROOF', emoji: '🏆', title: '제왕의 증명', subtitle: '여러 영역에서 동시에 가치를 증명한 이들의 특별관', special: true },
+  { key: 'PIONEERS', icon: DoorOpen, title: 'B.R.A.N.D의 개척자', subtitle: '누가 처음 문을 열었는가' },
+  { key: 'THRONE', icon: Crown, title: '정점의 왕좌', subtitle: '현재까지 숫자로 증명된 절대 정점' },
+  { key: 'REPEATED_CROWNS', icon: Medal, title: '왕관을 거듭 쓴 자', subtitle: '월간 MVP 무대에 반복해서 이름을 올린 이들' },
+  { key: 'ASCENT', icon: Rocket, title: '비상의 궤적', subtitle: '가장 가파른 성장의 순간' },
+  { key: 'GOLDEN_CHRONICLE', icon: Coins, title: '황금의 연대기', subtitle: 'B.R.A.N.D 경제를 움직이고 나눈 기록' },
+  { key: 'GUILD_HEGEMONY', icon: Swords, title: '길드 패권사', subtitle: '길드의 승리와 기여가 남긴 역사' },
+  { key: 'ARCADE_RULERS', icon: Gamepad2, title: '아케이드의 지배자', subtitle: 'FINALIZED 기록으로 증명되는 게임의 왕좌' },
+  { key: 'CONSTELLATION', icon: Sparkles, title: '위업의 성좌', subtitle: '희귀하고 높은 업적을 세운 이들의 특별관', special: true },
+  { key: 'SOVEREIGN_PROOF', icon: Trophy, title: '제왕의 증명', subtitle: '여러 영역에서 동시에 가치를 증명한 이들의 특별관', special: true },
 ];
 
 export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; grouped: Map<string, any[]>; studentId: number | null }) {
@@ -50,25 +73,28 @@ export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; gro
   });
 
   return (
-    <div id="hall-of-glory-top" className="space-y-7 sm:space-y-9">
-      <section className="relative overflow-hidden rounded-card-lg border border-gold/40 bg-[radial-gradient(circle_at_85%_15%,rgba(255,217,61,0.13),transparent_28%),linear-gradient(145deg,rgba(255,217,61,0.11),rgba(177,151,252,0.07)_48%,rgba(15,11,26,0.94))] px-5 py-6 sm:px-8 sm:py-9">
-        <div aria-hidden="true" className="absolute -right-10 -top-14 text-[10rem] opacity-[0.045] sm:text-[13rem]">🏛️</div>
+    <div id="hall-of-glory-top" className="space-y-8 sm:space-y-10">
+      <section className="relative overflow-hidden rounded-card-lg border border-gold/45 bg-[radial-gradient(circle_at_86%_14%,rgba(255,217,61,0.16),transparent_30%),linear-gradient(145deg,rgba(255,217,61,0.12),rgba(177,151,252,0.08)_48%,rgba(15,11,26,0.96))] px-5 py-7 shadow-[0_0_40px_rgba(255,217,61,0.06)] sm:px-8 sm:py-10">
+        <Landmark aria-hidden="true" className="absolute -right-8 -top-12 h-44 w-44 text-white/[0.035] sm:h-56 sm:w-56" strokeWidth={1.2} />
         <div className="relative max-w-4xl">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-pill border border-gold/35 bg-gold/10 px-3 py-1 text-2xs font-black tracking-[0.16em] text-gold">HALL OF GLORY</span>
-            <span className="text-xs font-bold text-text-muted">B.R.A.N.D 전 시즌 통합 역사관</span>
+            <span className="rounded-pill border border-gold/45 bg-gold/10 px-3.5 py-1.5 text-xs font-black tracking-[0.16em] text-gold">HALL OF GLORY</span>
+            <span className="text-sm font-bold text-text-secondary">B.R.A.N.D 전 시즌 통합 역사관</span>
           </div>
-          <h2 className="mt-4 font-display text-3xl text-white sm:text-4xl [word-break:keep-all]">🏛️ 영광의 전당</h2>
-          <p className="mt-2 text-base font-extrabold text-gold sm:text-lg [word-break:keep-all]">시간을 넘어 B.R.A.N.D에 이름을 새긴 이들의 기록</p>
-          <p className="mt-4 max-w-3xl text-sm font-bold leading-7 text-text-secondary [word-break:keep-all]">
+          <h2 className="mt-5 font-display text-3xl text-white sm:text-4xl [word-break:keep-all]">영광의 전당</h2>
+          <p className="mt-2 text-base font-extrabold text-gold sm:text-xl [word-break:keep-all]">시간을 넘어 B.R.A.N.D에 이름을 새긴 이들의 기록</p>
+          <p className="mt-4 max-w-3xl text-sm font-bold leading-7 text-text-secondary sm:text-base sm:leading-8 [word-break:keep-all]">
             순위를 빠르게 훑는 곳이 아니라, 여러 해가 지나도 기억할 가치가 있는 최초의 도전과 절대 기록, 성장, 길드의 승리와 특별한 위업을 한 자리씩 전시하는 공간입니다.
           </p>
-          <div className="mt-4 text-2xs font-bold text-text-muted">공식 참가자 기준으로 기록을 산정합니다.</div>
+          <div className="mt-5 inline-flex items-center gap-2 rounded-pill border border-line bg-bg-deep/70 px-3 py-1.5 text-xs font-bold text-text-secondary">
+            <ShieldCheck className="h-4 w-4 text-gold" />
+            공식 참가자 기준으로 기록을 산정합니다.
+          </div>
         </div>
       </section>
 
       {historyQ.isLoading ? (
-        <div className="flex flex-col items-center gap-3 py-16 text-text-muted">
+        <div className="flex flex-col items-center gap-3 py-16 text-text-secondary">
           <LoadingSpinner size="lg" />
           <div className="text-sm font-bold">B.R.A.N.D의 역사를 펼치고 있어요.</div>
         </div>
@@ -82,14 +108,14 @@ export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; gro
             <section key={`${gap.start_year}-${gap.end_year}`} className="relative overflow-hidden rounded-card-lg border border-dashed border-line bg-bg-deep/70 px-5 py-6 text-center sm:px-8">
               <div aria-hidden="true" className="absolute inset-x-8 top-1/2 h-px bg-line/50" />
               <div className="relative mx-auto inline-block bg-bg-deep px-6 sm:px-10">
-                <div className="text-2xs font-black tracking-[0.2em] text-text-muted">{gap.start_year}–{gap.end_year}</div>
-                <div className="mt-1 font-display text-xl text-text-secondary">{gap.title}</div>
-                <div className="mt-1 text-xs font-bold text-text-muted">{gap.subtitle}</div>
+                <div className="text-xs font-black tracking-[0.2em] text-text-secondary">{gap.start_year}–{gap.end_year}</div>
+                <div className="mt-1 font-display text-xl text-text-primary">{gap.title}</div>
+                <div className="mt-1 text-sm font-bold text-text-secondary">{gap.subtitle}</div>
               </div>
             </section>
           ))}
 
-          <div className="space-y-10 sm:space-y-12">
+          <div className="space-y-12 sm:space-y-14">
             {HALLS.map((hall, index) => (
               <HallSection
                 key={hall.key}
@@ -103,12 +129,15 @@ export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; gro
       )}
 
       <details className="group rounded-card-md border border-line bg-bg-card/75">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5">
-          <div>
-            <div className="text-sm font-extrabold text-text-primary">📜 공식 확정 원장 참고</div>
-            <div className="mt-1 text-xs font-bold text-text-muted">길드·Arcade의 FINALIZED 원본은 필요할 때만 펼쳐 확인합니다.</div>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4">
+          <div className="flex items-start gap-3">
+            <ScrollText className="mt-0.5 h-5 w-5 shrink-0 text-gold" />
+            <div>
+              <div className="text-sm font-extrabold text-text-primary">공식 확정 원장 참고</div>
+              <div className="mt-1 text-xs font-bold text-text-secondary">길드·Arcade의 FINALIZED 원본은 필요할 때만 펼쳐 확인합니다.</div>
+            </div>
           </div>
-          <span className="text-text-muted transition group-open:rotate-180">⌄</span>
+          <span className="text-text-secondary transition group-open:rotate-180">⌄</span>
         </summary>
         <div className="border-t border-line px-4 py-4">
           <RecordsHonorOfficialPanels />
@@ -116,16 +145,19 @@ export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; gro
       </details>
 
       <details className="group rounded-card-md border border-line bg-bg-card/75">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5">
-          <div>
-            <div className="text-sm font-extrabold text-text-primary">📚 현재 시즌 참고 기록</div>
-            <div className="mt-1 text-xs font-bold text-text-muted">최신 랭킹과 학급 통계는 영광의 전당과 분리된 보조 자료입니다.</div>
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4">
+          <div className="flex items-start gap-3">
+            <BarChart3 className="mt-0.5 h-5 w-5 shrink-0 text-bv" />
+            <div>
+              <div className="text-sm font-extrabold text-text-primary">현재 시즌 참고 기록</div>
+              <div className="mt-1 text-xs font-bold text-text-secondary">최신 랭킹과 학급 통계는 영광의 전당과 분리된 보조 자료입니다.</div>
+            </div>
           </div>
-          <span className="text-text-muted transition group-open:rotate-180">⌄</span>
+          <span className="text-text-secondary transition group-open:rotate-180">⌄</span>
         </summary>
-        <div className="space-y-5 border-t border-line px-4 py-4">
+        <div className="space-y-6 border-t border-line px-4 py-5">
           <section>
-            <SectionTitle emoji="📊" title="최신 공식 랭킹" description={data?.date ? `${data.date} 기준 · 각 부문 TOP 5` : '선생님이 확정한 가장 최근 랭킹 snapshot'} />
+            <SectionTitle icon={BarChart3} title="최신 공식 랭킹" description={data?.date ? `${data.date} 기준 · 각 부문 TOP 5` : '선생님이 확정한 가장 최근 랭킹 snapshot'} />
             {grouped.size === 0 ? (
               <EmptyState emoji="📊" title="아직 공식 랭킹 snapshot이 없어요" description="선생님이 기록 갱신을 실행하면 공식 참가자만 포함한 랭킹이 생성됩니다." />
             ) : (
@@ -133,11 +165,11 @@ export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; gro
                 {Array.from(grouped.entries()).map(([type, rows]) => (
                   <div key={type} className="rounded-card-md border border-line bg-bg-deep p-3">
                     <div className="mb-2 flex items-center justify-between gap-2">
-                      <div className="text-xs font-black text-bv">{RANK_LABEL[type] || type}</div>
+                      <div className="text-sm font-black text-bv">{RANK_LABEL[type] || type}</div>
                       <OfficialBadge compact />
                     </div>
                     {rows.slice(0, 5).map((rank: any) => (
-                      <div key={`${type}-${rank.student_id}`} className={`flex items-center justify-between gap-3 rounded-card-sm px-2 py-1.5 text-xs ${rank.student_id === studentId ? 'bg-gold/10' : ''}`}>
+                      <div key={`${type}-${rank.student_id}`} className={`flex items-center justify-between gap-3 rounded-card-sm px-2 py-2 text-xs ${rank.student_id === studentId ? 'bg-gold/10' : ''}`}>
                         <span className={rank.student_id === studentId ? 'font-black text-gold' : 'font-bold text-text-secondary'}>
                           {rank.rank_position}. {rank.student?.name || rank.student?.brand_name}
                           {rank.student_id === studentId && <span className="ml-1 text-2xs">나</span>}
@@ -152,14 +184,14 @@ export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; gro
           </section>
 
           <section>
-            <SectionTitle emoji="📈" title="학급 최신 통계" description="공식 참가자 기준으로 생성된 가장 최근 일일 통계 snapshot" />
+            <SectionTitle icon={LineChart} title="학급 최신 통계" description="공식 참가자 기준으로 생성된 가장 최근 일일 통계 snapshot" />
             {!data?.stats ? (
               <EmptyState emoji="📈" title="아직 학급 통계 snapshot이 없어요" description="선생님이 기록 갱신을 실행하면 자산·거래 통계가 이곳에 표시됩니다." />
             ) : (
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <OfficialBadge />
-                  <span className="text-2xs font-bold text-text-muted">{data.stats.stat_date} 기준</span>
+                  <span className="text-xs font-bold text-text-secondary">{data.stats.stat_date} 기준</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <Mini label="학급 총 GOLD" value={formatNumber(data.stats.total_gold)} />
@@ -182,29 +214,31 @@ export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; gro
 
 function HallDirectory({ entriesByHall }: { entriesByHall: Map<HallKey, HallOfGloryEntry[]> }) {
   return (
-    <nav aria-label="영광의 전당 전시관 안내" className="rounded-card-lg border border-line bg-bg-card px-4 py-4 sm:px-5 sm:py-5">
-      <div className="mb-3 flex items-end justify-between gap-3">
+    <nav aria-label="영광의 전당 전시관 안내" className="rounded-card-lg border border-line bg-bg-card px-4 py-5 sm:px-6 sm:py-6">
+      <div className="mb-4 flex items-end justify-between gap-3">
         <div>
-          <div className="text-2xs font-black tracking-[0.18em] text-text-muted">EXHIBITION GUIDE</div>
-          <h3 className="mt-1 font-display text-lg text-text-primary">전시관 안내</h3>
+          <div className="text-xs font-black tracking-[0.18em] text-bv">EXHIBITION GUIDE</div>
+          <h3 className="mt-1 font-display text-xl text-text-primary">전시관 안내</h3>
         </div>
-        <div className="hidden text-2xs font-bold text-text-muted sm:block">보고 싶은 전시관으로 이동</div>
+        <div className="hidden text-xs font-bold text-text-secondary sm:block">보고 싶은 전시관으로 이동</div>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         {HALLS.map((hall, index) => {
+          const Icon = hall.icon;
           const recordCount = countRecordGroups(entriesByHall.get(hall.key) ?? []);
-          const targetId = `hall-${hall.key.toLowerCase()}`;
           return (
             <button
               key={hall.key}
               type="button"
-              onClick={() => document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-              className="group flex min-w-[180px] flex-1 items-center gap-2 rounded-card-md border border-line bg-bg-deep/65 px-3 py-2.5 text-left transition hover:border-gold/35 hover:bg-gold/[0.04]"
+              onClick={() => document.getElementById(`hall-${hall.key.toLowerCase()}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className={`group flex min-w-0 items-center gap-3 rounded-card-md border px-3.5 py-3.5 text-left transition ${hall.special ? 'border-gold/25 bg-[linear-gradient(135deg,rgba(255,217,61,0.055),rgba(177,151,252,0.045),rgba(15,11,26,0.75))] hover:border-gold/50' : 'border-line bg-bg-deep/70 hover:border-gold/35 hover:bg-gold/[0.04]'}`}
             >
-              <span className="text-lg" aria-hidden="true">{hall.emoji}</span>
-              <span className="min-w-0">
-                <span className="block truncate text-xs font-extrabold text-text-primary group-hover:text-gold">{index + 1}. {hall.title}</span>
-                <span className="mt-0.5 block text-[10px] font-bold text-text-muted">{recordCount > 0 ? `${recordCount}개의 기록` : '아직 빈 전시관'}</span>
+              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-card-md border ${hall.special ? 'border-gold/35 bg-gold/10 text-gold' : 'border-bv/25 bg-bv/[0.07] text-bv'}`}>
+                <Icon className="h-5 w-5" strokeWidth={1.8} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-extrabold leading-5 text-text-primary group-hover:text-gold [word-break:keep-all]">{index + 1}. {hall.title}</span>
+                <span className="mt-0.5 block text-[11px] font-bold text-text-secondary">{recordCount > 0 ? `${recordCount}개의 기록` : '아직 빈 전시관'}</span>
               </span>
             </button>
           );
@@ -223,42 +257,43 @@ function HallSection({ hall, entries, index }: { hall: HallDefinition; entries: 
   });
 
   const recordGroups = Array.from(grouped.entries());
+  const Icon = hall.icon;
 
   return (
     <section
       id={`hall-${hall.key.toLowerCase()}`}
-      className={`scroll-mt-24 overflow-hidden rounded-card-lg border ${hall.special ? 'border-gold/35 bg-[radial-gradient(circle_at_92%_0%,rgba(255,217,61,0.08),transparent_26%),linear-gradient(145deg,rgba(255,217,61,0.045),rgba(177,151,252,0.055),rgba(15,11,26,0.88))]' : 'border-line bg-bg-card'}`}
+      className={`scroll-mt-24 overflow-hidden rounded-card-lg border ${hall.special ? 'border-gold/40 bg-[radial-gradient(circle_at_92%_0%,rgba(255,217,61,0.11),transparent_28%),linear-gradient(145deg,rgba(255,217,61,0.055),rgba(177,151,252,0.075),rgba(15,11,26,0.92))] shadow-[0_0_34px_rgba(255,217,61,0.07)]' : 'border-line bg-bg-card'}`}
     >
-      <header className="relative border-b border-line/80 px-5 py-5 sm:px-7 sm:py-6">
-        <div aria-hidden="true" className="absolute right-5 top-1/2 -translate-y-1/2 font-display text-6xl text-white/[0.025] sm:right-8 sm:text-7xl">
+      <header className="relative border-b border-line/80 px-5 py-6 sm:px-7 sm:py-7">
+        <div aria-hidden="true" className="absolute right-5 top-1/2 -translate-y-1/2 font-display text-7xl text-white/[0.025] sm:right-8 sm:text-8xl">
           {String(index).padStart(2, '0')}
         </div>
-        <div className="relative flex items-start gap-4">
-          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-card-md border text-2xl ${hall.special ? 'border-gold/30 bg-gold/10' : 'border-line bg-bg-deep'}`} aria-hidden="true">
-            {hall.emoji}
+        <div className="relative flex items-start gap-4 sm:gap-5">
+          <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-card-md border sm:h-16 sm:w-16 ${hall.special ? 'border-gold/40 bg-gold/10 text-gold shadow-[0_0_24px_rgba(255,217,61,0.10)]' : 'border-bv/25 bg-bg-deep text-bv'}`}>
+            <Icon className="h-7 w-7 sm:h-8 sm:w-8" strokeWidth={1.7} />
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-2xs font-black tracking-[0.15em] text-text-muted">HALL {String(index).padStart(2, '0')}</span>
-              {hall.special && <span className="rounded-pill border border-gold/30 bg-gold/10 px-2 py-0.5 text-[9px] font-black text-gold">SPECIAL HALL</span>}
+              <span className="text-sm font-black tracking-[0.16em] text-gold/80">HALL {String(index).padStart(2, '0')}</span>
+              {hall.special && <span className="rounded-pill border border-gold/40 bg-gold/10 px-2.5 py-1 text-[10px] font-black text-gold">SPECIAL HALL</span>}
             </div>
-            <h3 className="mt-1 font-display text-xl text-text-primary sm:text-2xl [word-break:keep-all]">{hall.title}</h3>
-            <p className="mt-1 text-xs font-bold text-text-muted sm:text-sm [word-break:keep-all]">{hall.subtitle}</p>
+            <h3 className="mt-1 font-display text-2xl text-text-primary sm:text-3xl [word-break:keep-all]">{hall.title}</h3>
+            <p className="mt-2 text-sm font-extrabold leading-6 text-text-secondary sm:text-base [word-break:keep-all]">{hall.subtitle}</p>
           </div>
           {recordGroups.length > 0 && (
-            <div className="hidden shrink-0 text-right sm:block">
-              <div className="font-display text-xl text-gold">{recordGroups.length}</div>
-              <div className="text-[10px] font-bold text-text-muted">전시 기록</div>
+            <div className="hidden shrink-0 rounded-card-md border border-line bg-bg-deep/65 px-3 py-2 text-center sm:block">
+              <div className="font-display text-2xl text-gold">{recordGroups.length}</div>
+              <div className="text-[10px] font-bold text-text-secondary">전시 기록</div>
             </div>
           )}
         </div>
       </header>
 
-      <div className="px-4 py-5 sm:px-7 sm:py-7">
+      <div className="px-4 py-6 sm:px-7 sm:py-8">
         {recordGroups.length === 0 ? (
           <EmptyHall />
         ) : (
-          <div className="space-y-5 sm:space-y-6">
+          <div className="space-y-6 sm:space-y-8">
             {recordGroups.map(([recordType, rows], groupIndex) => (
               <RecordGroup key={recordType} rows={rows} exhibitionNo={groupIndex + 1} />
             ))}
@@ -271,10 +306,10 @@ function HallSection({ hall, entries, index }: { hall: HallDefinition; entries: 
 
 function EmptyHall() {
   return (
-    <div className="rounded-card-lg border border-dashed border-line bg-bg-deep/55 px-5 py-8 text-center sm:py-10">
-      <div className="text-3xl opacity-60" aria-hidden="true">◇</div>
-      <div className="mt-3 font-display text-base text-text-secondary">아직 주인을 기다리는 전시관</div>
-      <div className="mx-auto mt-2 max-w-md text-xs font-bold leading-6 text-text-muted [word-break:keep-all]">
+    <div className="rounded-card-lg border border-dashed border-line bg-bg-deep/55 px-5 py-9 text-center sm:py-11">
+      <Sparkles className="mx-auto h-8 w-8 text-text-secondary" strokeWidth={1.4} />
+      <div className="mt-3 font-display text-lg text-text-primary">아직 주인을 기다리는 전시관</div>
+      <div className="mx-auto mt-2 max-w-md text-sm font-bold leading-6 text-text-secondary [word-break:keep-all]">
         공식 조건을 충족한 기록이 탄생하면 이 공간에 이름과 기록이 하나의 역사로 새겨집니다.
       </div>
     </div>
@@ -290,116 +325,252 @@ function RecordGroup({ rows, exhibitionNo }: { rows: HallOfGloryEntry[]; exhibit
   });
 
   const first = orderedRows[0];
-  const isRanking = orderedRows.length > 1 && orderedRows.some((row) => row.rank_position != null);
   const hasLiveDerived = orderedRows.some((row) => row.source_kind === 'PRODUCTION_DERIVED');
   const hasHistorical = orderedRows.some((row) => row.source_kind !== 'PRODUCTION_DERIVED');
+  const sameRank = orderedRows.length > 1 && orderedRows.every((row) => row.rank_position === first.rank_position);
+  const achievementMilestone = ['FIRST_UNIQUE_ACHIEVEMENT', 'FIRST_TRANSCENDENT_ACHIEVEMENT'].includes(first.record_type);
+  const customSubtitle = achievementMilestone || first.record_type === 'CLOSEST_SEASON_WIN';
 
   return (
-    <article className="relative overflow-hidden rounded-card-lg border border-line bg-bg-deep/68 px-4 py-4 sm:px-6 sm:py-5">
-      <div aria-hidden="true" className="absolute -right-2 -top-4 font-display text-7xl text-white/[0.02]">{String(exhibitionNo).padStart(2, '0')}</div>
-      <div className="relative">
-        <div className="flex flex-col gap-3 border-b border-line/70 pb-4 sm:flex-row sm:items-start sm:justify-between">
+    <article className="relative overflow-hidden rounded-card-lg border border-gold/20 bg-[linear-gradient(145deg,rgba(255,217,61,0.035),rgba(15,11,26,0.76)_46%,rgba(22,16,37,0.88))] shadow-[0_12px_32px_rgba(0,0,0,0.12)]">
+      <div aria-hidden="true" className="absolute -right-2 -top-5 font-display text-8xl text-white/[0.018]">{String(exhibitionNo).padStart(2, '0')}</div>
+      <div className="relative border-b border-line/70 px-4 py-4 sm:px-6 sm:py-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <div className="text-[10px] font-black tracking-[0.16em] text-text-muted">HONOR RECORD {String(exhibitionNo).padStart(2, '0')}</div>
-            <h4 className="mt-1 text-sm font-black leading-6 text-text-primary sm:text-base [word-break:keep-all]">{first.title}</h4>
-            {first.subtitle && <p className="mt-1 max-w-3xl text-xs font-bold leading-5 text-text-muted [word-break:keep-all]">{first.subtitle}</p>}
-            {first.description && <p className="mt-2 max-w-3xl text-xs font-semibold leading-6 text-text-secondary [word-break:keep-all]">{first.description}</p>}
+            <div className="text-[11px] font-black tracking-[0.16em] text-gold/65">HONOR RECORD {String(exhibitionNo).padStart(2, '0')}</div>
+            <h4 className="mt-1.5 text-base font-black leading-6 text-text-primary sm:text-lg sm:leading-7 [word-break:keep-all]">{first.title}</h4>
+            {!customSubtitle && first.subtitle && <p className="mt-1.5 max-w-3xl text-sm font-bold leading-6 text-text-secondary [word-break:keep-all]">{first.subtitle}</p>}
+            {first.description && <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-text-secondary [word-break:keep-all]">{first.description}</p>}
           </div>
           <HallRecordBadge live={hasLiveDerived} mixed={hasLiveDerived && hasHistorical} />
         </div>
+      </div>
 
-        {isRanking ? (
-          <RankingExhibit rows={orderedRows} />
+      <div className="px-4 py-5 sm:px-6 sm:py-6">
+        {first.record_type === 'CLOSEST_SEASON_WIN' ? (
+          <ClosestSeasonExhibit entry={first} />
+        ) : first.hall_key === 'CONSTELLATION' && getAchievementDetails(first).length > 0 ? (
+          <AchievementConstellationExhibit entry={first} />
+        ) : first.record_type === 'SEASON_EMPEROR' ? (
+          <JointHonoreesExhibit rows={orderedRows} hideRank />
+        ) : sameRank ? (
+          <JointHonoreesExhibit rows={orderedRows} />
+        ) : orderedRows.length > 1 && orderedRows.some((row) => row.rank_position != null) ? (
+          <BalancedRankingExhibit rows={orderedRows} />
         ) : (
-          <SingleExhibit entry={first} />
+          <MilestoneExhibit entry={first} />
         )}
       </div>
     </article>
   );
 }
 
-function RankingExhibit({ rows }: { rows: HallOfGloryEntry[] }) {
+function BalancedRankingExhibit({ rows }: { rows: HallOfGloryEntry[] }) {
   const [first, ...rest] = rows;
 
+  if (rest.length === 0) return <MilestoneExhibit entry={first} />;
+
   return (
-    <div className="mt-5 space-y-3">
-      <HonorPlaque entry={first} featured />
-      {rest.length > 0 && (
-        <div className="flex flex-wrap gap-3">
-          {rest.map((entry) => (
-            <div key={entry.id} className="min-w-[220px] flex-1">
-              <HonorPlaque entry={entry} />
-            </div>
-          ))}
+    <div className="space-y-3">
+      <RankingPlaque entry={first} featured />
+      {rest.length === 5 ? (
+        <>
+          <div className="grid gap-3 md:grid-cols-2">
+            {rest.slice(0, 2).map((entry) => <RankingPlaque key={entry.id} entry={entry} />)}
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {rest.slice(2).map((entry) => <RankingPlaque key={entry.id} entry={entry} />)}
+          </div>
+        </>
+      ) : rest.length === 4 ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {rest.map((entry) => <RankingPlaque key={entry.id} entry={entry} />)}
+        </div>
+      ) : rest.length === 3 ? (
+        <div className="grid gap-3 md:grid-cols-3">
+          {rest.map((entry) => <RankingPlaque key={entry.id} entry={entry} />)}
+        </div>
+      ) : rest.length === 2 ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {rest.map((entry) => <RankingPlaque key={entry.id} entry={entry} />)}
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {rest.map((entry) => <RankingPlaque key={entry.id} entry={entry} />)}
         </div>
       )}
     </div>
   );
 }
 
-function HonorPlaque({ entry, featured = false }: { entry: HallOfGloryEntry; featured?: boolean }) {
+function RankingPlaque({ entry, featured = false }: { entry: HallOfGloryEntry; featured?: boolean }) {
   const period = getEntryPeriod(entry);
-  const empty = entry.subject_kind === 'EMPTY_THRONE';
+  const value = formatRecordValue(entry);
 
   return (
-    <div className={`relative overflow-hidden rounded-card-md border ${featured ? 'border-gold/35 bg-[linear-gradient(135deg,rgba(255,217,61,0.08),rgba(18,13,31,0.82))] px-4 py-4 sm:px-5 sm:py-5' : 'border-line bg-bg-card/75 px-4 py-3.5'} ${empty ? 'border-dashed' : ''}`}>
-      {featured && <div aria-hidden="true" className="absolute -right-4 -top-8 text-7xl opacity-[0.04]">♛</div>}
-      <div className="relative flex items-center gap-3">
+    <div className={`relative min-w-0 overflow-hidden rounded-card-md border ${featured ? 'border-gold/45 bg-[radial-gradient(circle_at_95%_0%,rgba(255,217,61,0.12),transparent_36%),linear-gradient(135deg,rgba(255,217,61,0.10),rgba(18,13,31,0.88))] px-4 py-5 shadow-[0_0_24px_rgba(255,217,61,0.06)] sm:px-5' : 'border-gold/18 bg-bg-card/80 px-4 py-4'}`}>
+      {featured && <Crown aria-hidden="true" className="absolute -right-3 -top-4 h-20 w-20 text-gold/[0.045]" strokeWidth={1.2} />}
+      <div className="relative flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
         {entry.rank_position != null && (
-          <div className={`flex shrink-0 items-center justify-center rounded-full border font-display ${featured ? 'h-11 w-11 border-gold/45 bg-gold/10 text-xl text-gold' : 'h-8 w-8 border-line bg-bg-deep text-sm text-text-secondary'}`}>
+          <div className={`flex shrink-0 items-center justify-center rounded-full border font-display ${featured ? 'h-12 w-12 border-gold/50 bg-gold/10 text-xl text-gold' : 'h-9 w-9 border-line bg-bg-deep text-sm text-text-primary'}`}>
             {entry.rank_position}
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <div className={`font-extrabold text-text-primary [word-break:keep-all] ${featured ? 'text-lg sm:text-xl' : 'text-sm sm:text-base'}`}>
-            {entry.subject_display_name}
-          </div>
+          <div className={`font-extrabold text-text-primary [word-break:keep-all] ${featured ? 'text-xl sm:text-2xl' : 'text-base sm:text-lg'}`}>{entry.subject_display_name}</div>
           {entry.subject_brand_name && entry.subject_brand_name !== entry.subject_display_name && (
-            <div className="mt-0.5 truncate text-[10px] font-bold text-text-muted">{entry.subject_brand_name}</div>
+            <div className="mt-0.5 text-xs font-bold text-text-secondary">{entry.subject_brand_name}</div>
           )}
-          {period && <div className="mt-1 text-[10px] font-bold text-text-muted">{period}{entry.source_kind === 'PRODUCTION_DERIVED' ? ' · 현재 공식' : ''}</div>}
+          {period && <div className="mt-1.5 text-xs font-bold text-text-secondary">{period}{entry.source_kind === 'PRODUCTION_DERIVED' ? ' · 현재 공식' : ''}</div>}
         </div>
-        <div className={`shrink-0 text-right font-mono font-black text-gold ${featured ? 'text-base sm:text-lg' : 'text-xs sm:text-sm'}`}>
-          {formatRecordValue(entry)}
+        {value && (
+          <div className={`min-w-0 max-w-full font-mono font-black leading-tight text-gold sm:ml-auto sm:max-w-[52%] sm:text-right ${featured ? 'text-[clamp(1.05rem,2.4vw,1.5rem)]' : 'text-[clamp(0.95rem,2vw,1.2rem)]'} [overflow-wrap:anywhere]`}>
+            {value}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function JointHonoreesExhibit({ rows, hideRank = false }: { rows: HallOfGloryEntry[]; hideRank?: boolean }) {
+  const cols = rows.length === 2 ? 'md:grid-cols-2' : rows.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2';
+  return (
+    <div className={`grid gap-3 ${cols}`}>
+      {rows.map((entry) => {
+        const period = getEntryPeriod(entry);
+        const value = formatRecordValue(entry);
+        return (
+          <div key={entry.id} className="min-w-0 rounded-card-md border border-gold/28 bg-[linear-gradient(135deg,rgba(255,217,61,0.065),rgba(18,13,31,0.82))] p-4 sm:p-5">
+            <div className="flex min-w-0 items-start gap-3">
+              {!hideRank && entry.rank_position != null && <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gold/35 bg-gold/10 font-display text-sm text-gold">{entry.rank_position}</div>}
+              <div className="min-w-0 flex-1">
+                <div className="font-display text-xl text-gold sm:text-2xl [word-break:keep-all]">{entry.subject_display_name}</div>
+                {period && <div className="mt-1.5 text-xs font-bold text-text-secondary">{period}</div>}
+                {value && <div className="mt-3 font-mono text-base font-black leading-tight text-text-primary [overflow-wrap:anywhere]">{value}</div>}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MilestoneExhibit({ entry }: { entry: HallOfGloryEntry }) {
+  if (entry.subject_kind === 'EMPTY_THRONE') return <EmptyThroneExhibit entry={entry} />;
+
+  const period = getEntryPeriod(entry);
+  const value = formatRecordValue(entry);
+  const achievementName = getAchievementName(entry);
+
+  return (
+    <div className="rounded-card-md border border-gold/30 bg-[radial-gradient(circle_at_95%_0%,rgba(255,217,61,0.085),transparent_35%),linear-gradient(135deg,rgba(255,217,61,0.055),rgba(18,13,31,0.78))] p-5 sm:p-6">
+      <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+        <div className="min-w-0">
+          <div className="text-xs font-black tracking-[0.15em] text-gold/70">HONOREE</div>
+          <div className="mt-1 font-display text-2xl text-gold sm:text-3xl [word-break:keep-all]">{entry.subject_display_name}</div>
+          {entry.subject_brand_name && entry.subject_brand_name !== entry.subject_display_name && (
+            <div className="mt-1 text-sm font-bold text-text-secondary">{entry.subject_brand_name}</div>
+          )}
+          {achievementName && (
+            <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-card-md border border-bv/30 bg-bv/[0.08] px-3.5 py-2.5">
+              <Gem className="h-5 w-5 shrink-0 text-bv" />
+              <div className="min-w-0">
+                <div className="text-[10px] font-black tracking-[0.12em] text-bv">달성 업적</div>
+                <div className="mt-0.5 text-base font-extrabold text-text-primary sm:text-lg [word-break:keep-all]">{achievementName}</div>
+              </div>
+            </div>
+          )}
+          {period && <div className="mt-3 text-sm font-bold text-text-secondary">{period}{entry.source_kind === 'PRODUCTION_DERIVED' ? ' · 현재 공식' : ''}</div>}
+        </div>
+        {value && (
+          <div className="min-w-0 md:max-w-[360px] md:text-right">
+            <div className="text-xs font-black tracking-[0.15em] text-text-secondary">RECORD</div>
+            <div className="mt-1 font-mono text-xl font-black leading-tight text-text-primary sm:text-2xl [overflow-wrap:anywhere]">{value}</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EmptyThroneExhibit({ entry }: { entry: HallOfGloryEntry }) {
+  return (
+    <div className="rounded-card-md border border-dashed border-gold/35 bg-gold/[0.025] px-5 py-6">
+      <div className="flex items-center gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-dashed border-gold/35 bg-gold/[0.04]">
+          <Crown className="h-6 w-6 text-gold/65" strokeWidth={1.5} />
+        </div>
+        <div className="min-w-0">
+          <div className="font-display text-lg text-text-primary sm:text-xl [word-break:keep-all]">{entry.subject_display_name}</div>
+          <div className="mt-1 text-sm font-bold leading-6 text-text-secondary [word-break:keep-all]">아직 누구의 이름도 새겨지지 않은 왕좌입니다.</div>
         </div>
       </div>
     </div>
   );
 }
 
-function SingleExhibit({ entry }: { entry: HallOfGloryEntry }) {
-  const empty = entry.subject_kind === 'EMPTY_THRONE';
+function AchievementConstellationExhibit({ entry }: { entry: HallOfGloryEntry }) {
+  const details = getAchievementDetails(entry);
+  const period = getEntryPeriod(entry);
+  return (
+    <div className="overflow-hidden rounded-card-md border border-gold/38 bg-[radial-gradient(circle_at_85%_0%,rgba(255,217,61,0.13),transparent_30%),linear-gradient(145deg,rgba(177,151,252,0.09),rgba(18,13,31,0.86))] p-5 shadow-[0_0_28px_rgba(177,151,252,0.07)] sm:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="text-xs font-black tracking-[0.15em] text-bv">HONOREE</div>
+          <div className="mt-1 font-display text-2xl text-gold sm:text-3xl">{entry.subject_display_name}</div>
+          {period && <div className="mt-1.5 text-sm font-bold text-text-secondary">{period} · 현재 공식</div>}
+        </div>
+        <div className="font-display text-3xl text-text-primary sm:text-4xl">{formatNumber(entry.value_primary ?? details.length)}<span className="ml-1 text-base text-text-secondary">개</span></div>
+      </div>
+      <div className="mt-5 border-t border-line/70 pt-4">
+        <div className="mb-3 flex items-center gap-2 text-sm font-extrabold text-text-primary">
+          <Sparkles className="h-4 w-4 text-gold" />
+          달성 업적 전체
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {details.map((detail) => (
+            <div key={`${detail.name}-${detail.achieved_on ?? ''}`} className="rounded-card-sm border border-bv/20 bg-bg-deep/70 px-3 py-2.5">
+              <div className="text-sm font-extrabold text-text-primary [word-break:keep-all]">{detail.name}</div>
+              {detail.achieved_on && <div className="mt-1 text-[11px] font-bold text-text-secondary">{formatDateLabel(detail.achieved_on)}</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClosestSeasonExhibit({ entry }: { entry: HallOfGloryEntry }) {
+  const runnerUp = getMetadataString(entry, 'runner_up') ?? '2위 길드';
+  const runnerUpGs = getMetadataNumber(entry, 'runner_up_gs') ?? entry.value_secondary ?? 0;
+  const winnerGs = getMetadataNumber(entry, 'winner_gs') ?? runnerUpGs + (entry.value_primary ?? 0);
+  const marginPercent = getMetadataNumber(entry, 'display_margin_percent') ?? Number(entry.comparison_value ?? 0);
   const period = getEntryPeriod(entry);
 
   return (
-    <div className={`mt-5 rounded-card-md border px-4 py-5 sm:px-6 sm:py-6 ${empty ? 'border-dashed border-gold/30 bg-gold/[0.025]' : 'border-gold/25 bg-[linear-gradient(135deg,rgba(255,217,61,0.055),rgba(18,13,31,0.74))]'}`}>
-      {empty ? (
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-dashed border-gold/30 text-2xl text-gold/60" aria-hidden="true">♔</div>
-          <div className="min-w-0">
-            <div className="font-display text-lg text-text-secondary [word-break:keep-all]">{entry.subject_display_name}</div>
-            <div className="mt-1 text-xs font-bold leading-5 text-text-muted [word-break:keep-all]">아직 누구의 이름도 새겨지지 않은 왕좌입니다.</div>
-          </div>
-          <div className="ml-auto shrink-0 font-mono text-sm font-black text-gold/70">{formatRecordValue(entry)}</div>
+    <div className="rounded-card-md border border-gold/30 bg-[linear-gradient(135deg,rgba(255,217,61,0.06),rgba(18,13,31,0.82))] p-5 sm:p-6">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center">
+        <GuildDuelSide label="우승" name={entry.subject_display_name} score={winnerGs} align="right" />
+        <div className="flex flex-col items-center justify-center px-2 py-2">
+          <div className="rounded-pill border border-line bg-bg-deep px-3 py-1 text-xs font-black tracking-[0.14em] text-text-secondary">VS</div>
+          <div className="mt-2 text-center text-xs font-bold text-text-secondary">차이</div>
+          <div className="font-display text-2xl text-gold">{marginPercent.toFixed(2)}%</div>
         </div>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-          <div className="min-w-0">
-            <div className="text-[10px] font-black tracking-[0.15em] text-text-muted">HONOREE</div>
-            <div className="mt-1 font-display text-2xl text-gold sm:text-3xl [word-break:keep-all]">{entry.subject_display_name}</div>
-            {entry.subject_brand_name && entry.subject_brand_name !== entry.subject_display_name && (
-              <div className="mt-1 text-xs font-bold text-text-muted">{entry.subject_brand_name}</div>
-            )}
-            {period && <div className="mt-2 text-xs font-bold text-text-secondary">{period}{entry.source_kind === 'PRODUCTION_DERIVED' ? ' · 현재 공식' : ''}</div>}
-          </div>
-          {entry.value_primary != null && (
-            <div className="md:text-right">
-              <div className="text-[10px] font-black tracking-[0.15em] text-text-muted">RECORD</div>
-              <div className="mt-1 font-mono text-xl font-black text-text-primary sm:text-2xl whitespace-nowrap">{formatRecordValue(entry)}</div>
-            </div>
-          )}
-        </div>
-      )}
+        <GuildDuelSide label="준우승" name={runnerUp} score={runnerUpGs} align="left" />
+      </div>
+      {period && <div className="mt-4 border-t border-line/70 pt-3 text-center text-sm font-bold text-text-secondary">{period}</div>}
+    </div>
+  );
+}
+
+function GuildDuelSide({ label, name, score, align }: { label: string; name: string; score: number; align: 'left' | 'right' }) {
+  return (
+    <div className={`min-w-0 rounded-card-md border border-line bg-bg-deep/70 p-4 ${align === 'right' ? 'md:text-right' : 'md:text-left'}`}>
+      <div className="text-[11px] font-black tracking-[0.12em] text-bv">{label}</div>
+      <div className="mt-1 font-display text-xl text-text-primary sm:text-2xl [word-break:keep-all]">{name}</div>
+      <div className="mt-2 font-mono text-lg font-black text-gold">{formatNumber(score)} GS</div>
     </div>
   );
 }
@@ -411,6 +582,31 @@ function getEntryPeriod(entry: HallOfGloryEntry) {
   return '';
 }
 
+function getAchievementName(entry: HallOfGloryEntry) {
+  const metadataName = getMetadataString(entry, 'achievement_name');
+  if (metadataName) return metadataName;
+  if (['FIRST_UNIQUE_ACHIEVEMENT', 'FIRST_TRANSCENDENT_ACHIEVEMENT'].includes(entry.record_type)) return entry.subtitle;
+  return null;
+}
+
+function getAchievementDetails(entry: HallOfGloryEntry): HallAchievementDetail[] {
+  const value = entry.metadata?.achievement_names;
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is HallAchievementDetail => Boolean(item && typeof item === 'object' && typeof (item as HallAchievementDetail).name === 'string'));
+}
+
+function getMetadataString(entry: HallOfGloryEntry, key: string) {
+  const value = entry.metadata?.[key];
+  return typeof value === 'string' ? value : null;
+}
+
+function getMetadataNumber(entry: HallOfGloryEntry, key: string) {
+  const value = entry.metadata?.[key];
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
 function countRecordGroups(entries: HallOfGloryEntry[]) {
   return new Set(entries.map((entry) => entry.record_type)).size;
 }
@@ -420,32 +616,45 @@ function formatRecordValue(entry: HallOfGloryEntry) {
 
   const value = formatNumber(entry.value_primary);
   const unit = entry.unit ? ` ${entry.unit}` : '';
+
   if (entry.denominator != null) {
-    const rate = entry.comparison_value != null && entry.record_type.includes('RATE')
-      ? ` · ${Number(entry.comparison_value).toFixed(2)}%`
+    const rate = entry.comparison_value != null
+      ? ` (${entry.record_type === 'SEASON_CHAMPION' ? Number(entry.comparison_value).toFixed(1) : Number(entry.comparison_value).toFixed(2)}%)`
       : '';
     return `${value} / ${formatNumber(entry.denominator)}${unit}${rate}`;
   }
+
   if (entry.record_type === 'CLOSEST_SEASON_WIN' && entry.comparison_value != null) {
-    return `${value}${unit} · ${Number(entry.comparison_value).toFixed(4)}%`;
+    return `${Number(entry.comparison_value).toFixed(2)}%`;
   }
+
   return `${value}${unit}`;
 }
 
-function SectionTitle({ emoji, title, description }: { emoji: string; title: string; description: string }) {
+function formatDateLabel(value: string) {
+  const [year, month, day] = value.split('-');
+  if (!year || !month || !day) return value;
+  return `${year}.${month}.${day}`;
+}
+
+function SectionTitle({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: string }) {
   return (
-    <div className="mb-2">
-      <h2 className="font-display text-lg text-brand-gradient">{emoji} {title}</h2>
-      <div className="mt-1 text-xs font-bold text-text-muted">{description}</div>
+    <div className="mb-3 flex items-start gap-2.5">
+      <Icon className="mt-0.5 h-5 w-5 shrink-0 text-bv" />
+      <div>
+        <h2 className="font-display text-lg text-brand-gradient">{title}</h2>
+        <div className="mt-1 text-xs font-bold text-text-secondary">{description}</div>
+      </div>
     </div>
   );
 }
 
 function HallRecordBadge({ live, mixed = false, compact = false }: { live: boolean; mixed?: boolean; compact?: boolean }) {
   const label = mixed ? '역대 · 현재 통합' : live ? '현재 공식 기록' : '공식 확정 기록';
-  const tone = live ? 'border-bv/30 bg-bv/10 text-bv' : 'border-gold/30 bg-gold/10 text-gold';
+  const tone = live ? 'border-bv/40 bg-bv/10 text-bv' : 'border-gold/40 bg-gold/10 text-gold';
   return (
-    <span className={`w-fit shrink-0 rounded-pill border font-black ${tone} ${compact ? 'px-2 py-0.5 text-[9px]' : 'px-2.5 py-1 text-2xs'} whitespace-nowrap`}>
+    <span className={`inline-flex w-fit shrink-0 items-center gap-1.5 rounded-pill border font-black ${tone} ${compact ? 'px-2.5 py-1 text-[10px]' : 'px-3.5 py-1.5 text-xs'} whitespace-nowrap`}>
+      <ShieldCheck className={compact ? 'h-3 w-3' : 'h-4 w-4'} />
       {label}
     </span>
   );
@@ -453,7 +662,8 @@ function HallRecordBadge({ live, mixed = false, compact = false }: { live: boole
 
 function OfficialBadge({ compact = false }: { compact?: boolean }) {
   return (
-    <span className={`rounded-pill border border-gold/30 bg-gold/10 font-black text-gold ${compact ? 'px-2 py-0.5 text-[9px]' : 'px-2.5 py-1 text-2xs'}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-pill border border-gold/40 bg-gold/10 font-black text-gold ${compact ? 'px-2.5 py-1 text-[10px]' : 'px-3.5 py-1.5 text-xs'}`}>
+      <ShieldCheck className={compact ? 'h-3 w-3' : 'h-4 w-4'} />
       공식 확정 기록
     </span>
   );
@@ -462,7 +672,7 @@ function OfficialBadge({ compact = false }: { compact?: boolean }) {
 function Mini({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-card-md border border-line bg-bg-card p-3">
-      <div className="text-2xs font-bold text-text-muted">{label}</div>
+      <div className="text-xs font-bold text-text-secondary">{label}</div>
       <div className="mt-1 font-display text-lg text-gold">{value}</div>
     </div>
   );
