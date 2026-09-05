@@ -51,6 +51,7 @@ import ClassroomControl from '@/features/teacher/ClassroomControl';
 import AuctionAdmin from '@/features/teacher/AuctionAdmin';
 import AuctionBroadcastPage from '@/features/auction/AuctionBroadcastPage';
 import AnalyticsPage from '@/features/teacher/AnalyticsPage';
+import LoginHistoryAdmin from '@/features/teacher/LoginHistoryAdmin';
 import CommunicationPage from '@/features/feature4/CommunicationPage';
 import AssignmentsPage from '@/features/feature4/AssignmentsPage';
 import RecordsPage from '@/features/feature4/RecordsPage';
@@ -244,6 +245,7 @@ export default function App() {
         <Route path="/teacher/guild/monthly-close" element={<GuildMonthlyAdmin />} />
         <Route path="/teacher/arcade" element={<TeacherArcadePage />} />
         <Route path="/teacher/analytics" element={<AnalyticsPage />} />
+        <Route path="/teacher/login-history" element={<LoginHistoryAdmin />} />
         <Route path="/teacher/economy-guard" element={<TeacherShell><EconomyGuardPage embeddedTeacher /></TeacherShell>} />
         <Route path="/teacher/communications" element={<CommunicationAdmin />} />
         <Route path="/teacher/operations" element={<OperationsAdmin />} />
