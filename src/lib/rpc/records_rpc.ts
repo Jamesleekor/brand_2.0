@@ -20,6 +20,52 @@ export interface LegacyAssetHistoryBoard {
   rows: LegacyAssetHistoryRow[];
 }
 
+export interface RecordsLegacySummary {
+  school_year: number;
+  first_recorded_on: string | null;
+  current: {
+    tier: string | null;
+    bv: number;
+    gold: number;
+    crystal: number;
+  };
+  peaks: {
+    bv: { value: number; occurred_on: string | null };
+    gold: { value: number; occurred_on: string | null };
+  };
+  achievements: {
+    valid_count: number;
+    active_valid_count: number;
+    active_catalog_count: number;
+    completion_percent: number;
+    unique_count: number;
+    transcend_count: number;
+  };
+  mvp: {
+    win_count: number;
+    first_win_period: string | null;
+    latest_win_period: string | null;
+  };
+  guild: {
+    finalized_months: number;
+    win_months: number;
+    best_guild_rank: number | null;
+    best_contribution: number;
+    best_contribution_period: string | null;
+  };
+  arcade: {
+    finalized_game_entries: number;
+    win_count: number;
+    top3_count: number;
+    distinct_games_won: number;
+    best_rank: number | null;
+  };
+  attendance: {
+    attended_days: number;
+    best_streak: number;
+  };
+}
+
 export type AttendanceStatus = 'PRESENT' | 'LATE' | 'ABSENT' | 'EXCUSED';
 
 export interface AttendanceRewardTotal {
@@ -195,6 +241,12 @@ export const recordsRpc = {
     const { data, error } = await supabase.rpc('student_get_my_legacy_asset_history', input);
     if (error) throw error;
     return (data ?? { total: 0, rows: [] }) as LegacyAssetHistoryBoard;
+  },
+
+  myLegacySummary: async (supabase: SupabaseClient): Promise<RecordsLegacySummary> => {
+    const { data, error } = await supabase.rpc('student_get_my_records_legacy_summary');
+    if (error) throw error;
+    return (data ?? {}) as RecordsLegacySummary;
   },
 
   myAttendanceDashboard: async (supabase: SupabaseClient): Promise<AttendanceDashboard> => {
