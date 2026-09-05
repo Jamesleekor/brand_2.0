@@ -193,18 +193,20 @@ function HallDirectory({ entriesByHall }: { entriesByHall: Map<HallKey, HallOfGl
       <div className="flex flex-wrap gap-2">
         {HALLS.map((hall, index) => {
           const recordCount = countRecordGroups(entriesByHall.get(hall.key) ?? []);
+          const targetId = `hall-${hall.key.toLowerCase()}`;
           return (
-            <a
+            <button
               key={hall.key}
-              href={`#hall-${hall.key.toLowerCase()}`}
-              className="group flex min-w-[180px] flex-1 items-center gap-2 rounded-card-md border border-line bg-bg-deep/65 px-3 py-2.5 transition hover:border-gold/35 hover:bg-gold/[0.04]"
+              type="button"
+              onClick={() => document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              className="group flex min-w-[180px] flex-1 items-center gap-2 rounded-card-md border border-line bg-bg-deep/65 px-3 py-2.5 text-left transition hover:border-gold/35 hover:bg-gold/[0.04]"
             >
               <span className="text-lg" aria-hidden="true">{hall.emoji}</span>
               <span className="min-w-0">
                 <span className="block truncate text-xs font-extrabold text-text-primary group-hover:text-gold">{index + 1}. {hall.title}</span>
                 <span className="mt-0.5 block text-[10px] font-bold text-text-muted">{recordCount > 0 ? `${recordCount}개의 기록` : '아직 빈 전시관'}</span>
               </span>
-            </a>
+            </button>
           );
         })}
       </div>
