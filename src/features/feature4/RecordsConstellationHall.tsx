@@ -199,7 +199,7 @@ function AchievementAtlas({ achievements, tone }: { achievements: HallAchievemen
 
   return (
     <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-black/14 px-4 py-4 sm:px-5 sm:py-5">
-      <div className="relative grid content-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="relative grid content-start gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {achievements.map((achievement, index) => (
           <AchievementStar key={`${achievement.name}-${achievement.achieved_on ?? index}`} achievement={achievement} index={index} tone={tone} />
         ))}
@@ -219,12 +219,12 @@ function AchievementStar({ achievement, index, tone }: { achievement: HallAchiev
     : 'bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(0,0,0,0.10))]';
 
   return (
-    <div className={`relative min-h-[126px] overflow-hidden rounded-[19px] border ${border} ${bg} px-3.5 py-3.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]`}>
+    <div className={`relative min-h-[128px] min-w-0 overflow-hidden rounded-[19px] border ${border} ${bg} px-3 py-3.5 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]`}>
       <div className={`mx-auto flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-black/22 ${isTranscend ? 'text-violet-100' : 'text-sky-100'} ${featured ? 'constellation-star-node' : ''}`}>
         {featured ? <Sparkles className="h-4.5 w-4.5" strokeWidth={1.55} /> : <Star className="h-4 w-4" strokeWidth={1.55} />}
       </div>
-      <div className="mt-2.5 font-display text-lg leading-6 text-slate-50 [word-break:keep-all]">{achievement.name}</div>
-      {achievement.achieved_on && <div className="mt-2 whitespace-nowrap text-xs font-extrabold text-slate-100/86">{koreanDate(achievement.achieved_on)}</div>}
+      <div className="mx-auto mt-2.5 max-w-full font-display text-[1rem] leading-[1.35] text-slate-50 sm:text-[1.05rem] [word-break:keep-all]">{achievement.name}</div>
+      {achievement.achieved_on && <div className="mt-2 whitespace-nowrap text-[10px] font-extrabold tracking-[-0.035em] text-slate-100/88 sm:text-[11px]">{koreanDate(achievement.achieved_on)}</div>}
       <div className="absolute right-2.5 top-2.5 text-[9px] font-black tracking-[0.12em] text-slate-100/62">{String(index + 1).padStart(2, '0')}</div>
     </div>
   );

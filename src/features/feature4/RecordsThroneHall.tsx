@@ -193,22 +193,22 @@ function GoldVault({ rows }: { rows: HallOfGloryEntry[] }) {
 
 function GoldVaultFirst({ entry }: { entry: HallOfGloryEntry }) {
   return (
-    <article className="relative mx-auto max-w-xl overflow-hidden rounded-t-[120px] rounded-b-[28px] border border-amber-200/34 bg-[radial-gradient(circle_at_50%_3%,rgba(255,215,137,0.14),transparent_30%),linear-gradient(180deg,rgba(66,44,24,0.90),rgba(21,14,21,0.985))] px-5 pb-7 pt-9 text-center shadow-[0_0_34px_rgba(255,190,70,0.09),inset_0_0_34px_rgba(255,224,166,0.018)] sm:px-7 sm:pb-8 sm:pt-10">
-      <Coins aria-hidden="true" className="absolute left-1/2 top-4 h-32 w-32 -translate-x-1/2 text-amber-100/[0.026]" strokeWidth={1.0} />
+    <article className="relative mx-auto max-w-lg overflow-hidden rounded-t-[88px] rounded-b-[26px] border border-amber-200/34 bg-[radial-gradient(circle_at_50%_3%,rgba(255,215,137,0.14),transparent_30%),linear-gradient(180deg,rgba(66,44,24,0.90),rgba(21,14,21,0.985))] px-5 pb-5 pt-7 text-center shadow-[0_0_30px_rgba(255,190,70,0.09),inset_0_0_30px_rgba(255,224,166,0.018)] sm:px-6 sm:pb-6 sm:pt-8">
+      <Coins aria-hidden="true" className="absolute left-1/2 top-3 h-24 w-24 -translate-x-1/2 text-amber-100/[0.026]" strokeWidth={1.0} />
       <div className="relative">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-amber-100/30 bg-amber-100/[0.07] font-display text-2xl text-amber-100 shadow-[0_0_24px_rgba(255,195,86,0.10)]">1</div>
-        <div className="mt-4 text-[10px] font-black tracking-[0.2em] text-amber-200/62">THE GOLDEN PEAK</div>
-        <div className="mt-1 font-display text-4xl text-amber-50 sm:text-5xl [text-shadow:0_0_16px_rgba(255,221,145,0.16)]">{entry.subject_display_name}</div>
-        <div className="mt-4 font-display text-4xl text-amber-100 sm:text-5xl">{formatNumber(entry.value_primary ?? 0)} <span className="text-xl">GOLD</span></div>
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-amber-100/30 bg-amber-100/[0.07] font-display text-xl text-amber-100 shadow-[0_0_22px_rgba(255,195,86,0.10)]">1</div>
+        <div className="mt-3 text-[9px] font-black tracking-[0.18em] text-amber-200/62">THE GOLDEN PEAK</div>
+        <div className="mt-1 font-display text-3xl text-amber-50 sm:text-4xl [text-shadow:0_0_16px_rgba(255,221,145,0.16)]">{entry.subject_display_name}</div>
+        <div className="mt-3 whitespace-nowrap font-display text-3xl text-amber-100 sm:text-4xl">{formatNumber(entry.value_primary ?? 0)} <span className="text-lg">GOLD</span></div>
         {entry.period_label && <div className="mt-2 text-sm font-bold text-amber-50/62">{entry.period_label}</div>}
-        <div className="mt-4"><RecordStatusBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} /></div>
+        <div className="mt-3"><RecordStatusBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} /></div>
 
-        <div aria-hidden="true" className="mx-auto mt-7 flex max-w-sm flex-col items-center gap-1.5 opacity-75">
-          {[58, 70, 82, 92, 100].map((width, index) => (
+        <div aria-hidden="true" className="mx-auto mt-5 flex max-w-[280px] flex-col items-center gap-1 opacity-72">
+          {[64, 76, 88, 100].map((width, index) => (
             <div
               key={width}
-              className="h-3 rounded-[4px] border border-amber-100/18 bg-[linear-gradient(180deg,rgba(255,221,143,0.20),rgba(143,89,35,0.20))] shadow-[0_0_10px_rgba(255,190,70,0.035)]"
-              style={{ width: `${width}%`, opacity: 0.66 + index * 0.07 }}
+              className="h-2.5 rounded-[4px] border border-amber-100/18 bg-[linear-gradient(180deg,rgba(255,221,143,0.20),rgba(143,89,35,0.20))] shadow-[0_0_8px_rgba(255,190,70,0.035)]"
+              style={{ width: `${width}%`, opacity: 0.68 + index * 0.08 }}
             />
           ))}
         </div>
@@ -277,7 +277,6 @@ function AchievementThrone({
               {rows.map((entry) => (
                 <div key={entry.id} className={`rounded-[18px] border ${border} bg-black/18 px-3 py-3`}>
                   <div className="font-display text-2xl text-violet-50">{entry.subject_display_name}</div>
-                  {entry.subject_brand_name && <div className="mt-1 text-[10px] font-bold text-violet-50/48">{entry.subject_brand_name}</div>}
                 </div>
               ))}
             </div>

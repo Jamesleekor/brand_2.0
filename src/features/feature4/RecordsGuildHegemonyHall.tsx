@@ -266,7 +266,7 @@ function TopSingleMonthRelic({ entry }: { entry: HallOfGloryEntry }) {
         </div>
 
         <div className="mt-6 rounded-[22px] border border-amber-100/18 bg-black/18 px-4 py-5 text-center sm:px-5">
-          <div className="whitespace-nowrap font-display text-[1.9rem] leading-none text-amber-50 sm:text-[2.35rem]">{score}</div>
+          <div className="whitespace-nowrap font-display text-[clamp(1.35rem,3vw,1.85rem)] leading-none tracking-[-0.045em] text-amber-50">{score}</div>
           <div className="mt-2 font-display text-lg text-amber-100 sm:text-xl">({percent.toFixed(2)}%)</div>
         </div>
       </div>
@@ -331,13 +331,15 @@ function FieldHonors({ rows }: { rows: HallOfGloryEntry[] }) {
 }
 
 function CommanderRelic({ entry, featured = false }: { entry: HallOfGloryEntry; featured?: boolean }) {
-  const denominator = entry.denominator;
-  const rate = entry.comparison_value
-    ?? valueMeta(entry, ['rate_percent', 'completion_pct', 'completion_percent', 'percent']);
-  const guildName = firstString(entry, ['guild', 'guild_name']);
-  const score = denominator != null
-    ? `${formatNumber(entry.value_primary ?? 0)} / ${formatNumber(denominator)}${entry.unit ?? '점'}`
-    : `${formatNumber(entry.value_primary ?? 0)}${entry.unit ? ` ${entry.unit}` : ''}`;
+  const title = entry.record_type === 'BEST_MONTHLY_CONTRIBUTION_RATE'
+    ? '역대 최고 월간 개인 기여도'
+    : entry.record_type === 'BEST_SEASON_CONTRIBUTION_RATE'
+      ? '역대 최고 시즌 개인 기여도'
+      : entry.title;
+  const unit = entry.unit?.trim() || '점';
+  const score = unit === '점'
+    ? `${formatNumber(entry.value_primary ?? 0)}점`
+    : `${formatNumber(entry.value_primary ?? 0)} ${unit}`;
 
   return (
     <article className={`relative overflow-hidden rounded-[26px] border px-5 py-5 text-center ${featured ? 'border-amber-100/26 bg-[radial-gradient(circle_at_50%_0%,rgba(255,214,135,0.16),transparent_34%),linear-gradient(180deg,rgba(84,35,24,0.84),rgba(18,10,11,0.97))] shadow-[0_0_32px_rgba(255,193,94,0.11)]' : 'border-red-100/18 bg-[radial-gradient(circle_at_50%_0%,rgba(236,116,81,0.12),transparent_34%),linear-gradient(180deg,rgba(53,20,20,0.82),rgba(14,10,11,0.96))] shadow-[0_0_24px_rgba(171,62,42,0.09)]'}`}>
@@ -347,12 +349,10 @@ function CommanderRelic({ entry, featured = false }: { entry: HallOfGloryEntry; 
           <Medal className="h-5 w-5" strokeWidth={1.6} />
         </div>
         <div className="mt-3 text-[10px] font-black tracking-[0.16em] text-red-100/76">지휘관 공훈</div>
-        <div className="mt-2 font-display text-3xl text-red-50 sm:text-[2.2rem]">{entry.subject_display_name}</div>
-        <div className="mt-1 text-base font-bold text-red-50/88">{entry.title}</div>
-        {guildName && <div className="mt-1 text-sm font-bold text-red-50/82">{guildName}</div>}
+        <div className="mt-2 whitespace-nowrap font-display text-3xl text-red-50 sm:text-[2.2rem]">{entry.subject_display_name}</div>
+        <div className="mt-1 text-base font-bold text-red-50/88">{title}</div>
         {entry.period_label && <div className="mt-1 whitespace-nowrap text-sm font-bold text-red-50/84">{entry.period_label}</div>}
         <div className="mt-4 whitespace-nowrap font-display text-[2rem] leading-none text-amber-100 sm:text-[2.35rem]">{score}</div>
-        {rate != null && <div className="mt-2 font-display text-lg text-amber-100/90">({rate.toFixed(2)}%)</div>}
         <div className="mt-3"><RecordBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} compact /></div>
       </div>
     </article>
@@ -398,6 +398,10 @@ function DifferenceSeal({ marginGs, marginPct, live }: { marginGs: number; margi
 
 function BattleSide({ title, guildName, score, roster, note, winner = false }: { title: string; guildName: string; score: number; roster: string[]; note?: string; winner?: boolean }) {
   const logo = GUILD_LOGOS[guildName];
+  const guildNameSize = guildName.length >= 6
+    ? 'text-[1.55rem] sm:text-[1.85rem]'
+    : 'text-[2rem] sm:text-[2.25rem]';
+
   const content = (
     <div className={`rounded-[24px] px-4 py-5 text-center ${winner ? 'bg-[radial-gradient(circle_at_50%_0%,rgba(255,226,160,0.12),transparent_34%),linear-gradient(180deg,rgba(88,37,25,0.58),rgba(20,10,11,0.95))] shadow-[0_0_24px_rgba(255,194,90,0.10)]' : 'border border-red-100/18 bg-[linear-gradient(180deg,rgba(52,22,22,0.54),rgba(13,10,11,0.96))]'}`}>
       <div className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-black ${winner ? 'border-amber-100/24 bg-amber-100/[0.06] text-amber-100' : 'border-red-100/18 bg-red-100/[0.04] text-red-50/90'}`}>
@@ -413,7 +417,7 @@ function BattleSide({ title, guildName, score, roster, note, winner = false }: {
           )}
         </div>
       </div>
-      <div className={`mx-auto mt-4 max-w-[250px] font-display text-[2.05rem] leading-[1.03] ${winner ? 'text-amber-50' : 'text-red-50'} sm:text-[2.35rem] [word-break:keep-all]`}>{guildName}</div>
+      <div className={`mx-auto mt-4 max-w-full whitespace-nowrap font-display leading-none ${guildNameSize} ${winner ? 'text-amber-50' : 'text-red-50'}`}>{guildName}</div>
       <div className={`mt-3 whitespace-nowrap font-display text-3xl ${winner ? 'text-amber-100' : 'text-red-50'} sm:text-[2.25rem]`}>{formatNumber(score)} GS</div>
       {note && <div className="mt-2 text-sm font-bold text-slate-100/88">{note}</div>}
       <div className="mt-4 rounded-[18px] border border-white/10 bg-black/18 px-3 py-3">
@@ -535,8 +539,3 @@ function ordinalLabel(rank?: number | null) {
   return `${rank}위`;
 }
 
-function contributionUnit(title: string) {
-  if (title.includes('기여율')) return '%';
-  if (title.includes('GS')) return ' GS';
-  return '';
-}

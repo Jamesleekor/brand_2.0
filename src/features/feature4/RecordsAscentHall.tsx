@@ -100,7 +100,6 @@ function AscentSpire({ rows }: { rows: HallOfGloryEntry[] }) {
   if (rows.length === 0) return null;
   const apex = rows[0];
   const trail = rows.slice(1);
-  const maxValue = Number(apex.value_primary ?? 1);
 
   return (
     <div className="relative mx-auto max-w-5xl overflow-hidden rounded-[32px] border border-cyan-100/15 bg-[radial-gradient(circle_at_50%_0%,rgba(130,237,235,0.08),transparent_27%),linear-gradient(180deg,rgba(19,37,46,0.86),rgba(8,16,25,0.985))] px-4 py-7 shadow-[inset_0_0_40px_rgba(112,227,225,0.012)] sm:px-6 sm:py-9">
@@ -115,7 +114,6 @@ function AscentSpire({ rows }: { rows: HallOfGloryEntry[] }) {
             key={entry.id}
             entry={entry}
             side={index % 2 === 0 ? 'left' : 'right'}
-            strength={Math.max(0.58, Number(entry.value_primary ?? 0) / maxValue)}
           />
         ))}
       </div>
@@ -140,31 +138,36 @@ function ApexMarker({ entry }: { entry: HallOfGloryEntry }) {
   );
 }
 
-function AscentMarker({ entry, side, strength }: { entry: HallOfGloryEntry; side: 'left' | 'right'; strength: number }) {
-  const width = `${Math.round(68 + strength * 24)}%`;
-  const alignClass = side === 'left' ? 'sm:mr-auto sm:pr-12' : 'sm:ml-auto sm:pl-12';
-  const arrowSide = side === 'left' ? 'sm:right-[-7px]' : 'sm:left-[-7px]';
+function AscentMarker({ entry, side }: { entry: HallOfGloryEntry; side: 'left' | 'right' }) {
+  const alignClass = side === 'left'
+    ? 'sm:mr-auto sm:ml-[4%]'
+    : 'sm:ml-auto sm:mr-[4%]';
+  const connectorClass = side === 'left'
+    ? 'right-[-48px]'
+    : 'left-[-48px] rotate-180';
+  const dotClass = side === 'left'
+    ? 'right-[-55px]'
+    : 'left-[-55px]';
 
   return (
-    <div className={`relative mx-auto w-full sm:w-[52%] ${alignClass}`}>
-      <div aria-hidden="true" className={`absolute top-1/2 hidden h-px w-12 -translate-y-1/2 bg-gradient-to-r from-cyan-100/28 to-transparent sm:block ${side === 'left' ? 'right-0' : 'left-0 rotate-180'}`} />
-      <div aria-hidden="true" className={`absolute top-1/2 hidden h-3 w-3 -translate-y-1/2 rounded-full border border-cyan-100/28 bg-[#10202a] shadow-[0_0_12px_rgba(96,220,219,0.10)] sm:block ${arrowSide}`} />
+    <div className={`relative mx-auto w-full sm:w-[60%] ${alignClass}`}>
+      <div aria-hidden="true" className={`absolute top-1/2 hidden h-px w-12 -translate-y-1/2 bg-gradient-to-r from-cyan-100/30 to-transparent sm:block ${connectorClass}`} />
+      <div aria-hidden="true" className={`absolute top-1/2 hidden h-3 w-3 -translate-y-1/2 rounded-full border border-cyan-100/30 bg-[#10202a] shadow-[0_0_12px_rgba(96,220,219,0.12)] sm:block ${dotClass}`} />
 
-      <article
-        className="relative overflow-hidden border border-cyan-100/16 bg-[linear-gradient(135deg,rgba(46,93,103,0.32),rgba(10,19,28,0.94))] px-4 py-4 shadow-[inset_0_0_24px_rgba(114,228,226,0.012)] sm:px-5"
-        style={{ clipPath: 'polygon(0 0, 94% 0, 100% 50%, 94% 100%, 0 100%)', width }}
-      >
-        <div className="flex items-center gap-4">
+      <article className="relative w-full min-w-0 overflow-hidden rounded-[22px] border border-cyan-100/16 bg-[linear-gradient(135deg,rgba(46,93,103,0.32),rgba(10,19,28,0.94))] px-4 py-4 shadow-[inset_0_0_24px_rgba(114,228,226,0.012)] sm:px-5">
+        <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 sm:gap-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-cyan-100/18 bg-black/18 font-display text-lg text-cyan-100">
             {entry.rank_position}
           </div>
-          <div className="min-w-0 flex-1">
-            <div className="font-display text-xl text-cyan-50 sm:text-2xl">{entry.subject_display_name}</div>
-            {entry.period_label && <div className="mt-1 text-xs font-bold text-cyan-50/50">{entry.period_label}</div>}
+
+          <div className="min-w-0">
+            <div className="whitespace-nowrap font-display text-xl leading-none text-cyan-50 sm:text-2xl">{entry.subject_display_name}</div>
+            {entry.period_label && <div className="mt-1.5 whitespace-nowrap text-xs font-bold text-cyan-50/58">{entry.period_label}</div>}
           </div>
+
           <div className="shrink-0 text-right">
-            <div className="font-display text-xl text-cyan-100 sm:text-2xl">+{formatNumber(entry.value_primary ?? 0)}</div>
-            <div className="text-[9px] font-black tracking-[0.14em] text-cyan-200/48">BV</div>
+            <div className="whitespace-nowrap font-display text-xl text-cyan-100 sm:text-2xl">+{formatNumber(entry.value_primary ?? 0)}</div>
+            <div className="text-[9px] font-black tracking-[0.14em] text-cyan-200/58">BV</div>
           </div>
         </div>
       </article>

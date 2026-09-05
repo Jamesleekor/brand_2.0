@@ -3,7 +3,6 @@ import {
   Medal,
   ScrollText,
   ShieldCheck,
-  Sparkles,
   Trophy,
   Users,
 } from 'lucide-react';
@@ -292,16 +291,6 @@ function EmperorProof({ entry }: { entry: HallOfGloryEntry }) {
           ))}
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-100/20 bg-amber-100/[0.055] px-3 py-1.5 text-xs font-black text-amber-50">
-            <Sparkles className="h-3.5 w-3.5" />
-            네 개의 증명 모두 충족
-          </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-100/18 bg-slate-100/[0.045] px-3 py-1.5 text-xs font-black text-slate-100/90">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            공식 확정 기록
-          </span>
-        </div>
       </div>
     </article>
   );
@@ -349,10 +338,10 @@ function TripleCrownRegister({ entries }: { entries: HallOfGloryEntry[] }) {
             ))}
           </div>
         ) : (
-          <div className="rounded-[28px] border border-dashed border-amber-100/18 bg-black/20 px-5 py-10 text-center">
+          <div className="flex min-h-[270px] flex-col items-center justify-center rounded-[28px] border border-dashed border-amber-100/18 bg-black/20 px-6 py-9 text-center">
             <Crown className="mx-auto h-9 w-9 text-amber-100/82" strokeWidth={1.35} />
-            <div className="mt-4 font-display text-2xl text-slate-50">아직 삼중왕관의 자리는 비어 있습니다</div>
-            <div className="mt-2 text-sm font-semibold leading-7 text-slate-200/84">
+            <div className="mx-auto mt-4 max-w-lg font-display text-xl leading-8 text-slate-50 sm:text-2xl [word-break:keep-all]">아직 삼중왕관의 자리는 비어 있습니다</div>
+            <div className="mx-auto mt-2 max-w-lg text-sm font-semibold leading-7 text-slate-200/84 [word-break:keep-all]">
               첫 번째 삼중왕관 달성자가 나타나면 이 공간에 이름이 새겨집니다.
             </div>
           </div>

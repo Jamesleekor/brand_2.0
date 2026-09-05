@@ -359,11 +359,11 @@ function FirstRelicCase({ entry }: { entry: HallOfGloryEntry }) {
 
         {isMvp && (
           <div className="mt-auto w-full pt-4">
-            <div className="flex flex-wrap justify-center gap-2.5">
+            <div className="grid w-full grid-cols-3 gap-2">
               {FIRST_MVP_RIVALS.map((name) => (
                 <div
                   key={name}
-                  className="rounded-full border border-amber-200/22 bg-[linear-gradient(180deg,rgba(255,230,180,0.11),rgba(0,0,0,0.18))] px-3.5 py-2 font-display text-sm text-amber-50 shadow-[0_0_12px_rgba(217,154,78,0.08)]"
+                  className="whitespace-nowrap rounded-full border border-amber-200/22 bg-[linear-gradient(180deg,rgba(255,230,180,0.11),rgba(0,0,0,0.18))] px-2 py-2 font-display text-[12px] text-amber-50 shadow-[0_0_12px_rgba(217,154,78,0.08)] sm:text-sm"
                 >
                   {name}
                 </div>
