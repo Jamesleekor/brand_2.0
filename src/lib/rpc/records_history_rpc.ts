@@ -83,28 +83,36 @@ export interface MonthlyMvpArchiveBoard {
 
 export const recordsHistoryRpc = {
   hallOfGlory: async (supabase: SupabaseClient): Promise<HallOfGloryBoard> => {
-    const [baseResult, guildResult, arcadeResult, achievementScoreResult] = await Promise.all([
+    const [baseResult, guildResult, arcadeResult, achievementScoreResult, mvpFinalistResult] = await Promise.all([
       supabase.rpc('student_get_records_hall_of_glory_enriched'),
       supabase.rpc('student_get_records_guild_hall'),
       supabase.rpc('student_get_records_arcade_hall'),
       supabase.rpc('student_get_records_achievement_score_throne'),
+      supabase.rpc('student_get_records_mvp_finalist_top3'),
     ]);
 
     if (baseResult.error) throw baseResult.error;
     if (guildResult.error) throw guildResult.error;
     if (arcadeResult.error) throw arcadeResult.error;
     if (achievementScoreResult.error) throw achievementScoreResult.error;
+    if (mvpFinalistResult.error) throw mvpFinalistResult.error;
 
     const base = (baseResult.data ?? { entries: [], gap_eras: [] }) as HallOfGloryBoard;
     const guild = (guildResult.data ?? { entries: [] }) as SupplementalHallBoard;
     const arcade = (arcadeResult.data ?? { entries: [] }) as SupplementalHallBoard;
     const achievementScore = (achievementScoreResult.data ?? { entries: [] }) as SupplementalHallBoard;
+    const mvpFinalists = (mvpFinalistResult.data ?? { entries: [] }) as SupplementalHallBoard;
 
     return {
       ...base,
       entries: [
-        ...base.entries.filter((entry) => entry.hall_key !== 'GUILD_HEGEMONY' && entry.hall_key !== 'ARCADE_RULERS'),
+        ...base.entries.filter((entry) =>
+          entry.hall_key !== 'GUILD_HEGEMONY'
+          && entry.hall_key !== 'ARCADE_RULERS'
+          && !(entry.hall_key === 'REPEATED_CROWNS' && entry.record_type === 'MOST_MVP_FINALS')
+        ),
         ...achievementScore.entries,
+        ...mvpFinalists.entries,
         ...guild.entries,
         ...arcade.entries,
       ],
