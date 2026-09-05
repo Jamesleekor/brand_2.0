@@ -66,7 +66,8 @@ const NAV_GROUPS: readonly TeacherNavGroup[] = [
   {
     id: 'analysis', icon: '📊', label: '분석 & 관리',
     items: [
-      { to: '/teacher/analytics', icon: '📊', label: '분석' },
+      { to: '/teacher/analytics', icon: '📊', label: '통계 & 기록' },
+      { to: '/teacher/login-history', icon: '🔐', label: '로그인 히스토리' },
       { to: '/teacher/test-fixture', icon: '🧪', label: 'TEST 운영' },
     ],
   },
