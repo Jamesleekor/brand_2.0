@@ -158,7 +158,7 @@ function CrownMedallion({ index, featured = false }: { index: number; featured?:
 
 function SealedThirdCrown({ entry }: { entry: HallOfGloryEntry }) {
   return (
-    <article className="relative mx-auto max-w-3xl overflow-hidden rounded-[28px] border border-dashed border-rose-200/25 bg-[radial-gradient(circle_at_50%_28%,rgba(132,83,114,0.09),transparent_34%),linear-gradient(180deg,rgba(38,23,35,0.76),rgba(15,10,18,0.96))] px-5 py-7 text-center sm:px-8 sm:py-8">
+    <article className="relative mx-auto max-w-3xl overflow-hidden rounded-[28px] border border-dashed border-rose-200/25 bg-[radial-gradient(circle_at_50%_28%,rgba(166,103,137,0.13),transparent_35%),linear-gradient(180deg,rgba(38,23,35,0.76),rgba(15,10,18,0.96))] px-5 py-7 text-center shadow-[0_0_28px_rgba(255,202,122,0.13),0_0_62px_rgba(190,85,135,0.12)] sm:px-8 sm:py-8">
       <div className="relative flex flex-col items-center">
         <div className="flex items-center justify-center gap-3 sm:gap-5">
           {[1, 2].map((index) => (

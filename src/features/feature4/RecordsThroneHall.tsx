@@ -141,7 +141,7 @@ function AbsoluteThrone({ entry }: { entry: HallOfGloryEntry }) {
   const value = `${formatNumber(entry.value_primary ?? 0)} ${entry.unit ?? ''}`.trim();
 
   return (
-    <article className="relative mx-auto max-w-4xl overflow-hidden rounded-[30px] border border-yellow-100/28 bg-[linear-gradient(180deg,rgba(32,28,39,0.96),rgba(13,10,19,0.99))] px-4 py-5 text-center shadow-[0_0_34px_rgba(255,226,119,0.075),inset_0_0_38px_rgba(255,240,198,0.018)] sm:px-6 sm:py-6">
+    <article className="relative mx-auto max-w-4xl overflow-hidden rounded-[30px] border border-yellow-100/28 bg-[linear-gradient(180deg,rgba(32,28,39,0.96),rgba(13,10,19,0.99))] px-4 py-5 text-center shadow-[0_0_32px_rgba(255,226,119,0.18),0_0_68px_rgba(161,128,221,0.12),inset_0_0_38px_rgba(255,240,198,0.018)] sm:px-6 sm:py-6">
       <div aria-hidden="true" className="absolute inset-x-[8%] top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
       <div className="relative">

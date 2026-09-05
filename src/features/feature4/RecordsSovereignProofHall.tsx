@@ -311,8 +311,12 @@ function TripleCrownRegister({ entries }: { entries: HallOfGloryEntry[] }) {
   return (
     <section className="space-y-5">
       <div className="mx-auto max-w-4xl text-center">
-        <div className="text-[11px] font-black tracking-[0.22em] text-amber-100/82">삼중왕관</div>
-        <h4 className="mt-2 font-display text-2xl text-slate-50 sm:text-3xl">세 개의 조건을 동시에 꿰찬 또 하나의 증명</h4>
+        <div className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-100/18 bg-amber-100/[0.035] px-5 py-2 shadow-[0_0_28px_rgba(255,217,128,0.10)]">
+          <Crown className="h-5 w-5 text-amber-100/90" strokeWidth={1.35} />
+          <div className="font-display text-3xl text-amber-50 sm:text-4xl [text-shadow:0_0_18px_rgba(255,225,145,0.22)]">삼중왕관</div>
+          <Crown className="h-5 w-5 text-amber-100/90" strokeWidth={1.35} />
+        </div>
+        <h4 className="mt-2 text-sm font-extrabold text-slate-100/88 sm:text-base">세 개의 조건을 동시에 꿰찬 또 하나의 증명</h4>
         <p className="mx-auto mt-2 max-w-3xl text-sm font-semibold leading-7 text-slate-200/84 [word-break:keep-all]">
           같은 시즌 안에서 월간 MVP, 업적 달성률, 최종 우승 길드 소속을 모두 만족한 자만이 삼중왕관의 자격을 얻습니다.
         </p>

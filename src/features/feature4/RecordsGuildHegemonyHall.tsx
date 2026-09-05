@@ -55,8 +55,16 @@ const FINAL_BATTLE_ROSTERS: Record<string, string[]> = {
 export function RecordsGuildHegemonyHall({ entries }: { entries: HallOfGloryEntry[] }) {
   const seasonChampion = pickOne(entries, ['SEASON_CHAMPION', 'GUILD_SEASON_CHAMPION'], ['시즌 최종 우승', '최종 우승 길드']);
   const singleMonthRows = pickMany(entries, ['HIGHEST_SINGLE_MONTH_GS', 'TOP_SINGLE_MONTH_GS', 'GUILD_TOP_SINGLE_MONTH_GS'], ['단일 월', '단일 월 전과']);
-  const commanderRows = pickMany(entries, ['MONTHLY_GUILD_CONTRIBUTION_TOP', 'SEASON_GUILD_CONTRIBUTION_TOP', 'TOP_INDIVIDUAL_GUILD_CONTRIBUTION'], ['개인 기여', '지휘관'])
-    .filter((entry) => !/기여율/.test(entry.title || ''));
+  const commanderRows = [...entries]
+    .filter((entry) =>
+      entry.record_type === 'BEST_MONTHLY_CONTRIBUTION_RATE'
+      || entry.record_type === 'BEST_SEASON_CONTRIBUTION_RATE'
+    )
+    .sort((a, b) => {
+      const typeOrder = (entry: HallOfGloryEntry) =>
+        entry.record_type === 'BEST_MONTHLY_CONTRIBUTION_RATE' ? 0 : 1;
+      return typeOrder(a) - typeOrder(b);
+    });
   const finalBattle = pickOne(entries, ['CLOSEST_SEASON_WIN', 'CLOSEST_FINAL_BATTLE'], ['근소한 시즌 우승', '마지막 전투']);
   const recordCount = new Set(entries.map((entry) => entry.record_type)).size;
 
@@ -132,14 +140,14 @@ function VictorsStandard({ entry }: { entry: HallOfGloryEntry }) {
         description="우승은 한 사람의 기록이 아니라, 한 시즌을 함께 버틴 길드 전체의 전과입니다."
       />
 
-      <article className="mx-auto max-w-4xl overflow-hidden rounded-[30px] border border-red-100/24 bg-[radial-gradient(circle_at_18%_14%,rgba(171,61,49,0.16),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(255,226,168,0.05),transparent_24%),linear-gradient(180deg,rgba(43,19,19,0.95),rgba(16,10,12,0.98))] p-5 shadow-[0_0_38px_rgba(138,50,40,0.12)] sm:p-6">
-        <div className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
-          <div className="flex flex-col items-center justify-center rounded-[24px] border border-red-100/14 bg-black/14 px-5 py-6 text-center sm:px-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-red-100/18 bg-black/15 px-3 py-1.5 text-xs font-black text-red-50/88">
+      <article className="mx-auto max-w-3xl overflow-hidden rounded-[26px] border border-red-100/24 bg-[radial-gradient(circle_at_18%_14%,rgba(171,61,49,0.16),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(255,226,168,0.05),transparent_24%),linear-gradient(180deg,rgba(43,19,19,0.95),rgba(16,10,12,0.98))] p-4 shadow-[0_0_30px_rgba(255,207,111,0.18),0_0_62px_rgba(157,48,43,0.18)] sm:p-5">
+        <div className="grid gap-3 lg:grid-cols-[.95fr_1.05fr] lg:items-stretch">
+          <div className="flex flex-col items-center justify-center rounded-[22px] border border-red-100/14 bg-black/14 px-4 py-4 text-center sm:px-5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-red-100/18 bg-black/15 px-3 py-1.5 text-[11px] font-black text-red-50/88">
               <Trophy className="h-3.5 w-3.5" strokeWidth={1.7} />
               시즌 최종 우승 길드
             </div>
-            <div className="mt-4 flex justify-center">
+            <div className="mt-3 flex justify-center">
               <div className="flex h-[122px] w-[122px] items-center justify-center rounded-[26px] border border-red-100/24 bg-[radial-gradient(circle,rgba(255,230,181,0.08),rgba(29,14,14,0.90)_70%)] shadow-[0_0_26px_rgba(255,220,150,0.07)] sm:h-[138px] sm:w-[138px]">
                 {logo ? (
                   <img src={logo} alt="" aria-hidden="true" className="h-[96px] w-[96px] object-contain drop-shadow-[0_0_14px_rgba(255,180,120,0.16)] sm:h-[110px] sm:w-[110px]" />
@@ -148,20 +156,20 @@ function VictorsStandard({ entry }: { entry: HallOfGloryEntry }) {
                 )}
               </div>
             </div>
-            <div className="mt-4 whitespace-nowrap text-base font-bold text-red-50/88">{seasonLabel}</div>
-            <div className="mt-2 font-display text-5xl text-red-50 sm:text-6xl">{guildName}</div>
-            <div className="mt-3 whitespace-nowrap font-display text-[2.5rem] leading-none text-amber-100 sm:text-[2.8rem]">{score}</div>
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
-              <RecordBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} />
+            <div className="mt-3 whitespace-nowrap text-sm font-bold text-red-50/88">{seasonLabel}</div>
+            <div className="mt-1.5 font-display text-4xl text-red-50 sm:text-5xl">{guildName}</div>
+            <div className="mt-2 whitespace-nowrap font-display text-[2rem] leading-none text-amber-100 sm:text-[2.25rem]">{score}</div>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+              <RecordBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} compact />
             </div>
           </div>
 
-          <div className="flex flex-col justify-center rounded-[24px] border border-red-100/14 bg-[linear-gradient(180deg,rgba(31,16,18,0.82),rgba(13,9,11,0.96))] px-5 py-6 sm:px-6">
+          <div className="flex flex-col justify-center rounded-[22px] border border-red-100/14 bg-[linear-gradient(180deg,rgba(31,16,18,0.82),rgba(13,9,11,0.96))] px-4 py-4 sm:px-5">
             <div className="flex items-center justify-center gap-2 text-red-50">
-              <Users className="h-5 w-5 text-red-100/88" strokeWidth={1.7} />
-              <div className="font-display text-xl">우승 길드 로스터</div>
+              <Users className="h-4.5 w-4.5 text-red-100/88" strokeWidth={1.7} />
+              <div className="font-display text-lg">우승 길드 로스터</div>
             </div>
-            <RosterLayout names={roster} highlightRuby={guildName === 'Ruby'} />
+            <RosterLayout names={roster} highlightRuby={guildName === 'Ruby'} compact />
           </div>
         </div>
       </article>
@@ -169,15 +177,18 @@ function VictorsStandard({ entry }: { entry: HallOfGloryEntry }) {
   );
 }
 
-function RosterLayout({ names, highlightRuby = false }: { names: string[]; highlightRuby?: boolean }) {
+function RosterLayout({ names, highlightRuby = false, compact = false }: { names: string[]; highlightRuby?: boolean; compact?: boolean }) {
+  const wrapClass = compact ? 'mt-4 space-y-2.5' : 'mt-5 space-y-3';
+  const gapClass = compact ? 'gap-2.5' : 'gap-3';
+
   if (highlightRuby && names.length === 5) {
     return (
-      <div className="mt-5 space-y-3">
-        <div className="mx-auto grid max-w-[330px] grid-cols-2 gap-3">
-          {names.slice(0, 2).map((name) => <RosterChip key={name} name={name} />)}
+      <div className={wrapClass}>
+        <div className={`mx-auto grid max-w-[300px] grid-cols-2 ${gapClass}`}>
+          {names.slice(0, 2).map((name) => <RosterChip key={name} name={name} compact={compact} />)}
         </div>
-        <div className="grid grid-cols-3 gap-3">
-          {names.slice(2).map((name) => <RosterChip key={name} name={name} />)}
+        <div className={`grid grid-cols-3 ${gapClass}`}>
+          {names.slice(2).map((name) => <RosterChip key={name} name={name} compact={compact} />)}
         </div>
       </div>
     );
@@ -185,15 +196,15 @@ function RosterLayout({ names, highlightRuby = false }: { names: string[]; highl
 
   const gridCols = names.length === 4 ? 'grid-cols-2' : names.length >= 5 ? 'grid-cols-3' : 'grid-cols-2';
   return (
-    <div className={`mt-5 grid gap-3 ${gridCols}`}>
-      {names.map((name) => <RosterChip key={name} name={name} />)}
+    <div className={`${compact ? 'mt-4' : 'mt-5'} grid ${gapClass} ${gridCols}`}>
+      {names.map((name) => <RosterChip key={name} name={name} compact={compact} />)}
     </div>
   );
 }
 
-function RosterChip({ name }: { name: string }) {
+function RosterChip({ name, compact = false }: { name: string; compact?: boolean }) {
   return (
-    <div className="min-w-0 whitespace-nowrap rounded-[16px] border border-red-100/20 bg-black/18 px-2.5 py-3 text-center font-display text-lg text-red-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:px-3 sm:text-xl">
+    <div className={`min-w-0 whitespace-nowrap rounded-[15px] border border-red-100/20 bg-black/18 text-center font-display text-red-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] ${compact ? 'px-2 py-2.5 text-base sm:text-lg' : 'px-2.5 py-3 text-lg sm:px-3 sm:text-xl'}`}>
       {name}
     </div>
   );
@@ -214,7 +225,7 @@ function StrongestMonth({ rows }: { rows: HallOfGloryEntry[] }) {
 
       <div className="grid items-start gap-4 lg:grid-cols-[1.08fr_.92fr]">
         {top && <TopSingleMonthRelic entry={top} />}
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid auto-rows-fr gap-3 sm:grid-cols-2">
           {rest.map((entry) => (
             <CompactMonthRelic key={entry.id} entry={entry} />
           ))}
@@ -269,13 +280,13 @@ function CompactMonthRelic({ entry }: { entry: HallOfGloryEntry }) {
   const goal = goalFor(entry);
   const percent = completionPercent(entry, goal);
   const nameClass = guildName.length >= 6
-    ? 'text-[1.45rem] leading-[1.15] sm:text-[1.6rem]'
+    ? 'text-[1.4rem] leading-[1.12] sm:text-[1.5rem]'
     : guildName.length >= 4
-      ? 'text-[1.65rem] leading-[1.15] sm:text-[1.8rem]'
-      : 'text-[1.85rem] leading-[1.1] sm:text-[2rem]';
+      ? 'text-[1.55rem] leading-[1.12] sm:text-[1.65rem]'
+      : 'text-[1.7rem] leading-[1.08] sm:text-[1.8rem]';
 
   return (
-    <article className="min-w-0 rounded-[22px] border border-red-100/18 bg-[linear-gradient(180deg,rgba(47,20,20,0.82),rgba(14,10,11,0.96))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
+    <article className="flex min-h-[178px] min-w-0 flex-col rounded-[22px] border border-red-100/18 bg-[linear-gradient(180deg,rgba(47,20,20,0.82),rgba(14,10,11,0.96))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
       <div className="flex min-w-0 items-start gap-3">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] border border-red-100/18 bg-black/20">
           {logo ? (
@@ -284,15 +295,18 @@ function CompactMonthRelic({ entry }: { entry: HallOfGloryEntry }) {
             <Shield className="h-5 w-5 text-red-50/84" strokeWidth={1.4} />
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 pt-0.5">
           <div className="text-xs font-black tracking-[0.14em] text-red-100/82">{ordinalLabel(entry.rank_position)}</div>
           <div className={`mt-1 font-display text-red-50 [word-break:keep-all] ${nameClass}`}>{guildName}</div>
-          <div className="mt-2 whitespace-nowrap text-[13px] font-extrabold text-red-50/94 sm:text-sm">
-            {formatNumber(entry.value_primary ?? 0)} / {formatNumber(goal)} GS
-          </div>
-          <div className="mt-1 text-xs font-bold text-amber-100/90">({percent.toFixed(2)}%)</div>
-          <div className="mt-1 whitespace-nowrap text-[12px] font-bold text-red-50/84">{entry.period_label}</div>
         </div>
+      </div>
+
+      <div className="mt-auto pt-4 text-center">
+        <div className="whitespace-nowrap text-[12px] font-extrabold tracking-[-0.025em] text-red-50/96 sm:text-[13px]">
+          {formatNumber(entry.value_primary ?? 0)} / {formatNumber(goal)} GS
+        </div>
+        <div className="mt-1 text-xs font-bold text-amber-100/90">({percent.toFixed(2)}%)</div>
+        <div className="mt-1 whitespace-nowrap text-[12px] font-bold text-red-50/84">{entry.period_label}</div>
       </div>
     </article>
   );
@@ -317,8 +331,13 @@ function FieldHonors({ rows }: { rows: HallOfGloryEntry[] }) {
 }
 
 function CommanderRelic({ entry, featured = false }: { entry: HallOfGloryEntry; featured?: boolean }) {
-  const scoreUnit = contributionUnit(entry.title || '');
-  const score = `${formatNumber(entry.value_primary ?? 0)}${scoreUnit}`;
+  const denominator = entry.denominator;
+  const rate = entry.comparison_value
+    ?? valueMeta(entry, ['rate_percent', 'completion_pct', 'completion_percent', 'percent']);
+  const guildName = firstString(entry, ['guild', 'guild_name']);
+  const score = denominator != null
+    ? `${formatNumber(entry.value_primary ?? 0)} / ${formatNumber(denominator)}${entry.unit ?? '점'}`
+    : `${formatNumber(entry.value_primary ?? 0)}${entry.unit ? ` ${entry.unit}` : ''}`;
 
   return (
     <article className={`relative overflow-hidden rounded-[26px] border px-5 py-5 text-center ${featured ? 'border-amber-100/26 bg-[radial-gradient(circle_at_50%_0%,rgba(255,214,135,0.16),transparent_34%),linear-gradient(180deg,rgba(84,35,24,0.84),rgba(18,10,11,0.97))] shadow-[0_0_32px_rgba(255,193,94,0.11)]' : 'border-red-100/18 bg-[radial-gradient(circle_at_50%_0%,rgba(236,116,81,0.12),transparent_34%),linear-gradient(180deg,rgba(53,20,20,0.82),rgba(14,10,11,0.96))] shadow-[0_0_24px_rgba(171,62,42,0.09)]'}`}>
@@ -330,8 +349,10 @@ function CommanderRelic({ entry, featured = false }: { entry: HallOfGloryEntry; 
         <div className="mt-3 text-[10px] font-black tracking-[0.16em] text-red-100/76">지휘관 공훈</div>
         <div className="mt-2 font-display text-3xl text-red-50 sm:text-[2.2rem]">{entry.subject_display_name}</div>
         <div className="mt-1 text-base font-bold text-red-50/88">{entry.title}</div>
+        {guildName && <div className="mt-1 text-sm font-bold text-red-50/82">{guildName}</div>}
         {entry.period_label && <div className="mt-1 whitespace-nowrap text-sm font-bold text-red-50/84">{entry.period_label}</div>}
-        <div className="mt-4 font-display text-[2.3rem] leading-none text-amber-100 sm:text-[2.75rem]">{score}</div>
+        <div className="mt-4 whitespace-nowrap font-display text-[2rem] leading-none text-amber-100 sm:text-[2.35rem]">{score}</div>
+        {rate != null && <div className="mt-2 font-display text-lg text-amber-100/90">({rate.toFixed(2)}%)</div>}
         <div className="mt-3"><RecordBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} compact /></div>
       </div>
     </article>
