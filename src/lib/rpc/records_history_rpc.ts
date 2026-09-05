@@ -21,6 +21,11 @@ export interface RecordsGapEra {
   subtitle: string;
 }
 
+export interface HallAchievementDetail {
+  name: string;
+  achieved_on?: string | null;
+}
+
 export interface HallOfGloryEntry {
   id: number;
   record_key: string;
@@ -43,7 +48,10 @@ export interface HallOfGloryEntry {
   unit: string | null;
   comparison_value: number | null;
   source_kind: HistoricalSourceKind;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, unknown> & {
+    achievement_name?: string;
+    achievement_names?: HallAchievementDetail[];
+  };
   sort_order: number;
 }
 
@@ -76,7 +84,7 @@ export interface MonthlyMvpArchiveBoard {
 export const recordsHistoryRpc = {
   hallOfGlory: async (supabase: SupabaseClient): Promise<HallOfGloryBoard> => {
     const [baseResult, guildResult, arcadeResult] = await Promise.all([
-      supabase.rpc('student_get_records_hall_of_glory'),
+      supabase.rpc('student_get_records_hall_of_glory_enriched'),
       supabase.rpc('student_get_records_guild_hall'),
       supabase.rpc('student_get_records_arcade_hall'),
     ]);
