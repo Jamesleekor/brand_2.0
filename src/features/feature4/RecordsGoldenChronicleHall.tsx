@@ -1,6 +1,5 @@
 import {
   BookOpenText,
-  Coins,
   HandHeart,
   Landmark,
   ScrollText,
@@ -119,7 +118,7 @@ function DonationPedestal({ entry, featured = false }: { entry: HallOfGloryEntry
       </div>
       <div className={`mt-3 font-display text-orange-50 ${featured ? 'text-3xl' : 'text-xl sm:text-2xl'}`}>{entry.subject_display_name}</div>
       <div className={`mt-2 font-display text-orange-100 ${featured ? 'text-4xl' : 'text-2xl'}`}>{formatNumber(entry.value_primary ?? 0)}</div>
-      <div className="mt-1 text-[10px] font-black tracking-[0.15em] text-orange-200/48">GOLD DONATED</div>
+      <div className="mt-1 text-[10px] font-black tracking-[0.15em] text-orange-200/58">골드 기부</div>
       {entry.period_label && <div className="mt-2 text-xs font-bold text-orange-50/48">{entry.period_label}</div>}
       <div className="mt-3"><RecordStatusBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} /></div>
     </article>

@@ -2,7 +2,6 @@ import {
   Medal,
   Shield,
   ShieldCheck,
-  Sparkles,
   Swords,
   Trophy,
   Users,
@@ -37,7 +36,7 @@ const GUILD_HEGEMONY_STYLE = `
 `;
 
 const GUILD_LOGOS: Record<string, string> = {
-  'Ruby': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/Ruby.png',
+  Ruby: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/Ruby.png',
   '빛나는 은하수': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/Milkyway.png',
   '암흑장미': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/Darkrose.png',
   '에메랄드': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/EMERALD.png',
@@ -120,7 +119,7 @@ function SectionHeading({ eyebrow, title, description }: { eyebrow: string; titl
 
 function VictorsStandard({ entry }: { entry: HallOfGloryEntry }) {
   const guildName = firstString(entry, ['guild_name', 'winner_guild_name']) || entry.subject_display_name;
-  const seasonLabel = entry.period_label || firstString(entry, ['season_label']) || '2026 시즌1';
+  const seasonLabel = entry.season_label || firstString(entry, ['season_label']) || entry.period_label || '2026 시즌1';
   const roster = firstStringArray(entry, ['champion_roster', 'roster', 'members']);
   const logo = GUILD_LOGOS[guildName];
   const score = `${formatNumber(entry.value_primary ?? 0)}점`;
@@ -134,8 +133,8 @@ function VictorsStandard({ entry }: { entry: HallOfGloryEntry }) {
       />
 
       <article className="mx-auto max-w-4xl overflow-hidden rounded-[30px] border border-red-100/24 bg-[radial-gradient(circle_at_18%_14%,rgba(171,61,49,0.16),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(255,226,168,0.05),transparent_24%),linear-gradient(180deg,rgba(43,19,19,0.95),rgba(16,10,12,0.98))] p-5 shadow-[0_0_38px_rgba(138,50,40,0.12)] sm:p-6">
-        <div className="grid gap-4 lg:grid-cols-[1.05fr_.95fr]">
-          <div className="rounded-[24px] border border-red-100/14 bg-black/14 px-5 py-6 text-center sm:px-6">
+        <div className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
+          <div className="flex flex-col items-center justify-center rounded-[24px] border border-red-100/14 bg-black/14 px-5 py-6 text-center sm:px-6">
             <div className="inline-flex items-center gap-2 rounded-full border border-red-100/18 bg-black/15 px-3 py-1.5 text-xs font-black text-red-50/88">
               <Trophy className="h-3.5 w-3.5" strokeWidth={1.7} />
               시즌 최종 우승 길드
@@ -149,18 +148,18 @@ function VictorsStandard({ entry }: { entry: HallOfGloryEntry }) {
                 )}
               </div>
             </div>
-            <div className="mt-4 text-base font-bold text-red-50/88">{seasonLabel}</div>
+            <div className="mt-4 whitespace-nowrap text-base font-bold text-red-50/88">{seasonLabel}</div>
             <div className="mt-2 font-display text-5xl text-red-50 sm:text-6xl">{guildName}</div>
-            <div className="mt-3 font-display text-[2.5rem] leading-none text-amber-100 sm:text-[2.8rem]">{score}</div>
+            <div className="mt-3 whitespace-nowrap font-display text-[2.5rem] leading-none text-amber-100 sm:text-[2.8rem]">{score}</div>
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
               <RecordBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} />
             </div>
           </div>
 
-          <div className="rounded-[24px] border border-red-100/14 bg-[linear-gradient(180deg,rgba(31,16,18,0.82),rgba(13,9,11,0.96))] px-5 py-5 sm:px-6">
+          <div className="flex flex-col justify-center rounded-[24px] border border-red-100/14 bg-[linear-gradient(180deg,rgba(31,16,18,0.82),rgba(13,9,11,0.96))] px-5 py-6 sm:px-6">
             <div className="flex items-center justify-center gap-2 text-red-50">
-              <Users className="h-4.5 w-4.5 text-red-100/88" strokeWidth={1.7} />
-              <div className="text-lg font-display">우승 길드 로스터</div>
+              <Users className="h-5 w-5 text-red-100/88" strokeWidth={1.7} />
+              <div className="font-display text-xl">우승 길드 로스터</div>
             </div>
             <RosterLayout names={roster} highlightRuby={guildName === 'Ruby'} />
           </div>
@@ -173,8 +172,8 @@ function VictorsStandard({ entry }: { entry: HallOfGloryEntry }) {
 function RosterLayout({ names, highlightRuby = false }: { names: string[]; highlightRuby?: boolean }) {
   if (highlightRuby && names.length === 5) {
     return (
-      <div className="mt-4 space-y-3">
-        <div className="grid grid-cols-2 gap-3 px-6">
+      <div className="mt-5 space-y-3">
+        <div className="mx-auto grid max-w-[330px] grid-cols-2 gap-3">
           {names.slice(0, 2).map((name) => <RosterChip key={name} name={name} />)}
         </div>
         <div className="grid grid-cols-3 gap-3">
@@ -184,9 +183,9 @@ function RosterLayout({ names, highlightRuby = false }: { names: string[]; highl
     );
   }
 
-  const gridCols = names.length <= 4 ? 'sm:grid-cols-2' : 'sm:grid-cols-3';
+  const gridCols = names.length === 4 ? 'grid-cols-2' : names.length >= 5 ? 'grid-cols-3' : 'grid-cols-2';
   return (
-    <div className={`mt-4 grid gap-3 ${gridCols}`}>
+    <div className={`mt-5 grid gap-3 ${gridCols}`}>
       {names.map((name) => <RosterChip key={name} name={name} />)}
     </div>
   );
@@ -194,7 +193,7 @@ function RosterLayout({ names, highlightRuby = false }: { names: string[]; highl
 
 function RosterChip({ name }: { name: string }) {
   return (
-    <div className="rounded-[16px] border border-red-100/20 bg-black/18 px-4 py-3 text-center font-display text-[1.6rem] text-red-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:text-[1.7rem]">
+    <div className="min-w-0 whitespace-nowrap rounded-[16px] border border-red-100/20 bg-black/18 px-2.5 py-3 text-center font-display text-lg text-red-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:px-3 sm:text-xl">
       {name}
     </div>
   );
@@ -213,7 +212,7 @@ function StrongestMonth({ rows }: { rows: HallOfGloryEntry[] }) {
         description="한 달 동안 길드가 쌓아 올린 가장 높은 전과를 비교하여 보존합니다."
       />
 
-      <div className="grid gap-4 lg:grid-cols-[1.08fr_.92fr]">
+      <div className="grid items-start gap-4 lg:grid-cols-[1.08fr_.92fr]">
         {top && <TopSingleMonthRelic entry={top} />}
         <div className="grid gap-3 sm:grid-cols-2">
           {rest.map((entry) => (
@@ -228,35 +227,36 @@ function StrongestMonth({ rows }: { rows: HallOfGloryEntry[] }) {
 function TopSingleMonthRelic({ entry }: { entry: HallOfGloryEntry }) {
   const guildName = firstString(entry, ['guild_name']) || entry.subject_display_name;
   const logo = GUILD_LOGOS[guildName];
-  const score = `${formatNumber(entry.value_primary ?? 0)} / ${formatNumber(valueMeta(entry, ['goal_gs', 'target_gs']) ?? 10000)} GS`;
-  const percent = valueMeta(entry, ['completion_pct', 'completion_percent', 'percent']);
+  const goal = goalFor(entry);
+  const percent = completionPercent(entry, goal);
+  const score = `${formatNumber(entry.value_primary ?? 0)} / ${formatNumber(goal)} GS`;
 
   return (
-    <article className="imperial-flow-frame relative overflow-hidden rounded-[28px] p-[2.5px]">
+    <article className="imperial-flow-frame relative self-start overflow-hidden rounded-[28px] p-[2.5px]">
       <div className="relative overflow-hidden rounded-[25px] bg-[radial-gradient(circle_at_10%_20%,rgba(255,230,168,0.12),transparent_32%),linear-gradient(180deg,rgba(48,24,15,0.97),rgba(17,10,10,0.98))] px-5 py-5 sm:px-6 sm:py-6">
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <div className="text-[11px] font-black tracking-[0.18em] text-amber-100/84">1위 · 최강의 한 달</div>
             <div className="mt-4 flex items-center gap-4">
-              <div className="flex h-20 w-20 items-center justify-center rounded-[20px] border border-amber-100/28 bg-black/18 sm:h-24 sm:w-24">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[20px] border border-amber-100/28 bg-black/18 sm:h-24 sm:w-24">
                 {logo ? (
                   <img src={logo} alt="" aria-hidden="true" className="h-16 w-16 object-contain sm:h-20 sm:w-20" />
                 ) : (
                   <Shield className="h-9 w-9 text-amber-50" strokeWidth={1.4} />
                 )}
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="font-display text-4xl text-amber-50 sm:text-5xl">{guildName}</div>
-                <div className="mt-2 text-sm font-bold text-red-50/88">{entry.period_label}</div>
+                <div className="mt-2 whitespace-nowrap text-sm font-bold text-red-50/88">{entry.period_label}</div>
               </div>
             </div>
           </div>
           <RecordBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} />
         </div>
 
-        <div className="mt-6 rounded-[22px] border border-amber-100/18 bg-black/18 px-5 py-5 text-center">
-          <div className="whitespace-nowrap font-display text-[2.15rem] leading-none text-amber-50 sm:text-[2.6rem]">{score}</div>
-          {percent != null && <div className="mt-2 font-display text-xl text-amber-100">({percent.toFixed(2)}%)</div>}
+        <div className="mt-6 rounded-[22px] border border-amber-100/18 bg-black/18 px-4 py-5 text-center sm:px-5">
+          <div className="whitespace-nowrap font-display text-[1.9rem] leading-none text-amber-50 sm:text-[2.35rem]">{score}</div>
+          <div className="mt-2 font-display text-lg text-amber-100 sm:text-xl">({percent.toFixed(2)}%)</div>
         </div>
       </div>
     </article>
@@ -266,12 +266,17 @@ function TopSingleMonthRelic({ entry }: { entry: HallOfGloryEntry }) {
 function CompactMonthRelic({ entry }: { entry: HallOfGloryEntry }) {
   const guildName = firstString(entry, ['guild_name']) || entry.subject_display_name;
   const logo = GUILD_LOGOS[guildName];
-  const goal = valueMeta(entry, ['goal_gs', 'target_gs']) ?? 10000;
-  const percent = valueMeta(entry, ['completion_pct', 'completion_percent', 'percent']);
+  const goal = goalFor(entry);
+  const percent = completionPercent(entry, goal);
+  const nameClass = guildName.length >= 6
+    ? 'text-[1.45rem] leading-[1.15] sm:text-[1.6rem]'
+    : guildName.length >= 4
+      ? 'text-[1.65rem] leading-[1.15] sm:text-[1.8rem]'
+      : 'text-[1.85rem] leading-[1.1] sm:text-[2rem]';
 
   return (
-    <article className="rounded-[22px] border border-red-100/18 bg-[linear-gradient(180deg,rgba(47,20,20,0.82),rgba(14,10,11,0.96))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
-      <div className="flex items-start gap-3">
+    <article className="min-w-0 rounded-[22px] border border-red-100/18 bg-[linear-gradient(180deg,rgba(47,20,20,0.82),rgba(14,10,11,0.96))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">
+      <div className="flex min-w-0 items-start gap-3">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[14px] border border-red-100/18 bg-black/20">
           {logo ? (
             <img src={logo} alt="" aria-hidden="true" className="h-9 w-9 object-contain" />
@@ -281,12 +286,12 @@ function CompactMonthRelic({ entry }: { entry: HallOfGloryEntry }) {
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-xs font-black tracking-[0.14em] text-red-100/82">{ordinalLabel(entry.rank_position)}</div>
-          <div className="mt-1 font-display text-[1.9rem] leading-9 text-red-50 [word-break:keep-all]">{guildName}</div>
-          <div className="mt-1 whitespace-nowrap text-sm font-extrabold text-red-50/92">
+          <div className={`mt-1 font-display text-red-50 [word-break:keep-all] ${nameClass}`}>{guildName}</div>
+          <div className="mt-2 whitespace-nowrap text-[13px] font-extrabold text-red-50/94 sm:text-sm">
             {formatNumber(entry.value_primary ?? 0)} / {formatNumber(goal)} GS
           </div>
-          {percent != null && <div className="mt-1 text-xs font-bold text-amber-100/88">({percent.toFixed(2)}%)</div>}
-          <div className="mt-1 text-[12px] font-bold text-red-50/82">{entry.period_label}</div>
+          <div className="mt-1 text-xs font-bold text-amber-100/90">({percent.toFixed(2)}%)</div>
+          <div className="mt-1 whitespace-nowrap text-[12px] font-bold text-red-50/84">{entry.period_label}</div>
         </div>
       </div>
     </article>
@@ -325,7 +330,7 @@ function CommanderRelic({ entry, featured = false }: { entry: HallOfGloryEntry; 
         <div className="mt-3 text-[10px] font-black tracking-[0.16em] text-red-100/76">지휘관 공훈</div>
         <div className="mt-2 font-display text-3xl text-red-50 sm:text-[2.2rem]">{entry.subject_display_name}</div>
         <div className="mt-1 text-base font-bold text-red-50/88">{entry.title}</div>
-        {entry.period_label && <div className="mt-1 text-sm font-bold text-red-50/82">{entry.period_label}</div>}
+        {entry.period_label && <div className="mt-1 whitespace-nowrap text-sm font-bold text-red-50/84">{entry.period_label}</div>}
         <div className="mt-4 font-display text-[2.3rem] leading-none text-amber-100 sm:text-[2.75rem]">{score}</div>
         <div className="mt-3"><RecordBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} compact /></div>
       </div>
@@ -338,6 +343,7 @@ function FinalBattle({ entry }: { entry: HallOfGloryEntry }) {
   const runnerUp = firstString(entry, ['runner_up_guild_name', 'loser_guild_name']) || '빛나는 은하수';
   const victorScore = valueMeta(entry, ['winner_gs', 'victor_gs']) ?? 26826;
   const runnerUpScore = valueMeta(entry, ['runner_up_gs', 'loser_gs']) ?? 26814;
+  const marginGs = Math.abs(victorScore - runnerUpScore);
   const marginPct = valueMeta(entry, ['margin_pct', 'difference_pct']) ?? 0.04;
 
   return (
@@ -348,14 +354,9 @@ function FinalBattle({ entry }: { entry: HallOfGloryEntry }) {
         description="패권을 결정지은 마지막 순간. 두 길드의 전과와 아주 미세한 차이까지 함께 새깁니다."
       />
       <article className="overflow-hidden rounded-[30px] border border-red-100/20 bg-[radial-gradient(circle_at_50%_0%,rgba(171,62,42,0.14),transparent_34%),linear-gradient(180deg,rgba(40,18,18,0.92),rgba(13,9,10,0.98))] px-5 py-6 shadow-[0_0_30px_rgba(154,55,36,0.10)] sm:px-6 sm:py-7">
-        <div className="grid items-stretch gap-4 lg:grid-cols-[1fr_auto_1fr]">
+        <div className="grid items-center gap-4 lg:grid-cols-[minmax(0,1fr)_170px_minmax(0,1fr)]">
           <BattleSide title="최종 우승" guildName={victor} score={victorScore} roster={FINAL_BATTLE_ROSTERS[victor] ?? []} winner />
-          <div className="flex flex-col items-center justify-center rounded-[24px] border border-amber-100/14 bg-black/18 px-5 py-6 text-center">
-            <div className="text-[11px] font-black tracking-[0.18em] text-red-100/76">차이</div>
-            <div className="mt-1 text-sm font-bold text-red-50/86">12 GS</div>
-            <div className="mt-2 font-display text-4xl text-amber-100 sm:text-5xl">{marginPct.toFixed(2)}%</div>
-            <div className="mt-3"><RecordBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} compact /></div>
-          </div>
+          <DifferenceSeal marginGs={marginGs} marginPct={marginPct} live={entry.source_kind === 'PRODUCTION_DERIVED'} />
           <BattleSide title="최종 준우승" guildName={runnerUp} score={runnerUpScore} roster={FINAL_BATTLE_ROSTERS[runnerUp] ?? []} note="시즌 유일의 4인 길드" />
         </div>
       </article>
@@ -363,45 +364,83 @@ function FinalBattle({ entry }: { entry: HallOfGloryEntry }) {
   );
 }
 
+function DifferenceSeal({ marginGs, marginPct, live }: { marginGs: number; marginPct: number; live: boolean }) {
+  return (
+    <div className="mx-auto flex w-full max-w-[220px] flex-col items-center justify-center rounded-[22px] border border-amber-100/18 bg-[radial-gradient(circle_at_50%_0%,rgba(255,222,146,0.09),transparent_45%),rgba(0,0,0,0.20)] px-4 py-5 text-center lg:max-w-none">
+      <div className="text-[10px] font-black tracking-[0.18em] text-red-100/78">최종 격차</div>
+      <div className="mt-1 whitespace-nowrap text-sm font-bold text-red-50/88">{formatNumber(marginGs)} GS</div>
+      <div className="mt-2 whitespace-nowrap font-display text-4xl text-amber-100">{marginPct.toFixed(2)}%</div>
+      <div className="mt-3"><RecordBadge live={live} compact /></div>
+    </div>
+  );
+}
+
 function BattleSide({ title, guildName, score, roster, note, winner = false }: { title: string; guildName: string; score: number; roster: string[]; note?: string; winner?: boolean }) {
   const logo = GUILD_LOGOS[guildName];
-  return (
-    <div className={`rounded-[26px] border px-5 py-5 text-center ${winner ? 'imperial-flow-frame p-[2px]' : ''}`}>
-      <div className={`${winner ? 'rounded-[24px] border border-black/0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,226,160,0.12),transparent_34%),linear-gradient(180deg,rgba(88,37,25,0.58),rgba(20,10,11,0.95))] px-4 py-4 shadow-[0_0_24px_rgba(255,194,90,0.10)]' : 'rounded-[24px] border border-red-100/18 bg-[linear-gradient(180deg,rgba(52,22,22,0.54),rgba(13,10,11,0.96))] px-4 py-4'}`}>
-        <div className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-black ${winner ? 'border-amber-100/24 bg-amber-100/[0.06] text-amber-100' : 'border-red-100/18 bg-red-100/[0.04] text-red-50/90'}`}>
-          {winner ? <Trophy className="h-3.5 w-3.5" strokeWidth={1.6} /> : <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.6} />}
-          {title}
-        </div>
-        <div className="mt-4 flex items-center justify-center">
-          <div className={`flex h-20 w-20 items-center justify-center rounded-[20px] border ${winner ? 'border-amber-100/22 bg-black/22' : 'border-red-100/18 bg-black/18'}`}>
-            {logo ? (
-              <img src={logo} alt="" aria-hidden="true" className="h-16 w-16 object-contain" />
-            ) : (
-              <Shield className={`h-9 w-9 ${winner ? 'text-amber-100' : 'text-red-50/84'}`} strokeWidth={1.4} />
-            )}
-          </div>
-        </div>
-        <div className={`mt-4 font-display text-[2.6rem] leading-none ${winner ? 'text-amber-50' : 'text-red-50'} sm:text-[3rem] [word-break:keep-all]`}>{guildName}</div>
-        <div className={`mt-3 font-display text-3xl ${winner ? 'text-amber-100' : 'text-red-50'} sm:text-[2.5rem]`}>{formatNumber(score)} GS</div>
-        {note && <div className="mt-2 text-sm font-bold text-slate-100/88">{note}</div>}
-        <div className="mt-4 rounded-[18px] border border-white/10 bg-black/18 px-3 py-3">
-          <div className="text-[11px] font-black tracking-[0.14em] text-slate-100/88">함께 싸운 길드원</div>
-          <div className={`mt-3 grid gap-2 ${roster.length === 4 ? 'grid-cols-2' : 'grid-cols-3'}`}>
-            {roster.map((name) => (
-              <div key={name} className="rounded-[14px] border border-white/10 bg-white/[0.03] px-2.5 py-2 text-[1rem] font-extrabold text-slate-50">
-                {name}
-              </div>
-            ))}
-          </div>
+  const content = (
+    <div className={`rounded-[24px] px-4 py-5 text-center ${winner ? 'bg-[radial-gradient(circle_at_50%_0%,rgba(255,226,160,0.12),transparent_34%),linear-gradient(180deg,rgba(88,37,25,0.58),rgba(20,10,11,0.95))] shadow-[0_0_24px_rgba(255,194,90,0.10)]' : 'border border-red-100/18 bg-[linear-gradient(180deg,rgba(52,22,22,0.54),rgba(13,10,11,0.96))]'}`}>
+      <div className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-black ${winner ? 'border-amber-100/24 bg-amber-100/[0.06] text-amber-100' : 'border-red-100/18 bg-red-100/[0.04] text-red-50/90'}`}>
+        {winner ? <Trophy className="h-3.5 w-3.5" strokeWidth={1.6} /> : <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.6} />}
+        {title}
+      </div>
+      <div className="mt-4 flex items-center justify-center">
+        <div className={`flex h-20 w-20 items-center justify-center rounded-[20px] border ${winner ? 'border-amber-100/22 bg-black/22' : 'border-red-100/18 bg-black/18'}`}>
+          {logo ? (
+            <img src={logo} alt="" aria-hidden="true" className="h-16 w-16 object-contain" />
+          ) : (
+            <Shield className={`h-9 w-9 ${winner ? 'text-amber-100' : 'text-red-50/84'}`} strokeWidth={1.4} />
+          )}
         </div>
       </div>
+      <div className={`mx-auto mt-4 max-w-[250px] font-display text-[2.05rem] leading-[1.03] ${winner ? 'text-amber-50' : 'text-red-50'} sm:text-[2.35rem] [word-break:keep-all]`}>{guildName}</div>
+      <div className={`mt-3 whitespace-nowrap font-display text-3xl ${winner ? 'text-amber-100' : 'text-red-50'} sm:text-[2.25rem]`}>{formatNumber(score)} GS</div>
+      {note && <div className="mt-2 text-sm font-bold text-slate-100/88">{note}</div>}
+      <div className="mt-4 rounded-[18px] border border-white/10 bg-black/18 px-3 py-3">
+        <div className="text-[11px] font-black tracking-[0.14em] text-slate-100/88">함께 싸운 길드원</div>
+        <BattleRoster names={roster} />
+      </div>
+    </div>
+  );
+
+  if (winner) {
+    return <div className="imperial-flow-frame self-center overflow-hidden rounded-[27px] p-[2px]">{content}</div>;
+  }
+
+  return <div className="self-center">{content}</div>;
+}
+
+function BattleRoster({ names }: { names: string[] }) {
+  if (names.length === 5) {
+    return (
+      <div className="mt-3 space-y-2">
+        <div className="mx-auto grid max-w-[230px] grid-cols-2 gap-2">
+          {names.slice(0, 2).map((name) => <BattleRosterChip key={name} name={name} />)}
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {names.slice(2).map((name) => <BattleRosterChip key={name} name={name} />)}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`mt-3 grid gap-2 ${names.length === 4 ? 'grid-cols-2' : 'grid-cols-2'}`}>
+      {names.map((name) => <BattleRosterChip key={name} name={name} />)}
+    </div>
+  );
+}
+
+function BattleRosterChip({ name }: { name: string }) {
+  return (
+    <div className="min-w-0 whitespace-nowrap rounded-[13px] border border-white/10 bg-white/[0.03] px-2 py-2 text-center text-sm font-extrabold text-slate-50 sm:text-[15px]">
+      {name}
     </div>
   );
 }
 
 function RecordBadge({ live, compact = false }: { live: boolean; compact?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-black ${compact ? 'text-[11px]' : 'text-xs'} ${live ? 'border-red-100/24 bg-red-100/[0.05] text-red-50/92' : 'border-amber-100/22 bg-amber-100/[0.055] text-amber-100'}`}>
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 font-black ${compact ? 'text-[11px]' : 'text-xs'} ${live ? 'border-red-100/24 bg-red-100/[0.05] text-red-50/92' : 'border-amber-100/22 bg-amber-100/[0.055] text-amber-100'}`}>
       <ShieldCheck className={compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} strokeWidth={1.55} />
       {live ? '현재 공식 기록' : '공식 확정 기록'}
     </span>
@@ -456,6 +495,18 @@ function firstStringArray(entry: HallOfGloryEntry, keys: string[]) {
     if (typeof value === 'string' && value.trim()) return value.split(',').map((part) => part.trim()).filter(Boolean);
   }
   return [];
+}
+
+function goalFor(entry: HallOfGloryEntry) {
+  if (typeof entry.denominator === 'number' && Number.isFinite(entry.denominator) && entry.denominator > 0) return entry.denominator;
+  return valueMeta(entry, ['goal_gs', 'target_gs']) ?? 10000;
+}
+
+function completionPercent(entry: HallOfGloryEntry, goal: number) {
+  const stored = valueMeta(entry, ['completion_pct', 'completion_percent', 'percent']);
+  if (stored != null) return stored;
+  const score = Number(entry.value_primary ?? 0);
+  return goal > 0 ? (score / goal) * 100 : 0;
 }
 
 function ordinalLabel(rank?: number | null) {
