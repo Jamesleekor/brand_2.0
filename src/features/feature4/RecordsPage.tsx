@@ -169,7 +169,7 @@ export default function RecordsPage() {
       <PageHeader title="기록실" emoji="🏛️" />
       <div className="px-3 sm:px-4 py-4 pb-28 max-w-5xl mx-auto space-y-5">
         <div className="rounded-card-md border border-gold/20 bg-bg-card p-2 grid grid-cols-3 gap-2">
-          <MainTabButton active={mainTab === 'HONOR'} onClick={() => setMainTab('HONOR')} emoji="🏛️" title="명예 기록" subtitle="전 시즌 위대한 기록" />
+          <MainTabButton active={mainTab === 'HONOR'} onClick={() => setMainTab('HONOR')} emoji="🏛️" title="영광의 전당" subtitle="전 시즌 위대한 기록" />
           <MainTabButton active={mainTab === 'MVP'} onClick={() => setMainTab('MVP')} emoji="👑" title="월간 MVP" subtitle="2023~ 역대 MVP" />
           <MainTabButton active={mainTab === 'MY'} onClick={() => setMainTab('MY')} emoji="📜" title="나의 발자취" subtitle="나의 B.R.A.N.D 역사" />
         </div>
