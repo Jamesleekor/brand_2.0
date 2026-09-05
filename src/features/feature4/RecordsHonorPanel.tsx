@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
+  ChevronRight,
   Coins,
   Crown,
   DoorOpen,
@@ -44,18 +46,105 @@ type HallDefinition = {
   title: string;
   subtitle: string;
   special?: boolean;
+  portalClass: string;
+  iconClass: string;
+  hallLabelClass: string;
+  transitionGlow: string;
 };
 
 const HALLS: HallDefinition[] = [
-  { key: 'PIONEERS', icon: DoorOpen, title: 'B.R.A.N.D의 개척자', subtitle: '누가 처음 문을 열었는가' },
-  { key: 'THRONE', icon: Crown, title: '정점의 왕좌', subtitle: '현재까지 숫자로 증명된 절대 정점' },
-  { key: 'REPEATED_CROWNS', icon: Medal, title: '왕관을 거듭 쓴 자', subtitle: '월간 MVP 무대에 반복해서 이름을 올린 이들' },
-  { key: 'ASCENT', icon: Rocket, title: '비상의 궤적', subtitle: '가장 가파른 성장의 순간' },
-  { key: 'GOLDEN_CHRONICLE', icon: Coins, title: '황금의 연대기', subtitle: 'B.R.A.N.D 경제를 움직이고 나눈 기록' },
-  { key: 'GUILD_HEGEMONY', icon: Swords, title: '길드 패권사', subtitle: '길드의 승리와 기여가 남긴 역사' },
-  { key: 'ARCADE_RULERS', icon: Gamepad2, title: '아케이드의 지배자', subtitle: 'FINALIZED 기록으로 증명되는 게임의 왕좌' },
-  { key: 'CONSTELLATION', icon: Sparkles, title: '위업의 성좌', subtitle: '희귀하고 높은 업적을 세운 이들의 특별관', special: true },
-  { key: 'SOVEREIGN_PROOF', icon: Trophy, title: '제왕의 증명', subtitle: '여러 영역에서 동시에 가치를 증명한 이들의 특별관', special: true },
+  {
+    key: 'PIONEERS',
+    icon: DoorOpen,
+    title: 'B.R.A.N.D의 개척자',
+    subtitle: '누가 처음 문을 열었는가',
+    portalClass: 'border-amber-300/25 bg-[radial-gradient(circle_at_50%_0%,rgba(217,154,78,0.10),transparent_42%),linear-gradient(180deg,rgba(51,34,26,0.52),rgba(15,11,26,0.90))] hover:border-amber-300/45',
+    iconClass: 'border-amber-300/30 bg-amber-200/[0.07] text-amber-200',
+    hallLabelClass: 'text-amber-200',
+    transitionGlow: 'bg-[radial-gradient(circle_at_50%_42%,rgba(208,145,73,0.15),transparent_42%)]',
+  },
+  {
+    key: 'THRONE',
+    icon: Crown,
+    title: '정점의 왕좌',
+    subtitle: '현재까지 숫자로 증명된 절대 정점',
+    portalClass: 'border-yellow-200/25 bg-[radial-gradient(circle_at_50%_0%,rgba(255,226,119,0.10),transparent_42%),linear-gradient(180deg,rgba(41,36,31,0.48),rgba(15,11,26,0.90))] hover:border-yellow-200/50',
+    iconClass: 'border-yellow-200/30 bg-yellow-100/[0.07] text-yellow-100',
+    hallLabelClass: 'text-yellow-100',
+    transitionGlow: 'bg-[radial-gradient(circle_at_50%_42%,rgba(255,226,119,0.14),transparent_42%)]',
+  },
+  {
+    key: 'REPEATED_CROWNS',
+    icon: Medal,
+    title: '왕관을 거듭 쓴 자',
+    subtitle: '월간 MVP 무대에 반복해서 이름을 올린 이들',
+    portalClass: 'border-rose-300/20 bg-[radial-gradient(circle_at_50%_0%,rgba(191,84,112,0.11),transparent_42%),linear-gradient(180deg,rgba(48,25,38,0.48),rgba(15,11,26,0.90))] hover:border-rose-300/42',
+    iconClass: 'border-rose-300/28 bg-rose-300/[0.06] text-rose-200',
+    hallLabelClass: 'text-rose-200',
+    transitionGlow: 'bg-[radial-gradient(circle_at_50%_42%,rgba(180,66,103,0.14),transparent_42%)]',
+  },
+  {
+    key: 'ASCENT',
+    icon: Rocket,
+    title: '비상의 궤적',
+    subtitle: '가장 가파른 성장의 순간',
+    portalClass: 'border-cyan-300/20 bg-[radial-gradient(circle_at_50%_0%,rgba(77,185,191,0.10),transparent_42%),linear-gradient(180deg,rgba(21,42,49,0.48),rgba(15,11,26,0.90))] hover:border-cyan-300/42',
+    iconClass: 'border-cyan-300/28 bg-cyan-300/[0.06] text-cyan-200',
+    hallLabelClass: 'text-cyan-200',
+    transitionGlow: 'bg-[radial-gradient(circle_at_50%_42%,rgba(65,176,186,0.14),transparent_42%)]',
+  },
+  {
+    key: 'GOLDEN_CHRONICLE',
+    icon: Coins,
+    title: '황금의 연대기',
+    subtitle: 'B.R.A.N.D 경제를 움직이고 나눈 기록',
+    portalClass: 'border-orange-300/22 bg-[radial-gradient(circle_at_50%_0%,rgba(203,132,54,0.10),transparent_42%),linear-gradient(180deg,rgba(49,34,21,0.50),rgba(15,11,26,0.90))] hover:border-orange-300/44',
+    iconClass: 'border-orange-300/28 bg-orange-300/[0.06] text-orange-200',
+    hallLabelClass: 'text-orange-200',
+    transitionGlow: 'bg-[radial-gradient(circle_at_50%_42%,rgba(198,126,48,0.14),transparent_42%)]',
+  },
+  {
+    key: 'GUILD_HEGEMONY',
+    icon: Swords,
+    title: '길드 패권사',
+    subtitle: '길드의 승리와 기여가 남긴 역사',
+    portalClass: 'border-red-300/18 bg-[radial-gradient(circle_at_50%_0%,rgba(150,69,69,0.11),transparent_42%),linear-gradient(180deg,rgba(42,27,29,0.52),rgba(15,11,26,0.90))] hover:border-red-300/40',
+    iconClass: 'border-red-300/25 bg-red-300/[0.055] text-red-200',
+    hallLabelClass: 'text-red-200',
+    transitionGlow: 'bg-[radial-gradient(circle_at_50%_42%,rgba(143,61,67,0.14),transparent_42%)]',
+  },
+  {
+    key: 'ARCADE_RULERS',
+    icon: Gamepad2,
+    title: '아케이드의 지배자',
+    subtitle: 'FINALIZED 기록으로 증명되는 게임의 왕좌',
+    portalClass: 'border-sky-300/20 bg-[radial-gradient(circle_at_50%_0%,rgba(67,134,196,0.11),transparent_42%),linear-gradient(180deg,rgba(23,33,51,0.52),rgba(15,11,26,0.90))] hover:border-sky-300/42',
+    iconClass: 'border-sky-300/28 bg-sky-300/[0.06] text-sky-200',
+    hallLabelClass: 'text-sky-200',
+    transitionGlow: 'bg-[radial-gradient(circle_at_50%_42%,rgba(61,125,190,0.14),transparent_42%)]',
+  },
+  {
+    key: 'CONSTELLATION',
+    icon: Sparkles,
+    title: '위업의 성좌',
+    subtitle: '희귀하고 높은 업적을 세운 이들의 특별관',
+    special: true,
+    portalClass: 'border-violet-300/25 bg-[radial-gradient(circle_at_50%_0%,rgba(139,110,213,0.13),transparent_44%),linear-gradient(180deg,rgba(35,28,57,0.58),rgba(15,11,26,0.92))] hover:border-violet-300/48 shadow-[0_0_28px_rgba(139,110,213,0.05)]',
+    iconClass: 'border-violet-300/32 bg-violet-300/[0.07] text-violet-200',
+    hallLabelClass: 'text-violet-200',
+    transitionGlow: 'bg-[radial-gradient(circle_at_50%_42%,rgba(128,98,205,0.16),transparent_42%)]',
+  },
+  {
+    key: 'SOVEREIGN_PROOF',
+    icon: Trophy,
+    title: '제왕의 증명',
+    subtitle: '여러 영역에서 동시에 가치를 증명한 이들의 특별관',
+    special: true,
+    portalClass: 'border-fuchsia-200/20 bg-[radial-gradient(circle_at_50%_0%,rgba(151,85,174,0.12),transparent_42%),linear-gradient(180deg,rgba(41,24,53,0.58),rgba(15,11,26,0.92))] hover:border-fuchsia-200/42 shadow-[0_0_28px_rgba(151,85,174,0.045)]',
+    iconClass: 'border-fuchsia-200/28 bg-fuchsia-200/[0.06] text-fuchsia-100',
+    hallLabelClass: 'text-fuchsia-100',
+    transitionGlow: 'bg-[radial-gradient(circle_at_50%_42%,rgba(145,79,168,0.15),transparent_42%)]',
+  },
 ];
 
 export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; grouped: Map<string, any[]>; studentId: number | null }) {
@@ -64,6 +153,8 @@ export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; gro
     queryFn: () => recordsHistoryRpc.hallOfGlory(supabase),
     staleTime: 5 * 60 * 1000,
   });
+  const [transitionHall, setTransitionHall] = useState<HallDefinition | null>(null);
+  const [transitionVisible, setTransitionVisible] = useState(false);
 
   const entriesByHall = new Map<HallKey, HallOfGloryEntry[]>();
   (historyQ.data?.entries ?? []).forEach((entry) => {
@@ -72,37 +163,28 @@ export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; gro
     entriesByHall.set(entry.hall_key, rows);
   });
 
+  const enterHall = (hall: HallDefinition) => {
+    if (transitionHall) return;
+    setTransitionHall(hall);
+    window.setTimeout(() => setTransitionVisible(true), 20);
+    window.setTimeout(() => {
+      document.getElementById(`hall-${hall.key.toLowerCase()}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 260);
+    window.setTimeout(() => setTransitionVisible(false), 560);
+    window.setTimeout(() => setTransitionHall(null), 980);
+  };
+
   return (
     <div id="hall-of-glory-top" className="space-y-8 sm:space-y-10">
-      <section className="relative overflow-hidden rounded-card-lg border border-gold/45 bg-[radial-gradient(circle_at_86%_14%,rgba(255,217,61,0.16),transparent_30%),linear-gradient(145deg,rgba(255,217,61,0.12),rgba(177,151,252,0.08)_48%,rgba(15,11,26,0.96))] px-5 py-7 shadow-[0_0_40px_rgba(255,217,61,0.06)] sm:px-8 sm:py-10">
-        <Landmark aria-hidden="true" className="absolute -right-8 -top-12 h-44 w-44 text-white/[0.035] sm:h-56 sm:w-56" strokeWidth={1.2} />
-        <div className="relative max-w-4xl">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-pill border border-gold/45 bg-gold/10 px-3.5 py-1.5 text-xs font-black tracking-[0.16em] text-gold">HALL OF GLORY</span>
-            <span className="text-sm font-bold text-text-secondary">B.R.A.N.D 전 시즌 통합 역사관</span>
-          </div>
-          <h2 className="mt-5 font-display text-3xl text-white sm:text-4xl [word-break:keep-all]">영광의 전당</h2>
-          <p className="mt-2 text-base font-extrabold text-gold sm:text-xl [word-break:keep-all]">시간을 넘어 B.R.A.N.D에 이름을 새긴 이들의 기록</p>
-          <p className="mt-4 max-w-3xl text-sm font-bold leading-7 text-text-secondary sm:text-base sm:leading-8 [word-break:keep-all]">
-            순위를 빠르게 훑는 곳이 아니라, 여러 해가 지나도 기억할 가치가 있는 최초의 도전과 절대 기록, 성장, 길드의 승리와 특별한 위업을 한 자리씩 전시하는 공간입니다.
-          </p>
-          <div className="mt-5 inline-flex items-center gap-2 rounded-pill border border-line bg-bg-deep/70 px-3 py-1.5 text-xs font-bold text-text-secondary">
-            <ShieldCheck className="h-4 w-4 text-gold" />
-            공식 참가자 기준으로 기록을 산정합니다.
-          </div>
-        </div>
-      </section>
+      <HallTransitionOverlay hall={transitionHall} visible={transitionVisible} />
 
       {historyQ.isLoading ? (
-        <div className="flex flex-col items-center gap-3 py-16 text-text-secondary">
-          <LoadingSpinner size="lg" />
-          <div className="text-sm font-bold">B.R.A.N.D의 역사를 펼치고 있어요.</div>
-        </div>
+        <EntranceLoading />
       ) : historyQ.isError ? (
         <Feature4ErrorPanel domain="F4D" error={historyQ.error} onRetry={() => void historyQ.refetch()} />
       ) : (
         <>
-          <HallDirectory entriesByHall={entriesByHall} />
+          <HallEntrance entriesByHall={entriesByHall} onEnter={enterHall} />
 
           {(historyQ.data?.gap_eras ?? []).map((gap) => (
             <section key={`${gap.start_year}-${gap.end_year}`} className="relative overflow-hidden rounded-card-lg border border-dashed border-line bg-bg-deep/70 px-5 py-6 text-center sm:px-8">
@@ -212,39 +294,115 @@ export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; gro
   );
 }
 
-function HallDirectory({ entriesByHall }: { entriesByHall: Map<HallKey, HallOfGloryEntry[]> }) {
+function EntranceLoading() {
   return (
-    <nav aria-label="영광의 전당 전시관 안내" className="rounded-card-lg border border-line bg-bg-card px-4 py-5 sm:px-6 sm:py-6">
-      <div className="mb-4 flex items-end justify-between gap-3">
-        <div>
-          <div className="text-xs font-black tracking-[0.18em] text-bv">EXHIBITION GUIDE</div>
-          <h3 className="mt-1 font-display text-xl text-text-primary">전시관 안내</h3>
+    <section className="relative overflow-hidden rounded-card-lg border border-gold/30 bg-[radial-gradient(circle_at_50%_10%,rgba(255,217,61,0.08),transparent_34%),linear-gradient(180deg,rgba(23,17,35,0.96),rgba(10,8,17,0.98))] px-5 py-16 text-center sm:px-8 sm:py-20">
+      <Landmark className="mx-auto h-12 w-12 text-gold/45" strokeWidth={1.3} />
+      <div className="mt-5 flex justify-center"><LoadingSpinner size="lg" /></div>
+      <div className="mt-4 font-display text-xl text-text-primary">영광의 전당을 열고 있습니다</div>
+      <div className="mt-2 text-sm font-bold text-text-secondary">기록과 전시관을 준비하고 있어요.</div>
+    </section>
+  );
+}
+
+function HallEntrance({ entriesByHall, onEnter }: { entriesByHall: Map<HallKey, HallOfGloryEntry[]>; onEnter: (hall: HallDefinition) => void }) {
+  return (
+    <section className="relative overflow-hidden rounded-[28px] border border-gold/30 bg-[radial-gradient(circle_at_50%_-10%,rgba(255,217,61,0.10),transparent_32%),radial-gradient(circle_at_16%_40%,rgba(177,151,252,0.055),transparent_26%),linear-gradient(180deg,rgba(22,16,34,0.98),rgba(10,8,17,0.99))] px-4 py-7 shadow-[0_26px_70px_rgba(0,0,0,0.22)] sm:px-7 sm:py-10">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[8%] top-0 h-24 rounded-b-[50%] border-b border-gold/[0.07]" />
+      <Landmark aria-hidden="true" className="pointer-events-none absolute left-1/2 top-7 h-52 w-52 -translate-x-1/2 text-white/[0.018] sm:h-64 sm:w-64" strokeWidth={1.05} />
+
+      <div className="relative mx-auto max-w-4xl text-center">
+        <div className="text-[11px] font-black tracking-[0.28em] text-gold/70 sm:text-xs">THE HALL OF GLORY · B.R.A.N.D ARCHIVE</div>
+        <h2 className="mt-4 font-display text-3xl text-white sm:text-5xl [word-break:keep-all]">영광의 전당</h2>
+        <p className="mt-3 text-base font-extrabold text-gold sm:text-xl [word-break:keep-all]">시간을 넘어 B.R.A.N.D에 이름을 새긴 이들의 기록</p>
+        <p className="mx-auto mt-4 max-w-2xl text-sm font-semibold leading-7 text-text-secondary sm:text-base sm:leading-8 [word-break:keep-all]">
+          최초의 발자취, 절대적인 정점, 길드의 승리와 특별한 위업. 이곳의 기록은 빠르게 소비되는 정보가 아니라 오래도록 보존되는 하나의 역사입니다.
+        </p>
+        <div className="mx-auto mt-6 flex max-w-xl items-center gap-3 text-gold/35" aria-hidden="true">
+          <span className="h-px flex-1 bg-gradient-to-r from-transparent to-current" />
+          <Gem className="h-4 w-4" strokeWidth={1.4} />
+          <span className="h-px flex-1 bg-gradient-to-l from-transparent to-current" />
         </div>
-        <div className="hidden text-xs font-bold text-text-secondary sm:block">보고 싶은 전시관으로 이동</div>
       </div>
-      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-        {HALLS.map((hall, index) => {
-          const Icon = hall.icon;
-          const recordCount = countRecordGroups(entriesByHall.get(hall.key) ?? []);
-          return (
-            <button
-              key={hall.key}
-              type="button"
-              onClick={() => document.getElementById(`hall-${hall.key.toLowerCase()}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-              className={`group flex min-w-0 items-center gap-3 rounded-card-md border px-3.5 py-3.5 text-left transition ${hall.special ? 'border-gold/25 bg-[linear-gradient(135deg,rgba(255,217,61,0.055),rgba(177,151,252,0.045),rgba(15,11,26,0.75))] hover:border-gold/50' : 'border-line bg-bg-deep/70 hover:border-gold/35 hover:bg-gold/[0.04]'}`}
-            >
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-card-md border ${hall.special ? 'border-gold/35 bg-gold/10 text-gold' : 'border-bv/25 bg-bv/[0.07] text-bv'}`}>
-                <Icon className="h-5 w-5" strokeWidth={1.8} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13px] font-extrabold leading-5 text-text-primary group-hover:text-gold [word-break:keep-all]">{index + 1}. {hall.title}</span>
-                <span className="mt-0.5 block text-[11px] font-bold text-text-secondary">{recordCount > 0 ? `${recordCount}개의 기록` : '아직 빈 전시관'}</span>
-              </span>
-            </button>
-          );
-        })}
+
+      <div className="relative mt-8 sm:mt-10">
+        <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="text-[11px] font-black tracking-[0.18em] text-bv">EXHIBITION VESTIBULE</div>
+            <h3 className="mt-1 font-display text-xl text-text-primary sm:text-2xl">전시관을 선택하세요</h3>
+          </div>
+          <div className="text-xs font-bold text-text-secondary">선택한 전시관의 문이 조용히 열립니다.</div>
+        </div>
+
+        <nav aria-label="영광의 전당 전시관 입구" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {HALLS.map((hall, index) => {
+            const Icon = hall.icon;
+            const recordCount = countRecordGroups(entriesByHall.get(hall.key) ?? []);
+            return (
+              <button
+                key={hall.key}
+                type="button"
+                onClick={() => onEnter(hall)}
+                className={`group relative min-h-[158px] overflow-hidden rounded-t-[34px] rounded-b-[16px] border p-4 text-left transition-[border-color,transform,box-shadow] duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 ${hall.portalClass}`}
+              >
+                <div aria-hidden="true" className="absolute inset-[7px] rounded-t-[29px] rounded-b-[12px] border border-white/[0.035]" />
+                <div aria-hidden="true" className="absolute left-1/2 top-0 h-14 w-px -translate-x-1/2 bg-gradient-to-b from-white/[0.08] to-transparent" />
+                <div aria-hidden="true" className="absolute -right-1 bottom-0 font-display text-[72px] leading-none text-white/[0.018]">{String(index + 1).padStart(2, '0')}</div>
+
+                <div className="relative flex h-full min-h-[126px] flex-col">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-[10px] font-black tracking-[0.18em] ${hall.hallLabelClass}`}>HALL {String(index + 1).padStart(2, '0')}</span>
+                    <span className="text-[10px] font-bold text-text-secondary">{recordCount > 0 ? `${recordCount}개의 기록` : '기록을 기다리는 중'}</span>
+                  </div>
+
+                  <div className="mt-auto flex items-end gap-3 pt-5">
+                    <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-t-[18px] rounded-b-[10px] border ${hall.iconClass}`}>
+                      <Icon className="h-5 w-5" strokeWidth={1.65} />
+                    </span>
+                    <span className="min-w-0 flex-1 pb-0.5">
+                      <span className="block font-display text-lg leading-6 text-text-primary transition-colors group-hover:text-white sm:text-xl [word-break:keep-all]">{hall.title}</span>
+                      <span className="mt-1 block text-xs font-bold leading-5 text-text-secondary [word-break:keep-all]">{hall.subtitle}</span>
+                    </span>
+                    <ChevronRight className={`mb-1 h-5 w-5 shrink-0 opacity-45 transition group-hover:translate-x-0.5 group-hover:opacity-80 ${hall.hallLabelClass}`} strokeWidth={1.6} />
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </nav>
       </div>
-    </nav>
+
+      <div className="relative mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-white/[0.045] pt-5 text-xs font-bold text-text-secondary">
+        <span className="inline-flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-gold/70" />공식 참가자 기준으로 기록을 산정합니다.</span>
+        <span className="hidden text-white/20 sm:inline" aria-hidden="true">·</span>
+        <span>전시관마다 고유한 기록과 분위기가 이어집니다.</span>
+      </div>
+    </section>
+  );
+}
+
+function HallTransitionOverlay({ hall, visible }: { hall: HallDefinition | null; visible: boolean }) {
+  if (!hall) return null;
+  const index = HALLS.findIndex((item) => item.key === hall.key) + 1;
+  const Icon = hall.icon;
+
+  return (
+    <div
+      aria-live="polite"
+      className={`pointer-events-none fixed inset-0 z-[90] transition-opacity duration-500 motion-reduce:transition-none ${visible ? 'opacity-100' : 'opacity-0'}`}
+    >
+      <div className="absolute inset-0 bg-[#080611]/45 backdrop-blur-[1px]" />
+      <div className={`absolute inset-0 ${hall.transitionGlow}`} />
+      <div className="absolute inset-0 flex items-center justify-center px-6">
+        <div className="flex items-center gap-4 rounded-full border border-white/[0.07] bg-[#0d0916]/55 px-5 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.18)]">
+          <Icon className={`h-5 w-5 ${hall.hallLabelClass}`} strokeWidth={1.45} />
+          <div>
+            <div className={`text-[10px] font-black tracking-[0.18em] ${hall.hallLabelClass}`}>HALL {String(index).padStart(2, '0')}</div>
+            <div className="mt-0.5 font-display text-base text-white sm:text-lg">{hall.title}</div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
