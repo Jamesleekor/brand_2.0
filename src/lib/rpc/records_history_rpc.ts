@@ -52,6 +52,10 @@ export interface HallOfGloryBoard {
   gap_eras: RecordsGapEra[];
 }
 
+interface GuildHallBoard {
+  entries: HallOfGloryEntry[];
+}
+
 export interface MonthlyMvpArchiveRow {
   id: number;
   period_key: string;
@@ -71,9 +75,24 @@ export interface MonthlyMvpArchiveBoard {
 
 export const recordsHistoryRpc = {
   hallOfGlory: async (supabase: SupabaseClient): Promise<HallOfGloryBoard> => {
-    const { data, error } = await supabase.rpc('student_get_records_hall_of_glory');
-    if (error) throw error;
-    return (data ?? { entries: [], gap_eras: [] }) as HallOfGloryBoard;
+    const [baseResult, guildResult] = await Promise.all([
+      supabase.rpc('student_get_records_hall_of_glory'),
+      supabase.rpc('student_get_records_guild_hall'),
+    ]);
+
+    if (baseResult.error) throw baseResult.error;
+    if (guildResult.error) throw guildResult.error;
+
+    const base = (baseResult.data ?? { entries: [], gap_eras: [] }) as HallOfGloryBoard;
+    const guild = (guildResult.data ?? { entries: [] }) as GuildHallBoard;
+
+    return {
+      ...base,
+      entries: [
+        ...base.entries.filter((entry) => entry.hall_key !== 'GUILD_HEGEMONY'),
+        ...guild.entries,
+      ],
+    };
   },
 
   monthlyMvpArchive: async (supabase: SupabaseClient): Promise<MonthlyMvpArchiveBoard> => {
