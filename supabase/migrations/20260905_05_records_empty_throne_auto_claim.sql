@@ -46,8 +46,6 @@ begin
     end if;
   end if;
 
-  -- Safe fallback for current/future archives: resolve only when exactly one
-  -- official student with this name exists among classrooms of that school year.
   select count(*), min(s.id), min(s.classroom_id)
     into v_match_count, v_student_id, v_classroom_id
   from public.students s
@@ -64,8 +62,6 @@ begin
       'winner_classroom_id_snapshot', v_classroom_id
     );
   elsif new.school_year = 2023 then
-    -- 2023 is a curated single-era archive. Keep it explicitly year-scoped so
-    -- a same-named person in another era can never be merged with it.
     new.metadata := new.metadata || jsonb_build_object(
       'winner_identity_key', format('CURATED:2023:%s', new.winner_display_name),
       'winner_identity_source', 'CURATED_2023_YEAR_SCOPED_NAME'
@@ -82,7 +78,6 @@ $$;
 
 revoke all on function public.records_prepare_monthly_mvp_identity() from public, anon, authenticated;
 
--- Backfill identity metadata without restoring the deliberately-null public FK.
 update public.records_monthly_mvp_archive m
 set metadata = coalesce(m.metadata, '{}'::jsonb) || jsonb_build_object(
       'winner_identity_key', format('CURATED:2023:%s', m.winner_display_name),
@@ -204,41 +199,37 @@ declare
   v_value numeric;
   v_source_ref text;
   v_source_transaction_id bigint;
+  v_source_reversed boolean;
   v_catalog_count integer;
   v_valid_count integer;
   v_required_count integer;
   v_rate numeric;
   v_period_label text;
+  v_month_no integer;
   v_mvp_archive_id bigint;
   v_identity_key text;
   v_existing record;
 begin
-  -- Serialize claim decisions without blocking unrelated application work.
   perform pg_advisory_xact_lock(hashtext('RECORDS_EMPTY_THRONE_V1'));
 
-  -- -----------------------------------------------------------------------
-  -- GOLD 100,000: first official non-reversed historical balance >= threshold.
-  -- A direct wallet state is a fallback for teacher/admin adjustments without a
-  -- transaction row. Normal later spending does not invalidate the milestone.
-  -- -----------------------------------------------------------------------
-
+  -- GOLD 100,000 -----------------------------------------------------------
   select h.* into v_existing
   from public.records_historical_entries h
   where h.record_key = 'PIONEER_FIRST_GOLD_100000_EMPTY'
     and h.status = 'ACTIVE'
   for update;
 
-  -- If the exact transaction that created an automatic GOLD claim is later
-  -- reversed, restore only this auto-claimed throne and recompute below.
   if v_existing.subject_kind = 'STUDENT'
      and coalesce((v_existing.metadata->>'auto_claimed')::boolean,false)
      and nullif(v_existing.metadata->>'source_transaction_id','') is not null then
-    select t.is_reversed
-      into strict v_rate
-    from public.transactions t
-    where t.id = (v_existing.metadata->>'source_transaction_id')::bigint;
+    select coalesce((
+      select t.is_reversed
+      from public.transactions t
+      where t.id = (v_existing.metadata->>'source_transaction_id')::bigint
+    ), true)
+    into v_source_reversed;
 
-    if v_rate::boolean then
+    if v_source_reversed then
       update public.records_historical_entries h
       set subject_kind = 'EMPTY_THRONE',
           subject_display_name = '아직 주인이 없는 자리',
@@ -317,7 +308,7 @@ begin
     if v_student_id is not null and public.records_claim_empty_throne(
       'PIONEER_FIRST_GOLD_100000_EMPTY',
       v_student_id, v_display_name, v_brand_name, v_school_year,
-      coalesce(v_school_year::text || '년', null),
+      v_school_year::text || '년',
       (v_occurred_at at time zone 'Asia/Seoul')::date,
       100000, null, 100000, v_source_ref,
       jsonb_build_object(
@@ -331,10 +322,7 @@ begin
     end if;
   end if;
 
-  -- -----------------------------------------------------------------------
-  -- First 100 valid achievements.
-  -- -----------------------------------------------------------------------
-
+  -- First 100 valid achievements ------------------------------------------
   if exists (
     select 1 from public.records_historical_entries
     where record_key='PIONEER_FIRST_ACHIEVEMENT_100_EMPTY'
@@ -344,7 +332,6 @@ begin
       select sa.student_id, sa.achieved_at,
              row_number() over(partition by sa.student_id order by sa.achieved_at, sa.id) as rn
       from public.student_achievements sa
-      join public.students s on s.id=sa.student_id
       where not sa.is_revoked
         and public.is_official_participant(sa.student_id)
     ), hundredth as (
@@ -373,12 +360,7 @@ begin
     end if;
   end if;
 
-  -- -----------------------------------------------------------------------
-  -- First 90% of the ACTIVE classroom achievement catalog.
-  -- Current rule: active, non-revoked awards / active classroom catalog.
-  -- Once observed, the historical first milestone is frozen.
-  -- -----------------------------------------------------------------------
-
+  -- First 90% of active classroom achievement catalog ---------------------
   if exists (
     select 1 from public.records_historical_entries
     where record_key='PIONEER_FIRST_ACHIEVEMENT_90_EMPTY'
@@ -433,11 +415,7 @@ begin
     end if;
   end if;
 
-  -- -----------------------------------------------------------------------
-  -- First three MONTHLY MVP wins. Identity is an internal snapshot key.
-  -- The third win itself determines the historical claim date.
-  -- -----------------------------------------------------------------------
-
+  -- First three MONTHLY MVP wins ------------------------------------------
   if exists (
     select 1 from public.records_historical_entries
     where record_key='CROWN_MVP_FIRST_3_EMPTY'
@@ -459,9 +437,9 @@ begin
       select * from ordered_wins where win_no=3 and student_id_snapshot is not null
     )
     select tw.id,tw.identity_key,tw.student_id_snapshot,s.name,s.brand_name,
-           tw.school_year,tw.classroom_id_snapshot,tw.period_label
+           tw.school_year,tw.classroom_id_snapshot,tw.period_label,tw.month_no
       into v_mvp_archive_id,v_identity_key,v_student_id,v_display_name,v_brand_name,
-           v_school_year,v_classroom_id,v_period_label
+           v_school_year,v_classroom_id,v_period_label,v_month_no
     from third_wins tw
     join public.students s on s.id=tw.student_id_snapshot
     order by tw.school_year,tw.month_no,tw.id
@@ -471,7 +449,7 @@ begin
       'CROWN_MVP_FIRST_3_EMPTY',
       v_student_id,v_display_name,v_brand_name,v_school_year,
       v_period_label,
-      ((make_date(v_school_year, split_part(v_period_label,'-',2)::integer,1) + interval '1 month - 1 day')::date),
+      (make_date(v_school_year,v_month_no,1) + interval '1 month - 1 day')::date,
       3,null,3,
       format('records_monthly_mvp_archive:%s',v_mvp_archive_id),
       jsonb_build_object(
@@ -506,13 +484,12 @@ set search_path = public, pg_temp
 as $$
 begin
   perform public.records_sync_empty_thrones();
-  return coalesce(new, old);
+  return null;
 end;
 $$;
 
 revoke all on function public.records_empty_throne_source_trigger() from public, anon, authenticated;
 
--- Normalize MVP identity before the after-trigger evaluates three-time winners.
 drop trigger if exists trg_records_prepare_mvp_identity on public.records_monthly_mvp_archive;
 create trigger trg_records_prepare_mvp_identity
 before insert or update on public.records_monthly_mvp_archive
@@ -543,5 +520,4 @@ create trigger trg_records_empty_throne_mvp_archive
 after insert or update or delete on public.records_monthly_mvp_archive
 for each statement execute function public.records_empty_throne_source_trigger();
 
--- One-time initial synchronization. Current Production is expected to claim zero.
 select public.records_sync_empty_thrones();
