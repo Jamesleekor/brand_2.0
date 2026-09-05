@@ -21,6 +21,7 @@ import {
   type StudentLoginParams,
   type TeacherLoginParams,
 } from '@/lib/supabase/auth_helpers';
+import { recordTrustedLoginEvent } from '@/lib/supabase/login_history';
 
 // =====================================================================
 // State + Actions 타입
@@ -143,6 +144,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     
     try {
       const result = await loginStudentApi(supabase, params);
+      await recordTrustedLoginEvent(supabase, 'LOGIN_SUCCESS');
       set({
         session: result.session,
         user: result.user,
@@ -167,6 +169,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     
     try {
       const result = await loginTeacherApi(supabase, params);
+      await recordTrustedLoginEvent(supabase, 'LOGIN_SUCCESS');
       set({
         session: result.session,
         user: result.user,
@@ -190,6 +193,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     
     try {
+      // 세션이 사라지기 전에 best-effort로 로그아웃 이벤트를 남긴다.
+      await recordTrustedLoginEvent(supabase, 'LOGOUT');
       await logoutApi(supabase);
       set({
         session: null,
