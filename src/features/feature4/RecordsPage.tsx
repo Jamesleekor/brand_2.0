@@ -57,14 +57,7 @@ export default function RecordsPage() {
       if (latestError) throw feature4QueryError('F4D', 'latest-ranking-date', latestError);
 
       const date = latest?.as_of_date;
-      const [{ data: hall, error: hallError }, { data: ranks, error: ranksError }, { data: stats, error: statsError }] = await Promise.all([
-        supabase
-          .from('hall_of_fame_entries')
-          .select('id,category,period_label,title,subtitle,student_id,rank_position,created_at,student:students!student_id(name,brand_name)')
-          .eq('classroom_id', classroomId!)
-          .eq('status', 'ACTIVE')
-          .order('created_at', { ascending: false })
-          .limit(50),
+      const [{ data: ranks, error: ranksError }, { data: stats, error: statsError }] = await Promise.all([
         date
           ? supabase
               .from('rankings')
@@ -82,11 +75,10 @@ export default function RecordsPage() {
           .maybeSingle(),
       ]);
 
-      if (hallError) throw feature4QueryError('F4D', 'hall-of-fame', hallError);
       if (ranksError) throw feature4QueryError('F4D', 'latest-rankings', ranksError);
       if (statsError) throw feature4QueryError('F4D', 'latest-statistics', statsError);
 
-      return { hall: hall ?? [], ranks: ranks ?? [], stats, date };
+      return { ranks: ranks ?? [], stats, date };
     },
   });
 
