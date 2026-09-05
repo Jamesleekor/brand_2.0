@@ -52,7 +52,7 @@ export interface HallOfGloryBoard {
   gap_eras: RecordsGapEra[];
 }
 
-interface GuildHallBoard {
+interface SupplementalHallBoard {
   entries: HallOfGloryEntry[];
 }
 
@@ -75,22 +75,26 @@ export interface MonthlyMvpArchiveBoard {
 
 export const recordsHistoryRpc = {
   hallOfGlory: async (supabase: SupabaseClient): Promise<HallOfGloryBoard> => {
-    const [baseResult, guildResult] = await Promise.all([
+    const [baseResult, guildResult, arcadeResult] = await Promise.all([
       supabase.rpc('student_get_records_hall_of_glory'),
       supabase.rpc('student_get_records_guild_hall'),
+      supabase.rpc('student_get_records_arcade_hall'),
     ]);
 
     if (baseResult.error) throw baseResult.error;
     if (guildResult.error) throw guildResult.error;
+    if (arcadeResult.error) throw arcadeResult.error;
 
     const base = (baseResult.data ?? { entries: [], gap_eras: [] }) as HallOfGloryBoard;
-    const guild = (guildResult.data ?? { entries: [] }) as GuildHallBoard;
+    const guild = (guildResult.data ?? { entries: [] }) as SupplementalHallBoard;
+    const arcade = (arcadeResult.data ?? { entries: [] }) as SupplementalHallBoard;
 
     return {
       ...base,
       entries: [
-        ...base.entries.filter((entry) => entry.hall_key !== 'GUILD_HEGEMONY'),
+        ...base.entries.filter((entry) => entry.hall_key !== 'GUILD_HEGEMONY' && entry.hall_key !== 'ARCADE_RULERS'),
         ...guild.entries,
+        ...arcade.entries,
       ],
     };
   },
