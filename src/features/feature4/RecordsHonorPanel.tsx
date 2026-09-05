@@ -22,6 +22,7 @@ import {
 import { EmptyState, LoadingSpinner } from '@/components/shared/components';
 import { RecordsHonorOfficialPanels } from '@/features/feature4/RecordsHonorOfficialPanels';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
+import { RecordsPioneersHall } from '@/features/feature4/RecordsPioneersHall';
 import { supabase } from '@/lib/supabase/client';
 import {
   recordsHistoryRpc,
@@ -343,28 +344,29 @@ function HallEntrance({ entriesByHall, onEnter }: { entriesByHall: Map<HallKey, 
                 key={hall.key}
                 type="button"
                 onClick={() => onEnter(hall)}
-                className={`group relative min-h-[158px] overflow-hidden rounded-t-[34px] rounded-b-[16px] border p-4 text-left transition-[border-color,transform,box-shadow] duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 ${hall.portalClass}`}
+                className={`group relative min-h-[172px] overflow-hidden rounded-t-[34px] rounded-b-[16px] border p-4 text-center transition-[border-color,transform,box-shadow] duration-300 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/50 ${hall.portalClass}`}
               >
                 <div aria-hidden="true" className="absolute inset-[7px] rounded-t-[29px] rounded-b-[12px] border border-white/[0.035]" />
                 <div aria-hidden="true" className="absolute left-1/2 top-0 h-14 w-px -translate-x-1/2 bg-gradient-to-b from-white/[0.08] to-transparent" />
                 <div aria-hidden="true" className="absolute -right-1 bottom-0 font-display text-[72px] leading-none text-white/[0.018]">{String(index + 1).padStart(2, '0')}</div>
 
-                <div className="relative flex h-full min-h-[126px] flex-col">
-                  <div className="flex items-center justify-between gap-2">
+                <div className="relative flex h-full min-h-[140px] flex-col">
+                  <div className="flex items-center justify-between gap-2 text-left">
                     <span className={`text-[10px] font-black tracking-[0.18em] ${hall.hallLabelClass}`}>HALL {String(index + 1).padStart(2, '0')}</span>
                     <span className="text-[10px] font-bold text-text-secondary">{recordCount > 0 ? `${recordCount}개의 기록` : '기록을 기다리는 중'}</span>
                   </div>
 
-                  <div className="mt-auto flex items-end gap-3 pt-5">
-                    <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-t-[18px] rounded-b-[10px] border ${hall.iconClass}`}>
-                      <Icon className="h-5 w-5" strokeWidth={1.65} />
-                    </span>
-                    <span className="min-w-0 flex-1 pb-0.5">
-                      <span className="block font-display text-lg leading-6 text-text-primary transition-colors group-hover:text-white sm:text-xl [word-break:keep-all]">{hall.title}</span>
-                      <span className="mt-1 block text-xs font-bold leading-5 text-text-secondary [word-break:keep-all]">{hall.subtitle}</span>
-                    </span>
-                    <ChevronRight className={`mb-1 h-5 w-5 shrink-0 opacity-45 transition group-hover:translate-x-0.5 group-hover:opacity-80 ${hall.hallLabelClass}`} strokeWidth={1.6} />
+                  <div className="flex flex-1 items-center justify-center px-3 py-4">
+                    <div className="flex max-w-[250px] flex-col items-center text-center">
+                      <span className={`flex h-11 w-11 items-center justify-center rounded-t-[18px] rounded-b-[10px] border ${hall.iconClass}`}>
+                        <Icon className="h-5 w-5" strokeWidth={1.65} />
+                      </span>
+                      <span className="mt-3 block font-display text-lg leading-6 text-text-primary transition-colors group-hover:text-white sm:text-xl [word-break:keep-all]">{hall.title}</span>
+                      <span className="mt-1.5 block text-xs font-bold leading-5 text-text-secondary [word-break:keep-all]">{hall.subtitle}</span>
+                    </div>
                   </div>
+
+                  <ChevronRight className={`absolute bottom-0 right-0 h-5 w-5 opacity-38 transition group-hover:translate-x-0.5 group-hover:opacity-75 ${hall.hallLabelClass}`} strokeWidth={1.6} />
                 </div>
               </button>
             );
@@ -407,6 +409,10 @@ function HallTransitionOverlay({ hall, visible }: { hall: HallDefinition | null;
 }
 
 function HallSection({ hall, entries, index }: { hall: HallDefinition; entries: HallOfGloryEntry[]; index: number }) {
+  if (hall.key === 'PIONEERS') {
+    return <RecordsPioneersHall entries={entries} />;
+  }
+
   const grouped = new Map<string, HallOfGloryEntry[]>();
   entries.forEach((entry) => {
     const rows = grouped.get(entry.record_type) ?? [];
