@@ -1,0 +1,19 @@
+--- a/src/features/feature4/RecordsHonorPanel.tsx
++++ b/src/features/feature4/RecordsHonorPanel.tsx
+@@ -2,6 +2,7 @@
+ import { RecordsGoldenChronicleHall } from '@/features/feature4/RecordsGoldenChronicleHall';
+ import { RecordsGuildHegemonyHall } from '@/features/feature4/RecordsGuildHegemonyHall';
+ import { RecordsConstellationHall } from '@/features/feature4/RecordsConstellationHall';
++import { RecordsSovereignProofHall } from '@/features/feature4/RecordsSovereignProofHall';
+ import { supabase } from '@/lib/supabase/client';
+ 
+ function HallSection({ hall, entries, index }: { hall: HallDefinition; entries: HallOfGloryEntry[]; index: number }) {
+@@ -13,4 +14,8 @@
+     return <RecordsConstellationHall entries={entries} />;
+   }
+ 
++  if (hall.key === 'SOVEREIGN_PROOF') {
++    return <RecordsSovereignProofHall entries={entries} />;
++  }
++
+   const grouped = new Map<string, HallOfGloryEntry[]>();

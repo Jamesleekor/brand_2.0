@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
   Crown,
   Gem,
@@ -48,7 +49,6 @@ export function RecordsRepeatedCrownsHall({ entries }: { entries: HallOfGloryEnt
         className="scroll-mt-24 overflow-hidden rounded-[30px] border border-rose-200/22 bg-[radial-gradient(circle_at_50%_-8%,rgba(223,124,151,0.12),transparent_27%),radial-gradient(circle_at_88%_24%,rgba(255,213,142,0.055),transparent_24%),linear-gradient(180deg,rgba(48,22,35,0.985),rgba(23,12,24,0.995)_48%,rgba(12,8,16,1))] shadow-[0_28px_76px_rgba(0,0,0,0.27)]"
       >
         <CrownHallHeader recordCount={recordCount} />
-
         <div className="space-y-12 px-4 py-8 sm:px-7 sm:py-10 lg:px-9">
           <WingHeading
             eyebrow="THE SECOND CROWN"
@@ -71,7 +71,12 @@ export function RecordsRepeatedCrownsHall({ entries }: { entries: HallOfGloryEnt
           <WingHeading
             eyebrow="THE COURT OF CONTENDERS"
             title="왕관을 가장 자주 눈앞에 두었던 자들"
-            description="월간 MVP 후보에 가장 많이 오른 기록을 TOP 3 순위까지 보존합니다. 같은 횟수의 공동 3위는 모두 하나의 회랑에 이름을 남깁니다."
+            description={
+              <>
+                월간 MVP 후보에 가장 많이 오른 기록을 TOP 3 순위까지 보존합니다.<br />
+                같은 횟수의 공동 3위는 모두 하나의 회랑에 이름을 남깁니다.
+              </>
+            }
           />
           <FinalistCourt rows={finalistRows} />
         </div>
@@ -85,7 +90,6 @@ function CrownHallHeader({ recordCount }: { recordCount: number }) {
     <header className="relative overflow-hidden border-b border-rose-100/12 px-5 py-7 sm:px-8 sm:py-9 lg:px-10">
       <div aria-hidden="true" className="crown-halo-breath absolute left-1/2 top-[-115px] h-[270px] w-[540px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(236,143,168,0.13),transparent_67%)] blur-xl" />
       <Crown aria-hidden="true" className="absolute -right-5 -top-9 h-48 w-48 text-rose-100/[0.025] sm:h-60 sm:w-60" strokeWidth={1.0} />
-
       <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-4 sm:gap-5">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] border border-rose-200/28 bg-[radial-gradient(circle,rgba(226,130,159,0.12),rgba(42,21,34,0.86)_72%)] text-rose-100 shadow-[0_0_26px_rgba(218,111,145,0.10)] sm:h-[72px] sm:w-[72px]">
@@ -99,7 +103,6 @@ function CrownHallHeader({ recordCount }: { recordCount: number }) {
             </p>
           </div>
         </div>
-
         <div className="w-fit rounded-full border border-rose-100/18 bg-black/18 px-4 py-2 text-center">
           <div className="font-display text-2xl text-rose-100">{recordCount}</div>
           <div className="text-[10px] font-black tracking-[0.12em] text-rose-50/55">CROWN RECORDS</div>
@@ -109,7 +112,7 @@ function CrownHallHeader({ recordCount }: { recordCount: number }) {
   );
 }
 
-function WingHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+function WingHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: ReactNode }) {
   return (
     <div className="mx-auto max-w-3xl text-center">
       <div className="text-[11px] font-black tracking-[0.22em] text-rose-200/62">{eyebrow}</div>
@@ -125,24 +128,20 @@ function Divider() {
 
 function SecondCrownRelic({ entry }: { entry: HallOfGloryEntry }) {
   return (
-    <article className="relative mx-auto max-w-4xl overflow-hidden rounded-[30px] border border-rose-200/27 bg-[radial-gradient(circle_at_50%_12%,rgba(235,139,164,0.12),transparent_33%),linear-gradient(180deg,rgba(54,25,40,0.94),rgba(20,11,22,0.985))] px-5 py-7 text-center shadow-[0_0_34px_rgba(220,116,147,0.08),inset_0_0_36px_rgba(255,208,219,0.016)] sm:px-8 sm:py-9">
-      <div aria-hidden="true" className="absolute inset-x-[10%] top-0 h-px bg-gradient-to-r from-transparent via-rose-50/22 to-transparent" />
-      <div aria-hidden="true" className="crown-thread-flow absolute top-[118px] h-px w-[42%] bg-gradient-to-r from-transparent via-amber-100/65 to-transparent" />
-
+    <article className="relative mx-auto max-w-2xl overflow-hidden rounded-[26px] border border-rose-200/25 bg-[radial-gradient(circle_at_50%_12%,rgba(235,139,164,0.10),transparent_32%),linear-gradient(180deg,rgba(49,24,38,0.92),rgba(19,11,21,0.98))] px-5 py-5 text-center shadow-[0_0_26px_rgba(220,116,147,0.065)] sm:px-7 sm:py-6">
+      <div aria-hidden="true" className="absolute inset-x-[12%] top-0 h-px bg-gradient-to-r from-transparent via-rose-50/18 to-transparent" />
+      <div aria-hidden="true" className="crown-thread-flow absolute top-[91px] h-px w-[38%] bg-gradient-to-r from-transparent via-amber-100/55 to-transparent" />
       <div className="relative">
-        <div className="mx-auto flex max-w-md items-center justify-center gap-5 sm:gap-8">
+        <div className="mx-auto flex max-w-sm items-center justify-center gap-4 sm:gap-6">
           <CrownMedallion index={1} />
-          <div className="h-px flex-1 bg-gradient-to-r from-rose-100/10 via-amber-100/38 to-rose-100/10" />
+          <div className="h-px flex-1 bg-gradient-to-r from-rose-100/8 via-amber-100/30 to-rose-100/8" />
           <CrownMedallion index={2} featured />
         </div>
-
-        <div className="mt-6 text-[10px] font-black tracking-[0.2em] text-rose-200/58">FIRST TO WEAR TWO CROWNS</div>
-        <div className="mt-2 font-display text-4xl text-rose-50 sm:text-5xl [text-shadow:0_0_18px_rgba(255,203,217,0.13)]">
-          {entry.subject_display_name}
-        </div>
-        <div className="mt-3 font-display text-2xl text-amber-100 sm:text-3xl">2회의 왕관</div>
-        {entry.period_label && <div className="mt-2 text-sm font-bold text-rose-50/66">{entry.period_label} · 두 번째 월간 MVP</div>}
-        <div className="mt-4"><CrownRecordBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} /></div>
+        <div className="mt-5 text-[9px] font-black tracking-[0.18em] text-rose-200/54">FIRST TO WEAR TWO CROWNS</div>
+        <div className="mt-1.5 font-display text-3xl text-rose-50 sm:text-4xl [text-shadow:0_0_16px_rgba(255,203,217,0.11)]">{entry.subject_display_name}</div>
+        <div className="mt-2 font-display text-xl text-amber-100 sm:text-2xl">최초의 2회 왕관</div>
+        {entry.period_label && <div className="mt-2 text-xs font-bold text-rose-50/62">{entry.period_label} · 두 번째 월간 MVP</div>}
+        <div className="mt-3"><CrownRecordBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} /></div>
       </div>
     </article>
   );
@@ -150,9 +149,9 @@ function SecondCrownRelic({ entry }: { entry: HallOfGloryEntry }) {
 
 function CrownMedallion({ index, featured = false }: { index: number; featured?: boolean }) {
   return (
-    <div className={`relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full border sm:h-24 sm:w-24 ${featured ? 'border-amber-100/36 bg-[radial-gradient(circle,rgba(255,219,148,0.15),rgba(56,29,38,0.88)_72%)] shadow-[0_0_28px_rgba(255,196,100,0.11)]' : 'border-rose-100/22 bg-[radial-gradient(circle,rgba(225,137,162,0.10),rgba(46,24,36,0.88)_72%)]'}`}>
-      <Crown className={`h-9 w-9 sm:h-11 sm:w-11 ${featured ? 'text-amber-100' : 'text-rose-100/78'}`} strokeWidth={1.3} />
-      <span className="absolute -bottom-2 flex h-6 w-6 items-center justify-center rounded-full border border-rose-100/18 bg-[#27131f] font-display text-xs text-rose-50">{index}</span>
+    <div className={`relative flex h-16 w-16 shrink-0 items-center justify-center rounded-full border sm:h-[72px] sm:w-[72px] ${featured ? 'border-amber-100/32 bg-[radial-gradient(circle,rgba(255,219,148,0.13),rgba(56,29,38,0.88)_72%)] shadow-[0_0_22px_rgba(255,196,100,0.09)]' : 'border-rose-100/20 bg-[radial-gradient(circle,rgba(225,137,162,0.08),rgba(46,24,36,0.88)_72%)]'}`}>
+      <Crown className={`h-7 w-7 sm:h-8 sm:w-8 ${featured ? 'text-amber-100' : 'text-rose-100/76'}`} strokeWidth={1.3} />
+      <span className="absolute -bottom-2 flex h-5 w-5 items-center justify-center rounded-full border border-rose-100/18 bg-[#27131f] font-display text-[10px] text-rose-50">{index}</span>
     </div>
   );
 }
@@ -187,14 +186,12 @@ function FinalistCourt({ rows }: { rows: HallOfGloryEntry[] }) {
   const rank1 = rows.filter((row) => row.rank_position === 1);
   const rank2 = rows.filter((row) => row.rank_position === 2);
   const rank3 = rows.filter((row) => row.rank_position === 3);
-
   return (
     <div className="relative overflow-hidden rounded-[30px] border border-rose-100/18 bg-[radial-gradient(circle_at_50%_0%,rgba(211,116,144,0.085),transparent_30%),linear-gradient(180deg,rgba(42,22,34,0.88),rgba(17,10,20,0.98))] px-4 py-6 shadow-[inset_0_0_34px_rgba(246,176,194,0.012)] sm:px-6 sm:py-8">
       <div aria-hidden="true" className="absolute left-1/2 top-8 bottom-8 w-px -translate-x-1/2 bg-gradient-to-b from-amber-100/28 via-rose-100/10 to-transparent" />
       <div className="relative space-y-5">
         {rank1.map((entry) => <CourtSeat key={entry.id} entry={entry} rank={1} featured />)}
         {rank2.map((entry) => <CourtSeat key={entry.id} entry={entry} rank={2} />)}
-
         {rank3.length > 0 && (
           <div className="rounded-[24px] border border-rose-100/16 bg-black/18 px-4 py-5 sm:px-5">
             <div className="flex flex-col items-center text-center">

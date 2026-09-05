@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
   Coins,
   Crown,
@@ -23,6 +24,8 @@ const FIRSTS_MIDDLE = [
   'FIRST_TRANSCENDENT_ACHIEVEMENT',
 ] as const;
 const FIRSTS_BOTTOM = ['FIRST_ACHIEVEMENT_90_PERCENT', 'FIRST_ACHIEVEMENT_100'] as const;
+
+const FIRST_MVP_RIVALS = ['공예성', '김채은', '이가온'] as const;
 
 const TIER_COPY: Record<string, string> = {
   FIRST_TIER_MASTER: '역사상 처음으로 마스터에 도달하다',
@@ -74,6 +77,35 @@ nav[aria-label="영광의 전당 전시관 입구"] button span.text-xs {
   font-size: clamp(.75rem, 1vw, .82rem) !important;
   line-height: 1.35rem !important;
   white-space: nowrap;
+}
+@keyframes relicBorderOrbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.relic-orbit-border {
+  background:
+    conic-gradient(
+      from 0deg,
+      rgba(255,231,184,0) 0deg,
+      rgba(255,235,194,.78) 18deg,
+      rgba(202,145,75,.32) 40deg,
+      rgba(255,231,184,0) 60deg,
+      rgba(255,231,184,0) 150deg,
+      rgba(255,236,198,.62) 176deg,
+      rgba(180,123,64,.28) 196deg,
+      rgba(255,231,184,0) 214deg,
+      rgba(255,231,184,0) 286deg,
+      rgba(255,236,198,.74) 314deg,
+      rgba(194,136,71,.3) 334deg,
+      rgba(255,231,184,0) 360deg
+    );
+  animation: relicBorderOrbit 8.4s linear infinite;
+  filter: saturate(118%) brightness(1.04);
+}
+@media (prefers-reduced-motion: reduce) {
+  .relic-orbit-border {
+    animation: none;
+  }
 }
 `;
 
@@ -202,42 +234,51 @@ function MuseumWingHeading({ eyebrow, title, description }: { eyebrow: string; t
   );
 }
 
+function MetalRelicFrame({ children, className = '', innerClassName = '' }: { children: ReactNode; className?: string; innerClassName?: string }) {
+  return (
+    <article className={`group relative overflow-hidden rounded-[26px] p-[2.5px] shadow-[0_0_28px_rgba(217,154,78,0.12)] ${className}`}>
+      <div aria-hidden="true" className="absolute inset-0 rounded-[26px] bg-[linear-gradient(135deg,rgba(247,223,159,0.82),rgba(132,84,45,0.86),rgba(244,219,153,0.78),rgba(92,57,30,0.88))]" />
+      <div aria-hidden="true" className="relic-orbit-border absolute inset-0 rounded-[26px] opacity-95" />
+      <div aria-hidden="true" className="absolute inset-[1px] rounded-[25px] border border-amber-50/16" />
+      <div className={`relative h-full overflow-hidden rounded-[23px] bg-[radial-gradient(circle_at_50%_18%,rgba(255,224,165,0.11),transparent_36%),linear-gradient(180deg,rgba(36,26,24,0.95),rgba(15,10,16,0.985))] shadow-[inset_0_0_34px_rgba(255,224,165,0.022)] ${innerClassName}`}>
+        <GlassReflections />
+        {children}
+      </div>
+    </article>
+  );
+}
+
 function TierRelicCase({ entry, emblemKind }: { entry: HallOfGloryEntry; emblemKind: EmblemKind }) {
   const period = displayDate(entry);
   const description = TIER_COPY[entry.record_type] ?? '';
-  const grand = emblemKind === 'GRANDMASTER';
-  const celestial = emblemKind === 'CELESTIAL';
 
   return (
-    <article className={`group relative overflow-hidden rounded-[26px] border p-[1px] shadow-[0_0_24px_rgba(217,154,78,0.10)] ${grand ? 'border-amber-100/42 bg-[linear-gradient(145deg,rgba(255,232,176,0.14),rgba(197,132,57,0.02))]' : celestial ? 'border-yellow-100/32 bg-[linear-gradient(145deg,rgba(255,240,195,0.09),rgba(180,137,72,0.015))]' : 'border-amber-300/30 bg-[linear-gradient(145deg,rgba(208,145,73,0.09),rgba(116,73,39,0.02))]'}`}>
-      <div className="relative h-full min-h-[370px] overflow-hidden rounded-[25px] bg-[radial-gradient(circle_at_50%_28%,rgba(255,224,165,0.085),transparent_34%),linear-gradient(180deg,rgba(37,27,25,0.93),rgba(17,12,18,0.98))] px-5 pb-5 pt-6 shadow-[inset_0_0_36px_rgba(255,224,165,0.02)]">
-        <GlassReflections />
-        <div className="relative flex h-full min-h-[338px] flex-col items-center text-center">
-          <div className="text-[10px] font-black tracking-[0.2em] text-amber-200/58">PRESERVED RELIC</div>
-          <h5 className="mt-2 whitespace-nowrap font-display text-xl leading-7 text-amber-50 sm:text-2xl">{entry.title}</h5>
+    <MetalRelicFrame innerClassName="px-5 pb-5 pt-6">
+      <div className="relative flex h-full min-h-[338px] flex-col items-center text-center">
+        <div className="text-[10px] font-black tracking-[0.2em] text-amber-200/58">PRESERVED RELIC</div>
+        <h5 className="mt-2 whitespace-nowrap font-display text-xl leading-7 text-amber-50 sm:text-2xl">{entry.title}</h5>
 
-          <div className="my-5">
-            <PioneerEmblemMount kind={emblemKind} />
-          </div>
-
-          <div className="mt-auto w-full rounded-[18px] border border-amber-200/20 bg-black/20 px-4 py-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.025),0_0_18px_rgba(217,154,78,0.055)]">
-            <div className="text-[10px] font-black tracking-[0.16em] text-amber-300/60">HONOREE</div>
-            <div
-              className="mt-1 font-display text-3xl text-amber-100 sm:text-[2.15rem] [word-break:keep-all]"
-              style={{ textShadow: '0 0 12px rgba(255, 217, 132, .22), 0 0 26px rgba(217, 154, 78, .12)' }}
-            >
-              {entry.subject_display_name}
-            </div>
-            {period && <div className="mt-2 text-sm font-extrabold text-amber-50/82">{period}</div>}
-          </div>
-          {description && (
-            <p className="mt-4 whitespace-nowrap text-[11px] font-semibold leading-6 text-amber-50/64 sm:text-xs">
-              {description}
-            </p>
-          )}
+        <div className="my-5">
+          <PioneerEmblemMount kind={emblemKind} />
         </div>
+
+        <div className="mt-auto w-full rounded-[18px] border border-amber-200/22 bg-black/22 px-4 py-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.025),0_0_18px_rgba(217,154,78,0.055)]">
+          <div className="text-[10px] font-black tracking-[0.16em] text-amber-300/60">HONOREE</div>
+          <div
+            className="mt-1 font-display text-3xl text-amber-100 sm:text-[2.15rem] [word-break:keep-all]"
+            style={{ textShadow: '0 0 12px rgba(255, 217, 132, .22), 0 0 26px rgba(217, 154, 78, .12)' }}
+          >
+            {entry.subject_display_name}
+          </div>
+          {period && <div className="mt-2 text-sm font-extrabold text-amber-50/82">{period}</div>}
+        </div>
+        {description && (
+          <p className="mt-4 whitespace-nowrap text-[11px] font-semibold leading-6 text-amber-50/66 sm:text-xs">
+            {description}
+          </p>
+        )}
       </div>
-    </article>
+    </MetalRelicFrame>
   );
 }
 
@@ -282,17 +323,17 @@ function FirstRelicCase({ entry }: { entry: HallOfGloryEntry }) {
   const achievementName = achievementLabel(entry);
   const title = firstRecordTitle(entry);
   const Icon = entry.record_type.includes('GOLD') ? Coins : entry.record_type.includes('MVP') ? Crown : Gem;
+  const isMvp = entry.record_type === 'FIRST_MONTHLY_MVP';
 
   return (
-    <article className="relative min-h-[270px] overflow-hidden rounded-[24px] border border-amber-300/34 bg-[radial-gradient(circle_at_50%_18%,rgba(217,154,78,0.09),transparent_38%),linear-gradient(180deg,rgba(34,24,24,0.90),rgba(16,11,17,0.97))] p-5 text-center shadow-[0_0_26px_rgba(217,154,78,0.11),inset_0_0_30px_rgba(255,224,165,0.018)]">
-      <GlassReflections />
-      <div className="relative flex h-full min-h-[228px] flex-col items-center text-center">
+    <MetalRelicFrame innerClassName="p-5">
+      <div className="relative flex h-full min-h-[244px] flex-col items-center text-center">
         <div className="flex w-full items-center justify-between gap-3">
           <div className="text-[10px] font-black tracking-[0.16em] text-amber-300/64">FIRST RECORD</div>
           <ShieldCheck className="h-4 w-4 text-amber-200/55" strokeWidth={1.5} />
         </div>
 
-        <div className="mt-4 flex h-12 w-12 items-center justify-center rounded-[15px] border border-amber-200/22 bg-amber-100/[0.045] text-amber-100/82 shadow-[0_0_18px_rgba(217,154,78,0.08)]">
+        <div className="mt-4 flex h-12 w-12 items-center justify-center rounded-[15px] border border-amber-200/24 bg-amber-100/[0.05] text-amber-100/82 shadow-[0_0_18px_rgba(217,154,78,0.08)]">
           <Icon className="h-5 w-5" strokeWidth={1.55} />
         </div>
         <h5 className="mt-3 whitespace-nowrap font-display text-xl leading-7 text-amber-50 sm:text-[1.4rem]">{title}</h5>
@@ -300,7 +341,7 @@ function FirstRelicCase({ entry }: { entry: HallOfGloryEntry }) {
         <div className="mt-5 w-full border-t border-amber-100/12 pt-4 text-center">
           <div
             className="font-display text-3xl text-amber-100 sm:text-[2.15rem] [word-break:keep-all]"
-            style={{ textShadow: '0 0 12px rgba(255, 217, 132, .22), 0 0 26px rgba(217, 154, 78, .12)' }}
+            style={{ textShadow: '0 0 14px rgba(255, 217, 132, .24), 0 0 28px rgba(217, 154, 78, .14)' }}
           >
             {entry.subject_display_name}
           </div>
@@ -315,8 +356,23 @@ function FirstRelicCase({ entry }: { entry: HallOfGloryEntry }) {
             </div>
           </div>
         )}
+
+        {isMvp && (
+          <div className="mt-auto w-full pt-4">
+            <div className="flex flex-wrap justify-center gap-2.5">
+              {FIRST_MVP_RIVALS.map((name) => (
+                <div
+                  key={name}
+                  className="rounded-full border border-amber-200/22 bg-[linear-gradient(180deg,rgba(255,230,180,0.11),rgba(0,0,0,0.18))] px-3.5 py-2 font-display text-sm text-amber-50 shadow-[0_0_12px_rgba(217,154,78,0.08)]"
+                >
+                  {name}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-    </article>
+    </MetalRelicFrame>
   );
 }
 
@@ -324,8 +380,8 @@ function VacantFirstRelic({ entry }: { entry: HallOfGloryEntry }) {
   const title = firstRecordTitle(entry);
 
   return (
-    <article className="relative min-h-[270px] overflow-hidden rounded-[24px] border border-dashed border-amber-200/30 bg-[radial-gradient(circle_at_50%_28%,rgba(217,154,78,0.055),transparent_36%),linear-gradient(180deg,rgba(29,21,22,0.76),rgba(13,10,15,0.94))] p-5 shadow-[0_0_24px_rgba(217,154,78,0.075),inset_0_0_24px_rgba(217,154,78,0.015)]">
-      <div className="relative flex h-full min-h-[228px] flex-col items-center justify-center text-center">
+    <MetalRelicFrame className="opacity-95" innerClassName="p-5">
+      <div className="relative flex h-full min-h-[244px] flex-col items-center justify-center text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-amber-200/24 bg-black/15 shadow-[0_0_18px_rgba(217,154,78,0.05)]">
           <Crown className="h-7 w-7 text-amber-100/42" strokeWidth={1.3} />
         </div>
@@ -335,7 +391,7 @@ function VacantFirstRelic({ entry }: { entry: HallOfGloryEntry }) {
           아직 누구의 이름도 새겨지지 않았습니다. 최초의 달성자가 나타나는 순간 이 유물함의 주인이 정해집니다.
         </p>
       </div>
-    </article>
+    </MetalRelicFrame>
   );
 }
 
@@ -358,8 +414,7 @@ function GrandmasterRelic({ entry }: { entry: HallOfGloryEntry }) {
   const period = displayDate(entry);
 
   return (
-    <article className="relative overflow-hidden rounded-[24px] border border-amber-100/28 bg-[radial-gradient(circle_at_50%_22%,rgba(255,226,169,0.085),transparent_34%),linear-gradient(180deg,rgba(38,28,25,0.92),rgba(15,11,17,0.98))] p-5 text-center shadow-[0_0_20px_rgba(217,154,78,0.07),inset_0_0_30px_rgba(255,229,180,0.015)]">
-      <GlassReflections />
+    <MetalRelicFrame innerClassName="p-5 text-center">
       <div className="relative">
         <div className="text-[9px] font-black tracking-[0.18em] text-amber-300/56">2023 GRANDMASTER</div>
         <div className="mx-auto mt-4 flex h-[92px] w-[92px] items-center justify-center rounded-full border border-amber-200/20 bg-[radial-gradient(circle,rgba(255,224,165,0.08),rgba(25,18,19,0.88)_74%)] shadow-[0_0_22px_rgba(217,154,78,0.065)]">
@@ -378,15 +433,15 @@ function GrandmasterRelic({ entry }: { entry: HallOfGloryEntry }) {
         </div>
         {period && <div className="mt-2 text-sm font-extrabold text-amber-50/76">{period}</div>}
       </div>
-    </article>
+    </MetalRelicFrame>
   );
 }
 
 function GlassReflections() {
   return (
     <>
-      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[12%] top-0 h-px bg-gradient-to-r from-transparent via-white/[0.09] to-transparent" />
-      <div aria-hidden="true" className="pointer-events-none absolute -left-12 top-0 h-40 w-20 rotate-[18deg] bg-gradient-to-r from-transparent via-white/[0.018] to-transparent" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-x-[12%] top-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+      <div aria-hidden="true" className="pointer-events-none absolute left-2 top-2 h-10 w-[40%] rounded-full bg-white/[0.02] blur-xl" />
     </>
   );
 }

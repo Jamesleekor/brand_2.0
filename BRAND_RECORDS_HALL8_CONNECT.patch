@@ -1,0 +1,22 @@
+diff --git a/src/features/feature4/RecordsHonorPanel.tsx b/src/features/feature4/RecordsHonorPanel.tsx
+--- a/src/features/feature4/RecordsHonorPanel.tsx	2026-09-05 16:57:06.029730592 +0000
++++ b/src/features/feature4/RecordsHonorPanel.tsx	2026-09-05 16:57:06.034962771 +0000
+@@ -4,6 +4,7 @@
+ import { RecordsAscentHall } from '@/features/feature4/RecordsAscentHall';
+ import { RecordsGoldenChronicleHall } from '@/features/feature4/RecordsGoldenChronicleHall';
+ import { RecordsGuildHegemonyHall } from '@/features/feature4/RecordsGuildHegemonyHall';
++import { RecordsConstellationHall } from '@/features/feature4/RecordsConstellationHall';
+ import { supabase } from '@/lib/supabase/client';
+ import {
+   recordsHistoryRpc,
+@@ -28,6 +29,10 @@
+     return <RecordsGuildHegemonyHall entries={entries} />;
+   }
+ 
++  if (hall.key === 'CONSTELLATION') {
++    return <RecordsConstellationHall entries={entries} />;
++  }
++
+   const grouped = new Map<string, HallOfGloryEntry[]>();
+   entries.forEach((entry) => {
+     const rows = grouped.get(entry.record_type) ?? [];

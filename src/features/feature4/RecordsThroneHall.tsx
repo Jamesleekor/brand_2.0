@@ -141,29 +141,33 @@ function AbsoluteThrone({ entry }: { entry: HallOfGloryEntry }) {
   const value = `${formatNumber(entry.value_primary ?? 0)} ${entry.unit ?? ''}`.trim();
 
   return (
-    <article className="relative mx-auto max-w-4xl overflow-hidden rounded-[30px] border border-yellow-100/28 bg-[radial-gradient(circle_at_50%_14%,rgba(255,239,180,0.12),transparent_31%),linear-gradient(180deg,rgba(41,35,45,0.94),rgba(17,13,25,0.985))] px-5 py-7 text-center shadow-[0_0_34px_rgba(255,226,119,0.075),inset_0_0_38px_rgba(255,240,198,0.018)] sm:px-8 sm:py-9">
-      <div aria-hidden="true" className="throne-breath absolute left-1/2 top-8 h-44 w-72 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,238,175,0.10),transparent_68%)] blur-lg" />
+    <article className="relative mx-auto max-w-4xl overflow-hidden rounded-[30px] border border-yellow-100/28 bg-[linear-gradient(180deg,rgba(32,28,39,0.96),rgba(13,10,19,0.99))] px-4 py-5 text-center shadow-[0_0_34px_rgba(255,226,119,0.075),inset_0_0_38px_rgba(255,240,198,0.018)] sm:px-6 sm:py-6">
       <div aria-hidden="true" className="absolute inset-x-[8%] top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
       <div className="relative">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[24px] border border-yellow-100/24 bg-black/18 text-yellow-100 shadow-[0_0_28px_rgba(255,226,119,0.10)]">
-          <Crown className="h-10 w-10" strokeWidth={1.3} />
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] border border-yellow-100/22 bg-black/28 text-yellow-100 shadow-[0_0_24px_rgba(255,226,119,0.09)]">
+          <Crown className="h-8 w-8" strokeWidth={1.25} />
         </div>
-        <div className="mt-4 text-[10px] font-black tracking-[0.2em] text-yellow-100/58">ABSOLUTE RECORD · BV</div>
-        <h5 className="mt-2 font-display text-xl text-violet-50 sm:text-2xl">{entry.title}</h5>
+        <div className="mt-3 text-[10px] font-black tracking-[0.2em] text-yellow-100/58">ABSOLUTE RECORD · BV</div>
+        <h5 className="mt-1.5 font-display text-xl text-violet-50 sm:text-2xl">{entry.title}</h5>
 
-        <div className="mt-6 font-display text-[clamp(2.6rem,7vw,5rem)] leading-none text-yellow-100 [text-shadow:0_0_24px_rgba(255,226,119,0.16)]">
-          {value}
-        </div>
+        <div className="relative mx-auto mt-5 max-w-3xl overflow-hidden rounded-[28px] border border-yellow-50/12 bg-[#050507] px-5 py-12 shadow-[inset_0_0_52px_rgba(0,0,0,0.9),0_0_30px_rgba(255,226,119,0.035)] sm:px-8 sm:py-14">
+          <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(255,247,213,0.18),transparent_42%),radial-gradient(ellipse_at_50%_46%,rgba(255,228,150,0.07),transparent_33%)]" />
+          <div aria-hidden="true" className="absolute left-1/2 top-[-12px] h-[72%] w-[62%] -translate-x-1/2 bg-[linear-gradient(180deg,rgba(255,246,210,0.085),transparent)] blur-xl [clip-path:polygon(38%_0,62%_0,100%_100%,0_100%)]" />
+          <div aria-hidden="true" className="absolute bottom-0 left-1/2 h-20 w-[78%] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(ellipse,rgba(255,225,145,0.055),transparent_68%)] blur-md" />
 
-        <div className="mx-auto mt-7 max-w-xl rounded-[20px] border border-yellow-100/18 bg-black/20 px-5 py-4">
-          <div className="text-[10px] font-black tracking-[0.18em] text-yellow-100/52">THRONE HOLDER</div>
-          <div className="mt-1 font-display text-3xl text-yellow-50 sm:text-4xl [text-shadow:0_0_16px_rgba(255,236,190,0.15)]">
-            {entry.subject_display_name}
-          </div>
-          <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
-            {entry.period_label && <span className="text-sm font-bold text-violet-50/70">{entry.period_label}</span>}
-            <RecordStatusBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} />
+          <div className="relative">
+            <div className="font-display text-[clamp(3rem,8vw,5.4rem)] leading-none text-yellow-100 [text-shadow:0_0_18px_rgba(255,238,183,0.22),0_0_42px_rgba(255,215,115,0.12)]">
+              {value}
+            </div>
+            <div className="mt-7 text-[10px] font-black tracking-[0.18em] text-yellow-100/46">THRONE HOLDER</div>
+            <div className="mt-1 font-display text-4xl text-yellow-50 sm:text-5xl [text-shadow:0_0_16px_rgba(255,244,213,0.24),0_0_38px_rgba(255,221,145,0.10)]">
+              {entry.subject_display_name}
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              {entry.period_label && <span className="text-sm font-bold text-violet-50/66">{entry.period_label}</span>}
+              <RecordStatusBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} />
+            </div>
           </div>
         </div>
       </div>
@@ -176,7 +180,7 @@ function GoldVault({ rows }: { rows: HallOfGloryEntry[] }) {
   const [first, ...rest] = rows;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <GoldVaultFirst entry={first} />
       {rest.length > 0 && (
         <div className="grid gap-4 md:grid-cols-2">
@@ -189,19 +193,24 @@ function GoldVault({ rows }: { rows: HallOfGloryEntry[] }) {
 
 function GoldVaultFirst({ entry }: { entry: HallOfGloryEntry }) {
   return (
-    <article className="relative overflow-hidden rounded-[28px] border border-amber-200/30 bg-[radial-gradient(circle_at_88%_10%,rgba(255,195,83,0.12),transparent_28%),linear-gradient(135deg,rgba(54,40,25,0.90),rgba(20,15,24,0.98))] p-5 shadow-[0_0_30px_rgba(255,190,70,0.075)] sm:p-6">
-      <Coins aria-hidden="true" className="absolute -right-4 -top-6 h-32 w-32 text-amber-100/[0.025]" strokeWidth={1.0} />
-      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-amber-200/30 bg-amber-100/[0.07] font-display text-2xl text-amber-100 shadow-[0_0_20px_rgba(255,190,70,0.08)]">1</div>
-        <div className="min-w-0 flex-1 text-center sm:text-left">
-          <div className="text-[10px] font-black tracking-[0.18em] text-amber-200/62">THE GOLDEN PEAK</div>
-          <div className="mt-1 font-display text-3xl text-amber-100">{entry.subject_display_name}</div>
-          {entry.period_label && <div className="mt-1.5 text-sm font-bold text-amber-50/66">{entry.period_label}</div>}
-        </div>
-        <div className="text-center sm:text-right">
-          <div className="font-display text-3xl text-amber-100 sm:text-4xl">{formatNumber(entry.value_primary ?? 0)}</div>
-          <div className="mt-1 text-xs font-black tracking-[0.15em] text-amber-200/58">GOLD</div>
-          <div className="mt-2"><RecordStatusBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} /></div>
+    <article className="relative mx-auto max-w-xl overflow-hidden rounded-t-[120px] rounded-b-[28px] border border-amber-200/34 bg-[radial-gradient(circle_at_50%_3%,rgba(255,215,137,0.14),transparent_30%),linear-gradient(180deg,rgba(66,44,24,0.90),rgba(21,14,21,0.985))] px-5 pb-7 pt-9 text-center shadow-[0_0_34px_rgba(255,190,70,0.09),inset_0_0_34px_rgba(255,224,166,0.018)] sm:px-7 sm:pb-8 sm:pt-10">
+      <Coins aria-hidden="true" className="absolute left-1/2 top-4 h-32 w-32 -translate-x-1/2 text-amber-100/[0.026]" strokeWidth={1.0} />
+      <div className="relative">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-amber-100/30 bg-amber-100/[0.07] font-display text-2xl text-amber-100 shadow-[0_0_24px_rgba(255,195,86,0.10)]">1</div>
+        <div className="mt-4 text-[10px] font-black tracking-[0.2em] text-amber-200/62">THE GOLDEN PEAK</div>
+        <div className="mt-1 font-display text-4xl text-amber-50 sm:text-5xl [text-shadow:0_0_16px_rgba(255,221,145,0.16)]">{entry.subject_display_name}</div>
+        <div className="mt-4 font-display text-4xl text-amber-100 sm:text-5xl">{formatNumber(entry.value_primary ?? 0)} <span className="text-xl">GOLD</span></div>
+        {entry.period_label && <div className="mt-2 text-sm font-bold text-amber-50/62">{entry.period_label}</div>}
+        <div className="mt-4"><RecordStatusBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} /></div>
+
+        <div aria-hidden="true" className="mx-auto mt-7 flex max-w-sm flex-col items-center gap-1.5 opacity-75">
+          {[58, 70, 82, 92, 100].map((width, index) => (
+            <div
+              key={width}
+              className="h-3 rounded-[4px] border border-amber-100/18 bg-[linear-gradient(180deg,rgba(255,221,143,0.20),rgba(143,89,35,0.20))] shadow-[0_0_10px_rgba(255,190,70,0.035)]"
+              style={{ width: `${width}%`, opacity: 0.66 + index * 0.07 }}
+            />
+          ))}
         </div>
       </div>
     </article>

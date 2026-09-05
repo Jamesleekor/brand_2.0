@@ -23,6 +23,13 @@ import { EmptyState, LoadingSpinner } from '@/components/shared/components';
 import { RecordsHonorOfficialPanels } from '@/features/feature4/RecordsHonorOfficialPanels';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
 import { RecordsPioneersHall } from '@/features/feature4/RecordsPioneersHall';
+import { RecordsThroneHall } from '@/features/feature4/RecordsThroneHall';
+import { RecordsRepeatedCrownsHall } from '@/features/feature4/RecordsRepeatedCrownsHall';
+import { RecordsAscentHall } from '@/features/feature4/RecordsAscentHall';
+import { RecordsGoldenChronicleHall } from '@/features/feature4/RecordsGoldenChronicleHall';
+import { RecordsGuildHegemonyHall } from '@/features/feature4/RecordsGuildHegemonyHall';
+import { RecordsConstellationHall } from '@/features/feature4/RecordsConstellationHall';
+import { RecordsSovereignProofHall } from '@/features/feature4/RecordsSovereignProofHall';
 import { supabase } from '@/lib/supabase/client';
 import {
   recordsHistoryRpc,
@@ -412,6 +419,34 @@ function HallSection({ hall, entries, index }: { hall: HallDefinition; entries: 
   if (hall.key === 'PIONEERS') {
     return <RecordsPioneersHall entries={entries} />;
   }
+
+  if (hall.key === 'THRONE') {
+    return <RecordsThroneHall entries={entries} />;
+  }
+
+  if (hall.key === 'REPEATED_CROWNS') {
+    return <RecordsRepeatedCrownsHall entries={entries} />;
+  }
+
+  if (hall.key === 'ASCENT') {
+    return <RecordsAscentHall entries={entries} />;
+  }
+
+  if (hall.key === 'GOLDEN_CHRONICLE') {
+    return <RecordsGoldenChronicleHall entries={entries} />;
+  }
+
+  if (hall.key === 'GUILD_HEGEMONY') {
+    return <RecordsGuildHegemonyHall entries={entries} />;
+  }
+
+  if (hall.key === 'CONSTELLATION') {
+    return <RecordsConstellationHall entries={entries} />;
+  }
+
+if (hall.key === 'SOVEREIGN_PROOF') {
+  return <RecordsSovereignProofHall entries={entries} />;
+}
 
   const grouped = new Map<string, HallOfGloryEntry[]>();
   entries.forEach((entry) => {
