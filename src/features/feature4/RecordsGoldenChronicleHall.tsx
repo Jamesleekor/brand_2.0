@@ -35,7 +35,7 @@ export function RecordsGoldenChronicleHall({ entries }: { entries: HallOfGloryEn
         <ChronicleHeading
           eyebrow="THE STOCK AGE · 2023"
           title="사라진 시장이 남긴 마지막 장부"
-          description="2023년 주식시대에 실제로 지급된 배당수익만을 집계한 역사 기록입니다. 지금은 닫힌 시장의 흔적을 별도의 봉인 장부로 남깁니다."
+          description={"2023년 주식시대에 실제로 지급된 배당수익만을 집계한 역사 기록입니다.\n지금은 닫힌 시장의 흔적을 별도의 봉인 장부로 남깁니다."}
         />
         {dividend && <StockEraLedger entry={dividend} />}
       </div>
@@ -77,7 +77,7 @@ function ChronicleHeading({ eyebrow, title, description }: { eyebrow: string; ti
     <div className="mx-auto max-w-3xl text-center">
       <div className="text-[11px] font-black tracking-[0.22em] text-orange-200/60">{eyebrow}</div>
       <h4 className="mt-2 font-display text-2xl text-orange-50 sm:text-3xl [word-break:keep-all]">{title}</h4>
-      <p className="mx-auto mt-2 max-w-2xl text-sm font-semibold leading-7 text-orange-50/57 [word-break:keep-all]">{description}</p>
+      <p className="mx-auto mt-2 max-w-2xl whitespace-pre-line text-sm font-semibold leading-7 text-orange-50/57 [word-break:keep-all]">{description}</p>
     </div>
   );
 }

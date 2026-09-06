@@ -72,7 +72,7 @@ function AscentHallHeader({ recordCount }: { recordCount: number }) {
             <div className="text-xs font-black tracking-[0.22em] text-cyan-100/76">HALL 04 · THE ASCENT SPIRE</div>
             <h3 className="mt-1.5 font-display text-3xl text-cyan-50 sm:text-4xl [word-break:keep-all]">비상의 궤적</h3>
             <p className="mt-2 max-w-2xl text-sm font-bold leading-7 text-cyan-50/70 sm:text-base [word-break:keep-all]">
-              가장 가파르게 치솟은 성장의 순간들. 기록은 카드가 아니라 하나의 상승 경로로 이어집니다.
+              가장 가파르게 치솟은 성장의 순간들.
             </p>
           </div>
         </div>

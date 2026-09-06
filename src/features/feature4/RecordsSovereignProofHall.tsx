@@ -180,7 +180,8 @@ function ProofChamber() {
         <div className="text-[11px] font-black tracking-[0.22em] text-amber-100/82">네 개의 증명</div>
         <h4 className="mt-2 font-display text-2xl text-slate-50 sm:text-3xl">황제의 이름 앞에는 네 개의 인장이 놓인다</h4>
         <p className="mx-auto mt-2 max-w-3xl text-sm font-semibold leading-7 text-slate-200/84 [word-break:keep-all]">
-          하나만 뛰어나서는 통과할 수 없습니다. 길드의 승리, 개인의 기여, 공동의 임무, 실제 출석을 같은 시즌 안에서 모두 증명해야 합니다.
+          하나만 뛰어나서는 통과할 수 없습니다.<br />
+          길드의 승리, 개인의 기여, 공동의 임무, 실제 출석을 같은 시즌 안에서 모두 증명해야 합니다.
         </p>
       </div>
 

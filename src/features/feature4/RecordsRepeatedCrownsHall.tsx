@@ -133,7 +133,7 @@ function CrownHallHeader({ recordCount }: { recordCount: number }) {
             <div className="text-xs font-black tracking-[0.22em] text-rose-100/78">HALL 03 · THE CROWN GALLERY</div>
             <h3 className="mt-1.5 font-display text-3xl text-rose-50 sm:text-4xl [word-break:keep-all]">왕관을 거듭 쓴 자</h3>
             <p className="mt-2 max-w-2xl text-sm font-bold leading-7 text-rose-50/72 sm:text-base [word-break:keep-all]">
-              한 번의 영광을 넘어 다시 왕관을 향한 자들. 반복된 경쟁과 수상의 계보를 보존합니다.
+              한 번의 영광을 넘어 다시 왕관을 향한 자들.
             </p>
           </div>
         </div>

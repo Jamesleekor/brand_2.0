@@ -102,7 +102,8 @@ function HallHeader({ recordCount }: { recordCount: number }) {
             <div className="text-xs font-black tracking-[0.22em] text-red-100/78">HALL 06 · THE WAR ARCHIVE</div>
             <h3 className="mt-1.5 font-display text-3xl text-red-50 sm:text-4xl [word-break:keep-all]">길드 패권사</h3>
             <p className="mt-2 max-w-3xl text-sm font-bold leading-7 text-red-50/82 sm:text-base [word-break:keep-all]">
-              개인이 아니라 길드 전체가 맞붙었던 전장의 기록. 승전, 전과, 공훈, 그리고 가장 치열했던 마지막 전투를 보존합니다.
+              개인이 아니라 길드 전체가 맞붙었던 전장의 기록.<br />
+              승전, 전과, 공훈, 그리고 가장 치열했던 마지막 전투를 보존합니다.
             </p>
           </div>
         </div>
@@ -279,11 +280,13 @@ function CompactMonthRelic({ entry }: { entry: HallOfGloryEntry }) {
   const logo = GUILD_LOGOS[guildName];
   const goal = goalFor(entry);
   const percent = completionPercent(entry, goal);
-  const nameClass = guildName.length >= 6
-    ? 'text-[1.4rem] leading-[1.12] sm:text-[1.5rem]'
-    : guildName.length >= 4
-      ? 'text-[1.55rem] leading-[1.12] sm:text-[1.65rem]'
-      : 'text-[1.7rem] leading-[1.08] sm:text-[1.8rem]';
+  const nameClass = guildName === '빛나는 은하수'
+    ? 'whitespace-nowrap text-[1.02rem] leading-none tracking-[-0.045em] sm:text-[1.08rem]'
+    : guildName.length >= 6
+      ? 'text-[1.4rem] leading-[1.12] sm:text-[1.5rem]'
+      : guildName.length >= 4
+        ? 'text-[1.55rem] leading-[1.12] sm:text-[1.65rem]'
+        : 'text-[1.7rem] leading-[1.08] sm:text-[1.8rem]';
 
   return (
     <article className="flex min-h-[178px] min-w-0 flex-col rounded-[22px] border border-red-100/18 bg-[linear-gradient(180deg,rgba(47,20,20,0.82),rgba(14,10,11,0.96))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)]">

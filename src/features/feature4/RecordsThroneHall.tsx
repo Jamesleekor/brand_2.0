@@ -86,7 +86,7 @@ export function RecordsThroneHall({ entries }: { entries: HallOfGloryEntry[] }) 
           </div>
 
           <div className="rounded-[18px] border border-violet-200/13 bg-violet-100/[0.025] px-4 py-3 text-center text-xs font-semibold leading-6 text-violet-50/62 sm:text-sm">
-            업적 개수·점수는 측정 가능한 공식 업적 체계가 존재하는 2026 기록을 기준으로 전시합니다. 2023–2025의 업적 기록은 측정되지 않았습니다.
+            업적 개수·점수는 측정 가능한 공식 업적 체계가 존재하는 2026 기록부터 전시합니다.
           </div>
         </div>
       </section>
@@ -109,7 +109,8 @@ function ThroneHallHeader({ recordCount }: { recordCount: number }) {
             <div className="text-xs font-black tracking-[0.22em] text-yellow-100/78">HALL 02 · THE HIGH THRONE</div>
             <h3 className="mt-1.5 font-display text-3xl text-yellow-50 sm:text-4xl [word-break:keep-all]">정점의 왕좌</h3>
             <p className="mt-2 max-w-2xl text-sm font-bold leading-7 text-violet-50/72 sm:text-base [word-break:keep-all]">
-              현재까지 숫자로 증명된 절대 정점. 기록은 보존되지만 왕좌의 주인은 영원하지 않습니다.
+              현재까지 숫자로 증명된 절대 정점.<br />
+              기록은 보존되지만 왕좌의 주인은 영원하지 않습니다.
             </p>
           </div>
         </div>

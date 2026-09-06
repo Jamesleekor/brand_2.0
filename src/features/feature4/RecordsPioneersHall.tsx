@@ -388,7 +388,7 @@ function VacantFirstRelic({ entry }: { entry: HallOfGloryEntry }) {
         <div className="mt-4 text-[10px] font-black tracking-[0.16em] text-amber-300/50">VACANT RELIQUARY</div>
         <h5 className="mt-2 whitespace-nowrap font-display text-xl leading-7 text-amber-50/90 sm:text-[1.4rem]">{title}</h5>
         <p className="mt-3 max-w-[320px] text-xs font-semibold leading-6 text-amber-50/52 [word-break:keep-all]">
-          아직 누구의 이름도 새겨지지 않았습니다. 최초의 달성자가 나타나는 순간 이 유물함의 주인이 정해집니다.
+          아직 누구의 이름도 새겨지지 않았습니다.
         </p>
       </div>
     </MetalRelicFrame>
