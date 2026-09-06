@@ -125,3 +125,64 @@ export const TeacherArcadePrereleaseTestLeaderboardSchema = z.object({
   p_game_code: ArcadeGameCodeSchema,
 });
 export type TeacherArcadePrereleaseTestLeaderboardInput = z.infer<typeof TeacherArcadePrereleaseTestLeaderboardSchema>;
+
+export const TeacherFreezeArcadeMonthlyPeriodSchema = z.object({
+  p_period_id: PositiveId,
+});
+export type TeacherFreezeArcadeMonthlyPeriodInput = z.infer<typeof TeacherFreezeArcadeMonthlyPeriodSchema>;
+
+export const TeacherArcadeVerificationOverviewSchema = z.object({
+  p_period_id: PositiveId,
+  p_game_code: ArcadeGameCodeSchema,
+});
+export type TeacherArcadeVerificationOverviewInput = z.infer<typeof TeacherArcadeVerificationOverviewSchema>;
+
+export const TeacherStartArcadeVerificationSessionSchema = z.object({
+  p_period_id: PositiveId,
+  p_game_code: ArcadeGameCodeSchema,
+  p_student_id: PositiveId,
+});
+export type TeacherStartArcadeVerificationSessionInput = z.infer<typeof TeacherStartArcadeVerificationSessionSchema>;
+
+export const TeacherEndArcadeVerificationSessionSchema = z.object({
+  p_session_id: PositiveId,
+});
+export type TeacherEndArcadeVerificationSessionInput = z.infer<typeof TeacherEndArcadeVerificationSessionSchema>;
+
+export const TeacherCancelArcadeVerificationRunSchema = z.object({
+  p_run_id: PositiveId,
+  p_reason: z.string().trim().min(2, '기술 취소 사유는 2자 이상이어야 합니다.').max(500),
+});
+export type TeacherCancelArcadeVerificationRunInput = z.infer<typeof TeacherCancelArcadeVerificationRunSchema>;
+
+export const TeacherRestoreArcadeVerificationAttemptSchema = z.object({
+  p_attempt_id: PositiveId,
+  p_reason: z.string().trim().min(2, '복구 사유는 2자 이상이어야 합니다.').max(500),
+});
+export type TeacherRestoreArcadeVerificationAttemptInput = z.infer<typeof TeacherRestoreArcadeVerificationAttemptSchema>;
+
+export const TeacherResetArcadeVerificationSessionSchema = z.object({
+  p_session_id: PositiveId,
+  p_reason: z.string().trim().min(2, '초기화 사유는 2자 이상이어야 합니다.').max(500),
+});
+export type TeacherResetArcadeVerificationSessionInput = z.infer<typeof TeacherResetArcadeVerificationSessionSchema>;
+
+export const TeacherSetArcadeVerificationCorrectionSchema = z.object({
+  p_period_id: PositiveId,
+  p_game_code: ArcadeGameCodeSchema,
+  p_student_id: PositiveId,
+  p_source_run_id: PositiveId.nullable(),
+  p_reason: z.string().trim().min(2, '보정 사유는 2자 이상이어야 합니다.').max(500),
+});
+export type TeacherSetArcadeVerificationCorrectionInput = z.infer<typeof TeacherSetArcadeVerificationCorrectionSchema>;
+
+export const StudentArcadeVerificationStateSchema = z.object({
+  p_game_code: ArcadeGameCodeSchema,
+});
+export type StudentArcadeVerificationStateInput = z.infer<typeof StudentArcadeVerificationStateSchema>;
+
+export const StudentCreateArcadeVerificationRunSchema = z.object({
+  p_session_id: PositiveId,
+  p_idempotency_key: z.string().uuid('요청 식별값 형식이 올바르지 않습니다.'),
+});
+export type StudentCreateArcadeVerificationRunInput = z.infer<typeof StudentCreateArcadeVerificationRunSchema>;

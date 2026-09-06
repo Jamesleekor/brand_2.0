@@ -226,7 +226,7 @@ export interface ArcadeHistoryBoard {
   period_id: number;
   period_kind: 'MONTHLY' | 'SEASON';
   display_name: string;
-  period_status: 'ACTIVE' | 'FINALIZED';
+  period_status: 'ACTIVE' | 'VERIFICATION' | 'READY_TO_FINALIZE' | 'FINALIZED';
   total_count: number;
   limit: number;
   offset: number;

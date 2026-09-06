@@ -29,6 +29,9 @@ export interface ArcadeRunBootstrap {
   schedule_seed: number;
   config: Record<string, unknown>;
   is_prerelease_test: boolean;
+  run_context?: 'STANDARD' | 'VERIFICATION';
+  verification_session_id?: number;
+  verification_opportunity_number?: number;
 }
 
 export interface ArcadeRunStarted {
@@ -48,6 +51,8 @@ export interface ArcadeRunSubmissionResult {
   code?: string;
   message?: string;
   is_prerelease_test?: boolean;
+  run_context?: 'STANDARD' | 'VERIFICATION';
+  verification_capture?: Record<string, unknown> | null;
 }
 
 export interface ArcadeGameAccess {
@@ -72,6 +77,80 @@ export interface ArcadePrereleaseTestLeaderboardResult {
   game_code: string;
   participant_count: number;
   top10: Array<{ rank: number; student_id: number; student_name: string; official_score: number; game_over_at: string }>;
+}
+
+
+export interface ArcadeVerificationAttempt {
+  attempt_id: number;
+  issue_number: number;
+  opportunity_number: number;
+  run_id: number;
+  status: string;
+  consumed: boolean;
+  valid_run: boolean;
+  terminal_outcome: string | null;
+  official_score: number | null;
+  issued_at: string;
+  terminal_at: string | null;
+  restored_at?: string | null;
+  restore_reason?: string | null;
+}
+
+export interface ArcadeVerificationState {
+  available: boolean;
+  game_code: string;
+  period_id?: number;
+  period_name?: string;
+  period_status?: 'VERIFICATION' | 'READY_TO_FINALIZE';
+  session_id?: number;
+  session_status?: 'ACTIVE' | 'COMPLETED' | 'RESET' | 'OVERRIDDEN';
+  provisional_score?: number;
+  verification_threshold?: number;
+  threshold_percent?: number;
+  max_attempts?: number;
+  used_attempts?: number;
+  remaining_attempts?: number;
+  success_achieved?: boolean;
+  result_status?: 'SUCCESS' | 'FAILURE_VALID' | 'FAILURE_NO_VALID' | null;
+  current_rank?: number | null;
+  active_run_id?: number | null;
+  can_attempt?: boolean;
+  attempts?: ArcadeVerificationAttempt[];
+}
+
+export interface ArcadeVerificationOverviewRow {
+  rank: number | null;
+  student_id: number;
+  student_name: string;
+  brand_name: string | null;
+  provisional_score: number;
+  provisional_source_run_id: number;
+  current_official_score: number | null;
+  current_source_run_id: number | null;
+  session_id: number | null;
+  session_status: string | null;
+  verification_threshold: number | null;
+  threshold_percent: number | null;
+  max_attempts: number | null;
+  used_attempts: number;
+  success_achieved: boolean;
+  result_status: string | null;
+  best_verification_score: number | null;
+  active_run_id: number | null;
+  decision_kind: string | null;
+  official_source_run_id: number | null;
+  decided_official_score: number | null;
+  ranking_eligible: boolean | null;
+  is_current_reward_range: boolean;
+  attempts: ArcadeVerificationAttempt[];
+}
+
+export interface ArcadeVerificationOverview {
+  period_id: number;
+  period_status: 'VERIFICATION' | 'READY_TO_FINALIZE' | 'FINALIZED';
+  period_name: string;
+  game_code: string;
+  rows: ArcadeVerificationOverviewRow[];
 }
 
 export interface ArcadeRunResult {
@@ -99,6 +178,10 @@ export const arcadeStudentRpc = {
     safeArcadeRpc<ArcadeSchemas.ArcadeLeaderboardInput, ArcadeLeaderboardResult>(client, 'get_arcade_leaderboard', ArcadeSchemas.ArcadeLeaderboardSchema, input),
   getRunResult: (client: SupabaseClient, input: ArcadeSchemas.StudentArcadeRunResultInput) =>
     safeArcadeRpc<ArcadeSchemas.StudentArcadeRunResultInput, ArcadeRunResult>(client, 'student_get_arcade_run_result', ArcadeSchemas.StudentArcadeRunResultSchema, input),
+  getVerificationState: (client: SupabaseClient, input: ArcadeSchemas.StudentArcadeVerificationStateInput) =>
+    safeArcadeRpc<ArcadeSchemas.StudentArcadeVerificationStateInput, ArcadeVerificationState>(client, 'student_get_arcade_verification_state', ArcadeSchemas.StudentArcadeVerificationStateSchema, input),
+  createVerificationRun: (client: SupabaseClient, input: ArcadeSchemas.StudentCreateArcadeVerificationRunInput) =>
+    safeArcadeRpc<ArcadeSchemas.StudentCreateArcadeVerificationRunInput, ArcadeRunBootstrap>(client, 'student_create_arcade_verification_run', ArcadeSchemas.StudentCreateArcadeVerificationRunSchema, input),
 };
 
 export const arcadeTeacherRpc = {
@@ -120,6 +203,22 @@ export const arcadeTeacherRpc = {
     safeArcadeRpc<ArcadeSchemas.TeacherListArcadePrereleaseTestAccessInput, Array<{ access_id: number; student_id: number; student_name: string; student_brand_name: string | null; is_enabled: boolean; updated_at: string }>>(client, 'teacher_list_arcade_prerelease_test_access', ArcadeSchemas.TeacherListArcadePrereleaseTestAccessSchema, input),
   getPrereleaseTestLeaderboard: (client: SupabaseClient, input: ArcadeSchemas.TeacherArcadePrereleaseTestLeaderboardInput) =>
     safeArcadeRpc<ArcadeSchemas.TeacherArcadePrereleaseTestLeaderboardInput, ArcadePrereleaseTestLeaderboardResult>(client, 'teacher_get_arcade_prerelease_test_leaderboard', ArcadeSchemas.TeacherArcadePrereleaseTestLeaderboardSchema, input),
+  freezeMonthlyPeriod: (client: SupabaseClient, input: ArcadeSchemas.TeacherFreezeArcadeMonthlyPeriodInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherFreezeArcadeMonthlyPeriodInput, Record<string, unknown>>(client, 'teacher_freeze_arcade_monthly_period', ArcadeSchemas.TeacherFreezeArcadeMonthlyPeriodSchema, input),
+  getVerificationOverview: (client: SupabaseClient, input: ArcadeSchemas.TeacherArcadeVerificationOverviewInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherArcadeVerificationOverviewInput, ArcadeVerificationOverview>(client, 'teacher_get_arcade_verification_overview', ArcadeSchemas.TeacherArcadeVerificationOverviewSchema, input),
+  startVerificationSession: (client: SupabaseClient, input: ArcadeSchemas.TeacherStartArcadeVerificationSessionInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherStartArcadeVerificationSessionInput, Record<string, unknown>>(client, 'teacher_start_arcade_verification_session', ArcadeSchemas.TeacherStartArcadeVerificationSessionSchema, input),
+  endVerificationSession: (client: SupabaseClient, input: ArcadeSchemas.TeacherEndArcadeVerificationSessionInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherEndArcadeVerificationSessionInput, Record<string, unknown>>(client, 'teacher_end_arcade_verification_session', ArcadeSchemas.TeacherEndArcadeVerificationSessionSchema, input),
+  cancelVerificationRun: (client: SupabaseClient, input: ArcadeSchemas.TeacherCancelArcadeVerificationRunInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherCancelArcadeVerificationRunInput, Record<string, unknown>>(client, 'teacher_cancel_arcade_verification_run', ArcadeSchemas.TeacherCancelArcadeVerificationRunSchema, input),
+  restoreVerificationAttempt: (client: SupabaseClient, input: ArcadeSchemas.TeacherRestoreArcadeVerificationAttemptInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherRestoreArcadeVerificationAttemptInput, Record<string, unknown>>(client, 'teacher_restore_arcade_verification_attempt', ArcadeSchemas.TeacherRestoreArcadeVerificationAttemptSchema, input),
+  resetVerificationSession: (client: SupabaseClient, input: ArcadeSchemas.TeacherResetArcadeVerificationSessionInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherResetArcadeVerificationSessionInput, Record<string, unknown>>(client, 'teacher_reset_arcade_verification_session', ArcadeSchemas.TeacherResetArcadeVerificationSessionSchema, input),
+  setVerificationCorrection: (client: SupabaseClient, input: ArcadeSchemas.TeacherSetArcadeVerificationCorrectionInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherSetArcadeVerificationCorrectionInput, Record<string, unknown>>(client, 'teacher_set_arcade_verification_correction', ArcadeSchemas.TeacherSetArcadeVerificationCorrectionSchema, input),
 };
 
 export function arcadeErrorMessage(error: { type: string; code?: string; error: string }): string {
@@ -155,6 +254,30 @@ export function arcadeErrorMessage(error: { type: string; code?: string; error: 
     P0223: '현재 테스트할 수 있는 게임을 찾지 못했어요.',
     P0224: '선택한 테스트 학생이 현재 학급에 없어요.',
     P0225: '아직 시작하지 않은 랭킹 기간은 즉시 종료할 수 없어요.',
+    P0250: '인증 대상 기간을 찾지 못했어요.',
+    P0251: '기록 인증 세션을 찾지 못했어요.',
+    P0252: '아직 남은 기회가 있고 인증 기준을 달성하지 않아 세션을 종료할 수 없어요.',
+    P0253: '동결된 잠정 기록을 찾지 못했어요.',
+    P0254: '인증 시도와 게임 기록 연결을 찾지 못했어요.',
+    P0255: '활성화된 기록 인증 세션을 찾지 못했어요.',
+    P0256: '인증 대상 월간 기간을 찾지 못했어요.',
+    P0257: '기록 인증은 월간 기간에서만 사용할 수 있어요.',
+    P0258: '현재 기간 상태에서는 기록을 동결할 수 없어요.',
+    P0259: '이미 동결 데이터가 있어 안전하게 진행할 수 없어요. 선생님에게 알려주세요.',
+    P0260: '이 게임의 동결된 인증 설정을 찾지 못했어요.',
+    P0261: '현재 기간은 기록 인증을 진행할 수 있는 상태가 아니에요.',
+    P0262: '이미 공식 인증 결과가 확정된 학생이에요.',
+    P0263: '진행 중인 인증 게임 기록을 찾지 못했어요.',
+    P0264: '현재 상태의 인증 run은 기술 취소할 수 없어요.',
+    P0265: '복구할 인증 시도를 찾지 못했어요.',
+    P0266: '이 인증 시도는 복구할 수 없어요.',
+    P0267: '선택한 보정 기록은 이 학생·게임·기간의 공식 기록으로 사용할 수 없어요.',
+    P0268: '진행 중인 인증 플레이를 먼저 종료하거나 기술 취소해주세요.',
+    P0269: '남은 인증 기회가 없거나 다른 인증 플레이가 진행 중이에요.',
+    P0270: '현재 Top 10 인증 대상이 아니에요.',
+    P0271: '현재 Top 10 인증이 모두 끝나지 않아 최종 확정할 수 없어요.',
+    P0272: '최근 시작된 일반 Arcade 플레이가 끝난 뒤 기록을 동결해주세요.',
+    P0273: '이 기록은 이미 동결된 잠정 source라 일반 무효화할 수 없어요. 기록 인증 보정을 사용해주세요.',
   };
   if (messages[error.code ?? '']) return messages[error.code ?? ''];
   if (error.type === 'VALIDATION') return error.error;

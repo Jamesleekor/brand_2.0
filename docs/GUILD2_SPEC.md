@@ -1065,7 +1065,7 @@ At minimum:
 - [ ] 15 logs = 150
 - [ ] >15 scoring logs remains 150
 - [ ] arcade rank mapping correct
-- [ ] 여러 game의 Arcade 보너스가 cap 없이 정확히 합산됨
+- [ ] 여러 game의 Arcade raw 보너스는 정확히 합산되고, Guild 2 적용값은 학생별 월 최대 +90으로 제한됨
 - [ ] basic excludes arcade
 - [ ] final includes arcade
 - [ ] old BV increase does not affect new contribution

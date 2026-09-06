@@ -290,7 +290,7 @@ export function FocusReactionGame({
       const hitClass = laneWasJudged ? (feedback?.lifeLost ? 'border-danger bg-danger/20 text-danger' : 'border-brand-primary bg-brand-primary/15 text-brand-primary') : 'border-line bg-bg-card text-white';
       return <button key={lane.key} type="button" disabled={phase !== 'PLAYING'} onPointerDown={(event) => { event.preventDefault(); pressLane(lane.lane); }} className={`rounded-card-md border py-3 font-display text-lg transition duration-75 active:scale-95 active:border-gold disabled:cursor-default ${hitClass}`} aria-label={`${lane.key} 입력`}>{lane.key}</button>;
     })}</div>
-    <p className="px-4 pb-4 text-center text-xs text-text-secondary">파란 신호는 같은 레인을 누르고, 빨간 ✕ 신호는 누르지 마세요. Life가 모두 사라지면 서버에 {bootstrap.is_prerelease_test ? '테스트 기록' : '공식 기록'}을 제출합니다.</p>
+    <p className="px-4 pb-4 text-center text-xs text-text-secondary">파란 신호는 같은 레인을 누르고, 빨간 ✕ 신호는 누르지 마세요. Life가 모두 사라지면 서버에 {bootstrap.is_prerelease_test ? '테스트 기록' : bootstrap.run_context === 'VERIFICATION' ? '인증 기록' : '공식 기록'}을 제출합니다.</p>
   </section>;
 }
 
@@ -321,7 +321,7 @@ function GameResultPanel({ bootstrap, result, summary, myRank, myBestScore, isRa
     <div className={`p-6 text-center ${accepted ? 'bg-success/10' : 'bg-warning/10'}`}>
       <div className="text-5xl">{accepted ? '🏁' : '⚠️'}</div>
       <h2 className={`mt-3 font-display text-3xl ${accepted ? 'text-success' : 'text-warning'}`}>{accepted ? '게임 종료!' : '기록이 인정되지 않았어요'}</h2>
-      <p className="mt-2 text-sm text-text-secondary">{accepted ? (bootstrap.is_prerelease_test ? '사전 테스트 결과입니다. 순위와 Guild 2 점수에는 반영되지 않아요.' : '서버가 다시 계산한 공식 결과입니다.') : result.message ?? '입력 기록 검증 결과를 확인해주세요.'}</p>
+      <p className="mt-2 text-sm text-text-secondary">{accepted ? (bootstrap.is_prerelease_test ? '사전 테스트 결과입니다. 순위와 Guild 2 점수에는 반영되지 않아요.' : bootstrap.run_context === 'VERIFICATION' ? '기록 인증 도전 결과입니다. 이 run은 다음 기간의 일반 기록에는 포함되지 않습니다.' : '서버가 다시 계산한 공식 결과입니다.') : result.message ?? '입력 기록 검증 결과를 확인해주세요.'}</p>
     </div>
     <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
       <ResultStat label="공식 점수" value={hasOfficialScore ? `${Number(result.official_score).toLocaleString('ko-KR')}점` : '기록 거절'} emphasis={hasOfficialScore} />
@@ -330,7 +330,7 @@ function GameResultPanel({ bootstrap, result, summary, myRank, myBestScore, isRa
       <ResultStat label="서버 인정 입력" value={`${serverCorrectInputs}회`} />
     </div>
     <div className="mx-5 rounded-card-md border border-line bg-bg-deep p-4 text-center">
-      {bootstrap.is_prerelease_test ? <p className="text-sm font-bold text-brand-primary">사전 테스트는 랭킹을 계산하지 않습니다.</p> : isRankingUpdating ? <p className="text-sm text-text-secondary">현재 순위를 계산하고 있어요...</p> : <p className="text-sm text-text-secondary">현재 내 순위 <b className="ml-1 font-display text-2xl text-gold">{myRank === null ? '집계 중' : `${myRank}위`}</b>{myBestScore !== null && <span className="ml-3">내 최고점 <b className="text-white">{myBestScore.toLocaleString('ko-KR')}점</b></span>}</p>}
+      {bootstrap.is_prerelease_test ? <p className="text-sm font-bold text-brand-primary">사전 테스트는 랭킹을 계산하지 않습니다.</p> : bootstrap.run_context === 'VERIFICATION' ? <p className="text-sm text-text-secondary">인증 판정과 현재 보상권 순위를 다시 계산하고 있어요.</p> : isRankingUpdating ? <p className="text-sm text-text-secondary">현재 순위를 계산하고 있어요...</p> : <p className="text-sm text-text-secondary">현재 내 순위 <b className="ml-1 font-display text-2xl text-gold">{myRank === null ? '집계 중' : `${myRank}위`}</b>{myBestScore !== null && <span className="ml-3">내 최고점 <b className="text-white">{myBestScore.toLocaleString('ko-KR')}점</b></span>}</p>}
     </div>
     {localAndServerDisagree && <div className="mx-5 mt-4 rounded-card-md border border-warning/40 bg-warning/10 p-3 text-center text-xs text-warning">화면 판정은 {summary.correct}회였지만 서버는 {serverCorrectInputs}회만 인정했습니다. 사전 테스트 여부와 무관한 검증 차이이므로, 이 안내가 보이면 결과 화면을 캡처해 알려주세요.</div>}
     <div className="grid gap-2 px-5 pt-4 text-xs text-text-secondary sm:grid-cols-3"><span>Miss {Number(result.stats?.misses ?? summary.misses)}</span><span>NO GO 오입력 {Number(result.stats?.no_go_errors ?? summary.noGoErrors)}</span><span>잘못된 레인 {Number(result.stats?.wrong_lane_errors ?? summary.wrongLaneErrors)}</span></div>

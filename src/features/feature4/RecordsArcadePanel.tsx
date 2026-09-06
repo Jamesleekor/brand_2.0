@@ -24,7 +24,7 @@ interface ArcadePeriodRow {
   contribution_year_month: string | null;
   starts_at: string;
   ends_at_exclusive: string;
-  status: 'ACTIVE' | 'FINALIZED';
+  status: 'ACTIVE' | 'VERIFICATION' | 'READY_TO_FINALIZE' | 'FINALIZED';
 }
 
 const PAGE_SIZE = 20;
@@ -50,7 +50,7 @@ export function RecordsArcadePanel() {
           .from('arcade_ranking_periods')
           .select('id,period_kind,display_name,contribution_year_month,starts_at,ends_at_exclusive,status')
           .eq('classroom_id', classroomId!)
-          .in('status', ['ACTIVE', 'FINALIZED'])
+          .in('status', ['ACTIVE', 'VERIFICATION', 'READY_TO_FINALIZE', 'FINALIZED'])
           .order('starts_at', { ascending: false }),
       ]);
       if (gamesResult.error) throw gamesResult.error;
@@ -66,7 +66,7 @@ export function RecordsArcadePanel() {
   const periods = catalogQ.data?.periods ?? [];
   const games = catalogQ.data?.games ?? [];
   const defaultPeriod = useMemo(
-    () => periods.find((row) => row.status === 'ACTIVE') ?? periods[0] ?? null,
+    () => periods.find((row) => row.status === 'ACTIVE') ?? periods.find((row) => row.status === 'VERIFICATION' || row.status === 'READY_TO_FINALIZE') ?? periods[0] ?? null,
     [periods],
   );
   const selectedPeriod = periods.find((row) => row.id === selectedPeriodId) ?? defaultPeriod;
@@ -154,7 +154,7 @@ export function RecordsArcadePanel() {
                 className={`shrink-0 rounded-pill border px-3 py-2 text-xs font-black transition ${selectedPeriod?.id === period.id ? 'border-gold bg-gold/10 text-gold' : 'border-line bg-bg-deep text-text-secondary hover:border-gold/25'}`}
               >
                 {period.display_name}
-                <span className="ml-1 opacity-70">{period.status === 'FINALIZED' ? '확정' : '진행 중'}</span>
+                <span className="ml-1 opacity-70">{period.status === 'FINALIZED' ? '확정' : period.status === 'VERIFICATION' ? '인증 중' : period.status === 'READY_TO_FINALIZE' ? '확정 대기' : '진행 중'}</span>
               </button>
             ))}
           </div>
@@ -294,6 +294,12 @@ function SourceBadge({ period }: { period: ArcadePeriodRow | null }) {
   }
   if (period.status === 'FINALIZED') {
     return <span className="rounded-pill border border-bv/35 bg-bv/10 px-2.5 py-1 text-2xs font-black text-bv">종료된 시즌 기록</span>;
+  }
+  if (period.status === 'VERIFICATION') {
+    return <span className="rounded-pill border border-gold/35 bg-gold/10 px-2.5 py-1 text-2xs font-black text-gold">기록 인증 중 · 공식 순위 보정 가능</span>;
+  }
+  if (period.status === 'READY_TO_FINALIZE') {
+    return <span className="rounded-pill border border-success/35 bg-success/10 px-2.5 py-1 text-2xs font-black text-success">인증 완료 · 최종 확정 대기</span>;
   }
   return <span className="rounded-pill border border-brand-primary/35 bg-brand-primary/10 px-2.5 py-1 text-2xs font-black text-brand-primary">실시간 기록 · 변동 가능</span>;
 }
