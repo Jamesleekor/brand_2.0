@@ -26,7 +26,7 @@ const FIRSTS_MIDDLE = [
 const FIRSTS_BOTTOM = ['FIRST_ACHIEVEMENT_90_PERCENT', 'FIRST_ACHIEVEMENT_100'] as const;
 
 const FIRST_MVP_RIVALS = ['공예성', '김채은', '이가온'] as const;
-const GRANDMASTER_LINEAGE_BG = '/records/Hall01_Pioneer_Grand-Master-History-bg.webp';
+const GRANDMASTER_LINEAGE_BG = `${import.meta.env.BASE_URL}records/Hall01_Pioneer_Grand-Master-History-bg.webp`;
 
 const TIER_COPY: Record<string, string> = {
   FIRST_TIER_MASTER: '역사상 처음으로 마스터에 도달하다',
@@ -41,6 +41,11 @@ const TIER_ICON_BY_KIND: Record<EmblemKind, string> = {
 };
 
 const HALL_ENTRANCE_POLISH = `
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600;700;800;900&display=swap');
+
+.grandmaster-serif {
+  font-family: 'Noto Serif KR', 'Nanum Myeongjo', 'Batang', serif;
+}
 nav[aria-label="영광의 전당 전시관 입구"] button {
   border-color: rgba(var(--hall-aura), .48) !important;
   box-shadow:
@@ -421,45 +426,53 @@ function GrandmasterLineage({ rows }: { rows: HallOfGloryEntry[] }) {
   if (rows.length === 0) return null;
 
   return (
-    <section className="relative -mx-1 overflow-hidden rounded-[34px] border border-amber-100/28 px-4 py-9 shadow-[0_28px_70px_rgba(0,0,0,0.34),0_0_34px_rgba(229,176,91,0.08)] sm:px-6 sm:py-11 lg:px-8">
-      <div
+    <section className="relative -mx-1 overflow-hidden rounded-[34px] border border-amber-100/30 bg-[#070812] shadow-[0_28px_76px_rgba(0,0,0,0.38),0_0_34px_rgba(229,176,91,0.09)] lg:min-h-[690px] xl:min-h-[720px]">
+      <img
+        src={GRANDMASTER_LINEAGE_BG}
+        alt=""
         aria-hidden="true"
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url("${GRANDMASTER_LINEAGE_BG}")` }}
-      />
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,5,13,0.42),rgba(5,6,16,0.60)_32%,rgba(4,5,13,0.72)_100%)]"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-[linear-gradient(90deg,rgba(4,5,13,0.18),rgba(4,5,13,0.72)_18%,rgba(4,5,13,0.76)_50%,rgba(4,5,13,0.72)_82%,rgba(4,5,13,0.18))]"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-[10%] top-0 h-px bg-gradient-to-r from-transparent via-amber-100/52 to-transparent"
-      />
-      <div
-        aria-hidden="true"
-        className="absolute left-1/2 top-[-90px] h-[290px] w-[620px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,220,143,0.12),transparent_66%)] blur-2xl"
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center lg:object-contain"
       />
 
-      <div className="relative z-10">
+      {/* 중앙의 6개 명예석만 읽기 쉽게 눌러 주고, 좌우 네 신수는 최대한 살린다. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(5,6,16,0.66)_0%,rgba(5,6,16,0.52)_36%,rgba(5,6,16,0.28)_62%,rgba(5,6,16,0.10)_82%,rgba(5,6,16,0.05)_100%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(4,5,13,0.20)_0%,rgba(4,5,13,0.08)_23%,rgba(4,5,13,0.10)_70%,rgba(4,5,13,0.42)_100%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-[9%] top-0 h-px bg-gradient-to-r from-transparent via-amber-100/58 to-transparent"
+      />
+
+      <div className="relative z-10 flex min-h-[inherit] flex-col px-4 pb-6 pt-7 sm:px-6 sm:pb-7 sm:pt-8 lg:px-[8.5%] lg:pb-8 lg:pt-8">
         <div className="mx-auto max-w-4xl text-center">
-          <div className="inline-flex items-center rounded-full border border-amber-100/24 bg-[#090a14]/72 px-4 py-1.5 shadow-[0_0_24px_rgba(237,192,103,0.08)] backdrop-blur-sm">
-            <span className="text-[10px] font-black tracking-[0.28em] text-amber-200/88 sm:text-[11px]">
+          <div className="inline-flex items-center rounded-full border border-amber-100/28 bg-[#080914]/66 px-4 py-1.5 shadow-[0_0_20px_rgba(237,192,103,0.09)] backdrop-blur-[2px]">
+            <span className="text-[10px] font-black tracking-[0.28em] text-amber-200/92 sm:text-[11px]">
               GRANDMASTER ROLL · 2023
             </span>
           </div>
-          <h4 className="mt-3 font-display text-[clamp(1.9rem,4vw,3rem)] leading-tight text-amber-50 [word-break:keep-all] [text-shadow:0_0_20px_rgba(255,225,159,0.18),0_3px_20px_rgba(0,0,0,0.65)]">
+          <h4
+            className="grandmaster-serif mt-2.5 text-[clamp(1.8rem,3.7vw,2.75rem)] font-black leading-tight tracking-[-0.04em] [word-break:keep-all]"
+            style={{
+              backgroundImage: 'linear-gradient(180deg, #fff8df 0%, #ffe9ac 34%, #f3ca72 68%, #d8a24a 100%)',
+              WebkitBackgroundClip: 'text',
+              color: 'transparent',
+              filter: 'drop-shadow(0 2px 0 rgba(255,246,212,.22)) drop-shadow(0 4px 10px rgba(255,203,96,.22)) drop-shadow(0 10px 22px rgba(0,0,0,.48))',
+              textShadow: '0 1px 0 rgba(255,250,232,.18), 0 2px 0 rgba(175,117,34,.22)',
+            }}
+          >
             그랜드마스터 명예의 계보
           </h4>
-          <p className="mx-auto mt-3 max-w-3xl text-sm font-semibold leading-7 text-amber-50/86 [word-break:keep-all] sm:text-[0.98rem]">
-            순위가 아닙니다. 최고의 티어에 오른 여섯 이름을, 먼저 그 자리에 오른 순서대로 기록합니다.
+          <p className="grandmaster-serif mx-auto mt-2 max-w-3xl text-[12px] font-bold leading-6 text-amber-50/90 [word-break:keep-all] sm:text-sm">
+            역사에 영원히 새겨진 6명의 그랜드마스터
           </p>
         </div>
 
-        <div className="mx-auto mt-8 grid max-w-5xl gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mx-auto mt-5 grid w-full max-w-[900px] flex-1 content-center gap-3.5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-4 lg:gap-y-4">
           {rows.map((entry) => (
             <GrandmasterRelic key={entry.id} entry={entry} />
           ))}
@@ -473,51 +486,60 @@ function GrandmasterRelic({ entry }: { entry: HallOfGloryEntry }) {
   const period = displayDate(entry);
 
   return (
-    <article className="grandmaster-legend-card group relative overflow-hidden rounded-[27px] border border-amber-100/30 bg-[linear-gradient(180deg,rgba(24,20,24,0.70),rgba(8,9,16,0.86))] px-4 pb-5 pt-4 text-center backdrop-blur-[1.5px] sm:px-5 sm:pb-6">
+    <article className="grandmaster-legend-card group relative min-h-[244px] overflow-hidden rounded-[24px] border border-amber-100/32 bg-[linear-gradient(180deg,rgba(18,18,27,0.54),rgba(7,8,15,0.72))] px-3 pb-3.5 pt-2.5 text-center shadow-[0_12px_34px_rgba(0,0,0,0.28)] backdrop-blur-[2px] sm:min-h-[250px] sm:px-4 sm:pt-3">
       <div
         aria-hidden="true"
-        className="absolute inset-[1px] rounded-[25px] border border-white/[0.045]"
+        className="pointer-events-none absolute inset-[1px] rounded-[22px] border border-white/[0.045]"
       />
       <div
         aria-hidden="true"
-        className="absolute inset-x-[12%] top-0 h-px bg-gradient-to-r from-transparent via-amber-100/52 to-transparent"
+        className="pointer-events-none absolute inset-x-[14%] top-0 h-px bg-gradient-to-r from-transparent via-amber-100/60 to-transparent"
       />
       <div
         aria-hidden="true"
-        className="absolute left-1/2 top-[60px] h-[190px] w-[190px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,206,103,0.13),rgba(112,79,181,0.05)_42%,transparent_70%)] blur-lg"
+        className="pointer-events-none absolute left-1/2 top-[31px] h-[176px] w-[176px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,209,111,0.19),rgba(105,78,173,0.065)_43%,transparent_70%)] blur-lg"
       />
 
-      <div className="relative">
-        <div className="text-[9px] font-black tracking-[0.22em] text-amber-200/74 sm:text-[10px]">
-          2023 GRANDMASTER
-        </div>
-
-        <div className="relative mx-auto mt-3 flex h-[178px] w-[178px] items-center justify-center sm:h-[194px] sm:w-[194px]">
+      <div className="relative flex h-full flex-col items-center">
+        <div className="relative flex h-[168px] w-[168px] items-center justify-center sm:h-[176px] sm:w-[176px]">
           <div
             aria-hidden="true"
-            className="grandmaster-emblem-aura absolute inset-[8px] rounded-full border border-amber-100/16 bg-[radial-gradient(circle,rgba(255,226,155,0.11),rgba(88,67,143,0.035)_44%,transparent_70%)] shadow-[0_0_34px_rgba(255,207,107,0.15),0_0_64px_rgba(105,82,180,0.08)]"
-          />
-          <div
-            aria-hidden="true"
-            className="absolute inset-[20px] rounded-full border border-amber-100/[0.09]"
+            className="grandmaster-emblem-aura absolute inset-[2px] rounded-full border border-amber-100/18 bg-[radial-gradient(circle,rgba(255,226,155,0.13),rgba(88,67,143,0.04)_45%,transparent_72%)] shadow-[0_0_32px_rgba(255,207,107,0.18),0_0_58px_rgba(105,82,180,0.10)]"
           />
           <img
             src={RECORDS_TIER_ICONS_2023.GRAND_MASTER}
             alt=""
             aria-hidden="true"
-            className="relative z-10 h-[154px] w-[154px] object-contain drop-shadow-[0_0_14px_rgba(255,218,138,0.30)] sm:h-[170px] sm:w-[170px]"
+            className="relative z-10 h-[156px] w-[156px] object-contain drop-shadow-[0_0_14px_rgba(255,218,138,0.36)] sm:h-[164px] sm:w-[164px]"
           />
         </div>
 
-        <div className="mx-auto mt-1 h-px w-[72%] bg-gradient-to-r from-transparent via-amber-100/24 to-transparent" />
+        <div className="mt-0.5 flex w-[78%] items-center gap-2" aria-hidden="true">
+          <span className="h-px flex-1 bg-gradient-to-r from-transparent to-amber-100/38" />
+          <span className="h-1.5 w-1.5 rotate-45 border border-amber-100/70 bg-amber-200/20 shadow-[0_0_8px_rgba(255,218,137,0.28)]" />
+          <span className="h-px flex-1 bg-gradient-to-l from-transparent to-amber-100/38" />
+        </div>
+
         <div
-          className="mt-4 whitespace-nowrap font-display text-[2rem] leading-none text-amber-50 sm:text-[2.15rem]"
-          style={{ textShadow: '0 0 13px rgba(255, 220, 145, .25), 0 3px 16px rgba(0,0,0,.52)' }}
+          className="grandmaster-serif mt-2.5 whitespace-nowrap text-[1.46rem] font-extrabold leading-none tracking-[-0.035em] sm:text-[1.56rem]"
+          style={{
+            color: '#f7e9bb',
+            textShadow:
+              '0 1px 0 rgba(255,248,223,.28), 0 2px 0 rgba(177,120,42,.18), 0 8px 18px rgba(0,0,0,.44), 0 16px 24px rgba(255,192,94,.14)',
+            filter: 'drop-shadow(0 7px 12px rgba(255, 196, 112, .20))',
+          }}
         >
           {entry.subject_display_name}
         </div>
+
         {period && (
-          <div className="mt-2 whitespace-nowrap text-sm font-extrabold text-amber-50/84">
+          <div
+            className="grandmaster-serif mt-1.5 whitespace-nowrap text-[10px] font-bold tracking-[-0.015em] sm:text-[11px]"
+            style={{
+              color: 'rgba(246, 233, 191, 0.92)',
+              textShadow: '0 2px 9px rgba(255, 197, 104, .14), 0 4px 12px rgba(0,0,0,.42)',
+            }}
+          >
             {period}
           </div>
         )}
