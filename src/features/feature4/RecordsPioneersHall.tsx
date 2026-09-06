@@ -26,6 +26,7 @@ const FIRSTS_MIDDLE = [
 const FIRSTS_BOTTOM = ['FIRST_ACHIEVEMENT_90_PERCENT', 'FIRST_ACHIEVEMENT_100'] as const;
 
 const FIRST_MVP_RIVALS = ['공예성', '김채은', '이가온'] as const;
+const GRANDMASTER_LINEAGE_BG = '/records/Hall01_Pioneer_Grand-Master-History-bg.webp';
 
 const TIER_COPY: Record<string, string> = {
   FIRST_TIER_MASTER: '역사상 처음으로 마스터에 도달하다',
@@ -102,8 +103,34 @@ nav[aria-label="영광의 전당 전시관 입구"] button span.text-xs {
   animation: relicBorderOrbit 8.4s linear infinite;
   filter: saturate(118%) brightness(1.04);
 }
+@keyframes grandmasterAuraBreath {
+  0%,100% { opacity:.48; transform:scale(.96); }
+  50% { opacity:.82; transform:scale(1.04); }
+}
+@keyframes grandmasterCardBreath {
+  0%,100% {
+    box-shadow:
+      0 18px 38px rgba(0,0,0,.30),
+      0 0 24px rgba(239,191,103,.10),
+      inset 0 1px 0 rgba(255,255,255,.035);
+  }
+  50% {
+    box-shadow:
+      0 20px 44px rgba(0,0,0,.34),
+      0 0 34px rgba(247,204,122,.17),
+      inset 0 1px 0 rgba(255,255,255,.045);
+  }
+}
+.grandmaster-emblem-aura {
+  animation: grandmasterAuraBreath 6.8s ease-in-out infinite;
+}
+.grandmaster-legend-card {
+  animation: grandmasterCardBreath 7.6s ease-in-out infinite;
+}
 @media (prefers-reduced-motion: reduce) {
-  .relic-orbit-border {
+  .relic-orbit-border,
+  .grandmaster-emblem-aura,
+  .grandmaster-legend-card {
     animation: none;
   }
 }
@@ -172,11 +199,6 @@ export function RecordsPioneersHall({ entries }: { entries: HallOfGloryEntry[] }
 
           <Divider />
 
-          <MuseumWingHeading
-            eyebrow="GRANDMASTER ROLL · 2023"
-            title="그랜드마스터 명예의 계보"
-            description="순위가 아닙니다. 최고의 티어에 오른 여섯 이름을, 먼저 그 자리에 오른 순서대로 기록합니다."
-          />
           <GrandmasterLineage rows={grandmasters} />
         </div>
       </section>
@@ -399,14 +421,51 @@ function GrandmasterLineage({ rows }: { rows: HallOfGloryEntry[] }) {
   if (rows.length === 0) return null;
 
   return (
-    <div className="relative">
-      <div aria-hidden="true" className="absolute left-[8%] right-[8%] top-[92px] hidden h-px bg-gradient-to-r from-transparent via-amber-200/18 to-transparent lg:block" />
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {rows.map((entry) => (
-          <GrandmasterRelic key={entry.id} entry={entry} />
-        ))}
+    <section className="relative -mx-1 overflow-hidden rounded-[34px] border border-amber-100/28 px-4 py-9 shadow-[0_28px_70px_rgba(0,0,0,0.34),0_0_34px_rgba(229,176,91,0.08)] sm:px-6 sm:py-11 lg:px-8">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url("${GRANDMASTER_LINEAGE_BG}")` }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,5,13,0.42),rgba(5,6,16,0.60)_32%,rgba(4,5,13,0.72)_100%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-[linear-gradient(90deg,rgba(4,5,13,0.18),rgba(4,5,13,0.72)_18%,rgba(4,5,13,0.76)_50%,rgba(4,5,13,0.72)_82%,rgba(4,5,13,0.18))]"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-[10%] top-0 h-px bg-gradient-to-r from-transparent via-amber-100/52 to-transparent"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute left-1/2 top-[-90px] h-[290px] w-[620px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,220,143,0.12),transparent_66%)] blur-2xl"
+      />
+
+      <div className="relative z-10">
+        <div className="mx-auto max-w-4xl text-center">
+          <div className="inline-flex items-center rounded-full border border-amber-100/24 bg-[#090a14]/72 px-4 py-1.5 shadow-[0_0_24px_rgba(237,192,103,0.08)] backdrop-blur-sm">
+            <span className="text-[10px] font-black tracking-[0.28em] text-amber-200/88 sm:text-[11px]">
+              GRANDMASTER ROLL · 2023
+            </span>
+          </div>
+          <h4 className="mt-3 font-display text-[clamp(1.9rem,4vw,3rem)] leading-tight text-amber-50 [word-break:keep-all] [text-shadow:0_0_20px_rgba(255,225,159,0.18),0_3px_20px_rgba(0,0,0,0.65)]">
+            그랜드마스터 명예의 계보
+          </h4>
+          <p className="mx-auto mt-3 max-w-3xl text-sm font-semibold leading-7 text-amber-50/86 [word-break:keep-all] sm:text-[0.98rem]">
+            순위가 아닙니다. 최고의 티어에 오른 여섯 이름을, 먼저 그 자리에 오른 순서대로 기록합니다.
+          </p>
+        </div>
+
+        <div className="mx-auto mt-8 grid max-w-5xl gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map((entry) => (
+            <GrandmasterRelic key={entry.id} entry={entry} />
+          ))}
+        </div>
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -414,26 +473,56 @@ function GrandmasterRelic({ entry }: { entry: HallOfGloryEntry }) {
   const period = displayDate(entry);
 
   return (
-    <MetalRelicFrame innerClassName="p-5 text-center">
+    <article className="grandmaster-legend-card group relative overflow-hidden rounded-[27px] border border-amber-100/30 bg-[linear-gradient(180deg,rgba(24,20,24,0.70),rgba(8,9,16,0.86))] px-4 pb-5 pt-4 text-center backdrop-blur-[1.5px] sm:px-5 sm:pb-6">
+      <div
+        aria-hidden="true"
+        className="absolute inset-[1px] rounded-[25px] border border-white/[0.045]"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-[12%] top-0 h-px bg-gradient-to-r from-transparent via-amber-100/52 to-transparent"
+      />
+      <div
+        aria-hidden="true"
+        className="absolute left-1/2 top-[60px] h-[190px] w-[190px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(255,206,103,0.13),rgba(112,79,181,0.05)_42%,transparent_70%)] blur-lg"
+      />
+
       <div className="relative">
-        <div className="text-[9px] font-black tracking-[0.18em] text-amber-300/56">2023 GRANDMASTER</div>
-        <div className="mx-auto mt-4 flex h-[92px] w-[92px] items-center justify-center rounded-full border border-amber-200/20 bg-[radial-gradient(circle,rgba(255,224,165,0.08),rgba(25,18,19,0.88)_74%)] shadow-[0_0_22px_rgba(217,154,78,0.065)]">
+        <div className="text-[9px] font-black tracking-[0.22em] text-amber-200/74 sm:text-[10px]">
+          2023 GRANDMASTER
+        </div>
+
+        <div className="relative mx-auto mt-3 flex h-[178px] w-[178px] items-center justify-center sm:h-[194px] sm:w-[194px]">
+          <div
+            aria-hidden="true"
+            className="grandmaster-emblem-aura absolute inset-[8px] rounded-full border border-amber-100/16 bg-[radial-gradient(circle,rgba(255,226,155,0.11),rgba(88,67,143,0.035)_44%,transparent_70%)] shadow-[0_0_34px_rgba(255,207,107,0.15),0_0_64px_rgba(105,82,180,0.08)]"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-[20px] rounded-full border border-amber-100/[0.09]"
+          />
           <img
             src={RECORDS_TIER_ICONS_2023.GRAND_MASTER}
             alt=""
             aria-hidden="true"
-            className="h-[78px] w-[78px] object-contain drop-shadow-[0_0_8px_rgba(255,220,154,0.18)]"
+            className="relative z-10 h-[154px] w-[154px] object-contain drop-shadow-[0_0_14px_rgba(255,218,138,0.30)] sm:h-[170px] sm:w-[170px]"
           />
         </div>
+
+        <div className="mx-auto mt-1 h-px w-[72%] bg-gradient-to-r from-transparent via-amber-100/24 to-transparent" />
         <div
-          className="mt-5 font-display text-[1.9rem] text-amber-100 [word-break:keep-all]"
-          style={{ textShadow: '0 0 10px rgba(255, 217, 132, .18)' }}
+          className="mt-4 whitespace-nowrap font-display text-[2rem] leading-none text-amber-50 sm:text-[2.15rem]"
+          style={{ textShadow: '0 0 13px rgba(255, 220, 145, .25), 0 3px 16px rgba(0,0,0,.52)' }}
         >
           {entry.subject_display_name}
         </div>
-        {period && <div className="mt-2 text-sm font-extrabold text-amber-50/76">{period}</div>}
+        {period && (
+          <div className="mt-2 whitespace-nowrap text-sm font-extrabold text-amber-50/84">
+            {period}
+          </div>
+        )}
       </div>
-    </MetalRelicFrame>
+    </article>
   );
 }
 
