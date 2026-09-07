@@ -36,15 +36,15 @@ const GUILD_HEGEMONY_STYLE = `
 `;
 
 const GUILD_LOGOS: Record<string, string> = {
-  Ruby: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/Ruby.png',
-  '빛나는 은하수': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/Milkyway.png',
-  '암흑장미': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/Darkrose.png',
-  '에메랄드': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/EMERALD.png',
-  '아블루션': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2-Ablution.png',
-  '루나 네이비': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2-LunaNavy.png',
-  '피닉스': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2-Phoenix.png',
-  '슈퍼노바': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2-Supernova.png',
-  '와사비': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2-Wasabi.png',
+  Ruby: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/1-Ruby.webp',
+  '빛나는 은하수': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/1-Milkyway.webp',
+  '암흑장미': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/1-Darkrose.webp',
+  '에메랄드': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/1-EMERALD.webp',
+  '아블루션': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2-Ablution.webp',
+  '루나 네이비': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2-LunaNavy.webp',
+  '피닉스': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2-Phoenix.webp',
+  '슈퍼노바': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2-Supernova.webp',
+  '와사비': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2-Wasabi.webp',
 };
 
 const FINAL_BATTLE_ROSTERS: Record<string, string[]> = {

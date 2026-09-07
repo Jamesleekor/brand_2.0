@@ -287,7 +287,7 @@ function EmperorProof({ entry }: { entry: HallOfGloryEntry }) {
           {['우승', 'TOP 3', '미션', '출석'].map((label) => (
             <div key={label} className="rounded-[14px] border border-amber-100/18 bg-amber-100/[0.045] px-2 py-2.5">
               <ShieldCheck className="mx-auto h-4 w-4 text-amber-100" strokeWidth={1.7} />
-              <div className="mt-1 text-[10px] font-black text-slate-100/90">{label}</div>
+              <div className="mt-1 text-[14px] font-black text-slate-100/90">{label}</div>
             </div>
           ))}
         </div>
