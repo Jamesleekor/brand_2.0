@@ -30,35 +30,35 @@ const RIVAL_ORDER_OVERRIDES: Record<string, string[]> = {
 // 특히 2023년 6월 최종 MVP는 공예성으로 확정한다.
 const PORTRAITS_2023: Record<string, PortraitSpec> = {
   '김승현': {
-    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/2023/2023MVP_SeungHyun-Kim.webp',
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/mvp/2023/2023MVP_SeungHyun-Kim.webp',
     accent: 'gold',
   },
   '공예성': {
-    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/2023/2023MVP_Yeseong-Kong.webp',
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/mvp/2023/2023MVP_Yeseong-Kong.webp',
     accent: 'gold',
   },
   '김채은': {
-    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/Chaeeun_Kim.webp',
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/mvp/2023/2023MVP_Chaeeun_Kim.webp',
     accent: 'gold',
   },
   '최민재': {
-    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/Minjae-Choi.webp',
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/mvp/2023/2023MVP_Minjae-Choi.webp',
     accent: 'gold',
   },
   '민서홍': {
-    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/Seohong-Min.webp',
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/mvp/2023/2023MVP_Seohong-Min.webp',
     accent: 'gold',
   },
   '이준혁': {
-    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/Junhyuk-Lee.webp',
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/mvp/2023/2023MVP_Junhyuk-Lee.webp',
     accent: 'gold',
   },
   '최나연': {
-    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/Nayeon-Choi.webp',
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/mvp/2023/2023MVP_Nayeon-Choi.webp',
     accent: 'gold',
   },
   '이가온': {
-    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/Gaon-Lee.webp',
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/mvp/2023/2023MVP_Gaon-Lee.webp',
     accent: 'gold',
   },
 };
