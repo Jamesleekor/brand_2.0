@@ -78,3 +78,54 @@ export async function getTeacherLoginHistory(
     rows: [],
   }) as TeacherLoginHistoryBoard;
 }
+
+export interface AppAccessDailyRow {
+  access_date: string;
+  student_id: number;
+  student_name: string;
+  first_seen_at: string;
+  last_seen_at: string;
+  signal_count: number;
+  evidence_sources: string[];
+  has_direct_app_signal: boolean;
+  has_backfill_signal: boolean;
+  last_device_type: string | null;
+  last_browser: string | null;
+}
+
+export interface AppAccessDailySummary {
+  student_days: number;
+  distinct_students: number;
+  direct_student_days: number;
+  backfilled_student_days: number;
+}
+
+export interface TeacherAppAccessDailyBoard {
+  summary: AppAccessDailySummary;
+  rows: AppAccessDailyRow[];
+}
+
+export interface TeacherAppAccessDailyInput {
+  p_classroom_id: number;
+  p_date_from?: string | null;
+  p_date_to?: string | null;
+  p_student_id?: number | null;
+}
+
+export async function getTeacherAppAccessDaily(
+  supabase: SupabaseClient,
+  input: TeacherAppAccessDailyInput,
+): Promise<TeacherAppAccessDailyBoard> {
+  const { data, error } = await supabase.rpc('teacher_get_app_access_daily', input);
+  if (error) throw error;
+
+  return (data ?? {
+    summary: {
+      student_days: 0,
+      distinct_students: 0,
+      direct_student_days: 0,
+      backfilled_student_days: 0,
+    },
+    rows: [],
+  }) as TeacherAppAccessDailyBoard;
+}
