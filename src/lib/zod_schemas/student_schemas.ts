@@ -187,11 +187,10 @@ export const EquipAchievementSchema = z.object({
 export type EquipAchievementInput = z.infer<typeof EquipAchievementSchema>;
 
 // =====================================================================
-// 7. purchase_cosmetic_item — 꾸미기 구매
+// 7. student_purchase_cosmetic — 꾸미기 구매 (로그인 학생 self-scoped)
 // =====================================================================
 
 export const PurchaseCosmeticItemSchema = z.object({
-  p_student_id: PositiveInt,
   p_item_id: PositiveInt,
   p_pricing_id: PositiveInt,
 });
@@ -201,11 +200,11 @@ export type PurchaseCosmeticItemInput = z.infer<
 >;
 
 // =====================================================================
-// 8. equip_cosmetic_item — 꾸미기 장착
+// 8. student_set_cosmetic_selection — 꾸미기 장착 (로그인 학생 self-scoped)
 // =====================================================================
 
 export const EquipCosmeticItemSchema = z.object({
-  p_student_id: PositiveInt,
+  p_category: z.string().trim().min(1).max(50),
   p_ownership_id: z.number().int().positive().nullable(),
 });
 

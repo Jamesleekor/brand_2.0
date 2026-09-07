@@ -39,8 +39,13 @@
     overflow-x: hidden;
   }
   
+  :root {
+    --font-system-family: 'Pretendard Variable', 'Pretendard', 'Nunito', -apple-system, sans-serif;
+    --font-theme-family: var(--font-system-family);
+  }
+
   body {
-    font-family: 'Pretendard Variable', 'Pretendard', 'Nunito', -apple-system, sans-serif;
+    font-family: var(--font-theme-family);
     background: theme('colors.bg.base');
     color: theme('colors.text.primary');
     font-weight: 500;   /* 기본은 보통 굵기 (가독성). 강조는 개별 요소에서 */
@@ -51,10 +56,11 @@
     color-scheme: dark;
   }
   
-  /* 입력 요소도 같은 폰트 */
-  input, textarea, button, select {
-    font-family: inherit;
+  /* 입력·운영 UI는 가독성을 위해 시스템 폰트를 유지 */
+  input, textarea, select, option, code, pre, kbd, samp {
+    font-family: var(--font-system-family);
   }
+  button { font-family: inherit; }
   
   /* 한국어 숫자 정렬 (tabular nums) */
   .font-feature-numeric {
@@ -353,4 +359,18 @@
 /* Character Core C3 teacher operation fields */
 .input-admin {
   @apply w-full rounded-card-md border border-line bg-bg-deep px-3 py-2 text-xs font-bold text-text-primary outline-none transition-colors focus:border-brand-primary/60;
+}
+
+
+/* ===================================================================
+   Student-selectable font theme
+   =================================================================== */
+.font-display { font-family: var(--font-theme-family); }
+.font-system, [role="alert"], [data-font-scope="system"],
+.teacher-shell, .teacher-shell .font-display, [data-font-scope="system"] .font-display {
+  font-family: var(--font-system-family) !important;
+}
+.font-feature-numeric, [data-font-numeric="true"] {
+  font-family: var(--font-system-family);
+  font-variant-numeric: tabular-nums;
 }

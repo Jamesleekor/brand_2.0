@@ -13,7 +13,8 @@ import {
   PageHeader, Modal, LoadingSpinner, EmptyState, useRpcCall
 } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
-import { studentRpc } from '@/lib/rpc/student_rpc';
+import { FontPreview } from '@/features/font/FontPreview';
+import { purchaseMyCosmetic, selectMyCosmetic } from '@/features/font/fontCosmeticRpc';
 import { useStudentId } from '@/stores/auth_store';
 import { useWallet } from '@/hooks/useWallet';
 import { formatNumber } from '@/lib/utils/format';
@@ -24,7 +25,7 @@ import { cn } from '@/lib/utils/cn';
 // 타입
 // =====================================================================
 
-type CosmeticCategory = 'background' | 'character' | 'title' | 'frame' | 'effect';
+type CosmeticCategory = 'background' | 'character' | 'title' | 'frame' | 'effect' | 'font';
 
 interface CosmeticPricingOption {
   id: number;
@@ -35,6 +36,7 @@ interface CosmeticPricingOption {
 
 interface CosmeticItem {
   id: number;
+  itemUid: string;
   name: string;
   description: string;
   category: CosmeticCategory;
@@ -54,13 +56,14 @@ const CATEGORIES: { value: CosmeticCategory | 'ALL'; label: string; emoji: strin
   { value: 'title',       label: '칭호',     emoji: '👑' },
   { value: 'frame',       label: '프레임',   emoji: '🖼️' },
   { value: 'effect',      label: '효과',     emoji: '✨' },
+  { value: 'font',        label: '폰트',     emoji: '🔤' },
 ];
 
 // =====================================================================
 // CosmeticPage
 // =====================================================================
 
-export default function CosmeticPage() {
+export default function CosmeticPage({ embedded = false }: { embedded?: boolean }) {
   const [category, setCategory] = useState<CosmeticCategory | 'ALL'>('ALL');
   const [selected, setSelected] = useState<CosmeticItem | null>(null);
   
@@ -74,9 +77,15 @@ export default function CosmeticPage() {
   
   return (
     <>
-      <PageHeader title="꾸미기" emoji="🎨" />
-      
-      <div className="px-4 pt-4">
+      {!embedded && <PageHeader title="꾸미기" emoji="🎨" />}
+      <div className={embedded ? "pb-6" : "px-4 pt-4"}>
+        {embedded && (
+          <div className="mb-3 rounded-card-lg border border-line bg-bg-card p-4">
+            <div className="font-system text-[10px] font-black uppercase tracking-[0.18em] text-brand-glow">COSMETIC SHOP</div>
+            <h2 className="mt-1 text-xl font-black text-white">꾸미기 아이템</h2>
+            <p className="font-system mt-1 text-xs font-bold text-text-secondary">배경과 폰트를 포함한 꾸미기 아이템을 구매할 수 있어요. 폰트는 구매 전 실제 모양을 직접 확인할 수 있습니다.</p>
+          </div>
+        )}
         {/* 카테고리 탭 */}
         <div className="flex gap-1.5 mb-3 overflow-x-auto scrollbar-hide">
           {CATEGORIES.map((cat) => (
@@ -139,7 +148,12 @@ function CosmeticCard({ item, onClick }: { item: CosmeticItem; onClick: () => vo
     >
       {/* 이미지 */}
       <div className="aspect-square bg-bg-deep relative overflow-hidden">
-        {item.imageUrl ? (
+        {item.category === 'font' ? (
+          <div className="flex h-full w-full flex-col justify-center px-3 py-4">
+            <div className="font-system text-[9px] font-black uppercase tracking-[0.14em] text-text-muted">FONT PREVIEW</div>
+            <FontPreview itemUid={item.itemUid} className="mt-3 break-keep text-center text-xl leading-relaxed text-white" />
+          </div>
+        ) : item.imageUrl ? (
           <img
             src={resolveAssetUrl(item.imageUrl, item.category as any)}
             alt={item.name}
@@ -199,6 +213,7 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
   const queryClient = useQueryClient();
   const { call, isLoading } = useRpcCall();
   const [selectedPricingId, setSelectedPricingId] = useState<number | null>(item.pricingOptions[0]?.id ?? null);
+  const [fontPreviewText, setFontPreviewText] = useState('나의 B.R.A.N.D.를 꾸며 보세요! 123 ABC');
   const selectedPricing = item.pricingOptions.find((option) => option.id === selectedPricingId) ?? null;
   const canBuy = !item.isOwned && !!selectedPricing && canAffordPricing(selectedPricing, wallet);
   
@@ -206,11 +221,7 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
     if (!studentId || !selectedPricing) return;
     
     await call(
-      () => studentRpc.purchaseCosmeticItem(supabase, {
-        p_student_id: studentId,
-        p_item_id: item.id,
-        p_pricing_id: selectedPricing.id,
-      }),
+      () => purchaseMyCosmetic(supabase, item.id, selectedPricing.id),
       {
         successTitle: `${item.name} 구매 완료! 🎨`,
         onSuccess: () => {
@@ -226,10 +237,7 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
     if (!studentId || !item.ownershipId) return;
     
     await call(
-      () => studentRpc.equipCosmeticItem(supabase, {
-        p_student_id: studentId,
-        p_ownership_id: item.ownershipId!,
-      }),
+      () => selectMyCosmetic(supabase, item.category, item.ownershipId!),
       {
         successTitle: `${item.name} 장착! ✨`,
         onSuccess: () => {
@@ -246,7 +254,11 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
       <div>
         {/* 이미지 미리보기 */}
         <div className="aspect-square bg-bg-deep rounded-card-lg overflow-hidden mb-4 max-w-xs mx-auto">
-          {item.imageUrl ? (
+          {item.category === 'font' ? (
+            <div className="flex h-full w-full items-center justify-center p-4">
+              <FontPreview itemUid={item.itemUid} text={fontPreviewText} mode="runtime" className="break-keep text-center text-2xl leading-relaxed text-white" />
+            </div>
+          ) : item.imageUrl ? (
             <img
               src={resolveAssetUrl(item.imageUrl, item.category as any)}
               alt={item.name}
@@ -258,6 +270,20 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
             </div>
           )}
         </div>
+        {item.category === 'font' && (
+          <div className="font-system mb-4 rounded-card-md border border-line bg-bg-card p-3">
+            <label className="text-2xs font-black text-text-secondary" htmlFor={`font-preview-${item.id}`}>직접 입력해서 미리보기</label>
+            <input
+              id={`font-preview-${item.id}`}
+              value={fontPreviewText}
+              maxLength={80}
+              onChange={(event) => setFontPreviewText(event.target.value)}
+              placeholder="미리 볼 문장을 입력하세요"
+              className="mt-2 w-full rounded-card-md border border-line bg-bg-deep px-3 py-2 text-sm text-white outline-none focus:border-brand-primary"
+            />
+            <p className="mt-1.5 text-[10px] text-text-muted">한글·영문·숫자를 자유롭게 입력해 실제 적용 모습을 확인할 수 있어요.</p>
+          </div>
+        )}
         
         {item.description && (
           <p className="text-sm text-text-secondary mb-4 break-keep leading-relaxed">
@@ -386,7 +412,7 @@ function useCosmeticItems() {
       const { data: items } = await supabase
         .from('cosmetic_items')
         .select(`
-          id, name, description, category, resource_url,
+          id, item_uid, name, description, category, resource_url,
           pricing:cosmetic_item_pricings(id, value_token, price, condition_description, is_active)
         `)
         .eq('is_active', true);
@@ -414,6 +440,7 @@ function useCosmeticItems() {
         
         return {
           id: i.id,
+          itemUid: String(i.item_uid ?? ''),
           name: i.name,
           description: i.description ?? '',
           category: i.category,

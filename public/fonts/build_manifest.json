@@ -1,0 +1,1123 @@
+{
+  "version": 1,
+  "sourceFaceCount": 45,
+  "discoveredFontFileCount": 45,
+  "previewText": "나의 브랜드를 꾸며 보세요! 123 ABC",
+  "brotliQuality": 8,
+  "partialBuild": false,
+  "selectedSlugs": [
+    "chosun-centennial",
+    "chosun-km",
+    "chosun-lo",
+    "chosun-nm",
+    "dalseo-darling",
+    "dalseo-healing",
+    "danjo-bold",
+    "dnf-bitbit-v2",
+    "funflow-survivor",
+    "ghana-chocolate",
+    "griun-mongtori",
+    "heir-of-light",
+    "kopub-batang",
+    "kopub-dotum",
+    "laundry-gothic",
+    "maplestory",
+    "nexon-football",
+    "nexon-lv1",
+    "one-mobile",
+    "pinkfong-babyshark",
+    "ridi-batang",
+    "shilla-culture",
+    "tway-fly",
+    "tway-sky",
+    "warhaven",
+    "y-pairing",
+    "yes24"
+  ],
+  "families": [
+    {
+      "itemUid": "FONT_CHOSUN100",
+      "slug": "chosun-centennial",
+      "cssFamily": "BRAND Chosun Centennial",
+      "previewFamily": "BRAND Chosun Centennial Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 12276,
+          "bytes": 1270064,
+          "sha256": "7433863fa957450af37f0102cd24ab3027fc102f35e6e5844c7b08d165fc39b5"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 10324,
+        "sha256": "7f804729578be566fa3bdc4f3e09f4d167e03c8f9a0dc69ae0fec3f9bdf1cafe"
+      }
+    },
+    {
+      "itemUid": "FONT_CHOSUNKM",
+      "slug": "chosun-km",
+      "cssFamily": "BRAND Chosun Km",
+      "previewFamily": "BRAND Chosun Km Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 17144,
+          "bytes": 1812956,
+          "sha256": "f6cc6da6c350113d035cd033b5e069a311ec14e378aba1f734930dc1b08fd2d7"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 4496,
+        "sha256": "560c0d5d413141649f5e307aa81f786e9c51ffdc6229dd3a982e526741c9f82a"
+      }
+    },
+    {
+      "itemUid": "FONT_CHOSUNLO",
+      "slug": "chosun-lo",
+      "cssFamily": "BRAND Chosun Lo",
+      "previewFamily": "BRAND Chosun Lo Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 17144,
+          "bytes": 1405184,
+          "sha256": "b74c74034d1341b46fd04bee3580835514fc73086346c4ab0c78a063eccfcd04"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 3012,
+        "sha256": "88ae92b44231b3ba1a3b7a4cb71d166d8040f2db11397e93df5fd80c6547e709"
+      }
+    },
+    {
+      "itemUid": "FONT_CHOSUNNM",
+      "slug": "chosun-nm",
+      "cssFamily": "BRAND Chosun Nm",
+      "previewFamily": "BRAND Chosun Nm Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 37178,
+          "bytes": 3421992,
+          "sha256": "76b40ac8dc41312937b7755c3eee14c139e4013bc9a0cba9c75822f5eb020cab"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 5624,
+        "sha256": "a744d1628db9d1bb885ada587bf5982f342fc3a0ae5cb95f9a86abcb2dee46a6"
+      }
+    },
+    {
+      "itemUid": "FONT_DALSEO_D",
+      "slug": "dalseo-darling",
+      "cssFamily": "BRAND Dalseo Darling",
+      "previewFamily": "BRAND Dalseo Darling Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 12267,
+          "bytes": 495908,
+          "sha256": "c06aaa291fc62b8587a0a2323207797ef536d62578a778e39bd74a991aa80c75"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 5072,
+        "sha256": "2c97e1a4c012801a521d16d09af58a2f1031f29cf35cbe4c2ad2e28ddbf4b0f9"
+      }
+    },
+    {
+      "itemUid": "FONT_DALSEO_H",
+      "slug": "dalseo-healing",
+      "cssFamily": "BRAND Dalseo Healing",
+      "previewFamily": "BRAND Dalseo Healing Preview",
+      "defaultWeight": 500,
+      "faces": [
+        {
+          "weight": 500,
+          "file": "500.woff2",
+          "unicodeChars": 12268,
+          "bytes": 365856,
+          "sha256": "e8cf52825e76c390d810eeff3216676dbc5b44bb53ce382a48cf891e2c1b3f8e"
+        },
+        {
+          "weight": 700,
+          "file": "700.woff2",
+          "unicodeChars": 12268,
+          "bytes": 376268,
+          "sha256": "e4fed075f3c706b012407653f9d3320740d2403137fe7e26103ddeb6bec41036"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 5428,
+        "sha256": "19f6e156b5a603e3f4f8c9e66c6e902847f89706578cc3631628a473ea63589b"
+      }
+    },
+    {
+      "itemUid": "FONT_DANJO",
+      "slug": "danjo-bold",
+      "cssFamily": "BRAND Danjo Bold",
+      "previewFamily": "BRAND Danjo Bold Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 3003,
+          "bytes": 174152,
+          "sha256": "169611d936e13db84e1c98c943ab8a4aad86833fd2f5a1829f6006a921b8c04a"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 3224,
+        "sha256": "b81adc7a22eb02620393718994fdb5c5f36f8b41a6b4ce36e46147bfe16ec00a"
+      }
+    },
+    {
+      "itemUid": "FONT_DNF_BITBIT",
+      "slug": "dnf-bitbit-v2",
+      "cssFamily": "BRAND DNF BitBit v2",
+      "previewFamily": "BRAND DNF BitBit v2 Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 12299,
+          "bytes": 308660,
+          "sha256": "15d76c7379f2482180fc61b10c42c8a3ca04e0159dc04c72eabcc54915d88bd6"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 2112,
+        "sha256": "078cb474f7d7243942ea90051204de542f1451353593d3050fe5a05043b85243"
+      }
+    },
+    {
+      "itemUid": "FONT_FUNFLOW",
+      "slug": "funflow-survivor",
+      "cssFamily": "BRAND Funflow Survivor",
+      "previewFamily": "BRAND Funflow Survivor Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 12434,
+          "bytes": 190488,
+          "sha256": "0cc9b7b8914575b004014ef0cc39712e5bd8ec77577b902e33e710ead6f0fdd0"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 2744,
+        "sha256": "e90f0626b8df83091d1c23cbf90873b3c38a2e675fa5fd6322f4a49bcf24d72e"
+      }
+    },
+    {
+      "itemUid": "FONT_GHANA",
+      "slug": "ghana-chocolate",
+      "cssFamily": "BRAND Ghana Chocolate",
+      "previewFamily": "BRAND Ghana Chocolate Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 12213,
+          "bytes": 381520,
+          "sha256": "6f86fbac502c033d6b71b0cacf1b42e51eadcd59972da5e99b154f1721030947"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 4168,
+        "sha256": "53dacc60546521e0fba6605b6c04303bbb9e4e819042c4f281946a1ac0179928"
+      }
+    },
+    {
+      "itemUid": "FONT_MONGTORI",
+      "slug": "griun-mongtori",
+      "cssFamily": "BRAND Griun Mongtori",
+      "previewFamily": "BRAND Griun Mongtori Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 11334,
+          "bytes": 3092388,
+          "sha256": "065e11c487d0e18c8cf633d26b029d3cf8afd20a7caf67c6be1247b3ee62c863"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 4040,
+        "sha256": "9deb6770c6f0ebb8563cb8e1df57dcfa8f7d07eedda628ae8a64ff3ad798d224"
+      }
+    },
+    {
+      "itemUid": "FONT_HEIRLIGHT",
+      "slug": "heir-of-light",
+      "cssFamily": "BRAND Heir of Light",
+      "previewFamily": "BRAND Heir of Light Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 8919,
+          "bytes": 416340,
+          "sha256": "a817be465409b196c33480b34f5c1fc77c6dbf6a1c4c2b00560b86ff4823b616"
+        },
+        {
+          "weight": 700,
+          "file": "700.woff2",
+          "unicodeChars": 8919,
+          "bytes": 422988,
+          "sha256": "565a2c46051fc381c14a4bf209774c169b96bf6adefadbcc82ae21343cfc0bd3"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 3924,
+        "sha256": "f4c0f86bfde2fc1681892006658cb3368caed2dd2932a3da9c5b57b4dcda4b58"
+      }
+    },
+    {
+      "itemUid": "FONT_KOPUB_B",
+      "slug": "kopub-batang",
+      "cssFamily": "BRAND KoPub Batang",
+      "previewFamily": "BRAND KoPub Batang Preview",
+      "defaultWeight": 500,
+      "faces": [
+        {
+          "weight": 300,
+          "file": "300.woff2",
+          "unicodeChars": 17455,
+          "bytes": 1933648,
+          "sha256": "fe3b45a4a4e1636f83af6cc1a8de90852d8de8e48638e063840b1b8608d11425"
+        },
+        {
+          "weight": 500,
+          "file": "500.woff2",
+          "unicodeChars": 17455,
+          "bytes": 1915704,
+          "sha256": "d39dfe4a2b17c2a19ab9e24312d7b43273059b3aadc2260e0e81f9dd31b30935"
+        },
+        {
+          "weight": 700,
+          "file": "700.woff2",
+          "unicodeChars": 17455,
+          "bytes": 2010540,
+          "sha256": "9aa20598366511b0037eef965a5dc203c2ae6db0cd5bf0f402bcc0376e1c42e3"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 5496,
+        "sha256": "03067f79739f5c2baef6869ef9b09a74a02863d9318378b0b4ba01eb4fed4abc"
+      }
+    },
+    {
+      "itemUid": "FONT_KOPUB_D",
+      "slug": "kopub-dotum",
+      "cssFamily": "BRAND KoPub Dotum",
+      "previewFamily": "BRAND KoPub Dotum Preview",
+      "defaultWeight": 500,
+      "faces": [
+        {
+          "weight": 300,
+          "file": "300.woff2",
+          "unicodeChars": 17455,
+          "bytes": 1196160,
+          "sha256": "ec998ee4072d426904a922058bc4a9eb8f3ab9e9c9a3577ca84e3c22605e816d"
+        },
+        {
+          "weight": 500,
+          "file": "500.woff2",
+          "unicodeChars": 17455,
+          "bytes": 1223304,
+          "sha256": "7e6b497d452d727c8f6d013b91636f10da258d0b9e60648ef88d86ebae690991"
+        },
+        {
+          "weight": 700,
+          "file": "700.woff2",
+          "unicodeChars": 17455,
+          "bytes": 1212380,
+          "sha256": "acda34f65b7f36a7e57a7e614c631521bf7cd1bc43206fb3af24b3fa00a1a1aa"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 3136,
+        "sha256": "ae6c6382ada1cc2245c3ec6e6acf45f6904517ee814d40b617e7e75dfd644fe6"
+      }
+    },
+    {
+      "itemUid": "FONT_LAUNDRY",
+      "slug": "laundry-gothic",
+      "cssFamily": "BRAND Laundry Gothic",
+      "previewFamily": "BRAND Laundry Gothic Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 12258,
+          "bytes": 216476,
+          "sha256": "1cff2c524743b91d9660e64a9c0e88454493f2b5b4b9aa558c56601f2b092fc8"
+        },
+        {
+          "weight": 700,
+          "file": "700.woff2",
+          "unicodeChars": 12258,
+          "bytes": 221780,
+          "sha256": "35c0a622d38b076d18d6c44c620199e351998eba7e34959f8025bf530b7f09dc"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 2740,
+        "sha256": "8e1359dbb2cb7c9869d0244606f41f6d3daa6a5c15caa9066f53f64b6c13b3cf"
+      }
+    },
+    {
+      "itemUid": "FONT_MAPLE",
+      "slug": "maplestory",
+      "cssFamily": "BRAND Maplestory",
+      "previewFamily": "BRAND Maplestory Preview",
+      "defaultWeight": 300,
+      "faces": [
+        {
+          "weight": 300,
+          "file": "300.woff2",
+          "unicodeChars": 12256,
+          "bytes": 278120,
+          "sha256": "6638a077b26efdcf7c5652bb79acf692eb64ae464a83faa730d5eac0e7fe4d7c"
+        },
+        {
+          "weight": 700,
+          "file": "700.woff2",
+          "unicodeChars": 12256,
+          "bytes": 288440,
+          "sha256": "ae622ddad81c7ef2521def9222f51e46c90bbb6dc30421f4d23fcd085689b9cc"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 3892,
+        "sha256": "8d67b2dbd93cc1df0a20052aed2777cac35145b857da640e34094553f77e897d"
+      }
+    },
+    {
+      "itemUid": "FONT_NXFOOTBALL",
+      "slug": "nexon-football",
+      "cssFamily": "BRAND NEXON Football Gothic",
+      "previewFamily": "BRAND NEXON Football Gothic Preview",
+      "defaultWeight": 300,
+      "faces": [
+        {
+          "weight": 300,
+          "file": "300.woff2",
+          "unicodeChars": 12303,
+          "bytes": 221048,
+          "sha256": "366a61bff302e1f05ba3a2fc777a0ab31f2efef01c76ae5db04072f8ac51b3d0"
+        },
+        {
+          "weight": 700,
+          "file": "700.woff2",
+          "unicodeChars": 12303,
+          "bytes": 206260,
+          "sha256": "74ab49cd0a0e4113d6278ac681eb27679544dbb17215a6ddc286edbbfd87b41e"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 2928,
+        "sha256": "358087e632f7eaee5a42cf5cc2cc90b465f28b6ab07c01c6ccbdc3f85d93ccab"
+      }
+    },
+    {
+      "itemUid": "FONT_NXLV1",
+      "slug": "nexon-lv1",
+      "cssFamily": "BRAND NEXON Lv1 Gothic",
+      "previewFamily": "BRAND NEXON Lv1 Gothic Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 300,
+          "file": "300.woff2",
+          "unicodeChars": 12256,
+          "bytes": 428504,
+          "sha256": "e6ae584b74e1ce011d892af640093b0f18014d43394b827c4d881a5a727bb85e"
+        },
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 12256,
+          "bytes": 442736,
+          "sha256": "eab8d5e25817c1b3a6a1b3dff60ce3c2a00e59b51aa1fd8c32f9b32a50fc1735"
+        },
+        {
+          "weight": 700,
+          "file": "700.woff2",
+          "unicodeChars": 12256,
+          "bytes": 448760,
+          "sha256": "f3164557a50fa2417fccaa87f5d7d6ac8e9010d7f975bea99356ef088f469cb7"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 3076,
+        "sha256": "455bed5a4db464dc0045c791ecdf55f0c4387056c737513bd4beb1c8922b791b"
+      }
+    },
+    {
+      "itemUid": "FONT_ONE_MOBILE",
+      "slug": "one-mobile",
+      "cssFamily": "BRAND ONE Mobile",
+      "previewFamily": "BRAND ONE Mobile Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 300,
+          "file": "300.woff2",
+          "unicodeChars": 17304,
+          "bytes": 1367300,
+          "sha256": "f459a61708cdc3935dc5dd1fccb40b95b8f67f2b5aa6cbfd0ca0e103b70290f6"
+        },
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 17302,
+          "bytes": 1329448,
+          "sha256": "2ac894f8889aa56d9bbf7d2d0d0fd9b746bb983af953a758b3063eb26b2a7456"
+        },
+        {
+          "weight": 700,
+          "file": "700.woff2",
+          "unicodeChars": 17304,
+          "bytes": 1339720,
+          "sha256": "0b34898e1f026d1f4a70e529582ce4bba9fec6c6702ef89a4897b4a4818c8799"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 5416,
+        "sha256": "73de4879a93a3c2b482b52783b78d68251728b33e604c8e68c4057bc0c23f07d"
+      }
+    },
+    {
+      "itemUid": "FONT_PINKFONG",
+      "slug": "pinkfong-babyshark",
+      "cssFamily": "BRAND Pinkfong Baby Shark",
+      "previewFamily": "BRAND Pinkfong Baby Shark Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 300,
+          "file": "300.woff2",
+          "unicodeChars": 13854,
+          "bytes": 328620,
+          "sha256": "cffef29648f79f776b3333e739af6342ae8a9701f2dbbbb5fcbcacb451ccdf97"
+        },
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 13854,
+          "bytes": 324120,
+          "sha256": "14e27253582ae647b527c1a6f8d4455e549beb7d6e126c75191c617cef3919ce"
+        },
+        {
+          "weight": 700,
+          "file": "700.woff2",
+          "unicodeChars": 13854,
+          "bytes": 338976,
+          "sha256": "f4162aabed35fc9fadeb83f50562e8bb1878b2588ccfe7d7b624a30e24f314c9"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 2184,
+        "sha256": "0014420e914f358f8bfd04e5784b18a97e4a27ba8ae711a983b3af84895d091f"
+      }
+    },
+    {
+      "itemUid": "FONT_RIDI",
+      "slug": "ridi-batang",
+      "cssFamily": "BRAND RIDI Batang",
+      "previewFamily": "BRAND RIDI Batang Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 12472,
+          "bytes": 516840,
+          "sha256": "03d0d23ec1f9954473b4fcb7997f35abed4218b5d113992d80b6029db02e186d"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 5316,
+        "sha256": "4e187b64e17b0f33a2b99388ae03aad0a9344ad0a0892d77b4e86e5007213150"
+      }
+    },
+    {
+      "itemUid": "FONT_SHILLA",
+      "slug": "shilla-culture",
+      "cssFamily": "BRAND Shilla Culture",
+      "previewFamily": "BRAND Shilla Culture Preview",
+      "defaultWeight": 500,
+      "faces": [
+        {
+          "weight": 500,
+          "file": "500.woff2",
+          "unicodeChars": 12024,
+          "bytes": 2582436,
+          "sha256": "e15758d5a0554319c010dd39cfa8aa911065f7d24a1f4d7f50deaf8a5deba7db"
+        },
+        {
+          "weight": 700,
+          "file": "700.woff2",
+          "unicodeChars": 12024,
+          "bytes": 2691240,
+          "sha256": "873907289f7a84e1b788fbde667756508e45c7fef3755927f9f28db6d6fb1118"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 14664,
+        "sha256": "4693f58c80012dee54df165908f166c7dcc1cef3db46c2f0f22af5de88d6bdc1"
+      }
+    },
+    {
+      "itemUid": "FONT_TWAY_FLY",
+      "slug": "tway-fly",
+      "cssFamily": "BRAND tway fly",
+      "previewFamily": "BRAND tway fly Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 17526,
+          "bytes": 230984,
+          "sha256": "3dcd744ebe91e67926dbf7eec1d3d3324adb1e6f8a2edd9a8e5fd61721011bb7"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 4304,
+        "sha256": "6ebccd1217b4208fb8b94351b84e295a6bf2b59b30f40d9c4a8224e95f380f03"
+      }
+    },
+    {
+      "itemUid": "FONT_TWAY_SKY",
+      "slug": "tway-sky",
+      "cssFamily": "BRAND tway sky",
+      "previewFamily": "BRAND tway sky Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 17526,
+          "bytes": 239844,
+          "sha256": "b572f28513613d22a16a82684d80e5693fe0e82c4119904a5d1c79eb1cc6b7af"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 4644,
+        "sha256": "f97886081bc86fd44f88294cd5c6f811a602630cb74fe8df4730c01fffcbc418"
+      }
+    },
+    {
+      "itemUid": "FONT_WARHAVEN",
+      "slug": "warhaven",
+      "cssFamily": "BRAND Warhaven",
+      "previewFamily": "BRAND Warhaven Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 11592,
+          "bytes": 370712,
+          "sha256": "f46c8e7b1c451c850a77393c46db42b8b538eb3b6638d1825091b252d57ec0fc"
+        },
+        {
+          "weight": 700,
+          "file": "700.woff2",
+          "unicodeChars": 11592,
+          "bytes": 385616,
+          "sha256": "b61558af8648058566692b3544af7782b410410703e5df026b50d711edc64992"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 2580,
+        "sha256": "d3838c6919f13653c342ba4097afe466a64a39425f57b6dc28289e4d7c6f9641"
+      }
+    },
+    {
+      "itemUid": "FONT_YPAIRING",
+      "slug": "y-pairing",
+      "cssFamily": "BRAND Y Pairing",
+      "previewFamily": "BRAND Y Pairing Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 12286,
+          "bytes": 1798588,
+          "sha256": "7e9e0dcc75380a2d7709ce72389259f17b9a5fb360e85959923f75e8ba30451c"
+        },
+        {
+          "weight": 700,
+          "file": "700.woff2",
+          "unicodeChars": 12286,
+          "bytes": 2105000,
+          "sha256": "9fffe92c31cda4ee30c12d53969d513b28128379dbfa4a83a30e29d38ddd18ca"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 7552,
+        "sha256": "737944eac46740ed0bff1c46fd1d0feabe56121dbd31cfd14700b7f00558e563"
+      }
+    },
+    {
+      "itemUid": "FONT_YES24",
+      "slug": "yes24",
+      "cssFamily": "BRAND YES24",
+      "previewFamily": "BRAND YES24 Preview",
+      "defaultWeight": 400,
+      "faces": [
+        {
+          "weight": 400,
+          "file": "400.woff2",
+          "unicodeChars": 12275,
+          "bytes": 335812,
+          "sha256": "7b9290c13ce58810906162dbf0f14583deea10395b35d1f0d5fe6396ca8801a5"
+        }
+      ],
+      "preview": {
+        "file": "preview.woff2",
+        "unicodeChars": 19,
+        "bytes": 3828,
+        "sha256": "e8533b810d55fb3d65353f699ce64018906d957a301cdb78507b9c8bdc01f1be"
+      }
+    }
+  ],
+  "sourceChecks": [
+    {
+      "itemUid": "FONT_LAUNDRY",
+      "slug": "laundry-gothic",
+      "weight": 700,
+      "source": "╖▒╡σ╕«░φ╡± Bold.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "3deb8d339ba51c794c70451a3df9270c6731105f4895a6bc8b61ae6e8e7bf395"
+    },
+    {
+      "itemUid": "FONT_LAUNDRY",
+      "slug": "laundry-gothic",
+      "weight": 400,
+      "source": "╖▒╡σ╕«░φ╡± Regular.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "dbd6475fa2ca09a6f5c7505ba3585693d583e349c6734c98acf2ef98d0b56842"
+    },
+    {
+      "itemUid": "FONT_FUNFLOW",
+      "slug": "funflow-survivor",
+      "weight": 400,
+      "source": "╞▌╟├╖╬ ╗²┴╕└┌.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "36d53ece96a2c590cf7fb84b9fdf975cab89c201d19832e085c2a1bb826df6e0"
+    },
+    {
+      "itemUid": "FONT_CHOSUN100",
+      "slug": "chosun-centennial",
+      "weight": 400,
+      "source": "ChosunCentennial_ttf.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "d620604fbf9eab138612753c9317162aa7a748f97ca53ea61d2860a9a727ba1f"
+    },
+    {
+      "itemUid": "FONT_CHOSUNKM",
+      "slug": "chosun-km",
+      "weight": 400,
+      "source": "ChosunKm.TTF",
+      "matchMode": "sha256",
+      "sourceSha256": "303fa3f070e5c3d9001b2029a6d940c2b25470f3ebe67c104bf452505eecef4d"
+    },
+    {
+      "itemUid": "FONT_CHOSUNLO",
+      "slug": "chosun-lo",
+      "weight": 400,
+      "source": "ChosunLo.TTF",
+      "matchMode": "sha256",
+      "sourceSha256": "78f1fa856888e8def0c9332d9186ad23b58b937463be6867026bd4ad92ea0648"
+    },
+    {
+      "itemUid": "FONT_CHOSUNNM",
+      "slug": "chosun-nm",
+      "weight": 400,
+      "source": "ChosunNm.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "715b213eb713a520366ae9634dade0fe377601a5523ad71a60453410db9bf81b"
+    },
+    {
+      "itemUid": "FONT_DALSEO_D",
+      "slug": "dalseo-darling",
+      "weight": 400,
+      "source": "DalseoDarling.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "67fc81def294302aa911b696a1be4158e4c74eedd192a1d41d25d28e726179ec"
+    },
+    {
+      "itemUid": "FONT_DALSEO_H",
+      "slug": "dalseo-healing",
+      "weight": 700,
+      "source": "DalseoHealingBold.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "3bffd001701e45813c1de1619991f36ffcd54b6b23fdca8c7ef36f2c4d16904a"
+    },
+    {
+      "itemUid": "FONT_DALSEO_H",
+      "slug": "dalseo-healing",
+      "weight": 500,
+      "source": "DalseoHealingMedium.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "00959b43236113778800cd9860165d34b5485821977759e5bd79d1d1c06b2101"
+    },
+    {
+      "itemUid": "FONT_DANJO",
+      "slug": "danjo-bold",
+      "weight": 400,
+      "source": "Danjo-bold-Regular.otf",
+      "matchMode": "sha256",
+      "sourceSha256": "cc1117cb74682abbf90401a4efd9a6a9da5e5fdd10c3366675bdeac9f39f9a2c"
+    },
+    {
+      "itemUid": "FONT_DNF_BITBIT",
+      "slug": "dnf-bitbit-v2",
+      "weight": 400,
+      "source": "DNFBitBitv2.otf",
+      "matchMode": "sha256",
+      "sourceSha256": "ffa93fec1e4407156b04a1eb2aad3018746d4eb3ef3000c0720e49f068dda622"
+    },
+    {
+      "itemUid": "FONT_GHANA",
+      "slug": "ghana-chocolate",
+      "weight": 400,
+      "source": "Ghanachocolate.otf",
+      "matchMode": "sha256",
+      "sourceSha256": "e2394abb8bb6887689408c2b787fc3852219ce4db377a94bb22d01a3c857dd9a"
+    },
+    {
+      "itemUid": "FONT_MONGTORI",
+      "slug": "griun-mongtori",
+      "weight": 400,
+      "source": "Griun_Mongtori-Rg.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "a9b893a72c190b182c46200022b078ecac302dde360d657bf4f0817c48b39133"
+    },
+    {
+      "itemUid": "FONT_HEIRLIGHT",
+      "slug": "heir-of-light",
+      "weight": 700,
+      "source": "HeirofLightBold.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "c3505bee40284547895c652da997344ceb02e22b38f0173e8f99e030d8b97c57"
+    },
+    {
+      "itemUid": "FONT_HEIRLIGHT",
+      "slug": "heir-of-light",
+      "weight": 400,
+      "source": "HeirofLightRegular.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "eef0bca245727c3daab2df0a7e3b7aa48f73119e17f450a73e201c6aaa298a8e"
+    },
+    {
+      "itemUid": "FONT_KOPUB_B",
+      "slug": "kopub-batang",
+      "weight": 700,
+      "source": "KoPub Batang Bold.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "94de26a11aa25619526ac8183fde4f46e74e22c527acb42aea2e93f5313bbc5b"
+    },
+    {
+      "itemUid": "FONT_KOPUB_B",
+      "slug": "kopub-batang",
+      "weight": 300,
+      "source": "KoPub Batang Light.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "b7438d61595fe9584706ab2cb3c9aa2acdc486d61c8299374a30b3e77bc2045f"
+    },
+    {
+      "itemUid": "FONT_KOPUB_B",
+      "slug": "kopub-batang",
+      "weight": 500,
+      "source": "KoPub Batang Medium.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "7a798592beb0d35bb557b010c2794cbcc988e89fcbcee0eb5edbb35161141ab4"
+    },
+    {
+      "itemUid": "FONT_KOPUB_D",
+      "slug": "kopub-dotum",
+      "weight": 700,
+      "source": "KoPub Dotum Bold.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "967efe18063dd971c63dde3e8fcb247e0fcf16486a24ba2e284a716e44b90275"
+    },
+    {
+      "itemUid": "FONT_KOPUB_D",
+      "slug": "kopub-dotum",
+      "weight": 300,
+      "source": "KoPub Dotum Light.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "018a0f18613a98d446696ea3d36194e288d5d8004aa58327789c830f6179e23d"
+    },
+    {
+      "itemUid": "FONT_KOPUB_D",
+      "slug": "kopub-dotum",
+      "weight": 500,
+      "source": "KoPub Dotum Medium.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "d0adfdcb40b7e73389128cc0222b53a91e5aa0e653f89967485a1f8b46124eb7"
+    },
+    {
+      "itemUid": "FONT_MAPLE",
+      "slug": "maplestory",
+      "weight": 700,
+      "source": "Maplestory Bold.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "d57eaff48a793ff872a0f33bba2943d058d07c81ed64c68054858a287b85811a"
+    },
+    {
+      "itemUid": "FONT_MAPLE",
+      "slug": "maplestory",
+      "weight": 300,
+      "source": "Maplestory Light.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "6d51d8e576f77b01914095aa1f69f9d37c16d93fe940d748962867f218442ba9"
+    },
+    {
+      "itemUid": "FONT_NXFOOTBALL",
+      "slug": "nexon-football",
+      "weight": 700,
+      "source": "NEXON Football Gothic B.otf",
+      "matchMode": "sha256",
+      "sourceSha256": "37cb6eb268d6f7d45a1467c0deac6eb2fbb80e930f8e66d528494f296f571ec9"
+    },
+    {
+      "itemUid": "FONT_NXFOOTBALL",
+      "slug": "nexon-football",
+      "weight": 300,
+      "source": "NEXON Football Gothic L.otf",
+      "matchMode": "sha256",
+      "sourceSha256": "dd6f3a3c48024710a70a240f5ad4ec32944fb728771826a11a92d1aa670c56f2"
+    },
+    {
+      "itemUid": "FONT_WARHAVEN",
+      "slug": "warhaven",
+      "weight": 700,
+      "source": "NEXON_Warhaven_Bold.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "837e4b9316581fd0bbbb0bd4e9ccda65a319568611feb1f9ec9d031b57ba949c"
+    },
+    {
+      "itemUid": "FONT_WARHAVEN",
+      "slug": "warhaven",
+      "weight": 400,
+      "source": "NEXON_Warhaven_Regular.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "393303b19636d7eba160f8357bc3321b7df4b2c3d445972ae2a37d583879c7df"
+    },
+    {
+      "itemUid": "FONT_NXLV1",
+      "slug": "nexon-lv1",
+      "weight": 700,
+      "source": "NEXONLv1GothicBold.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "882ea4022c310d17dc1e874ab272d804c17dc07c1833b3710d1696ec42241709"
+    },
+    {
+      "itemUid": "FONT_NXLV1",
+      "slug": "nexon-lv1",
+      "weight": 300,
+      "source": "NEXONLv1GothicLight.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "1c2398853cd6d394f520670e05ee27eecaae38441f4de8e67531d62822712265"
+    },
+    {
+      "itemUid": "FONT_NXLV1",
+      "slug": "nexon-lv1",
+      "weight": 400,
+      "source": "NEXONLv1GothicRegular.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "1cdab384930c49f8a7ee53001d0a46e2c2bd5d88b68153d6c7c6977a294f97e2"
+    },
+    {
+      "itemUid": "FONT_ONE_MOBILE",
+      "slug": "one-mobile",
+      "weight": 700,
+      "source": "ONE Mobile Bold.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "9112338c51b4035347731efb0a3d61d15a0d2c45cd231ddae0b3ef790cdd0342"
+    },
+    {
+      "itemUid": "FONT_ONE_MOBILE",
+      "slug": "one-mobile",
+      "weight": 300,
+      "source": "ONE Mobile Light.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "0a3301740b7a6aceebd8787387fde7bf98cdd1ee32c0be2ede7f460aedc28dc9"
+    },
+    {
+      "itemUid": "FONT_ONE_MOBILE",
+      "slug": "one-mobile",
+      "weight": 400,
+      "source": "ONE Mobile Regular.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "0e7839d49cd1940752d2f1a2a32369f44ba2488ab6fb240d5d686edde706c532"
+    },
+    {
+      "itemUid": "FONT_PINKFONG",
+      "slug": "pinkfong-babyshark",
+      "weight": 700,
+      "source": "Pinkfong Baby Shark Font_ Bold.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "b2c20279bf06cea8fba5de4ac87a8f9863c9df001290d21c6f1263b5ba712ea4"
+    },
+    {
+      "itemUid": "FONT_PINKFONG",
+      "slug": "pinkfong-babyshark",
+      "weight": 300,
+      "source": "Pinkfong Baby Shark Font_ Light.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "91036ae5d13ecad78c7c3ada354a043471c50a3bdf10425f613586a8e6a39c1b"
+    },
+    {
+      "itemUid": "FONT_PINKFONG",
+      "slug": "pinkfong-babyshark",
+      "weight": 400,
+      "source": "Pinkfong Baby Shark Font_ Regular.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "012f4fa2b2efd22f7bc05566e52dd219060daab0b851bfffe616e076a5106b6e"
+    },
+    {
+      "itemUid": "FONT_RIDI",
+      "slug": "ridi-batang",
+      "weight": 400,
+      "source": "RIDIBatang.otf",
+      "matchMode": "sha256",
+      "sourceSha256": "f13a49c0815d254ac15e392953a0b056613dec08ceb378e54eeed14c4fda9a54"
+    },
+    {
+      "itemUid": "FONT_SHILLA",
+      "slug": "shilla-culture",
+      "weight": 700,
+      "source": "Shilla_Culture(B).ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "6aee0a25c4cb6c956e47611fb551a229759c2087335625b5ab5e411256aa594a"
+    },
+    {
+      "itemUid": "FONT_SHILLA",
+      "slug": "shilla-culture",
+      "weight": 500,
+      "source": "Shilla_Culture(M).ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "af5262dbf7561681ba702e197de64e2c88bbee1490153080dad3276f4f269670"
+    },
+    {
+      "itemUid": "FONT_TWAY_FLY",
+      "slug": "tway-fly",
+      "weight": 400,
+      "source": "tway_fly.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "1cd8c7e2e8fd27f14cbcaa8012aa8536c0db31c24bc0c85a40cfa4f9f8e7c97a"
+    },
+    {
+      "itemUid": "FONT_TWAY_SKY",
+      "slug": "tway-sky",
+      "weight": 400,
+      "source": "tway_sky.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "e068c1f4034c9b1767c642debb3a62b3a9b5e1228c96bdfeb9ea5af0b55b60aa"
+    },
+    {
+      "itemUid": "FONT_YES24",
+      "slug": "yes24",
+      "weight": 400,
+      "source": "YES24.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "2c07cef3f5171bf938e90962ebf89e3fd786e21e8b93fb30eada51393dedfb83"
+    },
+    {
+      "itemUid": "FONT_YPAIRING",
+      "slug": "y-pairing",
+      "weight": 700,
+      "source": "YPairingFont-Bold.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "6e6f3671ad6134a0a6291b42f0a577cc738464266efe0a70a9ed1db5fe498d87"
+    },
+    {
+      "itemUid": "FONT_YPAIRING",
+      "slug": "y-pairing",
+      "weight": 400,
+      "source": "YPairingFont-Regular.ttf",
+      "matchMode": "sha256",
+      "sourceSha256": "c4c363eefc20632b8c54b8a1a8c239bc84e62f1d1216863f50cf8fc76b3d5f89"
+    }
+  ],
+  "runtimeWoff2Bytes": 42663880,
+  "previewWoff2Bytes": 125924
+}

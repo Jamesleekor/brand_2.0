@@ -300,7 +300,7 @@ export const studentRpc = {
   },
 
   /**
-   * 꾸미기 구매
+   * 꾸미기 구매 — 로그인 학생 self-scoped 안전 RPC
    */
   purchaseCosmeticItem: (
     supabase: SupabaseClient,
@@ -308,14 +308,14 @@ export const studentRpc = {
   ): Promise<RpcResult<number>> => {
     return safeRpc(
       supabase,
-      "purchase_cosmetic_item",
+      "student_purchase_cosmetic",
       StudentSchemas.PurchaseCosmeticItemSchema,
       input,
     );
   },
 
   /**
-   * 꾸미기 장착
+   * 꾸미기 장착 — 로그인 학생 self-scoped 안전 RPC
    */
   equipCosmeticItem: (
     supabase: SupabaseClient,
@@ -323,7 +323,7 @@ export const studentRpc = {
   ): Promise<RpcResult<void>> => {
     return safeRpc(
       supabase,
-      "equip_cosmetic_item",
+      "student_set_cosmetic_selection",
       StudentSchemas.EquipCosmeticItemSchema,
       input,
     );

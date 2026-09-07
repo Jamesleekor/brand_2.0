@@ -10,6 +10,8 @@
 import { useEffect, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth_store';
+import { FontThemeProvider } from '@/features/font/FontThemeProvider';
+import { supabase } from '@/lib/supabase/client';
 
 // =====================================================================
 // ProtectedRoute — 학생 전용
@@ -53,6 +55,9 @@ export function ProtectedRoute({ children, requireTeacher = false }: ProtectedRo
     // 의도적인 케이스 — 그대로 진행
   }
   
+  if (!requireTeacher && !context.isTeacher) {
+    return <FontThemeProvider supabase={supabase} studentId={context.studentId}>{children}</FontThemeProvider>;
+  }
   return <>{children}</>;
 }
 

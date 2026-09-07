@@ -1,0 +1,28 @@
+﻿item_uid,name,category,resource_url,is_active,price,value_token,release_status
+FONT_CHOSUN100,조선100년체,font,font:chosun-centennial,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_CHOSUNKM,조선굵은명조,font,font:chosun-km,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_CHOSUNLO,조선로고체,font,font:chosun-lo,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_CHOSUNNM,조선일보명조,font,font:chosun-nm,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_DALSEO_D,달서달링체,font,font:dalseo-darling,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_DALSEO_H,달서힐링체,font,font:dalseo-healing,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_DANJO,단조 Bold,font,font:danjo-bold,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_DNF_BITBIT,던파 비트비트체 v2,font,font:dnf-bitbit-v2,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_FUNFLOW,펀플로 생존자,font,font:funflow-survivor,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_GHANA,가나초콜릿,font,font:ghana-chocolate,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_MONGTORI,그리운 몽토리체,font,font:griun-mongtori,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_HEIRLIGHT,빛의 계승자,font,font:heir-of-light,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_KOPUB_B,KoPub 바탕체,font,font:kopub-batang,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_KOPUB_D,KoPub 돋움체,font,font:kopub-dotum,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_LAUNDRY,런드리고딕,font,font:laundry-gothic,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_MAPLE,메이플스토리,font,font:maplestory,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_NXFOOTBALL,넥슨 풋볼고딕,font,font:nexon-football,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_NXLV1,넥슨 Lv1 고딕,font,font:nexon-lv1,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_ONE_MOBILE,ONE 모바일고딕,font,font:one-mobile,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_PINKFONG,핑크퐁 아기상어,font,font:pinkfong-babyshark,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_RIDI,리디바탕,font,font:ridi-batang,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_SHILLA,신라문화체,font,font:shilla-culture,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_TWAY_FLY,티웨이 날다,font,font:tway-fly,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_TWAY_SKY,티웨이 하늘,font,font:tway-sky,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_WARHAVEN,워헤이븐,font,font:warhaven,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_YPAIRING,Y페어링체,font,font:y-pairing,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY
+FONT_YES24,예스체,font,font:yes24,false,300,CRYSTAL,STAGED_UNTIL_FRONTEND_DEPLOY

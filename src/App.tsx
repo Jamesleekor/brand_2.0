@@ -13,7 +13,6 @@ import WalletPage from '@/features/wallet/WalletPage';
 import ProfilePage from '@/features/profile/ProfilePage';
 import AchievementPage from '@/features/achievement/AchievementPage';
 import AchievementHelperPage from '@/features/achievement/AchievementHelperPage';
-import CosmeticPage from '@/features/cosmetic/CosmeticPage';
 import CharacterCollectionPage from '@/features/character/CharacterCollectionPage';
 import MarketPage from '@/features/market/MarketPage';
 import BakeryPage from '@/features/bakery/BakeryPage';
@@ -109,10 +108,7 @@ export default function App() {
           path="/characters" 
           element={<AppShell><CharacterCollectionPage /></AppShell>} 
         />
-        <Route 
-          path="/cosmetic" 
-          element={<AppShell><CosmeticPage /></AppShell>} 
-        />
+        <Route path="/cosmetic" element={<Navigate to="/market/cosmetics" replace />} />
         <Route 
           path="/achievement" 
           element={<AppShell><AchievementPage /></AppShell>} 
@@ -134,6 +130,7 @@ export default function App() {
         <Route path="/market" element={<Navigate to="/market/store" replace />} />
         <Route path="/market/snack" element={<Navigate to="/market/store" replace />} />
         <Route path="/market/store" element={<AppShell><MarketPage /></AppShell>} />
+        <Route path="/market/cosmetics" element={<AppShell><MarketPage /></AppShell>} />
         <Route path="/market/inventory" element={<AppShell><MarketPage /></AppShell>} />
         <Route path="/market/history" element={<AppShell><MarketPage /></AppShell>} />
         <Route path="/bakery" element={<AppShell hideBottomNav><BakeryPage /></AppShell>} />

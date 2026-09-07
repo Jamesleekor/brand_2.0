@@ -1,0 +1,728 @@
+{
+  "version": 1,
+  "previewText": "나의 브랜드를 꾸며 보세요! 123 ABC",
+  "families": [
+    {
+      "itemUid": "FONT_CHOSUN100",
+      "slug": "chosun-centennial",
+      "displayName": "조선100년체",
+      "cssFamily": "BRAND Chosun Centennial",
+      "previewFamily": "BRAND Chosun Centennial Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_CHOSUNKM",
+      "slug": "chosun-km",
+      "displayName": "조선굵은명조",
+      "cssFamily": "BRAND Chosun Km",
+      "previewFamily": "BRAND Chosun Km Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_CHOSUNLO",
+      "slug": "chosun-lo",
+      "displayName": "조선로고체",
+      "cssFamily": "BRAND Chosun Lo",
+      "previewFamily": "BRAND Chosun Lo Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_CHOSUNNM",
+      "slug": "chosun-nm",
+      "displayName": "조선일보명조",
+      "cssFamily": "BRAND Chosun Nm",
+      "previewFamily": "BRAND Chosun Nm Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_DALSEO_D",
+      "slug": "dalseo-darling",
+      "displayName": "달서달링체",
+      "cssFamily": "BRAND Dalseo Darling",
+      "previewFamily": "BRAND Dalseo Darling Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_DALSEO_H",
+      "slug": "dalseo-healing",
+      "displayName": "달서힐링체",
+      "cssFamily": "BRAND Dalseo Healing",
+      "previewFamily": "BRAND Dalseo Healing Preview",
+      "availableWeights": [
+        500,
+        700
+      ],
+      "defaultWeight": 500
+    },
+    {
+      "itemUid": "FONT_DANJO",
+      "slug": "danjo-bold",
+      "displayName": "단조 Bold",
+      "cssFamily": "BRAND Danjo Bold",
+      "previewFamily": "BRAND Danjo Bold Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_DNF_BITBIT",
+      "slug": "dnf-bitbit-v2",
+      "displayName": "던파 비트비트체 v2",
+      "cssFamily": "BRAND DNF BitBit v2",
+      "previewFamily": "BRAND DNF BitBit v2 Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_FUNFLOW",
+      "slug": "funflow-survivor",
+      "displayName": "펀플로 생존자",
+      "cssFamily": "BRAND Funflow Survivor",
+      "previewFamily": "BRAND Funflow Survivor Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_GHANA",
+      "slug": "ghana-chocolate",
+      "displayName": "가나초콜릿",
+      "cssFamily": "BRAND Ghana Chocolate",
+      "previewFamily": "BRAND Ghana Chocolate Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_MONGTORI",
+      "slug": "griun-mongtori",
+      "displayName": "그리운 몽토리체",
+      "cssFamily": "BRAND Griun Mongtori",
+      "previewFamily": "BRAND Griun Mongtori Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_HEIRLIGHT",
+      "slug": "heir-of-light",
+      "displayName": "빛의 계승자",
+      "cssFamily": "BRAND Heir of Light",
+      "previewFamily": "BRAND Heir of Light Preview",
+      "availableWeights": [
+        400,
+        700
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_KOPUB_B",
+      "slug": "kopub-batang",
+      "displayName": "KoPub 바탕체",
+      "cssFamily": "BRAND KoPub Batang",
+      "previewFamily": "BRAND KoPub Batang Preview",
+      "availableWeights": [
+        300,
+        500,
+        700
+      ],
+      "defaultWeight": 500
+    },
+    {
+      "itemUid": "FONT_KOPUB_D",
+      "slug": "kopub-dotum",
+      "displayName": "KoPub 돋움체",
+      "cssFamily": "BRAND KoPub Dotum",
+      "previewFamily": "BRAND KoPub Dotum Preview",
+      "availableWeights": [
+        300,
+        500,
+        700
+      ],
+      "defaultWeight": 500
+    },
+    {
+      "itemUid": "FONT_LAUNDRY",
+      "slug": "laundry-gothic",
+      "displayName": "런드리고딕",
+      "cssFamily": "BRAND Laundry Gothic",
+      "previewFamily": "BRAND Laundry Gothic Preview",
+      "availableWeights": [
+        400,
+        700
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_MAPLE",
+      "slug": "maplestory",
+      "displayName": "메이플스토리",
+      "cssFamily": "BRAND Maplestory",
+      "previewFamily": "BRAND Maplestory Preview",
+      "availableWeights": [
+        300,
+        700
+      ],
+      "defaultWeight": 300
+    },
+    {
+      "itemUid": "FONT_NXFOOTBALL",
+      "slug": "nexon-football",
+      "displayName": "넥슨 풋볼고딕",
+      "cssFamily": "BRAND NEXON Football Gothic",
+      "previewFamily": "BRAND NEXON Football Gothic Preview",
+      "availableWeights": [
+        300,
+        700
+      ],
+      "defaultWeight": 300
+    },
+    {
+      "itemUid": "FONT_NXLV1",
+      "slug": "nexon-lv1",
+      "displayName": "넥슨 Lv1 고딕",
+      "cssFamily": "BRAND NEXON Lv1 Gothic",
+      "previewFamily": "BRAND NEXON Lv1 Gothic Preview",
+      "availableWeights": [
+        300,
+        400,
+        700
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_ONE_MOBILE",
+      "slug": "one-mobile",
+      "displayName": "ONE 모바일고딕",
+      "cssFamily": "BRAND ONE Mobile",
+      "previewFamily": "BRAND ONE Mobile Preview",
+      "availableWeights": [
+        300,
+        400,
+        700
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_PINKFONG",
+      "slug": "pinkfong-babyshark",
+      "displayName": "핑크퐁 아기상어",
+      "cssFamily": "BRAND Pinkfong Baby Shark",
+      "previewFamily": "BRAND Pinkfong Baby Shark Preview",
+      "availableWeights": [
+        300,
+        400,
+        700
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_RIDI",
+      "slug": "ridi-batang",
+      "displayName": "리디바탕",
+      "cssFamily": "BRAND RIDI Batang",
+      "previewFamily": "BRAND RIDI Batang Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_SHILLA",
+      "slug": "shilla-culture",
+      "displayName": "신라문화체",
+      "cssFamily": "BRAND Shilla Culture",
+      "previewFamily": "BRAND Shilla Culture Preview",
+      "availableWeights": [
+        500,
+        700
+      ],
+      "defaultWeight": 500
+    },
+    {
+      "itemUid": "FONT_TWAY_FLY",
+      "slug": "tway-fly",
+      "displayName": "티웨이 날다",
+      "cssFamily": "BRAND tway fly",
+      "previewFamily": "BRAND tway fly Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_TWAY_SKY",
+      "slug": "tway-sky",
+      "displayName": "티웨이 하늘",
+      "cssFamily": "BRAND tway sky",
+      "previewFamily": "BRAND tway sky Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_WARHAVEN",
+      "slug": "warhaven",
+      "displayName": "워헤이븐",
+      "cssFamily": "BRAND Warhaven",
+      "previewFamily": "BRAND Warhaven Preview",
+      "availableWeights": [
+        400,
+        700
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_YPAIRING",
+      "slug": "y-pairing",
+      "displayName": "Y페어링체",
+      "cssFamily": "BRAND Y Pairing",
+      "previewFamily": "BRAND Y Pairing Preview",
+      "availableWeights": [
+        400,
+        700
+      ],
+      "defaultWeight": 400
+    },
+    {
+      "itemUid": "FONT_YES24",
+      "slug": "yes24",
+      "displayName": "예스체",
+      "cssFamily": "BRAND YES24",
+      "previewFamily": "BRAND YES24 Preview",
+      "availableWeights": [
+        400
+      ],
+      "defaultWeight": 400
+    }
+  ],
+  "sources": [
+    {
+      "itemUid": "FONT_LAUNDRY",
+      "slug": "laundry-gothic",
+      "weight": 700,
+      "sourceFile": "#Ub7f0#Ub4dc#Ub9ac#Uace0#Ub515 Bold.ttf",
+      "sha256": "3deb8d339ba51c794c70451a3df9270c6731105f4895a6bc8b61ae6e8e7bf395",
+      "postscriptName": "TTLaundryGothicB",
+      "internalWeight": 700
+    },
+    {
+      "itemUid": "FONT_LAUNDRY",
+      "slug": "laundry-gothic",
+      "weight": 400,
+      "sourceFile": "#Ub7f0#Ub4dc#Ub9ac#Uace0#Ub515 Regular.ttf",
+      "sha256": "dbd6475fa2ca09a6f5c7505ba3585693d583e349c6734c98acf2ef98d0b56842",
+      "postscriptName": "TTLaundryGothicR",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_FUNFLOW",
+      "slug": "funflow-survivor",
+      "weight": 400,
+      "sourceFile": "#Ud380#Ud50c#Ub85c #Uc0dd#Uc874#Uc790.ttf",
+      "sha256": "36d53ece96a2c590cf7fb84b9fdf975cab89c201d19832e085c2a1bb826df6e0",
+      "postscriptName": "FUNFLOW SURVIVOR KR",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_CHOSUN100",
+      "slug": "chosun-centennial",
+      "weight": 400,
+      "sourceFile": "ChosunCentennial_ttf.ttf",
+      "sha256": "d620604fbf9eab138612753c9317162aa7a748f97ca53ea61d2860a9a727ba1f",
+      "postscriptName": "ChosunCentennial",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_CHOSUNKM",
+      "slug": "chosun-km",
+      "weight": 400,
+      "sourceFile": "ChosunKm.TTF",
+      "sha256": "303fa3f070e5c3d9001b2029a6d940c2b25470f3ebe67c104bf452505eecef4d",
+      "postscriptName": "ChosunKm",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_CHOSUNLO",
+      "slug": "chosun-lo",
+      "weight": 400,
+      "sourceFile": "ChosunLo.TTF",
+      "sha256": "78f1fa856888e8def0c9332d9186ad23b58b937463be6867026bd4ad92ea0648",
+      "postscriptName": "ChosunLo",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_CHOSUNNM",
+      "slug": "chosun-nm",
+      "weight": 400,
+      "sourceFile": "ChosunNm.ttf",
+      "sha256": "715b213eb713a520366ae9634dade0fe377601a5523ad71a60453410db9bf81b",
+      "postscriptName": "ChosunilboNM",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_DALSEO_D",
+      "slug": "dalseo-darling",
+      "weight": 400,
+      "sourceFile": "DalseoDarling.ttf",
+      "sha256": "67fc81def294302aa911b696a1be4158e4c74eedd192a1d41d25d28e726179ec",
+      "postscriptName": "DalseoDarling",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_DALSEO_H",
+      "slug": "dalseo-healing",
+      "weight": 700,
+      "sourceFile": "DalseoHealingBold.ttf",
+      "sha256": "3bffd001701e45813c1de1619991f36ffcd54b6b23fdca8c7ef36f2c4d16904a",
+      "postscriptName": "DalseoHealingBold",
+      "internalWeight": 700
+    },
+    {
+      "itemUid": "FONT_DALSEO_H",
+      "slug": "dalseo-healing",
+      "weight": 500,
+      "sourceFile": "DalseoHealingMedium.ttf",
+      "sha256": "00959b43236113778800cd9860165d34b5485821977759e5bd79d1d1c06b2101",
+      "postscriptName": "DalseoHealingMedium",
+      "internalWeight": 500
+    },
+    {
+      "itemUid": "FONT_DANJO",
+      "slug": "danjo-bold",
+      "weight": 400,
+      "sourceFile": "Danjo-bold-Regular.otf",
+      "sha256": "cc1117cb74682abbf90401a4efd9a6a9da5e5fdd10c3366675bdeac9f39f9a2c",
+      "postscriptName": "Danjo-bold-Regular",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_DNF_BITBIT",
+      "slug": "dnf-bitbit-v2",
+      "weight": 400,
+      "sourceFile": "DNFBitBitv2.otf",
+      "sha256": "ffa93fec1e4407156b04a1eb2aad3018746d4eb3ef3000c0720e49f068dda622",
+      "postscriptName": "DNFBitBitv2",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_GHANA",
+      "slug": "ghana-chocolate",
+      "weight": 400,
+      "sourceFile": "Ghanachocolate.otf",
+      "sha256": "e2394abb8bb6887689408c2b787fc3852219ce4db377a94bb22d01a3c857dd9a",
+      "postscriptName": "ghanachoco",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_MONGTORI",
+      "slug": "griun-mongtori",
+      "weight": 400,
+      "sourceFile": "Griun_Mongtori-Rg.ttf",
+      "sha256": "a9b893a72c190b182c46200022b078ecac302dde360d657bf4f0817c48b39133",
+      "postscriptName": "Griun_Mongtori-Rg",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_HEIRLIGHT",
+      "slug": "heir-of-light",
+      "weight": 700,
+      "sourceFile": "HeirofLightBold.ttf",
+      "sha256": "c3505bee40284547895c652da997344ceb02e22b38f0173e8f99e030d8b97c57",
+      "postscriptName": "HeirofLightBold",
+      "internalWeight": 700
+    },
+    {
+      "itemUid": "FONT_HEIRLIGHT",
+      "slug": "heir-of-light",
+      "weight": 400,
+      "sourceFile": "HeirofLightRegular.ttf",
+      "sha256": "eef0bca245727c3daab2df0a7e3b7aa48f73119e17f450a73e201c6aaa298a8e",
+      "postscriptName": "HeirofLightRegular",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_KOPUB_B",
+      "slug": "kopub-batang",
+      "weight": 700,
+      "sourceFile": "KoPub Batang Bold.ttf",
+      "sha256": "94de26a11aa25619526ac8183fde4f46e74e22c527acb42aea2e93f5313bbc5b",
+      "postscriptName": "KoPubBatangBold",
+      "internalWeight": 700
+    },
+    {
+      "itemUid": "FONT_KOPUB_B",
+      "slug": "kopub-batang",
+      "weight": 300,
+      "sourceFile": "KoPub Batang Light.ttf",
+      "sha256": "b7438d61595fe9584706ab2cb3c9aa2acdc486d61c8299374a30b3e77bc2045f",
+      "postscriptName": "KoPubBatangLight",
+      "internalWeight": 300
+    },
+    {
+      "itemUid": "FONT_KOPUB_B",
+      "slug": "kopub-batang",
+      "weight": 500,
+      "sourceFile": "KoPub Batang Medium.ttf",
+      "sha256": "7a798592beb0d35bb557b010c2794cbcc988e89fcbcee0eb5edbb35161141ab4",
+      "postscriptName": "KoPubBatangMedium",
+      "internalWeight": 500
+    },
+    {
+      "itemUid": "FONT_KOPUB_D",
+      "slug": "kopub-dotum",
+      "weight": 700,
+      "sourceFile": "KoPub Dotum Bold.ttf",
+      "sha256": "967efe18063dd971c63dde3e8fcb247e0fcf16486a24ba2e284a716e44b90275",
+      "postscriptName": "KoPubDotumBold",
+      "internalWeight": 700
+    },
+    {
+      "itemUid": "FONT_KOPUB_D",
+      "slug": "kopub-dotum",
+      "weight": 300,
+      "sourceFile": "KoPub Dotum Light.ttf",
+      "sha256": "018a0f18613a98d446696ea3d36194e288d5d8004aa58327789c830f6179e23d",
+      "postscriptName": "KoPubDotumLight",
+      "internalWeight": 300
+    },
+    {
+      "itemUid": "FONT_KOPUB_D",
+      "slug": "kopub-dotum",
+      "weight": 500,
+      "sourceFile": "KoPub Dotum Medium.ttf",
+      "sha256": "d0adfdcb40b7e73389128cc0222b53a91e5aa0e653f89967485a1f8b46124eb7",
+      "postscriptName": "KoPubDotumMedium",
+      "internalWeight": 500
+    },
+    {
+      "itemUid": "FONT_MAPLE",
+      "slug": "maplestory",
+      "weight": 700,
+      "sourceFile": "Maplestory Bold.ttf",
+      "sha256": "d57eaff48a793ff872a0f33bba2943d058d07c81ed64c68054858a287b85811a",
+      "postscriptName": "MaplestoryBold",
+      "internalWeight": 700
+    },
+    {
+      "itemUid": "FONT_MAPLE",
+      "slug": "maplestory",
+      "weight": 300,
+      "sourceFile": "Maplestory Light.ttf",
+      "sha256": "6d51d8e576f77b01914095aa1f69f9d37c16d93fe940d748962867f218442ba9",
+      "postscriptName": "MaplestoryLight",
+      "internalWeight": 300
+    },
+    {
+      "itemUid": "FONT_NXFOOTBALL",
+      "slug": "nexon-football",
+      "weight": 700,
+      "sourceFile": "NEXON Football Gothic B.otf",
+      "sha256": "37cb6eb268d6f7d45a1467c0deac6eb2fbb80e930f8e66d528494f296f571ec9",
+      "postscriptName": "NEXONFootballGothicB",
+      "internalWeight": 700
+    },
+    {
+      "itemUid": "FONT_NXFOOTBALL",
+      "slug": "nexon-football",
+      "weight": 300,
+      "sourceFile": "NEXON Football Gothic L.otf",
+      "sha256": "dd6f3a3c48024710a70a240f5ad4ec32944fb728771826a11a92d1aa670c56f2",
+      "postscriptName": "NEXONFootballGothicL",
+      "internalWeight": 300
+    },
+    {
+      "itemUid": "FONT_WARHAVEN",
+      "slug": "warhaven",
+      "weight": 700,
+      "sourceFile": "NEXON_Warhaven_Bold.ttf",
+      "sha256": "837e4b9316581fd0bbbb0bd4e9ccda65a319568611feb1f9ec9d031b57ba949c",
+      "postscriptName": "WarhavenB",
+      "internalWeight": 700
+    },
+    {
+      "itemUid": "FONT_WARHAVEN",
+      "slug": "warhaven",
+      "weight": 400,
+      "sourceFile": "NEXON_Warhaven_Regular.ttf",
+      "sha256": "393303b19636d7eba160f8357bc3321b7df4b2c3d445972ae2a37d583879c7df",
+      "postscriptName": "WarhavenR",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_NXLV1",
+      "slug": "nexon-lv1",
+      "weight": 700,
+      "sourceFile": "NEXONLv1GothicBold.ttf",
+      "sha256": "882ea4022c310d17dc1e874ab272d804c17dc07c1833b3710d1696ec42241709",
+      "postscriptName": "NEXONLv1GothicBold",
+      "internalWeight": 700
+    },
+    {
+      "itemUid": "FONT_NXLV1",
+      "slug": "nexon-lv1",
+      "weight": 300,
+      "sourceFile": "NEXONLv1GothicLight.ttf",
+      "sha256": "1c2398853cd6d394f520670e05ee27eecaae38441f4de8e67531d62822712265",
+      "postscriptName": "NEXONLv1GothicLight",
+      "internalWeight": 300
+    },
+    {
+      "itemUid": "FONT_NXLV1",
+      "slug": "nexon-lv1",
+      "weight": 400,
+      "sourceFile": "NEXONLv1GothicRegular.ttf",
+      "sha256": "1cdab384930c49f8a7ee53001d0a46e2c2bd5d88b68153d6c7c6977a294f97e2",
+      "postscriptName": "NEXONLv1GothicRegular",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_ONE_MOBILE",
+      "slug": "one-mobile",
+      "weight": 700,
+      "sourceFile": "ONE Mobile Bold.ttf",
+      "sha256": "9112338c51b4035347731efb0a3d61d15a0d2c45cd231ddae0b3ef790cdd0342",
+      "postscriptName": "ONEMobileBold",
+      "internalWeight": 700
+    },
+    {
+      "itemUid": "FONT_ONE_MOBILE",
+      "slug": "one-mobile",
+      "weight": 300,
+      "sourceFile": "ONE Mobile Light.ttf",
+      "sha256": "0a3301740b7a6aceebd8787387fde7bf98cdd1ee32c0be2ede7f460aedc28dc9",
+      "postscriptName": "ONEMobileLight",
+      "internalWeight": 300
+    },
+    {
+      "itemUid": "FONT_ONE_MOBILE",
+      "slug": "one-mobile",
+      "weight": 400,
+      "sourceFile": "ONE Mobile Regular.ttf",
+      "sha256": "0e7839d49cd1940752d2f1a2a32369f44ba2488ab6fb240d5d686edde706c532",
+      "postscriptName": "ONEMobileRegular",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_PINKFONG",
+      "slug": "pinkfong-babyshark",
+      "weight": 700,
+      "sourceFile": "Pinkfong Baby Shark Font_ Bold.ttf",
+      "sha256": "b2c20279bf06cea8fba5de4ac87a8f9863c9df001290d21c6f1263b5ba712ea4",
+      "postscriptName": "TTPinkfongBabySharkB",
+      "internalWeight": 700
+    },
+    {
+      "itemUid": "FONT_PINKFONG",
+      "slug": "pinkfong-babyshark",
+      "weight": 300,
+      "sourceFile": "Pinkfong Baby Shark Font_ Light.ttf",
+      "sha256": "91036ae5d13ecad78c7c3ada354a043471c50a3bdf10425f613586a8e6a39c1b",
+      "postscriptName": "TTPinkfongBabySharkL",
+      "internalWeight": 300
+    },
+    {
+      "itemUid": "FONT_PINKFONG",
+      "slug": "pinkfong-babyshark",
+      "weight": 400,
+      "sourceFile": "Pinkfong Baby Shark Font_ Regular.ttf",
+      "sha256": "012f4fa2b2efd22f7bc05566e52dd219060daab0b851bfffe616e076a5106b6e",
+      "postscriptName": "TTPinkfongBabySharkR",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_RIDI",
+      "slug": "ridi-batang",
+      "weight": 400,
+      "sourceFile": "RIDIBatang.otf",
+      "sha256": "f13a49c0815d254ac15e392953a0b056613dec08ceb378e54eeed14c4fda9a54",
+      "postscriptName": "RIDIBatang",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_SHILLA",
+      "slug": "shilla-culture",
+      "weight": 700,
+      "sourceFile": "Shilla_Culture(B).ttf",
+      "sha256": "6aee0a25c4cb6c956e47611fb551a229759c2087335625b5ab5e411256aa594a",
+      "postscriptName": "Shilla_CultureB-Bold",
+      "internalWeight": 700
+    },
+    {
+      "itemUid": "FONT_SHILLA",
+      "slug": "shilla-culture",
+      "weight": 500,
+      "sourceFile": "Shilla_Culture(M).ttf",
+      "sha256": "af5262dbf7561681ba702e197de64e2c88bbee1490153080dad3276f4f269670",
+      "postscriptName": "Shilla_CultureM-Medium",
+      "internalWeight": 500
+    },
+    {
+      "itemUid": "FONT_TWAY_FLY",
+      "slug": "tway-fly",
+      "weight": 400,
+      "sourceFile": "tway_fly.ttf",
+      "sha256": "1cd8c7e2e8fd27f14cbcaa8012aa8536c0db31c24bc0c85a40cfa4f9f8e7c97a",
+      "postscriptName": "twayfly",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_TWAY_SKY",
+      "slug": "tway-sky",
+      "weight": 400,
+      "sourceFile": "tway_sky.ttf",
+      "sha256": "e068c1f4034c9b1767c642debb3a62b3a9b5e1228c96bdfeb9ea5af0b55b60aa",
+      "postscriptName": "twaysky",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_YES24",
+      "slug": "yes24",
+      "weight": 400,
+      "sourceFile": "YES24.ttf",
+      "sha256": "2c07cef3f5171bf938e90962ebf89e3fd786e21e8b93fb30eada51393dedfb83",
+      "postscriptName": "YES24",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_YPAIRING",
+      "slug": "y-pairing",
+      "weight": 700,
+      "sourceFile": "YPairingFont-Bold.ttf",
+      "sha256": "6e6f3671ad6134a0a6291b42f0a577cc738464266efe0a70a9ed1db5fe498d87",
+      "postscriptName": "YPairingFont-Bd",
+      "internalWeight": 400
+    },
+    {
+      "itemUid": "FONT_YPAIRING",
+      "slug": "y-pairing",
+      "weight": 400,
+      "sourceFile": "YPairingFont-Regular.ttf",
+      "sha256": "c4c363eefc20632b8c54b8a1a8c239bc84e62f1d1216863f50cf8fc76b3d5f89",
+      "postscriptName": "YPairingFont",
+      "internalWeight": 400
+    }
+  ]
+}

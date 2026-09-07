@@ -8,7 +8,8 @@ import { supabase } from '@/lib/supabase/client';
 import { resolveAssetUrl } from '@/lib/assets/asset_urls';
 import { cn } from '@/lib/utils/cn';
 import { useRpcCall } from '@/components/shared/components';
-import { studentRpc } from '@/lib/rpc/student_rpc';
+import { selectMyCosmetic } from '@/features/font/fontCosmeticRpc';
+import { HomeFontSection } from '@/features/font/HomeFontSection';
 import { characterC2Rpc, type StudentCharacterCollectionRow } from '@/lib/rpc/character_c2_rpc';
 import {
   homePersonalizationRpc,
@@ -103,10 +104,7 @@ export function HomeCustomizationPanel({
   const equipBackground = async (background: OwnedBackground) => {
     if (background.isEquipped) return;
     await call(
-      () => studentRpc.equipCosmeticItem(supabase, {
-        p_student_id: studentId,
-        p_ownership_id: background.ownershipId,
-      }),
+      () => selectMyCosmetic(supabase, 'background', background.ownershipId),
       {
         successTitle: '홈 배경을 바꿨어요 🎨',
         onSuccess: () => { void invalidateHome(); },
@@ -206,11 +204,17 @@ export function HomeCustomizationPanel({
                   onSelect={(background) => { void equipBackground(background); }}
                   onGoShop={() => {
                     onClose();
-                    navigate('/cosmetic');
+                    navigate('/market/cosmetics');
                   }}
                 />
               ) : (
-                <FontSection />
+                <HomeFontSection
+                  studentId={studentId}
+                  onGoShop={() => {
+                    onClose();
+                    navigate('/market/cosmetics');
+                  }}
+                />
               )}
             </div>
           </motion.section>
@@ -443,21 +447,6 @@ function ShowcaseSection({
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-function FontSection() {
-  return (
-    <div className="rounded-card-lg border border-dashed border-line bg-bg-card/70 px-5 py-10 text-center">
-      <div className="text-4xl">🔤</div>
-      <div className="mt-3 text-sm font-black text-white">폰트 꾸미기</div>
-      <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-text-secondary">
-        폰트 탭을 먼저 준비해두었습니다. 보유 폰트 선택과 적용 기능은 다음 단계에서 연결됩니다.
-      </p>
-      <span className="mt-4 inline-flex rounded-pill border border-line bg-bg-deep px-3 py-1 text-2xs font-black text-text-muted">
-        COMING SOON
-      </span>
     </div>
   );
 }

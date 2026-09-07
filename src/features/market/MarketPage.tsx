@@ -14,11 +14,13 @@ import PublicJobRequestsPanel from '@/features/market/PublicJobRequestsPanel';
 import SecondaryJobServicesPanel from '@/features/market/SecondaryJobServicesPanel';
 import { StudentInventoryPanel, StudentMarketStorePanel } from '@/features/market/StudentInventoryMarketPanel';
 import StudentItemHistoryPanel from '@/features/market/StudentItemHistoryPanel';
+import CosmeticPage from '@/features/cosmetic/CosmeticPage';
 
-type MarketTab = 'store' | 'inventory' | 'history' | 'auction' | 'jobs' | 'requests' | 'services';
+type MarketTab = 'store' | 'cosmetics' | 'inventory' | 'history' | 'auction' | 'jobs' | 'requests' | 'services';
 
 const TABS: { value: MarketTab; label: string; emoji: string; path: string }[] = [
   { value: 'store',     label: '상점',      emoji: '🏪', path: '/market/store' },
+  { value: 'cosmetics', label: '꾸미기',    emoji: '🎨', path: '/market/cosmetics' },
   { value: 'inventory', label: '내 가방',   emoji: '🎒', path: '/market/inventory' },
   { value: 'history',   label: '내역',      emoji: '📜', path: '/market/history' },
   { value: 'auction',   label: '경매',      emoji: '🔨', path: '/market/auction' },
@@ -33,6 +35,7 @@ export default function MarketPage() {
   const { hyperinflation, employmentFreeze } = useActiveEmergencies();
 
   const currentTab: MarketTab = (() => {
+    if (location.pathname.endsWith('/cosmetics')) return 'cosmetics';
     if (location.pathname.endsWith('/inventory')) return 'inventory';
     if (location.pathname.endsWith('/history')) return 'history';
     if (location.pathname.endsWith('/auction')) return 'auction';
@@ -85,6 +88,7 @@ export default function MarketPage() {
 
       <div className="px-4 pt-4">
         {currentTab === 'store' && <StudentMarketStorePanel />}
+        {currentTab === 'cosmetics' && <CosmeticPage embedded />}
         {currentTab === 'inventory' && <StudentInventoryPanel />}
         {currentTab === 'history' && <StudentItemHistoryPanel />}
         {currentTab === 'auction' && <StudentAuctionView />}
