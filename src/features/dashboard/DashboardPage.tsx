@@ -40,6 +40,7 @@ import { homePersonalizationRpc, type HomePersonalization, type HomeShowcaseSlot
 import { getEquippedCharacterImageUrl, useMyEquippedCharacter } from '@/hooks/useEquippedCharacters';
 import { BrandWorldPanel, BrandWorldSummaryButton } from '@/features/dashboard/BrandWorldPanel';
 import { HomeServiceAdStrip } from '@/features/dashboard/HomeServiceAdStrip';
+import { EmergencyQuestDetailModal, type EmergencyQuestDetail } from '@/features/dashboard/EmergencyQuestDetailModal';
 
 // =====================================================================
 // 메인 컴포넌트
@@ -52,7 +53,7 @@ export default function DashboardPage() {
   const { wallet, isLoading: walletLoading } = useWallet();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { call: callFeature4 } = useRpcCall();
+  const { call: callFeature4, isLoading: feature4Loading } = useRpcCall();
   const { emergencies } = useActiveEmergencies();
   const showToast = useToastStore(s=>s.show);
   const liveTier = calculateTierFromBv(wallet?.bv ?? 0);
@@ -76,6 +77,7 @@ export default function DashboardPage() {
   const [homeCustomizeOpen, setHomeCustomizeOpen] = useState(false);
   const [homeCustomizeSlot, setHomeCustomizeSlot] = useState<1 | 2 | 3>(1);
   const [brandWorldOpen, setBrandWorldOpen] = useState(false);
+  const [emergencyQuestOpen, setEmergencyQuestOpen] = useState(false);
 
   const openHomeCustomize = (slotNo: 1 | 2 | 3 = 1) => {
     setHomeCustomizeSlot(slotNo);
@@ -178,6 +180,45 @@ export default function DashboardPage() {
   // 부가 데이터 조회 (병렬)
   const { data: dashboardData } = useDashboardData(studentId, classroomId);
   const homeCustomizationQuery = useHomePersonalization(studentId);
+  const emergencyQuest = dashboardData?.emergencyQuest ?? null;
+
+  useEffect(() => {
+    if (emergencyQuestOpen && !emergencyQuest) {
+      setEmergencyQuestOpen(false);
+    }
+  }, [emergencyQuestOpen, emergencyQuest]);
+
+  const requestEmergencyQuestCompletion = async () => {
+    if (!studentId || !classroomId || !emergencyQuest) return;
+    if (emergencyQuest.requestStatus === 'PENDING' || emergencyQuest.requestStatus === 'APPROVED') return;
+
+    const requestId = await callFeature4(
+      () => feature4Rpc.requestEmergencyQuestCompletion(supabase, {
+        p_student_id: studentId,
+        p_quest_id: emergencyQuest.id,
+      }),
+      {
+        successTitle: '완료 요청을 보냈어요',
+        successDescription: '선생님이 확인·승인하면 보상이 지급됩니다.',
+      }
+    );
+
+    if (requestId === null) return;
+
+    queryClient.setQueryData<DashboardData>(
+      ['dashboard', studentId, classroomId],
+      (old) => old?.emergencyQuest?.id === emergencyQuest.id
+        ? {
+            ...old,
+            emergencyQuest: { ...old.emergencyQuest, requestStatus: 'PENDING', requestNote: null },
+          }
+        : old
+    );
+    setEmergencyQuestOpen(false);
+    void queryClient.invalidateQueries({ queryKey: ['dashboard', studentId, classroomId] });
+  };
+
+
   
   if (!student) return null;
   
@@ -211,20 +252,8 @@ export default function DashboardPage() {
 
           {/* 돌발 퀘스트 배너 */}
           <EmergencyQuestBanner
-            quest={dashboardData?.emergencyQuest ?? null}
-            onClick={dashboardData?.emergencyQuest && studentId ? () => {
-              if (dashboardData.emergencyQuest?.requestStatus === 'PENDING') {
-                alert('완료 요청을 이미 보냈습니다. 선생님의 승인을 기다려주세요.');
-                return;
-              }
-              if (!confirm(`돌발 퀘스트 "${dashboardData.emergencyQuest!.title}"를 수행했나요? 완료 요청을 선생님께 보낼까요?`)) return;
-              void callFeature4(
-                () => feature4Rpc.requestEmergencyQuestCompletion(supabase, { p_student_id: studentId, p_quest_id: dashboardData.emergencyQuest!.id }),
-                { successTitle: '완료 요청을 보냈어요', successDescription: '선생님이 확인·승인하면 보상이 지급됩니다.', onSuccess: () => {
-                  queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-                }}
-              );
-            } : undefined}
+            quest={emergencyQuest}
+            onClick={emergencyQuest ? () => setEmergencyQuestOpen(true) : undefined}
           />
 
           <AssignmentNoticeBanner
@@ -322,6 +351,13 @@ export default function DashboardPage() {
       
       {/* 출석은 기존 모달 유지, 우편·알림은 Feature4A 통합 페이지로 이동 */}
       <AttendanceModal isOpen={attendanceOpen} onClose={() => setAttendanceOpen(false)} />
+      <EmergencyQuestDetailModal
+        isOpen={emergencyQuestOpen}
+        quest={emergencyQuest}
+        isSubmitting={feature4Loading}
+        onClose={() => setEmergencyQuestOpen(false)}
+        onRequestCompletion={requestEmergencyQuestCompletion}
+      />
       {studentId && (
         <HomeCustomizationPanel
           isOpen={homeCustomizeOpen}
@@ -557,7 +593,7 @@ interface DashboardData {
   guildAlertCount: number;
   
   // 돌발 퀘스트
-  emergencyQuest: { id: number; title: string; expiresAt: string; requestStatus?: 'PENDING'|'APPROVED'|'REJECTED'|null } | null;
+  emergencyQuest: EmergencyQuestDetail | null;
   
   // 우측 카드
   achievementsEarned: number;
@@ -633,7 +669,7 @@ function useDashboardData(
         Promise.all([
           supabase
             .from('emergency_quests')
-            .select('id, title, expires_at')
+            .select('id, title, description, reward_gold, reward_bv, reward_crystal, expires_at')
             .eq('classroom_id', classroomId)
             .eq('status', 'ACTIVE')
             .lte('starts_at', new Date().toISOString())
@@ -642,7 +678,7 @@ function useDashboardData(
             .limit(20),
           supabase
             .from('emergency_quest_requests')
-            .select('quest_id,status')
+            .select('quest_id,status,note')
             .eq('student_id', studentId),
           supabase
             .from('emergency_quest_completions')
@@ -684,13 +720,19 @@ function useDashboardData(
       const [questListRes, questRequestRes, questCompletionRes] = emergencyQuestRes as any;
       const completedQuestIds = new Set((questCompletionRes?.data ?? []).map((r: any) => r.quest_id));
       const safeQuestRequestRows = questRequestRes?.error ? [] : (questRequestRes?.data ?? []);
-      const requestByQuest = new Map<number, 'PENDING' | 'APPROVED' | 'REJECTED'>(
+      const requestByQuest = new Map<number, { status: 'PENDING' | 'APPROVED' | 'REJECTED'; note: string | null }>(
         safeQuestRequestRows.map((r: any) => [
           Number(r.quest_id),
-          r.status as 'PENDING' | 'APPROVED' | 'REJECTED',
+          {
+            status: r.status as 'PENDING' | 'APPROVED' | 'REJECTED',
+            note: r.note == null ? null : String(r.note),
+          },
         ])
       );
       const activeEmergencyQuest = (questListRes?.data ?? []).find((q: any) => !completedQuestIds.has(q.id)) ?? null;
+      const activeQuestRequest = activeEmergencyQuest
+        ? requestByQuest.get(Number(activeEmergencyQuest.id))
+        : undefined;
 
       // Feature4A 실제 미읽음 알림 수
       const [activeAlertsRes, alertReadsRes] = alertsRes as any;
@@ -720,7 +762,17 @@ function useDashboardData(
         alertsUnreadCount,
         guildAlertCount: 0,  // TODO: 길드 알림
         emergencyQuest: activeEmergencyQuest
-          ? { id: activeEmergencyQuest.id, title: activeEmergencyQuest.title, expiresAt: activeEmergencyQuest.expires_at, requestStatus: requestByQuest.get(activeEmergencyQuest.id) ?? null }
+          ? {
+              id: Number(activeEmergencyQuest.id),
+              title: String(activeEmergencyQuest.title),
+              description: String(activeEmergencyQuest.description ?? ''),
+              expiresAt: String(activeEmergencyQuest.expires_at),
+              rewardGold: Number(activeEmergencyQuest.reward_gold ?? 0),
+              rewardBv: Number(activeEmergencyQuest.reward_bv ?? 0),
+              rewardCrystal: Number(activeEmergencyQuest.reward_crystal ?? 0),
+              requestStatus: activeQuestRequest?.status ?? null,
+              requestNote: activeQuestRequest?.note ?? null,
+            }
           : null,
         achievementsEarned: earnedAchievements.length,
         achievementsTotal: achievementCatalog.length,
