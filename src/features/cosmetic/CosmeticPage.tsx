@@ -110,7 +110,10 @@ export default function CosmeticPage({ embedded = false }: { embedded?: boolean 
         ) : filtered.length === 0 ? (
           <EmptyState emoji="🎨" title="이 카테고리에 아이템이 없어요" />
         ) : (
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className={cn(
+            'grid gap-2.5',
+            category === 'font' ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-4' : 'grid-cols-2',
+          )}>
             {filtered.map((item) => (
               <CosmeticCard
                 key={item.id}
@@ -146,12 +149,15 @@ function CosmeticCard({ item, onClick }: { item: CosmeticItem; onClick: () => vo
         item.isEquipped ? 'border-brand-primary shadow-brand-sm' : 'border-line'
       )}
     >
-      {/* 이미지 */}
-      <div className="aspect-square bg-bg-deep relative overflow-hidden">
+      {/* 이미지 / 폰트 미리보기 */}
+      <div className={cn(
+        'bg-bg-deep relative overflow-hidden',
+        item.category === 'font' ? 'h-32 md:h-36' : 'aspect-square',
+      )}>
         {item.category === 'font' ? (
-          <div className="flex h-full w-full flex-col justify-center px-3 py-4">
-            <div className="font-system text-[9px] font-black uppercase tracking-[0.14em] text-text-muted">FONT PREVIEW</div>
-            <FontPreview itemUid={item.itemUid} className="mt-3 break-keep text-center text-xl leading-relaxed text-white" />
+          <div className="flex h-full w-full flex-col justify-center px-3 py-3">
+            <div className="font-system text-[8px] font-black uppercase tracking-[0.14em] text-text-muted">FONT PREVIEW</div>
+            <FontPreview itemUid={item.itemUid} className="mt-2 break-keep text-center text-base leading-snug text-white md:text-lg" />
           </div>
         ) : item.imageUrl ? (
           <img
