@@ -28,6 +28,41 @@ const RIVAL_ORDER_OVERRIDES: Record<string, string[]> = {
 
 // 2023 월간 MVP는 Production 아카이브의 확정 기록을 그대로 사용한다.
 // 특히 2023년 6월 최종 MVP는 공예성으로 확정한다.
+const PORTRAITS_2023: Record<string, PortraitSpec> = {
+  '김승현': {
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/2023/2023MVP_SeungHyun-Kim.webp',
+    accent: 'gold',
+  },
+  '공예성': {
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/2023/2023MVP_Yeseong-Kong.webp',
+    accent: 'gold',
+  },
+  '김채은': {
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/Chaeeun_Kim.webp',
+    accent: 'gold',
+  },
+  '최민재': {
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/Minjae-Choi.webp',
+    accent: 'gold',
+  },
+  '민서홍': {
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/Seohong-Min.webp',
+    accent: 'gold',
+  },
+  '이준혁': {
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/Junhyuk-Lee.webp',
+    accent: 'gold',
+  },
+  '최나연': {
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/Nayeon-Choi.webp',
+    accent: 'gold',
+  },
+  '이가온': {
+    imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/Gaon-Lee.webp',
+    accent: 'gold',
+  },
+};
+
 const PORTRAITS_2026: Record<string, PortraitSpec> = {
   '3:김서영': {
     imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/March_MVP.png',
@@ -47,7 +82,7 @@ const PORTRAITS_2026: Record<string, PortraitSpec> = {
     accent: 'cyan',
   },
   '7:김서영': {
-    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/July_MVP-3.png',
+    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/July_MVP.png',
     accent: 'gold',
   },
 };
@@ -600,9 +635,15 @@ function resolvePortrait(row: MonthlyMvpArchiveRow): PortraitSpec | null {
     };
   }
 
-  if (row.school_year !== 2026) return null;
+  if (row.school_year === 2023) {
+    return PORTRAITS_2023[row.winner_display_name] ?? null;
+  }
 
-  return PORTRAITS_2026[`${row.month_no}:${row.winner_display_name}`] ?? null;
+  if (row.school_year === 2026) {
+    return PORTRAITS_2026[`${row.month_no}:${row.winner_display_name}`] ?? null;
+  }
+
+  return null;
 }
 
 function readMetadataString(
