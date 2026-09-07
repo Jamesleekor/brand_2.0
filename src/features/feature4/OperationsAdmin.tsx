@@ -31,6 +31,7 @@ export default function OperationsAdmin() {
   const [qtitle, setQtitle] = useState('');
   const [qdesc, setQdesc] = useState('');
   const [qgold, setQgold] = useState(50);
+  const [qcrystal, setQcrystal] = useState(0);
   const [qb, setQb] = useState(0);
   const [qmins, setQmins] = useState(30);
   const [guardStudent, setGuardStudent] = useState(0);
@@ -82,7 +83,7 @@ export default function OperationsAdmin() {
     retry: false,
     queryFn: async () => {
       const res = await supabase.from('emergency_quest_requests')
-        .select('id,quest_id,student_id,status,requested_at,note,student:students!student_id(name,brand_name),quest:emergency_quests!quest_id(title,reward_gold,reward_bv,status,expires_at)')
+        .select('id,quest_id,student_id,status,requested_at,note,student:students!student_id(name,brand_name),quest:emergency_quests!quest_id(title,reward_gold,reward_crystal,reward_bv,status,expires_at)')
         .eq('classroom_id', classroomId!).eq('status', 'PENDING').order('requested_at', { ascending: true });
       if (res.error) {
         if ((res.error.message || '').includes('emergency_quest_requests')) return [];
@@ -174,17 +175,18 @@ export default function OperationsAdmin() {
           <Panel title="⚡ 돌발 퀘스트">
             <input value={qtitle} onChange={(e) => setQtitle(e.target.value)} placeholder="퀘스트 제목" className="input-field w-full mb-2 text-base" />
             <textarea value={qdesc} onChange={(e) => setQdesc(e.target.value)} placeholder="설명" className="input-field w-full min-h-24 mb-3 text-base" />
-            <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="grid grid-cols-2 gap-2 mb-3">
               <FieldN label="GOLD" v={qgold} set={setQgold} />
+              <FieldN label="CRYSTAL" v={qcrystal} set={setQcrystal} />
               <FieldN label="BV" v={qb} set={setQb} />
               <FieldN label="분" v={qmins} set={setQmins} />
             </div>
-            <button className="btn-primary w-full" disabled={isLoading} onClick={() => call(() => feature4Rpc.createEmergencyQuest(supabase, { p_classroom_id: classroomId!, p_title: qtitle, p_description: qdesc, p_reward_gold: qgold, p_reward_bv: qb, p_duration_minutes: qmins }), { successTitle: '돌발 퀘스트를 열었어요', onSuccess: () => { setQtitle(''); setQdesc(''); refresh(); } })}>퀘스트 생성</button>
+            <button className="btn-primary w-full" disabled={isLoading} onClick={() => call(() => feature4Rpc.createEmergencyQuest(supabase, { p_classroom_id: classroomId!, p_title: qtitle, p_description: qdesc, p_reward_gold: qgold, p_reward_bv: qb, p_reward_crystal: qcrystal, p_duration_minutes: qmins }), { successTitle: '돌발 퀘스트를 열었어요', onSuccess: () => { setQtitle(''); setQdesc(''); refresh(); } })}>퀘스트 생성</button>
             <div className="mt-3 space-y-2">
               {data.data?.q.slice(0, 5).map((x: any) => (
                 <div key={x.id} className="bg-bg-deep p-3 rounded-card-sm text-sm border border-line">
                   <div className="flex justify-between gap-2"><b>{x.title}</b><span className="font-bold">{x.status === 'ACTIVE' ? '진행 중' : '종료'}</span></div>
-                  <div className="text-text-secondary mt-1">{x.reward_gold}G · {x.reward_bv}BV · {formatRelativeTime(x.expires_at)} 종료</div>
+                  <div className="text-text-secondary mt-1">{x.reward_gold}G · {x.reward_crystal ?? 0}C · {x.reward_bv}BV · {formatRelativeTime(x.expires_at)} 종료</div>
                   {x.status === 'ACTIVE' && <button onClick={() => call(() => feature4Rpc.closeEmergencyQuest(supabase, { p_quest_id: x.id }), { successTitle: '퀘스트를 닫았어요', onSuccess: refresh })} className="text-danger mt-1 font-black">강제 종료</button>}
                 </div>
               ))}
@@ -209,7 +211,7 @@ export default function OperationsAdmin() {
 
         <section className="glass-card p-4">
           <div className="flex items-center justify-between gap-2 mb-3">
-            <div><h2 className="font-display text-lg">✅ 돌발 퀘스트 완료 요청</h2><p className="text-xs text-text-secondary mt-1 font-bold">학생의 요청을 교사가 승인한 순간에만 GOLD/BV가 지급됩니다.</p></div>
+            <div><h2 className="font-display text-lg">✅ 돌발 퀘스트 완료 요청</h2><p className="text-xs text-text-secondary mt-1 font-bold">학생의 요청을 교사가 승인한 순간에만 GOLD/CRYSTAL/BV가 지급됩니다.</p></div>
             <span className="px-2 py-1 rounded-pill bg-gold/15 text-gold text-xs font-black">대기 {pendingRequests.length}</span>
           </div>
           {!pendingRequests.length ? (
@@ -220,7 +222,7 @@ export default function OperationsAdmin() {
                 <div key={r.id} className="bg-bg-deep rounded-card-md p-3 flex flex-col md:flex-row md:items-center gap-3 border border-line">
                   <div className="flex-1">
                     <div className="text-sm font-extrabold">{r.student?.name}{r.student?.brand_name ? ` (${r.student.brand_name})` : ''} · {r.quest?.title}</div>
-                    <div className="text-xs text-text-secondary mt-1">요청 {formatRelativeTime(r.requested_at)} · 보상 {r.quest?.reward_gold ?? 0}G / {r.quest?.reward_bv ?? 0}BV</div>
+                    <div className="text-xs text-text-secondary mt-1">요청 {formatRelativeTime(r.requested_at)} · 보상 {r.quest?.reward_gold ?? 0}G / {r.quest?.reward_crystal ?? 0}C / {r.quest?.reward_bv ?? 0}BV</div>
                   </div>
                   <div className="flex gap-2">
                     <button disabled={isLoading} className="btn-secondary" onClick={() => call(() => feature4Rpc.reviewEmergencyQuestRequest(supabase, { p_request_id: r.id, p_approve: false, p_note: '교사 반려' }), { successTitle: '완료 요청을 반려했어요', onSuccess: refresh })}>반려</button>
