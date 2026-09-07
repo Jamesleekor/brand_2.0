@@ -4,7 +4,9 @@ import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { LoadingSpinner } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
 import {
+  getTeacherAppAccessDaily,
   getTeacherLoginHistory,
+  type AppAccessDailyRow,
   type LoginHistoryEventType,
   type LoginHistoryRow,
   type LoginHistoryStudentSummary,
@@ -32,9 +34,20 @@ function formatKstDateTime(value: string | null): string {
   }).format(date);
 }
 
+function formatKstDate(value: string): string {
+  const date = new Date(`${value}T00:00:00+09:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+  }).format(date);
+}
+
 function eventLabel(eventType: LoginHistoryEventType): string {
-  if (eventType === 'LOGIN_SUCCESS') return '로그인 성공';
-  if (eventType === 'LOGIN_FAILED') return '로그인 실패';
+  if (eventType === 'LOGIN_SUCCESS') return '인증 로그인 성공';
+  if (eventType === 'LOGIN_FAILED') return '인증 로그인 실패';
   return '로그아웃';
 }
 
@@ -50,6 +63,40 @@ function compareText(a: string, b: string, direction: SortDirection): number {
 
 function compareNumber(a: number, b: number, direction: SortDirection): number {
   return (a - b) * (direction === 'asc' ? 1 : -1);
+}
+
+function evidenceLabel(source: string): string {
+  const labels: Record<string, string> = {
+    APP_INIT: '앱 시작',
+    SESSION_RESTORE: '세션 복원',
+    AUTH_STATE: '인증 상태',
+    EXPLICIT_LOGIN: '직접 로그인',
+    APP_ACCESS: '앱 재진입',
+    SESSION_CREATED: '세션 생성',
+    TOKEN_REFRESH: '세션 갱신',
+    LOGIN_HISTORY: '인증 이력',
+    ACHIEVEMENT_APPLICATION: '업적 신청',
+    ARCADE_RUN: '아케이드',
+    ASSIGNMENT_SUBMISSION: '과제 제출',
+    AUCTION_BID: '경매 입찰',
+    AUCTION_SUPER_PASS: '경매 패스',
+    EMERGENCY_QUEST_REQUEST: '돌발퀘 완료 요청',
+    EMERGENCY_QUEST_COMPLETION: '돌발퀘 완료',
+    ALERT_READ: '알림 확인',
+    GUILD_MISSION_ACTIVITY: '길드 미션',
+    LOAN_APPLICATION: '대출 신청',
+    RANDOM_BOX_OPENING: '랜덤 상자',
+    GUESTBOOK_ENTRY: '방명록',
+    SECONDARY_JOB_APPLICATION: '2차 직업 신청',
+    SECONDARY_PUBLIC_ACCEPT: '공개 의뢰 수락',
+    SECONDARY_PUBLIC_SUBMIT: '공개 의뢰 제출',
+    SECONDARY_SERVICE_AD: '서비스 광고',
+    SNACK_PURCHASE: '간식 구매',
+    COSMETIC_PURCHASE: '꾸미기 구매',
+    DEPOSIT_OPEN: '예금 가입',
+    INSTALLMENT_OPEN: '적금 가입',
+  };
+  return labels[source] ?? source;
 }
 
 export default function LoginHistoryAdmin() {
@@ -94,11 +141,34 @@ export default function LoginHistoryAdmin() {
     enabled: classroomId !== null,
   });
 
+  const accessQuery = useQuery({
+    queryKey: ['teacher-app-access-daily', classroomId, studentId, dateFrom, dateTo],
+    queryFn: async () => {
+      if (!classroomId) throw new Error('학급 정보를 확인할 수 없습니다.');
+      return getTeacherAppAccessDaily(supabase, {
+        p_classroom_id: classroomId,
+        p_student_id: studentId,
+        p_date_from: dateFrom || null,
+        p_date_to: dateTo || null,
+      });
+    },
+    enabled: classroomId !== null,
+  });
+
   const board = query.data;
+  const accessBoard = accessQuery.data;
   const totalPages = Math.max(1, Math.ceil((board?.total_count ?? 0) / PAGE_SIZE));
   const studentOptions = useMemo(
     () => [...(board?.student_summaries ?? [])].sort((a, b) => a.student_name.localeCompare(b.student_name, 'ko')),
     [board?.student_summaries],
+  );
+
+  const visibleAccessRows = useMemo(
+    () => [...(accessBoard?.rows ?? [])].sort((a, b) => {
+      const dateCompare = b.access_date.localeCompare(a.access_date);
+      return dateCompare !== 0 ? dateCompare : a.student_name.localeCompare(b.student_name, 'ko');
+    }),
+    [accessBoard?.rows],
   );
 
   const visibleEvents = useMemo(() => {
@@ -137,6 +207,11 @@ export default function LoginHistoryAdmin() {
     setSelectedEventId(null);
   };
 
+  const refreshAll = () => {
+    void query.refetch();
+    void accessQuery.refetch();
+  };
+
   return (
     <TeacherShell>
       <div className="space-y-3">
@@ -145,12 +220,12 @@ export default function LoginHistoryAdmin() {
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-9 w-9 flex-none items-center justify-center rounded-card-md border border-line-brand/40 bg-brand-primary/15 text-lg">🔐</div>
               <div className="min-w-0">
-                <h1 className="font-display text-xl tracking-tight text-brand-gradient">로그인 히스토리</h1>
-                <p className="truncate text-2xs font-bold text-text-muted">로그인 이벤트와 학생별 누적 접속 기록</p>
+                <h1 className="font-display text-xl tracking-tight text-brand-gradient">접속 · 인증 이력</h1>
+                <p className="truncate text-2xs font-bold text-text-muted">실제 앱 접속과 로그인 인증 이벤트를 분리해 확인합니다.</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => void query.refetch()} className="h-8 rounded-card-md border border-line bg-bg-deep px-3 text-2xs font-black text-text-secondary hover:border-line-brand hover:text-white">↻ 새로고침</button>
+              <button type="button" onClick={refreshAll} className="h-8 rounded-card-md border border-line bg-bg-deep px-3 text-2xs font-black text-text-secondary hover:border-line-brand hover:text-white">↻ 새로고침</button>
               <button type="button" onClick={resetFilters} className="h-8 rounded-card-md border border-line px-3 text-2xs font-black text-text-muted hover:text-white">필터 초기화</button>
             </div>
           </div>
@@ -165,11 +240,11 @@ export default function LoginHistoryAdmin() {
               ))}
             </select>
           </CompactField>
-          <CompactField label="이벤트">
+          <CompactField label="인증 이벤트">
             <select value={eventType ?? ''} onChange={(e) => { setEventType(e.target.value ? (e.target.value as LoginHistoryEventType) : null); setPage(0); setSelectedEventId(null); }} className="h-8 rounded-card-md border border-line bg-bg-deep px-2 text-2xs font-bold text-white outline-none focus:border-line-brand">
               <option value="">전체 이벤트</option>
-              <option value="LOGIN_SUCCESS">로그인 성공</option>
-              <option value="LOGIN_FAILED">로그인 실패</option>
+              <option value="LOGIN_SUCCESS">인증 로그인 성공</option>
+              <option value="LOGIN_FAILED">인증 로그인 실패</option>
               <option value="LOGOUT">로그아웃</option>
             </select>
           </CompactField>
@@ -181,31 +256,60 @@ export default function LoginHistoryAdmin() {
           </CompactField>
           <label className="flex h-8 cursor-pointer items-center gap-2 rounded-card-md border border-line bg-bg-deep px-2.5">
             <input type="checkbox" checked={includeTest} onChange={(e) => { setIncludeTest(e.target.checked); setStudentId(null); setPage(0); }} />
-            <span className="text-2xs font-black text-text-secondary">TEST 포함</span>
+            <span className="text-2xs font-black text-text-secondary">TEST 포함(인증)</span>
           </label>
           <div className="ml-auto flex items-center gap-1">
-            <button type="button" onClick={() => changeView('events')} className={cn('h-8 rounded-card-md px-3 text-2xs font-black', view === 'events' ? 'border border-line-brand bg-brand-primary/20 text-gold' : 'border border-line text-text-muted hover:text-white')}>이벤트</button>
-            <button type="button" onClick={() => changeView('students')} className={cn('h-8 rounded-card-md px-3 text-2xs font-black', view === 'students' ? 'border border-line-brand bg-brand-primary/20 text-gold' : 'border border-line text-text-muted hover:text-white')}>학생 요약</button>
+            <button type="button" onClick={() => changeView('events')} className={cn('h-8 rounded-card-md px-3 text-2xs font-black', view === 'events' ? 'border border-line-brand bg-brand-primary/20 text-gold' : 'border border-line text-text-muted hover:text-white')}>인증 이벤트</button>
+            <button type="button" onClick={() => changeView('students')} className={cn('h-8 rounded-card-md px-3 text-2xs font-black', view === 'students' ? 'border border-line-brand bg-brand-primary/20 text-gold' : 'border border-line text-text-muted hover:text-white')}>인증 요약</button>
           </div>
         </section>
 
+        <section className="overflow-hidden rounded-card-lg border border-success/25 bg-bg-card">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2">
+            <div>
+              <h2 className="font-display text-sm text-white">실제 앱 접속 · 주말 출석 판정 기준</h2>
+              <p className="mt-0.5 text-[9px] font-bold text-text-muted">로그아웃 여부와 무관하게 해당 날짜에 B.R.A.N.D를 실제로 열거나 사용한 증거를 집계합니다.</p>
+            </div>
+            <span className="rounded-pill border border-success/30 bg-success/10 px-2 py-1 text-[9px] font-black text-success">Asia/Seoul 날짜 기준</span>
+          </div>
+          <div className="flex overflow-hidden border-b border-line">
+            <SummaryCell label="접속 학생·일" value={accessBoard?.summary.student_days ?? 0} suffix="건" />
+            <SummaryCell label="접속 학생" value={accessBoard?.summary.distinct_students ?? 0} suffix="명" />
+            <SummaryCell label="신규 직접 기록" value={accessBoard?.summary.direct_student_days ?? 0} suffix="건" />
+            <SummaryCell label="과거 복원" value={accessBoard?.summary.backfilled_student_days ?? 0} suffix="건" />
+          </div>
+          {accessQuery.isLoading ? <LoadingSpinner /> : <AccessTable rows={visibleAccessRows} />}
+          {accessQuery.isError && (
+            <div className="border-t border-danger/40 bg-danger/10 px-3 py-2 text-2xs font-bold text-danger">
+              실제 접속 이력을 불러오지 못했습니다: {accessQuery.error instanceof Error ? accessQuery.error.message : '알 수 없는 오류'}
+            </div>
+          )}
+        </section>
+
+        <details className="rounded-card-md border border-line bg-bg-card px-3 py-2">
+          <summary className="cursor-pointer text-2xs font-black text-text-muted">접속과 인증을 왜 분리하나요?</summary>
+          <div className="mt-2 text-2xs font-bold leading-relaxed text-text-secondary">
+            인증 로그인은 비밀번호로 새 인증 세션을 만든 시점입니다. 실제 접속은 이미 로그인된 세션을 복원해 앱을 다시 연 경우까지 포함합니다. 따라서 주말 접속 여부는 위의 실제 앱 접속 이력을 사용하며, 아래 인증 이력은 보안·세션 확인용으로만 봅니다. 2026-09-02~2026-09-07의 일부 접속은 남아 있던 세션 갱신과 학생 직접 활동 증거로 복원했습니다.
+          </div>
+        </details>
+
         <section className="flex overflow-hidden rounded-card-lg border border-line bg-bg-card">
-          <SummaryCell label="로그인 성공" value={board?.summary.login_success_count ?? 0} />
-          <SummaryCell label="로그인 학생" value={board?.summary.distinct_student_count ?? 0} suffix="명" />
-          <SummaryCell label="학생 로그인 일수" value={board?.summary.distinct_student_login_days ?? 0} suffix="일" />
+          <SummaryCell label="인증 로그인 성공" value={board?.summary.login_success_count ?? 0} />
+          <SummaryCell label="인증된 학생" value={board?.summary.distinct_student_count ?? 0} suffix="명" />
+          <SummaryCell label="학생 인증 일수" value={board?.summary.distinct_student_login_days ?? 0} suffix="일" />
           <SummaryCell label="로그아웃" value={board?.summary.logout_count ?? 0} />
         </section>
 
         <details className="rounded-card-md border border-line bg-bg-card px-3 py-2">
-          <summary className="cursor-pointer text-2xs font-black text-text-muted">집계 기준 · 기록 시작 {formatKstDateTime(board?.tracking_start_at ?? null)}</summary>
+          <summary className="cursor-pointer text-2xs font-black text-text-muted">인증 이력 기준 · 기록 시작 {formatKstDateTime(board?.tracking_start_at ?? null)}</summary>
           <div className="mt-2 text-2xs font-bold leading-relaxed text-text-secondary">
-            기능 도입 이후의 이벤트부터 정확히 집계합니다. 과거 로그인 기록은 임의 복원하지 않으며 날짜 경계는 Asia/Seoul입니다. 로그인 실패는 안전한 Auth 감사 로그 연동 전까지 기록되지 않습니다.
+            아래 값은 실제 접속 횟수가 아니라 인증 세션 이벤트입니다. 기존 세션을 복원한 재접속은 인증 로그인 성공 횟수에 추가하지 않습니다. 로그인 실패는 안전한 Auth 감사 로그 연동 전까지 기록되지 않습니다.
           </div>
         </details>
 
         {query.isError && (
           <section className="rounded-card-lg border border-danger/40 bg-danger/10 p-3">
-            <div className="text-xs font-extrabold text-danger">로그인 히스토리를 불러오지 못했습니다.</div>
+            <div className="text-xs font-extrabold text-danger">인증 이력을 불러오지 못했습니다.</div>
             <div className="mt-1 text-2xs font-bold text-text-secondary">{query.error instanceof Error ? query.error.message : '알 수 없는 오류'}</div>
           </section>
         )}
@@ -213,7 +317,7 @@ export default function LoginHistoryAdmin() {
         <section className="overflow-hidden rounded-card-lg border border-line bg-bg-card">
           <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2">
             <div className="flex items-center gap-2">
-              <h2 className="font-display text-sm text-white">{view === 'events' ? '이벤트 상세' : '학생별 누적 로그인'}</h2>
+              <h2 className="font-display text-sm text-white">{view === 'events' ? '인증 이벤트 상세' : '학생별 누적 인증'}</h2>
               <span className="text-[9px] font-black text-text-muted">{view === 'events' ? `총 ${(board?.total_count ?? 0).toLocaleString()}건 · 현재 페이지 정렬` : `${visibleStudents.length}명`}</span>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -278,6 +382,44 @@ function sortStudentRows(a: LoginHistoryStudentSummary, b: LoginHistoryStudentSu
   return compareNumber(a.total_login_days, b.total_login_days, direction);
 }
 
+function AccessTable({ rows }: { rows: AppAccessDailyRow[] }) {
+  return (
+    <div className="max-h-[360px] overflow-auto">
+      <table className="w-full min-w-[760px] text-left">
+        <thead className="sticky top-0 bg-bg-deep/95">
+          <tr className="border-b border-line text-[9px] font-black text-text-muted">
+            <th className="px-2.5 py-2">접속일</th>
+            <th className="px-2.5 py-2">학생</th>
+            <th className="px-2.5 py-2">최초 확인</th>
+            <th className="px-2.5 py-2">최근 확인</th>
+            <th className="px-2.5 py-2">근거</th>
+            <th className="px-2.5 py-2">구분</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={`${row.student_id}-${row.access_date}`} className="border-b border-line/50 last:border-0 hover:bg-white/[0.025]">
+              <td className="whitespace-nowrap px-2.5 py-2 text-[11px] font-black text-gold">{formatKstDate(row.access_date)}</td>
+              <td className="px-2.5 py-2 text-[11px] font-extrabold text-white">{row.student_name}</td>
+              <td className="whitespace-nowrap px-2.5 py-2 text-[10px] font-bold text-text-secondary">{formatKstDateTime(row.first_seen_at)}</td>
+              <td className="whitespace-nowrap px-2.5 py-2 text-[10px] font-bold text-text-secondary">{formatKstDateTime(row.last_seen_at)}</td>
+              <td className="max-w-[360px] px-2.5 py-2 text-[9px] font-bold text-text-secondary">{row.evidence_sources.map(evidenceLabel).join(' · ') || '-'}</td>
+              <td className="px-2.5 py-2">
+                {row.has_direct_app_signal ? (
+                  <span className="rounded-pill border border-success/30 bg-success/10 px-1.5 py-0.5 text-[9px] font-black text-success">직접 기록</span>
+                ) : (
+                  <span className="rounded-pill border border-warning/30 bg-warning/10 px-1.5 py-0.5 text-[9px] font-black text-warning">과거 복원</span>
+                )}
+              </td>
+            </tr>
+          ))}
+          {rows.length === 0 && <tr><td colSpan={6} className="px-3 py-10 text-center text-xs font-bold text-text-muted">조건에 맞는 실제 접속 기록이 없습니다.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function EventTable({ rows, selectedId, onSelect }: { rows: LoginHistoryRow[]; selectedId: number | null; onSelect: (id: number | null) => void }) {
   return (
     <div className="overflow-x-auto">
@@ -302,7 +444,7 @@ function EventTable({ rows, selectedId, onSelect }: { rows: LoginHistoryRow[]; s
               <td className="px-2.5 py-2 text-[11px] font-bold text-text-secondary">{row.device_type ?? '-'} <span className="text-text-muted">·</span> {row.browser ?? '-'}</td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={4} className="px-3 py-10 text-center text-xs font-bold text-text-muted">조건에 맞는 로그인 이벤트가 없습니다.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={4} className="px-3 py-10 text-center text-xs font-bold text-text-muted">조건에 맞는 인증 이벤트가 없습니다.</td></tr>}
         </tbody>
       </table>
     </div>
@@ -316,9 +458,9 @@ function StudentTable({ rows }: { rows: LoginHistoryStudentSummary[] }) {
         <thead className="bg-bg-deep/70">
           <tr className="border-b border-line text-[9px] font-black text-text-muted">
             <th className="px-2.5 py-2">학생</th>
-            <th className="px-2.5 py-2 text-right">로그인 일수</th>
-            <th className="px-2.5 py-2 text-right">로그인 횟수</th>
-            <th className="px-2.5 py-2">최근 로그인</th>
+            <th className="px-2.5 py-2 text-right">인증 일수</th>
+            <th className="px-2.5 py-2 text-right">인증 횟수</th>
+            <th className="px-2.5 py-2">최근 인증 로그인</th>
           </tr>
         </thead>
         <tbody>
@@ -350,9 +492,9 @@ function SortControls({ view, eventSort, studentSort, setEventSort, setStudentSo
         </select>
       ) : (
         <select value={studentSort} onChange={(e) => setStudentSort(e.target.value)} className="h-8 rounded-card-md border border-line bg-bg-deep px-2 text-2xs font-bold text-white outline-none focus:border-line-brand">
-          <option value="login_days">로그인 일수</option>
-          <option value="login_count">로그인 횟수</option>
-          <option value="last_login">최근 로그인</option>
+          <option value="login_days">인증 일수</option>
+          <option value="login_count">인증 횟수</option>
+          <option value="last_login">최근 인증</option>
           <option value="name">이름</option>
         </select>
       )}
