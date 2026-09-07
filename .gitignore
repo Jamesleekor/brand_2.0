@@ -2,3 +2,7 @@ node_modules
 dist
 .env.local
 *.log
+
+/BRAND_2.0_FONT_RECOVERY_INSTALLER_*/
+/BRAND_2.0_FONT_BUILD_HOTFIX_*/
+/BRAND_2.0_FONT_SAFE_PATCH_*/
