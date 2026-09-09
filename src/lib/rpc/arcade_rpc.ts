@@ -63,11 +63,40 @@ export interface ArcadeGameAccess {
   mode: 'PUBLIC' | 'PRERELEASE_TEST' | 'CLOSED';
 }
 
+export type ArcadeLeaderboardCertificationStatus = 'NONE' | 'PENDING' | 'CERTIFIED' | 'FAILED';
+
+export interface ArcadeLeaderboardRow {
+  rank: number;
+  student_id: number;
+  student_name: string;
+  /** 현재 순위를 계산할 때 실제로 사용되는 점수 */
+  official_score: number;
+  /** 월간 동결 전 일반 플레이 최고 기록. ACTIVE/SEASON에서는 official_score와 동일 */
+  general_score: number;
+  /** 인증 완료 후 공인된 점수. 인증 전/미대상은 null */
+  certified_score: number | null;
+  certification_status: ArcadeLeaderboardCertificationStatus;
+  game_over_at: string;
+}
+
+export interface ArcadeGuildTotalRow {
+  rank: number;
+  guild_id: number;
+  guild_name: string;
+  guild_logo_url: string | null;
+  member_count: number;
+  participant_count: number;
+  certified_count: number;
+  general_total: number;
+  certified_total: number;
+}
+
 export interface ArcadeLeaderboardResult {
   period_id: number;
   period_kind: 'MONTHLY' | 'SEASON';
   game_code: string;
-  top10: Array<{ rank: number; student_id: number; student_name: string; official_score: number; game_over_at: string }>;
+  top10: ArcadeLeaderboardRow[];
+  guild_totals: ArcadeGuildTotalRow[];
   my_rank: number | null;
   my_score: number | null;
 }

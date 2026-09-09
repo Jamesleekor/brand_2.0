@@ -7,6 +7,7 @@ export type StudentGuildIdentity = {
   studentId: number;
   guildId: number;
   guildName: string;
+  guildLogoUrl: string | null;
 };
 
 export function useClassroomStudentGuilds() {
@@ -23,7 +24,7 @@ export function useClassroomStudentGuilds() {
 
       const guildsRes = await supabase
         .from('guilds')
-        .select('id,name')
+        .select('id,name,logo_url')
         .eq('classroom_id', classroomId)
         .eq('is_active', true);
       if (guildsRes.error) throw new Error(`[Guild identity:guilds] ${guildsRes.error.message}`);
@@ -39,18 +40,26 @@ export function useClassroomStudentGuilds() {
         .is('left_at', null);
       if (membersRes.error) throw new Error(`[Guild identity:members] ${membersRes.error.message}`);
 
-      const guildNameById = new Map<number, string>(
-        guilds.map((guild: any) => [Number(guild.id), String(guild.name ?? '')]),
+      const guildById = new Map<number, { name: string; logoUrl: string | null }>(
+        guilds.map((guild: any) => [
+          Number(guild.id),
+          {
+            name: String(guild.name ?? ''),
+            logoUrl: guild.logo_url ? String(guild.logo_url) : null,
+          },
+        ]),
       );
 
       return (membersRes.data ?? []).flatMap((member: any) => {
         const guildId = Number(member.guild_id);
-        const guildName = guildNameById.get(guildId)?.trim();
+        const guild = guildById.get(guildId);
+        const guildName = guild?.name.trim();
         if (!guildName) return [];
         return [{
           studentId: Number(member.student_id),
           guildId,
           guildName,
+          guildLogoUrl: guild?.logoUrl ?? null,
         }];
       });
     },

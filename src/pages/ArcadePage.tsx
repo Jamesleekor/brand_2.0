@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader, LoadingSpinner } from '@/components/shared/components';
 import { FocusReactionGame, type FocusPlaySummary } from '@/features/arcade/FocusReactionGame';
-import { arcadeErrorMessage, arcadeStudentRpc, type ArcadeRunBootstrap, type ArcadeRunSubmissionResult, type ArcadeVerificationState, type ArcadeVerificationAttempt, type ArcadeLeaderboardRow, type ArcadeGuildTotalRow } from '@/lib/rpc/arcade_rpc';
+import { arcadeErrorMessage, arcadeStudentRpc, type ArcadeRunBootstrap, type ArcadeRunSubmissionResult, type ArcadeVerificationState, type ArcadeVerificationAttempt, type ArcadeLeaderboardRow } from '@/lib/rpc/arcade_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId, useStudentId } from '@/stores/auth_store';
 import { useClassroomStudentGuilds, type StudentGuildIdentity } from '@/hooks/useStudentGuilds';
@@ -185,8 +185,6 @@ export default function ArcadePage() {
           </div>
         </section>}
 
-        {selectedPeriod && leaderboardQuery.data && <GuildArcadeStandings rows={leaderboardQuery.data.guild_totals ?? []} periodStatus={selectedPeriod.status} />}
-
         {selectedPeriod && <section className="glass-card p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-display text-xl text-white">{selectedPeriod.display_name} Top 10</h2><p className="mt-1 text-xs text-text-secondary">동점은 현재 순위 반영 점수 → 먼저 게임 종료 → 기록 번호 순서로 결정됩니다.</p></div><span className={`rounded-pill px-3 py-1 text-xs font-black ${selectedPeriod.status === 'FINALIZED' ? 'bg-success/15 text-success' : 'bg-brand-primary/15 text-brand-primary'}`}>{selectedPeriod.status === 'FINALIZED' ? '월간 순위 확정' : selectedPeriod.status === 'VERIFICATION' ? '기록 인증 중' : selectedPeriod.status === 'READY_TO_FINALIZE' ? '최종 확정 대기' : '실시간 초안'}</span></div>
           {leaderboardQuery.isLoading && <div className="py-10 text-center"><LoadingSpinner /></div>}
           {leaderboardQuery.isError && <p className="mt-4 rounded-card-md bg-danger/10 p-3 text-sm text-danger">랭킹을 불러오지 못했어요. <button className="underline" onClick={() => void leaderboardQuery.refetch()}>다시 시도</button></p>}
@@ -195,52 +193,6 @@ export default function ArcadePage() {
       </>}
     </main>
   </div>;
-}
-
-
-function GuildArcadeStandings({ rows, periodStatus }: { rows: ArcadeGuildTotalRow[]; periodStatus: ArcadePeriodRow['status'] }) {
-  return <section className="glass-card p-4">
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h2 className="font-display text-xl text-white">⚔️ 길드별 아케이드 현황</h2>
-        <p className="mt-1 text-xs text-text-secondary">일반 플레이 합산 기준 순위 · 공인 기록은 인증 완료된 기록만 합산합니다.</p>
-      </div>
-      <span className="rounded-pill bg-gold/10 px-3 py-1 text-xs font-black text-gold">
-        {periodStatus === 'ACTIVE' ? '실시간 집계' : periodStatus === 'FINALIZED' ? '최종 집계' : '인증 반영 중'}
-      </span>
-    </div>
-
-    {!rows.length ? <p className="py-8 text-center text-sm text-text-secondary">아직 길드별 집계 기록이 없습니다.</p> :
-      <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[620px] text-sm">
-          <thead className="border-b border-line text-left text-xs text-text-secondary">
-            <tr>
-              <th className="w-16 p-2">순위</th>
-              <th className="p-2">길드</th>
-              <th className="p-2 text-right">일반 플레이 점수 합산</th>
-              <th className="p-2 text-right">공인 기록 합산</th>
-            </tr>
-          </thead>
-          <tbody>{rows.map((row) => <tr key={row.guild_id} className="border-b border-line/70 last:border-0">
-            <td className="p-2 font-display text-lg text-gold">{row.rank}</td>
-            <td className="p-2">
-              <div className="flex min-w-[150px] items-center gap-2">
-                {row.guild_logo_url ? <img src={row.guild_logo_url} alt="" className="h-8 w-8 shrink-0 rounded-md object-contain" loading="lazy" /> : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-bg-deep text-[11px] font-black text-text-secondary">{row.guild_name.slice(0, 1)}</span>}
-                <div>
-                  <div className="font-black text-white">{row.guild_name}</div>
-                  <div className="text-[10px] text-text-muted">{row.participant_count}/{row.member_count}명 기록</div>
-                </div>
-              </div>
-            </td>
-            <td className="p-2 text-right font-black text-white">{Number(row.general_total).toLocaleString('ko-KR')}</td>
-            <td className="p-2 text-right">
-              <div className="font-black text-success">{Number(row.certified_total).toLocaleString('ko-KR')}</div>
-              <div className="text-[10px] text-text-muted">공인 {row.certified_count}명</div>
-            </td>
-          </tr>)}</tbody>
-        </table>
-      </div>}
-  </section>;
 }
 
 function Leaderboard({ rows, myRank, myScore, guildByStudentId }: { rows: ArcadeLeaderboardRow[]; myRank: number | null; myScore: number | null; guildByStudentId: Map<number, StudentGuildIdentity> }) {
@@ -263,7 +215,7 @@ function Leaderboard({ rows, myRank, myScore, guildByStudentId }: { rows: Arcade
         const certifiedScore = row.certified_score === null || row.certified_score === undefined ? null : Number(row.certified_score);
         const certificationStatus = row.certification_status ?? 'NONE';
         return <tr key={`${row.rank}-${row.student_id}`} className="border-b border-line/70 last:border-0">
-          <td className="whitespace-nowrap p-2 font-display text-lg text-gold">{studentRankLabel(row.rank)}</td>
+          <td className="p-2 font-display text-lg text-gold">{row.rank}</td>
           <td className="p-2 font-black text-white">{row.student_name}</td>
           <td className="p-2"><GuildIdentityCell guild={guild ?? null} /></td>
           <td className="p-2 text-right font-black text-white">{generalScore.toLocaleString('ko-KR')}</td>
@@ -315,7 +267,6 @@ function VerificationChallengeCard({ state, isLoading, onStart }: { state: Arcad
 function VerifyStat({ label, value }: { label: string; value: string }) { return <div className="rounded-card-md border border-line bg-bg-deep p-3"><div className="text-[10px] font-black text-text-muted">{label}</div><div className="mt-1 font-display text-lg text-white">{value}</div></div>; }
 function formatScore(value: number | undefined) { return value === undefined ? '—' : `${Number(value).toLocaleString('ko-KR')}점`; }
 function attemptStatusLabel(attempt: ArcadeVerificationAttempt) { if (attempt.status === 'TECHNICAL_CANCELLED') return '기술 취소'; if (attempt.status === 'RESTORED') return '복구됨'; if (attempt.status !== 'TERMINAL') return '진행 중'; if (!attempt.valid_run) return '유효 기록 없음'; return attempt.official_score === null ? '종료' : `${Number(attempt.official_score).toLocaleString('ko-KR')}점`; }
-function studentRankLabel(rank: number) { return rank === 1 ? '👑 1' : rank === 2 ? '🥈 2' : rank === 3 ? '🥉 3' : String(rank); }
 function periodStatusLabel(status: ArcadePeriodRow['status']) { return status === 'FINALIZED' ? '확정' : status === 'VERIFICATION' ? '인증 중' : status === 'READY_TO_FINALIZE' ? '확정 대기' : '진행 중'; }
 
 function Bonus({ rank, points }: { rank: string; points: string }) { return <div className="rounded-card-md border border-line bg-bg-card px-3 py-2"><span className="text-xs text-text-secondary">{rank}</span><b className="float-right text-gold">{points}</b></div>; }
