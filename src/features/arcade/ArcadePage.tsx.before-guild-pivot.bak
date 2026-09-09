@@ -199,144 +199,46 @@ export default function ArcadePage() {
 
 
 function GuildArcadeStandings({ rows, periodStatus }: { rows: ArcadeGuildTotalRow[]; periodStatus: ArcadePeriodRow['status'] }) {
-  const useCertifiedRanking = periodStatus === 'READY_TO_FINALIZE' || periodStatus === 'FINALIZED';
-
-  const rankedRows = [...rows]
-    .map((row) => {
-      const memberCount = Math.max(0, Number(row.member_count) || 0);
-      const generalTotal = Number(row.general_total) || 0;
-      const certifiedTotal = Number(row.certified_total) || 0;
-      const generalAverage = memberCount > 0 ? generalTotal / memberCount : 0;
-      const certifiedAverage = memberCount > 0 ? certifiedTotal / memberCount : 0;
-
-      return {
-        ...row,
-        memberCount,
-        generalTotal,
-        certifiedTotal,
-        generalAverage,
-        certifiedAverage,
-      };
-    })
-    .sort((a, b) => {
-      const averageDiff = useCertifiedRanking
-        ? b.certifiedAverage - a.certifiedAverage
-        : b.generalAverage - a.generalAverage;
-      if (averageDiff !== 0) return averageDiff;
-
-      const totalDiff = useCertifiedRanking
-        ? b.certifiedTotal - a.certifiedTotal
-        : b.generalTotal - a.generalTotal;
-      if (totalDiff !== 0) return totalDiff;
-
-      return Number(a.guild_id) - Number(b.guild_id);
-    });
-
-  const rankingLabel = useCertifiedRanking ? '공인 평균' : '일반 평균';
-
-  const rankLabel = (index: number) => {
-    if (index === 0) return '👑 1위';
-    if (index === 1) return '🥈 2위';
-    if (index === 2) return '🥉 3위';
-    return `${index + 1}위`;
-  };
-
-  const certifiedValue = (row: (typeof rankedRows)[number], value: number) => {
-    if (row.certified_count > 0 || useCertifiedRanking) {
-      return Math.round(value).toLocaleString('ko-KR');
-    }
-    return '—';
-  };
-
   return <section className="glass-card p-4">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h2 className="font-display text-xl text-white">⚔️ 길드별 아케이드 현황</h2>
-        <p className="mt-1 text-xs text-text-secondary">
-          공인 기록 확정 전에는 <b className="text-gold">일반 평균</b>, 확정 후에는 <b className="text-success">공인 평균</b> 기준으로 순위를 정합니다.
-          평균은 길드 전체 인원 기준입니다.
-        </p>
+        <p className="mt-1 text-xs text-text-secondary">일반 플레이 합산 기준 순위 · 공인 기록은 인증 완료된 기록만 합산합니다.</p>
       </div>
-      <span className={`rounded-pill px-3 py-1 text-xs font-black ${useCertifiedRanking ? 'bg-success/15 text-success' : 'bg-gold/10 text-gold'}`}>
-        {rankingLabel} 기준
+      <span className="rounded-pill bg-gold/10 px-3 py-1 text-xs font-black text-gold">
+        {periodStatus === 'ACTIVE' ? '실시간 집계' : periodStatus === 'FINALIZED' ? '최종 집계' : '인증 반영 중'}
       </span>
     </div>
 
-    {!rankedRows.length ? <p className="py-8 text-center text-sm text-text-secondary">아직 길드별 집계 기록이 없습니다.</p> :
+    {!rows.length ? <p className="py-8 text-center text-sm text-text-secondary">아직 길드별 집계 기록이 없습니다.</p> :
       <div className="mt-4 overflow-x-auto">
-        <table className="w-full min-w-[820px] table-fixed overflow-hidden rounded-card-md text-sm">
-          <colgroup>
-            <col className="w-[130px]" />
-            {rankedRows.map((row) => <col key={`col-${row.guild_id}`} />)}
-          </colgroup>
-          <tbody>
-            <tr className="border-b border-line bg-bg-deep/70">
-              <th className="p-3 text-left text-xs font-black text-text-secondary">순위</th>
-              {rankedRows.map((row, index) => <th key={row.guild_id} className="p-3 text-center">
-                <span className={`font-display text-base ${index < 3 ? 'text-gold' : 'text-white'}`}>{rankLabel(index)}</span>
-              </th>)}
+        <table className="w-full min-w-[620px] text-sm">
+          <thead className="border-b border-line text-left text-xs text-text-secondary">
+            <tr>
+              <th className="w-16 p-2">순위</th>
+              <th className="p-2">길드</th>
+              <th className="p-2 text-right">일반 플레이 점수 합산</th>
+              <th className="p-2 text-right">공인 기록 합산</th>
             </tr>
-
-            <tr className="border-b border-line/70">
-              <th className="p-3 text-left text-xs font-black text-text-secondary">길드</th>
-              {rankedRows.map((row) => <td key={row.guild_id} className="p-3 text-center align-middle">
-                <div className="flex min-h-[96px] flex-col items-center justify-center gap-2">
-                  {row.guild_logo_url
-                    ? <img src={row.guild_logo_url} alt="" className="h-10 w-10 shrink-0 rounded-md object-contain" loading="lazy" />
-                    : <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-line bg-bg-deep text-sm font-black text-text-secondary">{row.guild_name.slice(0, 1)}</span>}
-                  <div className="w-full text-center">
-                    <div className="whitespace-nowrap text-sm font-black leading-tight text-white">{row.guild_name}</div>
-                    <div className="mt-1 inline-flex rounded-pill border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-bold leading-none text-white/75">
-                      {row.memberCount}명 길드
-                    </div>
-                  </div>
+          </thead>
+          <tbody>{rows.map((row) => <tr key={row.guild_id} className="border-b border-line/70 last:border-0">
+            <td className="p-2 font-display text-lg text-gold">{row.rank}</td>
+            <td className="p-2">
+              <div className="flex min-w-[150px] items-center gap-2">
+                {row.guild_logo_url ? <img src={row.guild_logo_url} alt="" className="h-8 w-8 shrink-0 rounded-md object-contain" loading="lazy" /> : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-bg-deep text-[11px] font-black text-text-secondary">{row.guild_name.slice(0, 1)}</span>}
+                <div>
+                  <div className="font-black text-white">{row.guild_name}</div>
+                  <div className="text-[10px] text-text-muted">{row.participant_count}/{row.member_count}명 기록</div>
                 </div>
-              </td>)}
-            </tr>
-
-            <tr className="border-b border-line/70">
-              <th className="p-3 text-left text-xs font-black text-text-secondary">일반 합산</th>
-              {rankedRows.map((row) => <td key={row.guild_id} className="p-3 text-center font-black text-white">
-                {Math.round(row.generalTotal).toLocaleString('ko-KR')}
-              </td>)}
-            </tr>
-
-            <tr className={`border-b border-line/70 ${!useCertifiedRanking ? 'bg-gold/10' : 'bg-gold/[0.035]'}`}>
-              <th className="p-3 text-left text-xs font-black text-gold">
-                일반 평균 {!useCertifiedRanking && <span className="ml-1">★</span>}
-              </th>
-              {rankedRows.map((row) => <td key={row.guild_id} className="p-3 text-center">
-                <span className={`font-display text-lg font-black ${!useCertifiedRanking ? 'text-gold' : 'text-gold/80'}`}>
-                  {Math.round(row.generalAverage).toLocaleString('ko-KR')}
-                </span>
-              </td>)}
-            </tr>
-
-            <tr className="border-b border-line/70">
-              <th className="p-3 text-left text-xs font-black text-text-secondary">공인 합산</th>
-              {rankedRows.map((row) => <td key={row.guild_id} className="p-3 text-center font-black text-white">
-                {certifiedValue(row, row.certifiedTotal)}
-              </td>)}
-            </tr>
-
-            <tr className={useCertifiedRanking ? 'bg-success/10' : 'bg-success/[0.035]'}>
-              <th className="p-3 text-left text-xs font-black text-success">
-                공인 평균 {useCertifiedRanking && <span className="ml-1">★</span>}
-              </th>
-              {rankedRows.map((row) => <td key={row.guild_id} className="p-3 text-center">
-                <span className={`font-display text-lg font-black ${useCertifiedRanking ? 'text-success' : 'text-success/80'}`}>
-                  {certifiedValue(row, row.certifiedAverage)}
-                </span>
-              </td>)}
-            </tr>
-          </tbody>
+              </div>
+            </td>
+            <td className="p-2 text-right font-black text-white">{Number(row.general_total).toLocaleString('ko-KR')}</td>
+            <td className="p-2 text-right">
+              <div className="font-black text-success">{Number(row.certified_total).toLocaleString('ko-KR')}</div>
+              <div className="text-[10px] text-text-muted">공인 {row.certified_count}명</div>
+            </td>
+          </tr>)}</tbody>
         </table>
-
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-muted">
-          <span>• 일반 평균 = 일반 플레이 최고 기록 합계 ÷ 길드 전체 인원</span>
-          <span>• 공인 평균 = 최종 공인 기록 합계 ÷ 길드 전체 인원</span>
-          {periodStatus === 'VERIFICATION' && <span className="text-warning">• 인증 진행 중에는 순위를 일반 평균으로 유지합니다.</span>}
-        </div>
       </div>}
   </section>;
 }
