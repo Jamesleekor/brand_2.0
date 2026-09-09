@@ -34,6 +34,7 @@ import { useMyAchievementTitle } from "@/hooks/useAchievementTitles";
 import { AchievementTitleBadge } from "@/components/shared/AchievementTitleBadge";
 import { GuildNameBadge } from "@/components/shared/GuildNameBadge";
 import { useClassroomStudentGuilds } from "@/hooks/useStudentGuilds";
+import { CreditSummaryCard, CreditDetailModal } from "@/features/profile/CreditDetailPanel";
 
 // =====================================================================
 // ProfilePage
@@ -47,6 +48,7 @@ export default function ProfilePage() {
   const { myGuild } = useClassroomStudentGuilds();
   const [editBrandOpen, setEditBrandOpen] = useState(false);
   const [editPasswordOpen, setEditPasswordOpen] = useState(false);
+  const [creditDetailOpen, setCreditDetailOpen] = useState(false);
   const logout = useAuthStore((s) => s.logout);
 
   const { data: detail } = useProfileDetail(studentId);
@@ -139,7 +141,7 @@ export default function ProfilePage() {
         </div>
 
         {/* 통계 */}
-        {detail && <StatsGrid detail={detail} />}
+        {detail && <StatsGrid detail={detail} onCreditDetailOpen={() => setCreditDetailOpen(true)} />}
 
         {/* 액션 버튼들 */}
         <div className="space-y-2">
@@ -176,6 +178,10 @@ export default function ProfilePage() {
       {editPasswordOpen && (
         <PasswordModal onClose={() => setEditPasswordOpen(false)} />
       )}
+      <CreditDetailModal
+        isOpen={creditDetailOpen}
+        onClose={() => setCreditDetailOpen(false)}
+      />
     </>
   );
 }
@@ -194,7 +200,7 @@ interface ProfileDetail {
   creditScore: number;
 }
 
-function StatsGrid({ detail }: { detail: ProfileDetail }) {
+function StatsGrid({ detail, onCreditDetailOpen }: { detail: ProfileDetail; onCreditDetailOpen: () => void }) {
   return (
     <div className="bg-bg-card backdrop-blur-card border border-line rounded-card-lg p-4">
       <div className="text-xs font-extrabold text-text-secondary uppercase tracking-wider mb-3">
@@ -229,25 +235,12 @@ function StatsGrid({ detail }: { detail: ProfileDetail }) {
         />
       </div>
 
-      {/* 신용점수 */}
-      {detail.creditGrade && (
-        <div className="mt-3 pt-3 border-t border-line flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-base">💳</span>
-            <span className="text-xs font-extrabold text-text-secondary">
-              신용등급
-            </span>
-          </div>
-          <div className="text-right">
-            <div className="font-display text-base text-gold leading-none">
-              {detail.creditGrade}
-            </div>
-            <div className="text-2xs text-text-muted font-bold mt-0.5">
-              {formatNumber(detail.creditScore)}점
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 신용점수 — 요약 + 상세 진입 */}
+      <CreditSummaryCard
+        grade={detail.creditGrade}
+        score={detail.creditScore}
+        onOpen={onCreditDetailOpen}
+      />
     </div>
   );
 }

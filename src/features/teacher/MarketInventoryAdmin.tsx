@@ -15,6 +15,7 @@ import { resolveAssetUrl } from '@/lib/assets/asset_urls';
 import { formatNumber } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { randomBoxRpc, type TeacherRandomBoxManualReward } from '@/lib/rpc/random_box_rpc';
+import { StudentInventoryAdminModal } from '@/features/teacher/StudentInventoryAdminModal';
 
 const TYPE_META: Record<MarketItemType, { label: string; emoji: string }> = {
   SNACK: { label: '간식', emoji: '🍪' },
@@ -28,6 +29,7 @@ const USE_META: Record<MarketUseMode, string> = {
   BAKERY_FULFILLMENT: '제과점 수령',
   IMMEDIATE: '즉시 사용',
   AUCTION_SUPER_PASS: '경매 SUPER PASS',
+  SNACK_EXCHANGE: '간식 교환권',
   MANUAL: '수동 처리',
   NONE: '사용 없음',
 };
@@ -66,6 +68,7 @@ export default function MarketInventoryAdmin() {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<TeacherMarketItem | 'NEW' | null>(null);
   const [granting, setGranting] = useState<TeacherMarketItem | null>(null);
+  const [inventoryManaging, setInventoryManaging] = useState(false);
   const [manualReward, setManualReward] = useState<TeacherRandomBoxManualReward | null>(null);
 
   const query = useQuery<TeacherMarketBoard>({
@@ -147,7 +150,10 @@ export default function MarketInventoryAdmin() {
             <h1 className="mt-1 font-display text-2xl text-white">🏪 시장 상품 운영</h1>
             <p className="mt-1 max-w-3xl text-sm font-bold leading-relaxed text-text-secondary">상품 이미지·종류·가격·재고·사용 방식과 시즌2 비선형 시세를 관리합니다. 화면의 삭제는 기록 보호를 위해 실제 DELETE가 아니라 보관(archive) 처리됩니다.</p>
           </div>
-          <button type="button" onClick={() => setEditing('NEW')} className="btn-primary whitespace-nowrap">＋ 새 상품 추가</button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setInventoryManaging(true)} className="btn-secondary whitespace-nowrap">🎒 학생 인벤토리</button>
+            <button type="button" onClick={() => setEditing('NEW')} className="btn-primary whitespace-nowrap">＋ 새 상품 추가</button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -191,6 +197,7 @@ export default function MarketInventoryAdmin() {
         {editing && <MarketItemEditor classroomId={classroomId} item={editing === 'NEW' ? null : editing} onClose={() => setEditing(null)} onSaved={async () => { setEditing(null); await refresh(); }} />}
         {manualReward && <RandomBoxManualRewardModal reward={manualReward} onClose={() => setManualReward(null)} onSaved={async () => { setManualReward(null); await queryClient.invalidateQueries({ queryKey: ['teacher-random-box-manual-rewards'] }); }} />}
         {granting && <InventoryGrantModal classroomId={classroomId} item={granting} students={studentsQuery.data ?? []} studentsLoading={studentsQuery.isLoading} studentsError={studentsQuery.isError ? (studentsQuery.error instanceof Error ? studentsQuery.error.message : '학생 목록을 불러오지 못했습니다.') : null} onClose={() => setGranting(null)} onSaved={async () => { setGranting(null); await refresh(); }} />}
+        {inventoryManaging && <StudentInventoryAdminModal classroomId={classroomId} students={studentsQuery.data ?? []} studentsLoading={studentsQuery.isLoading} studentsError={studentsQuery.isError ? (studentsQuery.error instanceof Error ? studentsQuery.error.message : '학생 목록을 불러오지 못했습니다.') : null} onClose={() => setInventoryManaging(false)} />}
       </div>
     </TeacherShell>
   );
@@ -276,6 +283,13 @@ function InventoryGrantModal({ classroomId, item, students, studentsLoading, stu
 
   const grant = async () => {
     if (!valid || !selected) return;
+    const allowStockOverride = item.current_stock < parsedQuantity;
+    if (allowStockOverride) {
+      const message = item.current_stock === 0
+        ? `현재 "${item.name}" 재고가 0입니다.\n그래도 ${parsedQuantity}개를 지급하시겠습니까?\n예외 지급분은 재고가 0 아래로 내려가지는 않으며 지급 기록에 남습니다.`
+        : `현재 "${item.name}" 재고는 ${item.current_stock}개인데 ${parsedQuantity}개 지급을 요청했습니다.\n부족한 ${parsedQuantity - item.current_stock}개까지 예외 지급하시겠습니까?`;
+      if (!confirm(message)) return;
+    }
     const result = await call(
       () => inventoryMarketRpc.teacherGrantItem(supabase, {
         p_classroom_id: classroomId,
@@ -283,10 +297,11 @@ function InventoryGrantModal({ classroomId, item, students, studentsLoading, stu
         p_item_id: item.id,
         p_quantity: parsedQuantity,
         p_note: note.trim() || null,
+        p_allow_stock_override: allowStockOverride,
       }),
       {
         successTitle: `${item.name} 지급 완료`,
-        successDescription: `${selected.brandName || selected.name} · ${parsedQuantity}개`,
+        successDescription: `${selected.brandName || selected.name} · ${parsedQuantity}개${allowStockOverride ? ' · 재고 부족 예외 지급' : ` · 시장 재고 ${parsedQuantity}개 차감`}`,
       },
     );
     if (result === null) return;
@@ -305,6 +320,7 @@ function InventoryGrantModal({ classroomId, item, students, studentsLoading, stu
           <div className="text-[10px] font-black text-text-muted">지급 상품</div>
           <div className="mt-1 font-display text-base text-white">{TYPE_META[item.item_type].emoji} {item.name}</div>
           <div className="mt-1 text-xs text-text-secondary">교사 지급분은 구매가 환불 대상이 아닌 별도 지급 Lot으로 기록됩니다.</div>
+          <div className="mt-1 text-[10px] font-black text-gold">현재 시장 재고 {item.current_stock}개 · 정상 지급 시 지급 수량만큼 차감</div>
         </div>
 
         {studentsError ? (
@@ -323,7 +339,7 @@ function InventoryGrantModal({ classroomId, item, students, studentsLoading, stu
           <Field label="지급 메모"><input maxLength={500} className="login-input" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
         </div>
 
-        <div className="rounded-card-sm border border-warning/25 bg-warning-bg p-2.5 text-[11px] font-bold text-text-secondary">시장 재고와 학생 GOLD는 변하지 않고, 선택한 학생의 인벤토리 보유수량만 증가합니다.</div>
+        <div className="rounded-card-sm border border-warning/25 bg-warning-bg p-2.5 text-[11px] font-bold text-text-secondary">교사 지급도 시장 재고를 차감합니다. 지급 수량보다 재고가 부족하면 확인 팝업이 뜨며, 교사가 명시적으로 승인한 경우에만 부족분을 예외 지급할 수 있습니다. 학생 GOLD는 변하지 않습니다.</div>
         <button type="button" disabled={isLoading || !valid} onClick={() => void grant()} className="btn-primary w-full disabled:opacity-40">{isLoading ? '지급 중…' : '지급 확정'}</button>
       </div>
     </Modal>
@@ -461,6 +477,7 @@ function MarketItemEditor({ classroomId, item, onClose, onSaved }: { classroomId
 
         {form.useMode === 'BAKERY_FULFILLMENT' && <div className="rounded-card-md border border-success/30 bg-success-bg p-3 text-xs font-bold text-text-secondary"><span className="font-black text-success">🍰 제과점 연동:</span> 학생이 사용하면 즉시 인벤토리에서 차감되고 수령 대기 기록이 생성됩니다. 제과점 운영 화면에서 수령 대기 목록을 확인하고 전달 완료 처리할 수 있습니다.</div>}
         {form.useMode === 'AUCTION_SUPER_PASS' && <div className="rounded-card-md border border-warning/30 bg-warning-bg p-3 text-xs font-bold text-text-secondary"><span className="font-black text-warning">⚡ SUPER PASS:</span> 학생 인벤토리의 일반 사용 버튼은 막히며, 경매 공개 후 SUPER PASS 신청 시 자동 예약됩니다. 낙찰자는 예약분이 소비되고, 비낙찰·취소 시 예약이 자동 해제됩니다.</div>}
+        {form.useMode === 'SNACK_EXCHANGE' && <div className="rounded-card-md border border-gold/30 bg-gold/5 p-3 text-xs font-bold text-text-secondary"><span className="font-black text-gold">🍪 간식 교환권:</span> 학생이 내 가방에서 재고가 남아 있는 간식 상품을 골라 1:1로 교환합니다. 교환한 간식은 학생 인벤토리에 들어가며 해당 간식의 시장 재고가 실제로 차감됩니다.</div>}
 
         <button type="button" disabled={isLoading} onClick={() => void save()} className="btn-primary w-full disabled:opacity-40">{isLoading ? '저장 중…' : '저장'}</button>
       </div>

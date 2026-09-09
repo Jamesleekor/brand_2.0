@@ -16,6 +16,7 @@ import { formatNumber } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { savingsRpc } from '@/lib/rpc/savings_rpc';
 import { randomBoxRpc, type RandomBoxBoard, type RandomBoxOpenResult } from '@/lib/rpc/random_box_rpc';
+import { SnackTicketExchangeModal } from '@/features/market/SnackTicketExchangeModal';
 
 const TYPE_META: Record<MarketItemType, { label: string; emoji: string }> = {
   SNACK: { label: '간식', emoji: '🍪' },
@@ -255,7 +256,7 @@ export function StudentInventoryPanel() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<ItemFilter>('ALL');
   const [search, setSearch] = useState('');
-  const [action, setAction] = useState<{ kind: 'USE' | 'SELL' | 'OPEN_BOX'; item: StudentInventoryItem } | null>(null);
+  const [action, setAction] = useState<{ kind: 'USE' | 'SELL' | 'OPEN_BOX' | 'EXCHANGE_SNACK'; item: StudentInventoryItem } | null>(null);
 
   const query = useQuery({
     queryKey: ['inventory-my-bag'],
@@ -359,6 +360,12 @@ export function StudentInventoryPanel() {
           onClose={() => setAction(null)}
           onDone={async () => { await refresh(); }}
         />
+      ) : action?.kind === 'EXCHANGE_SNACK' ? (
+        <SnackTicketExchangeModal
+          item={action.item}
+          onClose={() => setAction(null)}
+          onDone={async () => { setAction(null); await refresh(); }}
+        />
       ) : action ? (
         <InventoryActionModal
           action={action.kind}
@@ -377,10 +384,22 @@ function BagStat({ label, value }: { label: string; value: number }) {
   return <div className="min-w-[64px] rounded-card-md border border-line bg-black/20 px-3 py-2"><div className="text-[9px] font-black text-text-muted">{label}</div><div className="font-display text-lg text-white">{value}</div></div>;
 }
 
-function InventoryCard({ item, isRandomBox, feeRate, buffReductionPp, onAction }: { item: StudentInventoryItem; isRandomBox: boolean; feeRate: number; buffReductionPp: number; onAction: (kind: 'USE' | 'SELL' | 'OPEN_BOX') => void }) {
+function InventoryCard({ item, isRandomBox, feeRate, buffReductionPp, onAction }: { item: StudentInventoryItem; isRandomBox: boolean; feeRate: number; buffReductionPp: number; onAction: (kind: 'USE' | 'SELL' | 'OPEN_BOX' | 'EXCHANGE_SNACK') => void }) {
   const canNormalUse = item.is_usable && (item.use_mode === 'IMMEDIATE' || item.use_mode === 'BAKERY_FULFILLMENT') && item.available_quantity > 0;
   const canSell = item.is_sellable && item.sellable_quantity > 0 && item.available_quantity > 0;
   const canOpenBox = isRandomBox && item.is_usable && item.available_quantity > 0;
+  const canSnackExchange = item.is_usable && item.use_mode === 'SNACK_EXCHANGE' && item.available_quantity > 0;
+  const primaryKind: 'USE' | 'OPEN_BOX' | 'EXCHANGE_SNACK' = isRandomBox ? 'OPEN_BOX' : item.use_mode === 'SNACK_EXCHANGE' ? 'EXCHANGE_SNACK' : 'USE';
+  const primaryEnabled = isRandomBox ? canOpenBox : item.use_mode === 'SNACK_EXCHANGE' ? canSnackExchange : canNormalUse;
+  const primaryLabel = isRandomBox
+    ? '✨ 상자 열기'
+    : item.use_mode === 'SNACK_EXCHANGE'
+      ? '🍪 간식 교환'
+      : item.use_mode === 'BAKERY_FULFILLMENT'
+        ? '사용·수령'
+        : item.use_mode === 'AUCTION_SUPER_PASS'
+          ? '경매 전용'
+          : '사용';
 
   return (
     <article className="overflow-hidden rounded-card-lg border border-line bg-bg-card">
@@ -402,8 +421,12 @@ function InventoryCard({ item, isRandomBox, feeRate, buffReductionPp, onAction }
           <div className="mt-2 rounded-card-sm border border-warning/30 bg-warning-bg px-2 py-1.5 text-[10px] font-black text-warning">⚡ 경매 상품 공개 시 사용 여부를 선택합니다.</div>
         )}
 
+        {item.use_mode === 'SNACK_EXCHANGE' && (
+          <div className="mt-2 rounded-card-sm border border-gold/35 bg-gold/10 px-2 py-1.5 text-[10px] font-black text-amber-100">🍪 재고가 남아 있는 간식 1개와 1:1로 교환할 수 있습니다.</div>
+        )}
+
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <button type="button" disabled={isRandomBox ? !canOpenBox : !canNormalUse} onClick={() => onAction(isRandomBox ? 'OPEN_BOX' : 'USE')} className={cn('rounded-pill border py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-35', isRandomBox ? 'border-gold/55 bg-gold/15 text-amber-100' : 'border-crystal/40 bg-crystal/15 text-crystal')}>{isRandomBox ? '✨ 상자 열기' : item.use_mode === 'BAKERY_FULFILLMENT' ? '사용·수령' : item.use_mode === 'AUCTION_SUPER_PASS' ? '경매 전용' : '사용'}</button>
+          <button type="button" disabled={!primaryEnabled} onClick={() => onAction(primaryKind)} className={cn('rounded-pill border py-2 text-xs font-black disabled:cursor-not-allowed disabled:opacity-35', isRandomBox ? 'border-gold/55 bg-gold/15 text-amber-100' : item.use_mode === 'SNACK_EXCHANGE' ? 'border-gold/55 bg-gold/15 text-amber-100' : 'border-crystal/40 bg-crystal/15 text-crystal')}>{primaryLabel}</button>
           <button type="button" disabled={!canSell} onClick={() => onAction('SELL')} className="rounded-pill border border-gold/40 bg-gold/10 py-2 text-xs font-black text-gold disabled:cursor-not-allowed disabled:opacity-35">판매</button>
         </div>
       </div>
@@ -529,6 +552,7 @@ function ItemImage({ item, className }: { item: { image_url: string | null; name
 
 function useModeHelp(item: StudentInventoryItem) {
   if (item.use_mode === 'AUCTION_SUPER_PASS') return '경매 상품 공개 시 우선입찰에 사용할 수 있습니다.';
+  if (item.use_mode === 'SNACK_EXCHANGE') return '재고가 남아 있는 간식 상품과 1:1로 교환할 수 있습니다.';
   if (item.use_mode === 'BAKERY_FULFILLMENT') return '사용 후 제과점에서 실제 상품을 수령합니다.';
   if (item.use_mode === 'IMMEDIATE') return '사용 버튼을 누르면 즉시 소비됩니다.';
   if (item.use_mode === 'MANUAL') return '교사 또는 운영 담당자의 안내에 따라 사용합니다.';

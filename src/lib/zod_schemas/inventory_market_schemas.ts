@@ -4,7 +4,7 @@ const PositiveInt = z.number().int().positive();
 const NonNegativeInt = z.number().int().min(0);
 
 export const MarketItemTypeSchema = z.enum(['SNACK', 'CONSUMABLE', 'TICKET', 'AUCTION_PASS', 'SPECIAL']);
-export const MarketUseModeSchema = z.enum(['BAKERY_FULFILLMENT', 'IMMEDIATE', 'AUCTION_SUPER_PASS', 'MANUAL', 'NONE']);
+export const MarketUseModeSchema = z.enum(['BAKERY_FULFILLMENT', 'IMMEDIATE', 'AUCTION_SUPER_PASS', 'SNACK_EXCHANGE', 'MANUAL', 'NONE']);
 export const MarketPricingModeSchema = z.enum(['FIXED', 'STOCK_DYNAMIC']);
 
 export type MarketItemType = z.infer<typeof MarketItemTypeSchema>;

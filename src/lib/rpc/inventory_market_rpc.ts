@@ -143,6 +143,12 @@ export interface TeacherInventoryGrantResult {
   success: true;
   lot_id: number;
   owned_quantity: number;
+  stock_before: number;
+  stock_deducted: number;
+  stock_after: number;
+  stock_shortage_quantity: number;
+  stock_override: boolean;
+  market_quote_after_gold: number;
 }
 
 export interface TeacherInventoryGrantInput {
@@ -151,6 +157,72 @@ export interface TeacherInventoryGrantInput {
   p_item_id: number;
   p_quantity: number;
   p_note?: string | null;
+  p_allow_stock_override?: boolean;
+}
+
+export interface TeacherStudentInventoryItem {
+  item_id: number;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  item_type: MarketItemType;
+  use_mode: MarketUseMode;
+  is_active: boolean;
+  is_archived: boolean;
+  current_stock: number;
+  owned_quantity: number;
+  reserved_quantity: number;
+  available_quantity: number;
+}
+
+export interface TeacherStudentInventoryBoard {
+  classroom_id: number;
+  student: { id: number; name: string; brand_name: string | null };
+  items: TeacherStudentInventoryItem[];
+}
+
+export interface TeacherInventoryRevokeResult {
+  success: true;
+  revoked_quantity: number;
+  restore_stock: boolean;
+  stock_before: number;
+  stock_after: number;
+  market_quote_after_gold: number;
+}
+
+export interface TeacherInventoryRevokeInput {
+  p_classroom_id: number;
+  p_student_id: number;
+  p_item_id: number;
+  p_quantity: number;
+  p_note?: string | null;
+  p_restore_stock?: boolean;
+}
+
+export interface SnackExchangeOption {
+  item_id: number;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  current_stock: number;
+}
+
+export interface SnackExchangeOptionsBoard {
+  ticket_item_id: number;
+  available_ticket_quantity: number;
+  items: SnackExchangeOption[];
+}
+
+export interface SnackTicketExchangeResult {
+  success: true;
+  ticket_item_id: number;
+  snack_item_id: number;
+  snack_name: string;
+  quantity: number;
+  snack_owned_quantity: number;
+  stock_before: number;
+  stock_after: number;
+  market_quote_after_gold: number;
 }
 
 export type EconomyHistoryKind = 'ALL' | 'ASSET' | 'PURCHASE' | 'SALE' | 'USE' | 'INVENTORY';
@@ -274,8 +346,61 @@ export const inventoryMarketRpc = {
   use: (supabase: SupabaseClient, input: InventoryQuantityActionInput) =>
     quantityCall<InventoryUseResult>(supabase, 'use_inventory_item', input),
 
+  snackExchangeOptions: (supabase: SupabaseClient, ticketItemId: number) => {
+    if (!Number.isInteger(ticketItemId) || ticketItemId <= 0) {
+      return Promise.resolve(validationError<SnackExchangeOptionsBoard>('간식 교환권 정보를 확인해주세요.'));
+    }
+    return callRpc<SnackExchangeOptionsBoard>(supabase, 'student_get_snack_exchange_options', { p_ticket_item_id: ticketItemId });
+  },
+
+  exchangeSnackTicket: (supabase: SupabaseClient, input: { p_ticket_item_id: number; p_snack_item_id: number; p_quantity: number }) => {
+    if (!Number.isInteger(input.p_ticket_item_id) || input.p_ticket_item_id <= 0) {
+      return Promise.resolve(validationError<SnackTicketExchangeResult>('간식 교환권 정보를 확인해주세요.'));
+    }
+    if (!Number.isInteger(input.p_snack_item_id) || input.p_snack_item_id <= 0) {
+      return Promise.resolve(validationError<SnackTicketExchangeResult>('교환할 간식을 선택해주세요.'));
+    }
+    if (!Number.isInteger(input.p_quantity) || input.p_quantity < 1 || input.p_quantity > 100) {
+      return Promise.resolve(validationError<SnackTicketExchangeResult>('교환 수량은 1~100개여야 합니다.'));
+    }
+    return callRpc<SnackTicketExchangeResult>(supabase, 'exchange_snack_ticket', input);
+  },
+
   teacherBoard: (supabase: SupabaseClient, classroomId: number) =>
     callRpc<TeacherMarketBoard>(supabase, 'teacher_get_market_admin_board', { p_classroom_id: classroomId }),
+
+  teacherStudentInventory: (supabase: SupabaseClient, input: { p_classroom_id: number; p_student_id: number }) => {
+    if (!Number.isInteger(input.p_classroom_id) || input.p_classroom_id <= 0) {
+      return Promise.resolve(validationError<TeacherStudentInventoryBoard>('학급 정보를 확인해주세요.'));
+    }
+    if (!Number.isInteger(input.p_student_id) || input.p_student_id <= 0) {
+      return Promise.resolve(validationError<TeacherStudentInventoryBoard>('학생을 선택해주세요.'));
+    }
+    return callRpc<TeacherStudentInventoryBoard>(supabase, 'teacher_get_student_inventory', input);
+  },
+
+  teacherRevokeItem: (supabase: SupabaseClient, input: TeacherInventoryRevokeInput) => {
+    if (!Number.isInteger(input.p_classroom_id) || input.p_classroom_id <= 0) {
+      return Promise.resolve(validationError<TeacherInventoryRevokeResult>('학급 정보를 확인해주세요.'));
+    }
+    if (!Number.isInteger(input.p_student_id) || input.p_student_id <= 0) {
+      return Promise.resolve(validationError<TeacherInventoryRevokeResult>('학생을 선택해주세요.'));
+    }
+    if (!Number.isInteger(input.p_item_id) || input.p_item_id <= 0) {
+      return Promise.resolve(validationError<TeacherInventoryRevokeResult>('상품 정보를 확인해주세요.'));
+    }
+    if (!Number.isInteger(input.p_quantity) || input.p_quantity < 1 || input.p_quantity > 1000) {
+      return Promise.resolve(validationError<TeacherInventoryRevokeResult>('회수 수량은 1~1000개여야 합니다.'));
+    }
+    if ((input.p_note ?? '').trim().length > 500) {
+      return Promise.resolve(validationError<TeacherInventoryRevokeResult>('회수 메모는 500자 이하로 입력해주세요.'));
+    }
+    return callRpc<TeacherInventoryRevokeResult>(supabase, 'teacher_revoke_inventory_item_v2', {
+      ...input,
+      p_note: input.p_note?.trim() || null,
+      p_restore_stock: input.p_restore_stock ?? false,
+    });
+  },
 
   teacherGrantItem: (supabase: SupabaseClient, input: TeacherInventoryGrantInput) => {
     if (!Number.isInteger(input.p_classroom_id) || input.p_classroom_id <= 0) {
@@ -293,9 +418,10 @@ export const inventoryMarketRpc = {
     if ((input.p_note ?? '').trim().length > 500) {
       return Promise.resolve(validationError<TeacherInventoryGrantResult>('지급 메모는 500자 이하로 입력해주세요.'));
     }
-    return callRpc<TeacherInventoryGrantResult>(supabase, 'teacher_grant_inventory_item', {
+    return callRpc<TeacherInventoryGrantResult>(supabase, 'teacher_grant_inventory_item_v2', {
       ...input,
       p_note: input.p_note?.trim() || null,
+      p_allow_stock_override: input.p_allow_stock_override ?? false,
     });
   },
 
