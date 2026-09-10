@@ -430,57 +430,74 @@ function ShowcaseSection({
         )}
       </div>
 
-      {variantTarget && (
-        <div className="mt-4 rounded-card-lg border border-brand-primary/40 bg-brand-primary/10 p-3 shadow-brand-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="text-xs font-black text-white">{variantTarget.name} · 전시 이미지 선택</div>
-              <p className="mt-0.5 text-[10px] font-bold leading-relaxed text-text-secondary">원하는 모습을 고르면 바로 현재 슬롯에 전시됩니다.</p>
+      {variantTarget && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm"
+          onClick={(event) => {
+            event.stopPropagation();
+            setVariantTarget(null);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${variantTarget.name} 전시 이미지 선택`}
+            className="w-full max-w-xl rounded-card-lg border border-brand-primary/50 bg-bg-base p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-black text-white">{variantTarget.name} · 전시 이미지 선택</div>
+                <p className="mt-1 text-2xs font-bold leading-relaxed text-text-secondary">원하는 모습을 고르면 바로 현재 슬롯에 전시됩니다.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVariantTarget(null)}
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-line bg-bg-card text-sm font-black text-text-secondary hover:text-white"
+                aria-label="전시 이미지 선택 닫기"
+              >
+                ✕
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setVariantTarget(null)}
-              className="rounded-full border border-line bg-bg-card px-2 py-1 text-[10px] font-black text-text-secondary hover:text-white"
-            >
-              취소
-            </button>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {getShowcaseImages(variantTarget).map((variant) => {
+                const selected = current?.character_id === variantTarget.character_id
+                  && current.visual_variant_no === variant.no;
+                return (
+                  <button
+                    key={variant.no}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => {
+                      onSelect(variantTarget.character_id, variant.no);
+                      setVariantTarget(null);
+                    }}
+                    className={cn(
+                      'overflow-hidden rounded-card-md border bg-bg-card text-left transition',
+                      selected ? 'border-brand-primary shadow-brand-sm' : 'border-line hover:border-brand-primary/50',
+                      disabled && 'opacity-60',
+                    )}
+                  >
+                    <div className="aspect-[3/4] overflow-hidden bg-bg-deep">
+                      <img
+                        src={resolveAssetUrl(variant.url, 'character')}
+                        alt={`${variantTarget.name} 전시 이미지 ${variant.no}`}
+                        className="h-full w-full object-contain p-1"
+                        loading="eager"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-2 px-2.5 py-2">
+                      <span className="text-xs font-black text-white">{variant.label}</span>
+                      {selected && <span className="text-[10px] font-black text-brand-glow">현재</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {getShowcaseImages(variantTarget).map((variant) => {
-              const selected = current?.character_id === variantTarget.character_id
-                && current.visual_variant_no === variant.no;
-              return (
-                <button
-                  key={variant.no}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => {
-                    onSelect(variantTarget.character_id, variant.no);
-                    setVariantTarget(null);
-                  }}
-                  className={cn(
-                    'overflow-hidden rounded-card-md border bg-bg-card text-left transition',
-                    selected ? 'border-brand-primary shadow-brand-sm' : 'border-line hover:border-brand-primary/50',
-                    disabled && 'opacity-60',
-                  )}
-                >
-                  <div className="aspect-[3/4] overflow-hidden bg-bg-deep">
-                    <img
-                      src={resolveAssetUrl(variant.url, 'character')}
-                      alt={`${variantTarget.name} 전시 이미지 ${variant.no}`}
-                      className="h-full w-full object-contain p-1"
-                      loading="lazy"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-                    <span className="text-[10px] font-black text-white">{variant.label}</span>
-                    {selected && <span className="text-[9px] font-black text-brand-glow">현재</span>}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {query.isLoading ? (
