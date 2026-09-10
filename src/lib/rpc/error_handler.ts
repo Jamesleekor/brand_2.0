@@ -977,6 +977,36 @@ export const ERROR_MESSAGES: Record<string, ErrorMessage> = {
   DQ332: { category: "STATE", title: "제출된 보고서만 반려할 수 있어요" },
   DQ340: { category: "STATE", title: "아직 정산할 수 없는 상태예요", description: "관리자의 최종 제출을 먼저 확인해주세요." },
   DQ341: { category: "STATE", title: "미확인 항목이 남아 있어요", description: "미확인 항목을 모두 처리한 뒤 정산해주세요." },
+  // ===================================================================
+  // PNBxx — 뉴비 정착 지원 프로그램
+  // ===================================================================
+  PNB01: { category: "NOT_FOUND", title: "정착 지원 정보를 찾을 수 없어요", description: "프로그램 또는 완료 요청 정보를 다시 불러와주세요." },
+  PNB02: { category: "STATE", title: "지금은 완료 요청을 받을 수 없어요", description: "정착 프로그램의 현재 상태를 확인해주세요." },
+  PNB03: { category: "STATE", title: "정착 퀘스트 요청 기간이 아니에요", description: "프로그램 시작일과 종료일을 확인해주세요." },
+  PNB04: { category: "STATE", title: "이 퀘스트의 요청 가능 횟수를 모두 사용했어요" },
+  PNB05: { category: "VALIDATION", title: "퀘스트 근거를 확인할 수 없어요", description: "완료·후기·평점 등의 조건을 다시 확인해주세요." },
+  PNB06: { category: "STATE", title: "이미 사용 중인 퀘스트 근거예요", description: "같은 기록은 정착 퀘스트에 중복 사용할 수 없습니다." },
+  PNB07: { category: "BUSINESS", title: "멘토 거래 인정 한도를 넘었어요", description: "같은 멘토와의 P2P 거래는 방향별 1회만 정착 퀘스트로 인정됩니다." },
+  PNB08: { category: "STATE", title: "정착 대상 학생 정보를 확인해주세요" },
+  PNB09: { category: "VALIDATION", title: "멘토 구성을 확인해주세요", description: "서로 다른 공식 학생 2~3명을 멘토로 지정해주세요." },
+  PNB10: { category: "SYSTEM", title: "정착 보상 슬롯 검증에 실패했어요", description: "보상 계산 데이터가 예상과 다릅니다.", hint: "프로그램을 시작하지 말고 선생님께 알려주세요." },
+  PNB11: { category: "STATE", title: "이미 처리 중이거나 처리된 요청이에요", description: "목록을 새로고침한 뒤 상태를 확인해주세요." },
+  PNB12: { category: "STATE", title: "모든 정착 퀘스트 승인이 필요해요", description: "27개 정착 퀘스트가 모두 승인된 뒤 완료할 수 있습니다." },
+  PNB13: { category: "STATE", title: "Best Mentor 조건을 충족하지 못했어요", description: "Best Mentor는 유효 도움 기록이 3회 이상이어야 합니다." },
+  PNB14: { category: "STATE", title: "이미 진행 중인 정착 프로그램이 있어요", description: "한 학생에게 ACTIVE 정착 프로그램은 하나만 운영할 수 있습니다." },
+  PNB15: { category: "VALIDATION", title: "정착 공공의뢰 설정을 확인해주세요" },
+  PNB16: { category: "VALIDATION", title: "집중 반응 기록 조건을 충족하지 못했어요", description: "일반 플레이의 유효한 50,000점 이상 기록이 필요합니다." },
+  PNB17: { category: "VALIDATION", title: "편린 컬렉션 조건을 확인해주세요", description: "정착 기간 중 새로 완성한 인정 가능한 컬렉션이어야 합니다." },
+  PNB18: { category: "STATE", title: "정착 BV 승인을 회수할 수 없어요", description: "현재 상태 또는 BV 잔액을 확인해주세요." },
+  PNB19: { category: "STATE", title: "활성화된 프로그램 설정은 수정할 수 없어요" },
+  PNB20: { category: "VALIDATION", title: "정착 기간 또는 설정값을 확인해주세요" },
+  PNB22: { category: "VALIDATION", title: "놓친 기회 또는 기준 BV를 확인해주세요" },
+  PNB23: { category: "SYSTEM", title: "정착 퀘스트 템플릿 검증에 실패했어요", hint: "프로그램을 시작하지 말고 선생님께 알려주세요." },
+  PNB24: { category: "STATE", title: "현재 프로그램을 취소할 수 없어요", description: "승인된 정착 보상이 있다면 먼저 승인을 회수해야 합니다." },
+  PNB25: { category: "VALIDATION", title: "멘토 도움 기록을 확인해주세요" },
+  PNB27: { category: "STATE", title: "현재 정착 지원 대상이 아닌 학생이에요" },
+  PNB28: { category: "STATE", title: "지정한 공공의뢰를 사용할 수 없어요", description: "현재 학급의 OPEN 공공의뢰와 마감일을 확인해주세요." },
+  PNB29: { category: "VALIDATION", title: "Best Mentor 또는 예외 사유가 필요해요", description: "Best Mentor를 선택하거나 Best Mentor 없이 정산하는 사유를 입력해주세요." },
 };
 
 // =====================================================================

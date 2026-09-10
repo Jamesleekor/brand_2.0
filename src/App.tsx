@@ -59,6 +59,8 @@ import OperationsAdmin from '@/features/feature4/OperationsAdmin';
 import LearningAdmin from '@/features/feature4/LearningAdmin';
 import RecordsAdmin from '@/features/feature4/RecordsAdmin';
 import TestClassroomFixturePage from '@/features/teacher/TestClassroomFixturePage';
+import NewbieSupportPage from '@/features/newbie/NewbieSupportPage';
+import NewbieSupportAdmin from '@/features/teacher/NewbieSupportAdmin';
 import { ProtectedRoute, AppShell } from '@/components/layout/AppShell';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 
@@ -135,6 +137,7 @@ export default function App() {
         <Route path="/market/history" element={<AppShell><MarketPage /></AppShell>} />
         <Route path="/bakery" element={<AppShell hideBottomNav><BakeryPage /></AppShell>} />
         <Route path="/daily-quest" element={<AppShell hideBottomNav><DailyQuestManagerPage /></AppShell>} />
+        <Route path="/newbie-support" element={<AppShell hideBottomNav><NewbieSupportPage /></AppShell>} />
         <Route 
           path="/market/auction" 
           element={<AppShell><MarketPage /></AppShell>} 
@@ -218,6 +221,7 @@ export default function App() {
         <Route path="/teacher/bank" element={<SavingsBankAdmin />} />
         <Route path="/teacher/primary-jobs" element={<PrimaryJobAdmin />} />
         <Route path="/teacher/daily-quests" element={<DailyQuestSettlementAdmin />} />
+        <Route path="/teacher/newbie-support" element={<NewbieSupportAdmin />} />
         <Route path="/teacher/secondary-jobs" element={<SecondaryJobAdmin />} />
         <Route path="/teacher/secondary-jobs/public-requests" element={<SecondaryJobPublicRequestAdmin />} />
         <Route path="/teacher/secondary-jobs/services" element={<SecondaryJobServiceAdmin />} />

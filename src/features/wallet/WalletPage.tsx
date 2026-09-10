@@ -57,6 +57,7 @@ const SOURCE_LABELS: Record<string, { label: string; emoji: string }> = {
   GUILD_MISSION_REWARD: { label: "길드 보상", emoji: "🛡️" },
   INITIAL_BALANCE: { label: "초기 지급", emoji: "🎁" },
   TEACHER_GRANT: { label: "교사 지급", emoji: "👩‍🏫" },
+  NEWBIE_SETTLEMENT: { label: "정착 지원", emoji: "🌱" },
   TEACHER_HONOR: { label: "교사 명예 부여", emoji: "🎖️" },
   COSMETIC_SET_HONOR: { label: "세트 완성 명예", emoji: "✨" },
   DONATION_HONOR: { label: "기부 명예", emoji: "💝" },

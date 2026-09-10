@@ -41,6 +41,7 @@ import { getEquippedCharacterImageUrl, useMyEquippedCharacter } from '@/hooks/us
 import { BrandWorldPanel, BrandWorldSummaryButton } from '@/features/dashboard/BrandWorldPanel';
 import { HomeServiceAdStrip } from '@/features/dashboard/HomeServiceAdStrip';
 import { EmergencyQuestDetailModal, type EmergencyQuestDetail } from '@/features/dashboard/EmergencyQuestDetailModal';
+import { newbieSupportRpc, type NewbieSummary } from '@/lib/rpc/newbie_support_rpc';
 
 // =====================================================================
 // 메인 컴포넌트
@@ -60,6 +61,16 @@ export default function DashboardPage() {
   const liveNextTier = getNextTier(liveTier);
   const equippedCharacterQuery = useMyEquippedCharacter();
   const worldMarkerAvatarUrl = getEquippedCharacterImageUrl(equippedCharacterQuery.character, 'avatar');
+  const newbieSupportSummaryQuery = useQuery<NewbieSummary | null>({
+    queryKey: ['newbie-support-summary', studentId],
+    enabled: !!studentId,
+    queryFn: async () => {
+      const result = await newbieSupportRpc.studentSummary(supabase);
+      return result.success ? result.data : null;
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
   const dailyQuestAccessQuery = useQuery({
     queryKey: ['daily-quest-s3-home-access', studentId],
     enabled: !!studentId,
@@ -247,6 +258,8 @@ export default function DashboardPage() {
       {/* 상단 메뉴와 카드가 해상도에 따라 겹치지 않도록 카드 레일을 absolute가 아닌 레이아웃 흐름에 둔다. */}
       <div className="relative z-10 lg:grid lg:grid-cols-[minmax(0,1fr)_164px] lg:gap-4 lg:items-start">
         <div className="min-w-0">
+          <NewbieSupportHomeBanner summary={newbieSupportSummaryQuery.data ?? null} onClick={() => navigate('/newbie-support')} />
+
           {/* 비상사태는 시스템 오류가 아니라 세계 안의 사건으로 명시적으로 표시 */}
           <EmergencyStatusBanner emergencies={emergencies} />
 
@@ -702,14 +715,8 @@ function useDashboardData(
             .eq('student_id', studentId),
         ]),
         
-        // 6. BV 이번 달 증가량 — transactions 합계
-        supabase
-          .from('transactions')
-          .select('amount')
-          .eq('student_id', studentId)
-          .eq('value_token', 'BV')
-          .eq('is_reversed', false)
-          .gte('created_at', getMonthStartIso()),
+        // 6. BV 이번 달 실제 순증가량 — KST 월 경계 + reversal net 반영
+        newbieSupportRpc.currentMonthBvDelta(supabase),
 
         // 7. 공개 과제 중 아직 제출하지 않은 과제 수
         Promise.all([
@@ -762,11 +769,10 @@ function useDashboardData(
       const submittedAssignmentIds = new Set((submissionListRes?.data ?? []).filter((x: any) => x.status !== 'RETURNED').map((x: any) => x.assignment_id));
       const assignmentNoticeCount = (assignmentListRes?.data ?? []).filter((x: any) => !submittedAssignmentIds.has(x.id)).length;
 
-      // BV 이번 달 증가량 (음수도 합산 — net change)
-      const bvDelta = (bvMonthlyRes.data ?? []).reduce(
-        (sum, tx) => sum + Number(tx.amount),
-        0
-      );
+      // BV 이번 달 실제 순증가량. 정착 BV도 실제 지갑 증가이므로 포함하며,
+      // 역대 월간 공식기록 제외는 DB의 MONTHLY_BV_GAIN exclusion에서 별도 처리한다.
+      if (bvMonthlyRes.success === false) throw new Error(bvMonthlyRes.error);
+      const bvDelta = Number(bvMonthlyRes.data.delta_bv ?? 0);
       
       // 다음 티어 BV 임계값 (Stage 4의 calculate_tier_from_bv 역산)
       // TODO Sub-step 6-D: PostgreSQL 함수로 정확한 계산
@@ -820,11 +826,26 @@ function useHomePersonalization(studentId: number | null) {
   });
 }
 
-// 이번 달 시작 ISO
-function getMonthStartIso(): string {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  return start.toISOString();
+function NewbieSupportHomeBanner({ summary, onClick }: { summary: NewbieSummary | null; onClick: () => void }) {
+  const own = summary?.my_program ?? null;
+  const mentoring = summary?.mentoring ?? [];
+  if (!own && mentoring.length === 0) return null;
+  return (
+    <button type="button" onClick={onClick} className="mb-4 w-full rounded-card-lg border border-success/30 bg-success-bg/70 p-4 text-left hover-lift">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-black text-success">🌱 정착 지원 프로그램</div>
+          {own ? (
+            <div className="mt-1 text-sm font-black text-white">정착 퀘스트 {own.approved_count}/{own.total_count} · 복원 {Number(own.regular_recovered_bv).toLocaleString()} / {Number(own.regular_pool_bv).toLocaleString()} BV</div>
+          ) : (
+            <div className="mt-1 text-sm font-black text-white">멘토로 {mentoring.length}개의 정착 프로그램을 돕고 있어요</div>
+          )}
+          <div className="mt-1 text-xs text-text-secondary">완료 요청과 멘토 도움 기록을 확인하세요.</div>
+        </div>
+        <span className="text-lg">›</span>
+      </div>
+    </button>
+  );
 }
 
 // =====================================================================
