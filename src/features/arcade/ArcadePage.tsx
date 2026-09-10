@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader, LoadingSpinner } from '@/components/shared/components';
 import { FocusReactionGame, type FocusPlaySummary } from '@/features/arcade/FocusReactionGame';
+import { PureReactionGame, type PureReactionPlaySummary } from '@/features/arcade/PureReactionGame';
+import { formatReactionAverage } from '@/features/arcade/pure_reaction_engine';
 import { arcadeErrorMessage, arcadeStudentRpc, type ArcadeRunBootstrap, type ArcadeRunSubmissionResult, type ArcadeVerificationState, type ArcadeVerificationAttempt, type ArcadeLeaderboardRow, type ArcadeGuildTotalRow } from '@/lib/rpc/arcade_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId, useStudentId } from '@/stores/auth_store';
@@ -32,9 +34,10 @@ export default function ArcadePage() {
   const { byStudentId: guildsByStudentId } = useClassroomStudentGuilds();
   const queryClient = useQueryClient();
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
+  const [selectedGameCode, setSelectedGameCode] = useState('focus_reaction_01');
   const [bootstrap, setBootstrap] = useState<ArcadeRunBootstrap | null>(null);
   const [result, setResult] = useState<ArcadeRunSubmissionResult | null>(null);
-  const [playSummary, setPlaySummary] = useState<FocusPlaySummary | null>(null);
+  const [playSummary, setPlaySummary] = useState<FocusPlaySummary | PureReactionPlaySummary | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isCreatingRun, setIsCreatingRun] = useState(false);
   const [isResultRankingUpdating, setIsResultRankingUpdating] = useState(false);
@@ -55,7 +58,8 @@ export default function ArcadePage() {
 
   const visiblePeriods = useMemo(() => (arcadeQuery.data?.periods ?? []).filter((period) => ['ACTIVE', 'VERIFICATION', 'READY_TO_FINALIZE', 'FINALIZED'].includes(period.status)), [arcadeQuery.data?.periods]);
   const selectedPeriod = visiblePeriods.find((period) => period.id === selectedPeriodId) ?? visiblePeriods[0] ?? null;
-  const game = arcadeQuery.data?.games.find((entry) => entry.code === 'focus_reaction_01') ?? null;
+  const playableGames = (arcadeQuery.data?.games ?? []).filter((entry) => entry.is_active && ['focus_reaction_01', 'pure_reaction_02'].includes(entry.code));
+  const game = playableGames.find((entry) => entry.code === selectedGameCode) ?? playableGames[0] ?? null;
   const gameAccessQuery = useQuery({
     queryKey: ['arcade', 'game-access', studentId, game?.code],
     enabled: Boolean(game && studentId),
@@ -126,7 +130,7 @@ export default function ArcadePage() {
     await verificationQuery.refetch();
   };
 
-  const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPlaySummary) => {
+  const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPlaySummary | PureReactionPlaySummary) => {
     setResult({ ...nextResult, is_prerelease_test: bootstrap?.is_prerelease_test ?? false });
     setPlaySummary(summary);
     if (bootstrap?.run_context === 'VERIFICATION') {
@@ -160,25 +164,28 @@ export default function ArcadePage() {
         {!visiblePeriods.length && <div className="glass-card border-warning/40 p-5"><div className="font-black text-warning">아직 열린 Arcade 기간이 없어요.</div><p className="mt-2 text-sm text-text-secondary">선생님이 월간 또는 시즌 기간을 만들고 활성화하면 랭킹과 게임을 시작할 수 있습니다.</p></div>}
 
         {visiblePeriods.length > 0 && <section className="glass-card p-4">
-          <div className="text-xs font-black text-text-secondary">랭킹 기간 선택</div>
-          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{visiblePeriods.map((period) => <button key={period.id} onClick={() => { setSelectedPeriodId(period.id); setResult(null); }} className={`shrink-0 rounded-pill border px-3 py-2 text-xs font-black ${selectedPeriod?.id === period.id ? 'border-gold bg-gold/15 text-gold' : 'border-line bg-bg-deep text-text-secondary'}`}>{period.display_name}<span className="ml-1 opacity-70">{periodStatusLabel(period.status)}</span></button>)}</div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div><div className="text-xs font-black text-text-secondary">게임 선택</div><div className="mt-3 flex gap-2 overflow-x-auto pb-1">{playableGames.map((entry) => { const meta = gameMeta(entry.code); return <button key={entry.id} onClick={() => { if (bootstrap) return; setSelectedGameCode(entry.code); setResult(null); setPlaySummary(null); setActionError(null); }} className={`shrink-0 rounded-pill border px-3 py-2 text-xs font-black ${game?.code === entry.code ? 'border-brand-primary bg-brand-primary/15 text-brand-primary' : 'border-line bg-bg-deep text-text-secondary'}`}>{meta.emoji} {meta.title}</button>; })}</div></div>
+            <div><div className="text-xs font-black text-text-secondary">랭킹 기간 선택</div><div className="mt-3 flex gap-2 overflow-x-auto pb-1">{visiblePeriods.map((period) => <button key={period.id} onClick={() => { setSelectedPeriodId(period.id); setResult(null); }} className={`shrink-0 rounded-pill border px-3 py-2 text-xs font-black ${selectedPeriod?.id === period.id ? 'border-gold bg-gold/15 text-gold' : 'border-line bg-bg-deep text-text-secondary'}`}>{period.display_name}<span className="ml-1 opacity-70">{periodStatusLabel(period.status)}</span></button>)}</div></div>
+          </div>
         </section>}
 
         {!bootstrap && verificationState?.available && <VerificationChallengeCard state={verificationState} isLoading={verificationQuery.isFetching || isCreatingRun} onStart={() => void startVerificationGame(verificationState)} />}
 
-        {bootstrap && <FocusReactionGame bootstrap={bootstrap} myRank={leaderboardQuery.data?.my_rank ?? null} myBestScore={leaderboardQuery.data?.my_score ?? null} isRankingUpdating={isResultRankingUpdating || leaderboardQuery.isFetching} onRecorded={handleRecorded} onExit={handleFinished} onInlineError={setActionError} />}
+        {bootstrap?.game_code === 'focus_reaction_01' && <FocusReactionGame bootstrap={bootstrap} myRank={leaderboardQuery.data?.my_rank ?? null} myBestScore={leaderboardQuery.data?.my_score ?? null} isRankingUpdating={isResultRankingUpdating || leaderboardQuery.isFetching} onRecorded={handleRecorded} onExit={handleFinished} onInlineError={setActionError} />}
+        {bootstrap?.game_code === 'pure_reaction_02' && <PureReactionGame bootstrap={bootstrap} myRank={leaderboardQuery.data?.my_rank ?? null} myBestScore={leaderboardQuery.data?.my_score ?? null} isRankingUpdating={isResultRankingUpdating || leaderboardQuery.isFetching} onRecorded={handleRecorded} onExit={handleFinished} onInlineError={setActionError} />}
 
         {!bootstrap && game && <section className="glass-card overflow-hidden border-brand-primary/20">
           <div className="grid gap-0 md:grid-cols-[1.1fr_.9fr]">
-            <div className="p-5"><div className="flex items-start justify-between gap-4"><div><div className="text-4xl">🎯</div><h2 className="mt-3 font-display text-2xl text-white">집중 반응 #01</h2><p className="mt-1 text-sm text-text-secondary">4-Lane Visual Reaction · Go / No-Go</p></div><span className="rounded-pill bg-brand-primary/15 px-3 py-1 text-xs font-black text-brand-primary">Game #01</span></div>
-              <ul className="mt-5 space-y-2 text-sm text-text-secondary"><li>• D / F / J / K 또는 터치로 4개 레인을 조작합니다.</li><li>• 파란 신호는 누르고, 빨간 ✕ 신호는 누르지 않습니다.</li><li>• Life 3, Combo, 실제 경과시간 기반 판정입니다.</li></ul>
+            <div className="p-5">{(() => { const meta = gameMeta(game.code); return <><div className="flex items-start justify-between gap-4"><div><div className="text-4xl">{meta.emoji}</div><h2 className="mt-3 font-display text-2xl text-white">{meta.title}</h2><p className="mt-1 text-sm text-text-secondary">{meta.subtitle}</p></div><span className="rounded-pill bg-brand-primary/15 px-3 py-1 text-xs font-black text-brand-primary">{meta.number}</span></div>
+              <ul className="mt-5 space-y-2 text-sm text-text-secondary">{meta.rules.map((rule) => <li key={rule}>• {rule}</li>)}</ul></>; })()}
               {gameAccessQuery.isLoading && <p className="mt-4 rounded-card-md bg-bg-deep p-3 text-xs text-text-secondary">게임 시작 권한을 확인하고 있어요.</p>}
               {gameAccessQuery.isError && <p className="mt-4 rounded-card-md border border-danger/40 bg-danger/10 p-3 text-xs text-danger">게임 시작 권한을 확인하지 못했어요. 새로고침 후 다시 시도해주세요.</p>}
               {gameAccessQuery.data?.mode === 'CLOSED' && <p className="mt-4 rounded-card-md bg-warning/10 p-3 text-xs text-warning">이 게임은 한국 날짜 기준 {game.available_from}부터 열립니다.</p>}
               {isPrereleaseTest && <p className="mt-4 rounded-card-md border border-brand-primary/40 bg-brand-primary/10 p-3 text-xs font-bold text-brand-primary">사전 테스트 모드입니다. 이번 기록은 서버에서 검증되지만 순위와 Guild 2 점수에는 반영되지 않습니다.</p>}
               {!selectedPeriod && <p className="mt-4 rounded-card-md bg-warning/10 p-3 text-xs text-warning">플레이 전에 선생님이 랭킹 기간을 열어야 합니다.</p>}
               {actionError && <p className="mt-4 rounded-card-md border border-danger/40 bg-danger/10 p-3 text-sm font-bold text-danger">{actionError}</p>}
-              {result && <ResultCard result={result} isVerification={result.run_context === 'VERIFICATION'} summary={playSummary} myRank={leaderboardQuery.data?.my_rank ?? null} myBestScore={leaderboardQuery.data?.my_score ?? null} isRankingUpdating={isResultRankingUpdating || leaderboardQuery.isFetching} onRetry={() => { setResult(null); setPlaySummary(null); setActionError(null); }} />}
+              {result && <ResultCard gameCode={game.code} result={result} isVerification={result.run_context === 'VERIFICATION'} summary={playSummary} myRank={leaderboardQuery.data?.my_rank ?? null} myBestScore={leaderboardQuery.data?.my_score ?? null} isRankingUpdating={isResultRankingUpdating || leaderboardQuery.isFetching} onRetry={() => { setResult(null); setPlaySummary(null); setActionError(null); }} />}
               {!result && <button className="btn-primary mt-5 w-full" disabled={!gameAccessQuery.data?.can_start || !selectedPeriod || selectedPeriod.status !== 'ACTIVE' || isCreatingRun} onClick={() => void startGame()}>{isCreatingRun ? '준비 중...' : selectedPeriod?.status === 'FINALIZED' ? '확정된 기간입니다' : isPrereleaseTest ? '사전 테스트 시작' : '게임 시작'}</button>}
             </div>
             <div className="border-t border-line bg-bg-deep/70 p-5 md:border-l md:border-t-0"><h3 className="font-display text-lg text-gold">월간 보너스</h3><p className="mt-1 text-xs text-text-secondary">같은 기간에 한 학생은 최고 점수 하나만 랭킹에 들어갑니다.</p><div className="mt-4 grid grid-cols-2 gap-2 text-sm"><Bonus rank="1위" points="+30" /><Bonus rank="2위" points="+27" /><Bonus rank="3위" points="+24" /><Bonus rank="4~6위" points="+18" /><Bonus rank="7~10위" points="+15" /></div><p className="mt-4 text-xs text-text-muted">원본 보너스는 모두 기록되며, Guild 2 적용값은 학생별 최대 +90입니다.</p></div>
@@ -190,7 +197,7 @@ export default function ArcadePage() {
         {selectedPeriod && <section className="glass-card p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-display text-xl text-white">{selectedPeriod.display_name} Top 10</h2><p className="mt-1 text-xs text-text-secondary">동점은 현재 순위 반영 점수 → 먼저 게임 종료 → 기록 번호 순서로 결정됩니다.</p></div><span className={`rounded-pill px-3 py-1 text-xs font-black ${selectedPeriod.status === 'FINALIZED' ? 'bg-success/15 text-success' : 'bg-brand-primary/15 text-brand-primary'}`}>{selectedPeriod.status === 'FINALIZED' ? '월간 순위 확정' : selectedPeriod.status === 'VERIFICATION' ? '기록 인증 중' : selectedPeriod.status === 'READY_TO_FINALIZE' ? '최종 확정 대기' : '실시간 초안'}</span></div>
           {leaderboardQuery.isLoading && <div className="py-10 text-center"><LoadingSpinner /></div>}
           {leaderboardQuery.isError && <p className="mt-4 rounded-card-md bg-danger/10 p-3 text-sm text-danger">랭킹을 불러오지 못했어요. <button className="underline" onClick={() => void leaderboardQuery.refetch()}>다시 시도</button></p>}
-          {leaderboardQuery.data && <Leaderboard rows={leaderboardQuery.data.top10} myRank={leaderboardQuery.data.my_rank} myScore={leaderboardQuery.data.my_score} guildByStudentId={guildsByStudentId} />}
+          {leaderboardQuery.data && <Leaderboard gameCode={game?.code ?? ''} rows={leaderboardQuery.data.top10} myRank={leaderboardQuery.data.my_rank} myScore={leaderboardQuery.data.my_score} guildByStudentId={guildsByStudentId} />}
         </section>}
       </>}
     </main>
@@ -341,7 +348,7 @@ function GuildArcadeStandings({ rows, periodStatus }: { rows: ArcadeGuildTotalRo
   </section>;
 }
 
-function Leaderboard({ rows, myRank, myScore, guildByStudentId }: { rows: ArcadeLeaderboardRow[]; myRank: number | null; myScore: number | null; guildByStudentId: Map<number, StudentGuildIdentity> }) {
+function Leaderboard({ gameCode, rows, myRank, myScore, guildByStudentId }: { gameCode: string; rows: ArcadeLeaderboardRow[]; myRank: number | null; myScore: number | null; guildByStudentId: Map<number, StudentGuildIdentity> }) {
   if (!rows.length) return <p className="py-10 text-center text-sm text-text-secondary">아직 공식 기록이 없습니다. 첫 도전의 주인공이 되어보세요.</p>;
   return <div className="mt-4 overflow-x-auto">
     <table className="w-full min-w-[760px] text-sm">
@@ -352,6 +359,7 @@ function Leaderboard({ rows, myRank, myScore, guildByStudentId }: { rows: Arcade
           <th className="p-2">소속 길드</th>
           <th className="p-2 text-right">일반 플레이 기록</th>
           <th className="p-2 text-right">공인 기록</th>
+          {gameCode === 'pure_reaction_02' && <th className="p-2 text-right">평균 반응</th>}
           <th className="p-2 text-right">기록 시각</th>
         </tr>
       </thead>
@@ -366,6 +374,7 @@ function Leaderboard({ rows, myRank, myScore, guildByStudentId }: { rows: Arcade
           <td className="p-2"><GuildIdentityCell guild={guild ?? null} /></td>
           <td className="p-2 text-right font-black text-white">{generalScore.toLocaleString('ko-KR')}</td>
           <td className="p-2 text-right"><CertifiedScore score={certifiedScore} status={certificationStatus} /></td>
+          {gameCode === 'pure_reaction_02' && <td className="p-2 text-right font-black text-brand-primary">{formatReactionAverage(row.average_reaction_ms_x10)}</td>}
           <td className="p-2 text-right text-xs text-text-secondary">{formatKstDateTime(row.game_over_at)}</td>
         </tr>;
       })}</tbody>
@@ -389,11 +398,14 @@ function CertifiedScore({ score, status }: { score: number | null; status: Arcad
   return <span className="text-text-muted">—</span>;
 }
 
-function ResultCard({ result, isVerification, summary, myRank, myBestScore, isRankingUpdating, onRetry }: { result: ArcadeRunSubmissionResult; isVerification: boolean; summary: FocusPlaySummary | null; myRank: number | null; myBestScore: number | null; isRankingUpdating: boolean; onRetry: () => void }) {
+function ResultCard({ gameCode, result, isVerification, summary, myRank, myBestScore, isRankingUpdating, onRetry }: { gameCode: string; result: ArcadeRunSubmissionResult; isVerification: boolean; summary: FocusPlaySummary | PureReactionPlaySummary | null; myRank: number | null; myBestScore: number | null; isRankingUpdating: boolean; onRetry: () => void }) {
   const accepted = result.accepted;
   const prerelease = result.is_prerelease_test === true;
-  const maxCombo = Number(result.stats?.max_combo ?? summary?.maxCombo ?? 0);
-  return <div className={`mt-4 rounded-card-md border p-4 ${accepted ? 'border-success/40 bg-success/10' : 'border-warning/40 bg-warning/10'}`}><div className={`font-display text-lg ${accepted ? 'text-success' : 'text-warning'}`}>{accepted ? (prerelease ? '사전 테스트 기록 검증 완료!' : isVerification ? '기록 인증 시도 완료!' : '공식 기록 저장 완료!') : isVerification ? '이번 인증 시도는 유효 기록이 아니에요' : '공식 기록으로 인정되지 않았어요'}</div><p className="mt-1 text-sm text-text-secondary">{accepted ? `서버 계산 점수 ${Number(result.official_score ?? 0).toLocaleString('ko-KR')}점 · 플레이 시간 ${formatElapsed(result.official_duration_ms ?? summary?.durationMs ?? 0)}` : result.message ?? '입력 기록 검증 결과를 확인해주세요.'}</p>{accepted && <div className="mt-3 grid grid-cols-2 gap-2 text-xs"><div className="rounded-card-md bg-bg-deep p-2 text-text-secondary">최대 콤보 <b className="float-right text-gold">{maxCombo}</b></div><div className="rounded-card-md bg-bg-deep p-2 text-text-secondary">{prerelease ? '랭킹 반영 없음' : isRankingUpdating ? '순위 계산 중...' : <>현재 순위 <b className="float-right text-gold">{myRank === null ? '집계 중' : `${myRank}위`}</b></>}</div></div>}{accepted && !prerelease && !isVerification && myBestScore !== null && <p className="mt-2 text-xs text-text-secondary">내 최고점 <b className="text-white">{myBestScore.toLocaleString('ko-KR')}점</b></p>}{accepted && <div className="mt-2 text-xs text-text-secondary">{prerelease ? '사전 테스트 기록은 순위·월간 확정·Guild 2 점수에 반영되지 않습니다.' : isVerification ? '이 점수는 인증 세션의 판정에만 사용되며 다음 달 일반 랭킹에는 들어가지 않습니다.' : '점수와 순위는 서버가 입력 기록을 다시 계산한 결과입니다.'}</div>}<button className="btn-secondary mt-3 text-xs" onClick={onRetry}>다시 도전 준비</button></div>;
+  const focusSummary = summary && 'maxCombo' in summary ? summary : null;
+  const pureSummary = summary && 'reactions' in summary ? summary : null;
+  const maxCombo = Number(result.stats?.max_combo ?? focusSummary?.maxCombo ?? 0);
+  const pureAverage = Number(result.stats?.average_reaction_ms_x10 ?? pureSummary?.averageReactionMsX10 ?? 0);
+  return <div className={`mt-4 rounded-card-md border p-4 ${accepted ? 'border-success/40 bg-success/10' : 'border-warning/40 bg-warning/10'}`}><div className={`font-display text-lg ${accepted ? 'text-success' : 'text-warning'}`}>{accepted ? (prerelease ? '사전 테스트 기록 검증 완료!' : isVerification ? '기록 인증 시도 완료!' : '공식 기록 저장 완료!') : isVerification ? '이번 인증 시도는 유효 기록이 아니에요' : '공식 기록으로 인정되지 않았어요'}</div><p className="mt-1 text-sm text-text-secondary">{accepted ? `서버 계산 점수 ${Number(result.official_score ?? 0).toLocaleString('ko-KR')}점 · ${gameCode === 'pure_reaction_02' ? `평균 ${formatReactionAverage(pureAverage)}` : `플레이 시간 ${formatElapsed(result.official_duration_ms ?? summary?.durationMs ?? 0)}`}` : result.message ?? '입력 기록 검증 결과를 확인해주세요.'}</p>{accepted && <div className="mt-3 grid grid-cols-2 gap-2 text-xs"><div className="rounded-card-md bg-bg-deep p-2 text-text-secondary">{gameCode === 'pure_reaction_02' ? <>평균 반응 <b className="float-right text-gold">{formatReactionAverage(pureAverage)}</b></> : <>최대 콤보 <b className="float-right text-gold">{maxCombo}</b></>}</div><div className="rounded-card-md bg-bg-deep p-2 text-text-secondary">{prerelease ? '랭킹 반영 없음' : isRankingUpdating ? '순위 계산 중...' : <>현재 순위 <b className="float-right text-gold">{myRank === null ? '집계 중' : `${myRank}위`}</b></>}</div></div>}{accepted && !prerelease && !isVerification && myBestScore !== null && <p className="mt-2 text-xs text-text-secondary">내 최고점 <b className="text-white">{myBestScore.toLocaleString('ko-KR')}점</b></p>}{accepted && <div className="mt-2 text-xs text-text-secondary">{prerelease ? '사전 테스트 기록은 순위·월간 확정·Guild 2 점수에 반영되지 않습니다.' : isVerification ? '이 점수는 인증 세션의 판정에만 사용되며 다음 달 일반 랭킹에는 들어가지 않습니다.' : '점수와 순위는 서버가 입력 기록을 다시 계산한 결과입니다.'}</div>}<button className="btn-secondary mt-3 text-xs" onClick={onRetry}>다시 도전 준비</button></div>;
 }
 
 function VerificationChallengeCard({ state, isLoading, onStart }: { state: ArcadeVerificationState; isLoading: boolean; onStart: () => void }) {
@@ -415,6 +427,11 @@ function formatScore(value: number | undefined) { return value === undefined ? '
 function attemptStatusLabel(attempt: ArcadeVerificationAttempt) { if (attempt.status === 'TECHNICAL_CANCELLED') return '기술 취소'; if (attempt.status === 'RESTORED') return '복구됨'; if (attempt.status !== 'TERMINAL') return '진행 중'; if (!attempt.valid_run) return '유효 기록 없음'; return attempt.official_score === null ? '종료' : `${Number(attempt.official_score).toLocaleString('ko-KR')}점`; }
 function studentRankLabel(rank: number) { return rank === 1 ? '👑 1' : rank === 2 ? '🥈 2' : rank === 3 ? '🥉 3' : String(rank); }
 function periodStatusLabel(status: ArcadePeriodRow['status']) { return status === 'FINALIZED' ? '확정' : status === 'VERIFICATION' ? '인증 중' : status === 'READY_TO_FINALIZE' ? '확정 대기' : '진행 중'; }
+
+function gameMeta(code: string) {
+  if (code === 'pure_reaction_02') return { emoji: '⚡', title: '순수 반응속도 #02', subtitle: 'Pure Visual Reaction · 5 Trials', number: 'Game #02', rules: ['마력핵이 점화되는 순간 Space 또는 화면을 누릅니다.', '총 5회 반응의 평균 속도로 SCORE를 계산합니다.', '신호 전 입력, 120ms 미만 입력, 3000ms 이상 반응은 즉시 GAME OVER입니다.'] };
+  return { emoji: '🎯', title: '집중 반응 #01', subtitle: '4-Lane Visual Reaction · Go / No-Go', number: 'Game #01', rules: ['D / F / J / K 또는 터치로 4개 레인을 조작합니다.', '파란 신호는 누르고, 빨간 ✕ 신호는 누르지 않습니다.', 'Life 3, Combo, 실제 경과시간 기반 판정입니다.'] };
+}
 
 function Bonus({ rank, points }: { rank: string; points: string }) { return <div className="rounded-card-md border border-line bg-bg-card px-3 py-2"><span className="text-xs text-text-secondary">{rank}</span><b className="float-right text-gold">{points}</b></div>; }
 function LoadError({ detail, retry }: { detail: string; retry: () => void }) { return <div className="glass-card border-danger/40 p-5"><div className="font-black text-danger">Arcade 정보를 불러오지 못했습니다.</div><p className="mt-2 break-all text-xs text-text-secondary">{detail}</p><button className="btn-secondary mt-3" onClick={retry}>다시 시도</button></div>; }

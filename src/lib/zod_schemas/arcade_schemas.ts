@@ -35,6 +35,20 @@ export const StudentSubmitFocusReactionRunSchema = z.object({
 });
 export type StudentSubmitFocusReactionRunInput = z.infer<typeof StudentSubmitFocusReactionRunSchema>;
 
+
+export const PureReactionInputEventSchema = z.object({
+  elapsed_ms: z.number().int().min(0).max(3_600_000),
+  source: z.enum(['SPACE', 'POINTER']),
+}).strict();
+export type PureReactionInputEvent = z.infer<typeof PureReactionInputEventSchema>;
+
+export const StudentSubmitPureReactionRunSchema = z.object({
+  p_run_id: PositiveId,
+  p_input_events: z.array(PureReactionInputEventSchema).max(5, '순수 반응속도 입력 기록은 최대 5개입니다.'),
+  p_client_game_over_elapsed_ms: z.number().int().min(0).max(60_000),
+});
+export type StudentSubmitPureReactionRunInput = z.infer<typeof StudentSubmitPureReactionRunSchema>;
+
 export const ArcadeLeaderboardSchema = z.object({
   p_game_code: ArcadeGameCodeSchema,
   p_period_id: PositiveId,

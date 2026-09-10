@@ -89,7 +89,7 @@ export function parseFocusGameConfig(raw: Record<string, unknown>): FocusGameCon
 }
 
 // PostgreSQL의 arcade_xorshift32_next()와 같은 unsigned 32-bit 계산이다.
-function xorshift32Next(state: number): number {
+export function xorshift32Next(state: number): number {
   let value = state >>> 0;
   value = (value ^ ((value << 13) >>> 0)) >>> 0;
   value = (value ^ (value >>> 17)) >>> 0;

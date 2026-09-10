@@ -77,6 +77,8 @@ export interface ArcadeLeaderboardRow {
   certified_score: number | null;
   certification_status: ArcadeLeaderboardCertificationStatus;
   game_over_at: string;
+  /** Game #02 only: average reaction time ×10, e.g. 2108 = 210.8ms */
+  average_reaction_ms_x10?: number | null;
 }
 
 export interface ArcadeGuildTotalRow {
@@ -203,6 +205,8 @@ export const arcadeStudentRpc = {
     safeArcadeRpc<ArcadeSchemas.StudentBeginArcadeRunInput, ArcadeRunStarted>(client, 'student_begin_arcade_run', ArcadeSchemas.StudentBeginArcadeRunSchema, input),
   submitFocusReactionRun: (client: SupabaseClient, input: ArcadeSchemas.StudentSubmitFocusReactionRunInput) =>
     safeArcadeRpc<ArcadeSchemas.StudentSubmitFocusReactionRunInput, ArcadeRunSubmissionResult>(client, 'student_submit_focus_reaction_01_run', ArcadeSchemas.StudentSubmitFocusReactionRunSchema, input),
+  submitPureReactionRun: (client: SupabaseClient, input: ArcadeSchemas.StudentSubmitPureReactionRunInput) =>
+    safeArcadeRpc<ArcadeSchemas.StudentSubmitPureReactionRunInput, ArcadeRunSubmissionResult>(client, 'student_submit_pure_reaction_02_run', ArcadeSchemas.StudentSubmitPureReactionRunSchema, input),
   getLeaderboard: (client: SupabaseClient, input: ArcadeSchemas.ArcadeLeaderboardInput) =>
     safeArcadeRpc<ArcadeSchemas.ArcadeLeaderboardInput, ArcadeLeaderboardResult>(client, 'get_arcade_leaderboard', ArcadeSchemas.ArcadeLeaderboardSchema, input),
   getRunResult: (client: SupabaseClient, input: ArcadeSchemas.StudentArcadeRunResultInput) =>

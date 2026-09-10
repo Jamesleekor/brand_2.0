@@ -321,11 +321,13 @@ function runState(row: ArcadeHistoryRow) {
 
 function gameLabel(game: ArcadeGameRow) {
   if (game.code === 'focus_reaction_01') return '집중 반응 #01';
+  if (game.code === 'pure_reaction_02') return '순수 반응속도 #02';
   return game.internal_name || game.code;
 }
 
 function friendlyGameName(row: ArcadeHistoryRow) {
   if (row.game_code === 'focus_reaction_01') return '집중 반응 #01';
+  if (row.game_code === 'pure_reaction_02') return '순수 반응속도 #02';
   return row.game_name || row.game_code;
 }
 
