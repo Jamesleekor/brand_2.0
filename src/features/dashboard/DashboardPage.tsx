@@ -830,19 +830,39 @@ function NewbieSupportHomeBanner({ summary, onClick }: { summary: NewbieSummary 
   const own = summary?.my_program ?? null;
   const mentoring = summary?.mentoring ?? [];
   if (!own && mentoring.length === 0) return null;
+  const approved = Number(own?.approved_count ?? 0);
+  const total = Math.max(1, Number(own?.total_count ?? 27));
+  const progress = Math.min(100, Math.round((approved / total) * 100));
   return (
-    <button type="button" onClick={onClick} className="mb-4 w-full rounded-card-lg border border-success/30 bg-success-bg/70 p-4 text-left hover-lift">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-xs font-black text-success">🌱 정착 지원 프로그램</div>
+    <button
+      type="button"
+      onClick={onClick}
+      className="mb-4 w-full overflow-hidden rounded-card-xl border border-gold/20 bg-gradient-to-r from-bg-card via-bg-card to-bv/10 text-left shadow-card transition hover:border-gold/40"
+    >
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-gold/50 to-transparent" />
+      <div className="flex items-start gap-3 p-4 sm:p-5">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-card-md border border-gold/20 bg-bg-deep text-xl shadow-inner">🌱</div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="font-display text-base font-black text-white sm:text-lg">정착 지원 프로그램</div>
+            <span className="rounded-pill border border-line bg-bg-deep px-2 py-0.5 text-[11px] font-black text-gold">정착 진행 상황</span>
+          </div>
           {own ? (
-            <div className="mt-1 text-sm font-black text-white">정착 퀘스트 {own.approved_count}/{own.total_count} · 복원 {Number(own.regular_recovered_bv).toLocaleString()} / {Number(own.regular_pool_bv).toLocaleString()} BV</div>
+            <>
+              <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm text-text-secondary">
+                <span>퀘스트 <b className="text-white">{approved}/{total}</b></span>
+                <span>복원 BV <b className="text-bv">{Number(own.regular_recovered_bv).toLocaleString()} / {Number(own.regular_pool_bv).toLocaleString()}</b></span>
+              </div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-bg-deep">
+                <div className="h-full rounded-full bg-bv transition-all" style={{ width: String(progress) + '%' }} />
+              </div>
+            </>
           ) : (
-            <div className="mt-1 text-sm font-black text-white">멘토로 {mentoring.length}개의 정착 프로그램을 돕고 있어요</div>
+            <div className="mt-2 text-sm text-text-secondary">멘토로 <b className="text-white">{mentoring.length}명</b>의 정착을 돕고 있어요.</div>
           )}
-          <div className="mt-1 text-xs text-text-secondary">완료 요청과 멘토 도움 기록을 확인하세요.</div>
+          <div className="mt-2 text-[13px] leading-5 text-text-muted">완료 요청, 복원 BV와 멘토 도움 기록을 확인하세요.</div>
         </div>
-        <span className="text-lg">›</span>
+        <span className="mt-1 shrink-0 text-xl font-black text-text-muted" aria-hidden>›</span>
       </div>
     </button>
   );
