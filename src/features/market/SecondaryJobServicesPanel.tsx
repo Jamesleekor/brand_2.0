@@ -32,12 +32,12 @@ import {
 type ViewTab = 'market' | 'orders' | 'sales' | 'services';
 
 const STATUS_LABEL: Record<ServiceOrderStatus, string> = {
-  QUOTE_REQUESTED: '견적 요청중',
+  QUOTE_REQUESTED: '견적 요청 중',
   QUOTE_OFFERED: '견적 도착',
-  REQUESTED: '판매자 확인 대기',
-  ACCEPTED: '작업 중',
-  DELIVERED: '납품 완료',
-  REVISION_REQUESTED: '수정 요청',
+  REQUESTED: '판매자 확인 중',
+  ACCEPTED: '서비스 진행 중',
+  DELIVERED: '완료 확인 단계',
+  REVISION_REQUESTED: '수정 진행 중',
   COMPLETED: '거래 완료',
   REJECTED: '거절',
   CANCELLED: '취소',
@@ -62,6 +62,76 @@ function dt(v: string | null | undefined) {
   return new Date(v).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+type OrderRole = 'BUYER' | 'SELLER';
+
+type OrderGuidance = {
+  title: string;
+  description: string;
+  actionable: boolean;
+};
+
+function getOrderGuidance(status: ServiceOrderStatus, role: OrderRole): OrderGuidance {
+  if (role === 'BUYER') {
+    switch (status) {
+      case 'QUOTE_REQUESTED':
+        return { title: '판매자의 견적을 기다리세요', description: '지금은 할 일이 없습니다. 견적이 오면 여기에서 금액을 확인하고 수락하거나 거절할 수 있습니다.', actionable: false };
+      case 'QUOTE_OFFERED':
+        return { title: '🔔 지금 할 일 · 견적을 확인하세요', description: '금액과 조건을 확인한 뒤 견적을 수락하거나 거절하세요. 수락하면 그때 GOLD가 거래 완료 전까지 보류됩니다.', actionable: true };
+      case 'REQUESTED':
+        return { title: '판매자가 주문을 확인하고 있어요', description: '지금은 기다리면 됩니다. 판매자가 주문을 받으면 서비스가 시작됩니다.', actionable: false };
+      case 'ACCEPTED':
+        return { title: '판매자가 서비스를 진행하고 있어요', description: '서비스가 끝나면 판매자가 완료 내용을 보내드립니다. 그때 실제로 받았는지 확인하면 됩니다.', actionable: false };
+      case 'DELIVERED':
+        return { title: '🔔 지금 할 일 · 서비스를 확인하세요', description: '서비스나 제작물을 제대로 받았다면 구매 확정하세요. 구매 확정해야 보류된 GOLD가 판매자에게 지급됩니다.', actionable: true };
+      case 'REVISION_REQUESTED':
+        return { title: '판매자가 수정하고 있어요', description: '요청한 수정이 끝날 때까지 기다리세요. 판매자가 다시 완료 내용을 보내드립니다.', actionable: false };
+      case 'COMPLETED':
+        return { title: '거래가 완료되었습니다', description: '구매 확정과 정산이 끝났습니다. 원한다면 아래에서 후기를 남길 수 있습니다.', actionable: false };
+      case 'DISPUTED':
+        return { title: '선생님의 확인을 기다리고 있어요', description: '분쟁 처리 중에는 보류된 GOLD가 판매자에게 지급되지 않습니다.', actionable: false };
+      case 'REJECTED':
+        return { title: '판매자가 주문을 받지 않았습니다', description: '거래는 종료되었습니다. 결제된 금액이 있었다면 환불 처리됩니다.', actionable: false };
+      case 'CANCELLED':
+        return { title: '취소된 거래입니다', description: '거래가 종료되었습니다. 결제된 금액이 있었다면 환불 처리됩니다.', actionable: false };
+    }
+  }
+
+  switch (status) {
+    case 'QUOTE_REQUESTED':
+      return { title: '🔔 지금 할 일 · 견적을 보내주세요', description: '구매자의 요청과 희망 수량을 확인하고 가격을 제안하세요. 견적만 보내는 단계에서는 GOLD가 이동하지 않습니다.', actionable: true };
+    case 'QUOTE_OFFERED':
+      return { title: '구매자의 견적 결정을 기다리세요', description: '구매자가 견적을 수락하면 거래가 시작됩니다. 지금은 추가로 할 일이 없습니다.', actionable: false };
+    case 'REQUESTED':
+      return { title: '🔔 지금 할 일 · 주문을 확인하세요', description: '구매자의 요청을 읽고 주문을 받을지 거절할지 결정하세요.', actionable: true };
+    case 'ACCEPTED':
+      return { title: '🔔 지금 할 일 · 서비스를 진행하세요', description: '서비스를 완료한 뒤 아래의 완료·확인 요청 버튼을 눌러 구매자에게 알려주세요.', actionable: true };
+    case 'REVISION_REQUESTED':
+      return { title: '🔔 지금 할 일 · 요청한 내용을 수정하세요', description: '구매자의 수정 요청을 반영한 뒤 다시 완료·확인 요청을 보내주세요.', actionable: true };
+    case 'DELIVERED':
+      return { title: '구매자의 확인을 기다리세요', description: '구매자가 구매 확정하면 보류된 GOLD가 지급됩니다. 지금은 기다리면 됩니다.', actionable: false };
+    case 'COMPLETED':
+      return { title: '거래가 완료되었습니다', description: '구매자가 확정했고 판매대금 정산이 끝났습니다.', actionable: false };
+    case 'DISPUTED':
+      return { title: '선생님의 확인을 기다리고 있어요', description: '분쟁 처리 중에는 정산이 보류됩니다.', actionable: false };
+    case 'REJECTED':
+      return { title: '거절한 거래입니다', description: '이 주문은 종료되었습니다.', actionable: false };
+    case 'CANCELLED':
+      return { title: '취소된 거래입니다', description: '이 주문은 종료되었습니다.', actionable: false };
+  }
+  return { title: '거래 상태를 확인하세요', description: '화면의 상태와 안내를 확인해주세요.', actionable: false };
+}
+
+function OrderNextStep({ status, role }: { status: ServiceOrderStatus; role: OrderRole }) {
+  const guidance = getOrderGuidance(status, role);
+  return <div className={cn(
+    'mt-3 rounded-card-sm border p-2.5',
+    guidance.actionable ? 'border-brand-primary/40 bg-brand-primary/10' : 'border-line bg-bg-deep',
+  )}>
+    <div className={cn('text-xs font-black', guidance.actionable ? 'text-white' : 'text-text-primary')}>{guidance.title}</div>
+    <div className="mt-1 text-2xs leading-5 text-text-secondary">{guidance.description}</div>
+  </div>;
+}
+
 const QUANTITY_UNIT_PRESETS = ['회','개','건','분','시간','일'] as const;
 
 export default function SecondaryJobServicesPanel() {
@@ -76,6 +146,10 @@ export default function SecondaryJobServicesPanel() {
   const [tab, setTab] = useState<ViewTab>(initialView);
   const requestedServiceId = (() => {
     const raw = Number(searchParams.get('service'));
+    return Number.isInteger(raw) && raw > 0 ? raw : null;
+  })();
+  const requestedJobId = (() => {
+    const raw = Number(searchParams.get('job'));
     return Number.isInteger(raw) && raw > 0 ? raw : null;
   })();
 
@@ -136,7 +210,7 @@ export default function SecondaryJobServicesPanel() {
     if (requested === 'market' || requested === 'orders' || requested === 'sales' || requested === 'services') {
       setTab(requested);
     }
-    if (searchParams.get('service')) {
+    if (searchParams.get('service') || searchParams.get('job')) {
       setTab('market');
     }
   }, [searchParams]);
@@ -162,9 +236,20 @@ export default function SecondaryJobServicesPanel() {
   const myReviewByOrder = useMemo(() => new Map<number, MyServiceReview>(
     (reputationData?.my_reviews ?? []).map((r) => [r.order_id, r]),
   ), [reputationData]);
-  const pendingBuy = data?.my_orders.filter((o) => !['COMPLETED','REJECTED','CANCELLED'].includes(o.status)).length ?? 0;
-  const pendingSell = data?.my_sales.filter((o) => !['COMPLETED','REJECTED','CANCELLED'].includes(o.status)).length ?? 0;
+  const buyerActionCount = data?.my_orders.filter((o) => o.status==='QUOTE_OFFERED' || o.status==='DELIVERED').length ?? 0;
+  const sellerActionCount = data?.my_sales.filter((o) => ['QUOTE_REQUESTED','REQUESTED','ACCEPTED','REVISION_REQUESTED'].includes(o.status)).length ?? 0;
   const reviewNeeded = data?.my_orders.filter((o) => o.status==='COMPLETED' && !myReviewByOrder.has(o.id)).length ?? 0;
+
+  const selectTab = (nextTab: ViewTab) => {
+    setTab(nextTab);
+    const next = new URLSearchParams(searchParams);
+    next.set('view', nextTab);
+    if (nextTab !== 'market') {
+      next.delete('service');
+      next.delete('job');
+    }
+    setSearchParams(next, { replace: true });
+  };
 
   if (board.isLoading || reputationBoard.isLoading) return <div className="py-10 flex justify-center"><LoadingSpinner size="lg" /></div>;
   if (board.isError || reputationBoard.isError || !data || !reputationData) return <EmptyState emoji="⚠️" title="서비스 마켓을 불러오지 못했어요" description={(board.error instanceof Error ? board.error.message : reputationBoard.error instanceof Error ? reputationBoard.error.message : '잠시 후 다시 시도해주세요.')} />;
@@ -173,8 +258,9 @@ export default function SecondaryJobServicesPanel() {
     <div className="bg-bg-card border border-line rounded-card-lg p-4">
       <div className="flex flex-wrap justify-between gap-3">
         <div>
-          <div className="font-display text-lg text-brand-gradient">🛍️ P2P 서비스 마켓</div>
-          <p className="text-xs text-text-secondary mt-1">2차직업을 가진 친구의 서비스를 GOLD로 구매하거나, 내 2차직업으로 서비스를 판매할 수 있습니다.</p>
+          <div className="font-display text-lg text-brand-gradient">🛍️ 서비스 마켓</div>
+          <p className="text-xs text-text-secondary mt-1">친구가 올린 판매글을 찾아 서비스를 구매하거나, 내 2차직업으로 판매글을 올려 GOLD를 벌 수 있습니다.</p>
+          <p className="mt-1 text-2xs font-bold text-brand-glow">직업만 가지고 있다고 자동으로 판매되는 것은 아닙니다. 판매하려면 직접 판매글을 등록해야 합니다.</p>
         </div>
         <div className="text-right">
           <div className="text-2xs text-text-muted">사용 가능 GOLD</div>
@@ -184,19 +270,32 @@ export default function SecondaryJobServicesPanel() {
       {data.asset_freeze && <div className="mt-3 bg-danger-bg border border-danger/40 rounded-card-md p-3 text-xs text-danger font-bold">🚫 자산동결 중이라 신규 주문·견적 요청은 만들 수 없습니다. 이미 결제된 주문의 수락·납품·환불·정산은 계속 처리할 수 있습니다.</div>}
     </div>
 
-    {reviewNeeded>0 && <button type="button" onClick={()=>setTab('orders')} className="w-full text-left bg-brand-primary/10 border border-brand-primary/30 rounded-card-md p-3">
+    <div className="rounded-card-md border border-line bg-bg-card px-3.5 py-3">
+      <div className="text-xs font-black text-white">🔐 거래는 이렇게 진행돼요</div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-2xs font-black text-text-secondary">
+        <span className="rounded-pill bg-bg-deep px-2 py-1">① 서비스 찾기</span><span>→</span>
+        <span className="rounded-pill bg-bg-deep px-2 py-1">② 주문</span><span>→</span>
+        <span className="rounded-pill bg-bg-deep px-2 py-1">③ 판매자 진행</span><span>→</span>
+        <span className="rounded-pill bg-bg-deep px-2 py-1">④ 완료 확인</span><span>→</span>
+        <span className="rounded-pill bg-bg-deep px-2 py-1">⑤ 구매 확정</span><span>→</span>
+        <span className="rounded-pill bg-bg-deep px-2 py-1 text-gold">⑥ 판매자에게 GOLD 지급</span>
+      </div>
+      <div className="mt-2 text-2xs leading-5 text-text-muted">고정·옵션 가격은 주문할 때 GOLD가 안전하게 보류됩니다. <b className="text-text-secondary">견적형은 판매자가 가격을 보내고 구매자가 견적을 수락한 뒤</b> GOLD가 보류됩니다.</div>
+    </div>
+
+    {reviewNeeded>0 && <button type="button" onClick={()=>selectTab('orders')} className="w-full text-left bg-brand-primary/10 border border-brand-primary/30 rounded-card-md p-3">
       <div className="text-xs font-black text-white">⭐ 아직 평가하지 않은 완료 거래가 {reviewNeeded}건 있어요</div>
-      <div className="text-2xs text-text-secondary mt-1">내 주문에서 평점 0~10점과 익명 후기를 남길 수 있습니다.</div>
+      <div className="text-2xs text-text-secondary mt-1">구매 진행 탭에서 평점 0~10점과 익명 후기를 남길 수 있습니다.</div>
     </button>}
 
     <div className="grid grid-cols-4 gap-1.5">
       {([
-        ['market','서비스','🛒',0],
-        ['orders','내 주문','📦',pendingBuy+reviewNeeded],
-        ['sales','판매 주문','💼',pendingSell],
-        ['services','내 서비스','🧰',data.my_services.filter((s)=>!s.deleted_at).length],
+        ['market','서비스 찾기','🛒',0],
+        ['orders','구매 진행','📦',buyerActionCount],
+        ['sales','받은 주문','🔔',sellerActionCount],
+        ['services','내 판매글','📝',0],
       ] as const).map(([value,label,emoji,count]) => (
-        <button key={value} onClick={()=>setTab(value)}
+        <button key={value} onClick={()=>selectTab(value)}
           className={cn('relative rounded-card-md border px-2 py-2.5 text-xs font-black',
             tab===value ? 'border-brand-primary bg-brand-primary/15 text-white' : 'border-line bg-bg-card text-text-secondary')}>
           <div>{emoji} {label}</div>
@@ -219,6 +318,12 @@ export default function SecondaryJobServicesPanel() {
         next.delete('service');
         setSearchParams(next,{replace:true});
       }}
+      jobFilterId={requestedJobId}
+      onJobFilterCleared={()=>{
+        const next = new URLSearchParams(searchParams);
+        next.delete('job');
+        setSearchParams(next,{replace:true});
+      }}
     />}
     {tab==='orders' && <BuyerOrders items={data.my_orders} myReviews={myReviewByOrder} studentNames={studentNames.data ?? new Map()} gold={data.gold} busy={isLoading} onDone={refresh} />}
     {tab==='sales' && <SellerOrders items={data.my_sales} busy={isLoading} onDone={refresh} />}
@@ -226,7 +331,7 @@ export default function SecondaryJobServicesPanel() {
 
     {tab==='services' && data.active_jobs.length===0 && (
       <div className="bg-warning-bg border border-warning/40 rounded-card-md p-3 text-xs text-warning font-bold">
-        활성 2차직업이 있어야 서비스를 등록할 수 있습니다. 먼저 2차직업 승인을 받아주세요.
+        활성 2차직업이 있어야 판매글을 등록할 수 있습니다. 먼저 직업 승인을 받아주세요.
       </div>
     )}
   </div>;
@@ -288,6 +393,7 @@ function BuyerOrders({ items, myReviews, studentNames, gold, busy, onDone }: { i
       </div>}
       {o.latest_delivery && <div className="bg-success-bg border border-success/30 rounded-card-sm p-3 mt-3 text-xs whitespace-pre-wrap"><b className="text-success">📦 최신 납품 #{o.current_revision}</b><div className="mt-1 text-text-primary">{o.latest_delivery}</div><div className="text-2xs text-text-muted mt-1">{dt(o.latest_delivery_at)}</div></div>}
       {o.status_reason && <div className="text-xs text-warning mt-2">사유/안내: {o.status_reason}</div>}
+      <OrderNextStep status={o.status} role="BUYER" />
 
       <div className="flex flex-wrap gap-2 mt-3">
         {o.status==='QUOTE_REQUESTED' && <button className="btn-secondary" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'CANCEL'});setReason('');}}>견적 요청 취소</button>}
@@ -297,7 +403,7 @@ function BuyerOrders({ items, myReviews, studentNames, gold, busy, onDone }: { i
         </>}
         {o.status==='REQUESTED' && <button className="btn-secondary" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'CANCEL'});setReason('');}}>주문 취소</button>}
         {o.status==='DELIVERED' && <>
-          <button className="btn-primary" disabled={actionBusy} onClick={()=>run(o,'CONFIRM')}>구매 확정</button>
+          <button className="btn-primary" disabled={actionBusy} onClick={()=>run(o,'CONFIRM')}>서비스 받음 · 구매 확정</button>
           <button className="btn-secondary" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'REVISION'});setReason('');}}>수정 요청</button>
           <button className="btn-secondary text-danger" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'DISPUTE'});setReason('');}}>문제 신고</button>
         </>}
@@ -317,7 +423,7 @@ function BuyerOrders({ items, myReviews, studentNames, gold, busy, onDone }: { i
       {action && <div className="space-y-3">
         <p className="text-sm text-text-secondary">
           {action.type==='CANCEL'
-            ? action.order.pricing_mode==='QUOTE' ? '아직 결제 전 견적 단계입니다. 취소해도 GOLD 이동이나 환불 transaction은 발생하지 않습니다.' : '판매자가 아직 수락하지 않은 주문입니다. 취소하면 보류된 GOLD가 즉시 환불됩니다.'
+            ? action.order.pricing_mode==='QUOTE' ? '아직 결제 전 견적 단계입니다. 취소해도 GOLD 이동이나 환불 내역은 발생하지 않습니다.' : '판매자가 아직 수락하지 않은 주문입니다. 취소하면 보류된 GOLD가 즉시 환불됩니다.'
             : action.type==='DECLINE_QUOTE'
               ? '제안된 견적을 거절하면 거래가 종료되며 GOLD는 이동하지 않습니다.'
               : '상대방과 교사가 상황을 이해할 수 있도록 이유를 적어주세요.'}
@@ -354,7 +460,7 @@ function SellerOrders({ items, busy, onDone }: { items: ServiceSaleOrder[]; busy
   const deliver = async (order:ServiceSaleOrder) => {
     if (text.trim().length<10) return;
     await call(()=>secondaryJobServiceStudentRpc.deliver(supabase,{p_order_id:order.id,p_delivery_text:text}),{
-      successTitle:'납품 완료',
+      successTitle:'완료 확인 요청 전송',
       onSuccess:()=>{setAction(null);setText('');onDone();},
     });
   };
@@ -383,7 +489,7 @@ function SellerOrders({ items, busy, onDone }: { items: ServiceSaleOrder[]; busy
     });
   };
 
-  if (!items.length) return <EmptyState emoji="💼" title="아직 판매 주문이 없어요" description="서비스를 등록하면 다른 학생이 주문할 수 있습니다." />;
+  if (!items.length) return <EmptyState emoji="💼" title="아직 받은 주문이 없어요" description="판매글을 등록하면 다른 학생이 주문할 수 있습니다." />;
   return <div className="space-y-2.5">
     {items.map((o)=><div key={o.id} className="bg-bg-card border border-line rounded-card-md p-3.5">
       <div className="flex items-start justify-between gap-2">
@@ -400,7 +506,8 @@ function SellerOrders({ items, busy, onDone }: { items: ServiceSaleOrder[]; busy
         {o.seller_quote_note && <div className="mt-1 whitespace-pre-wrap text-text-secondary">메모: {o.seller_quote_note}</div>}
       </div>}
       {o.status_reason && <div className="text-xs text-warning mt-2">사유/안내: {o.status_reason}</div>}
-      {o.latest_delivery && <div className="bg-bg-deep rounded-card-sm p-2.5 mt-2 text-xs whitespace-pre-wrap">최근 납품 #{o.current_revision}<br/>{o.latest_delivery}</div>}
+      {o.latest_delivery && <div className="bg-bg-deep rounded-card-sm p-2.5 mt-2 text-xs whitespace-pre-wrap">최근 완료 #{o.current_revision}<br/>{o.latest_delivery}</div>}
+      <OrderNextStep status={o.status} role="SELLER" />
       <div className="flex flex-wrap gap-2 mt-3">
         {o.status==='QUOTE_REQUESTED' && <>
           <button className="btn-primary" disabled={actionBusy} onClick={()=>openQuote(o)}>견적 제안</button>
@@ -411,22 +518,22 @@ function SellerOrders({ items, busy, onDone }: { items: ServiceSaleOrder[]; busy
           <button className="btn-secondary text-danger" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'CANCEL'});setText('');}}>견적 취소</button>
         </>}
         {o.status==='REQUESTED' && <>
-          <button className="btn-primary" disabled={actionBusy} onClick={()=>sellerAction(o,'ACCEPT')}>주문 수락</button>
+          <button className="btn-primary" disabled={actionBusy} onClick={()=>sellerAction(o,'ACCEPT')}>주문 받기</button>
           <button className="btn-secondary" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'REJECT'});setText('');}}>거절</button>
         </>}
         {(o.status==='ACCEPTED'||o.status==='REVISION_REQUESTED') && <>
-          <button className="btn-primary" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'DELIVER'});setText('');}}>납품하기</button>
+          <button className="btn-primary" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'DELIVER'});setText('');}}>완료 · 확인 요청</button>
           <button className="btn-secondary text-danger" disabled={actionBusy} onClick={()=>{setAction({order:o,type:'CANCEL'});setText('');}}>판매 취소</button>
         </>}
       </div>
       {o.status==='QUOTE_REQUESTED' && <div className="text-2xs text-text-muted mt-2">견적을 제안하기 전에는 구매자의 GOLD가 이동하지 않습니다.</div>}
-      {o.status==='QUOTE_OFFERED' && <div className="text-2xs text-text-muted mt-2">구매자가 견적을 수락하면 바로 ACCEPTED 상태가 되며 총액이 escrow로 보류됩니다.</div>}
+      {o.status==='QUOTE_OFFERED' && <div className="text-2xs text-text-muted mt-2">구매자가 견적을 수락하면 서비스 진행 단계가 시작되고 총액이 안전하게 보류됩니다.</div>}
       {o.status==='DELIVERED' && <div className="text-2xs text-text-muted mt-2">구매자의 구매 확정 또는 수정 요청을 기다리는 중입니다.</div>}
       {o.status==='DISPUTED' && <div className="text-xs text-warning mt-2">분쟁이 접수되어 교사 확인을 기다리고 있습니다.</div>}
     </div>)}
 
     <Modal isOpen={!!action} onClose={()=>setAction(null)}
-      title={action?.type==='DELIVER'?'서비스 납품':action?.type==='OFFER_QUOTE'?'서비스 견적 제안':action?.type==='REJECT'?'주문/견적 거절':'판매/견적 취소'} emoji={action?.type==='DELIVER'?'📦':action?.type==='OFFER_QUOTE'?'💬':'⚠️'}>
+      title={action?.type==='DELIVER'?'서비스 완료 알림':action?.type==='OFFER_QUOTE'?'서비스 견적 제안':action?.type==='REJECT'?'주문/견적 거절':'판매/견적 취소'} emoji={action?.type==='DELIVER'?'📦':action?.type==='OFFER_QUOTE'?'💬':'⚠️'}>
       {action && action.type==='OFFER_QUOTE' ? <div className="space-y-3">
         <div className="rounded-card-md bg-bg-deep p-3 text-xs text-text-secondary">
           구매자 희망 수량 · <b className="text-white">{formatNumber(action.order.requested_quantity ?? 1)}{action.order.quantity_unit}</b>
@@ -445,7 +552,7 @@ function SellerOrders({ items, busy, onDone }: { items: ServiceSaleOrder[]; busy
       </div> : action && <div className="space-y-3">
         <textarea rows={5} maxLength={action.type==='DELIVER'?2000:500} className="input-field w-full resize-none"
           value={text} onChange={(e)=>setText(e.target.value)}
-          placeholder={action.type==='DELIVER'?'완료한 내용, 전달 방법 등을 10자 이상 적어주세요.':'사유를 2자 이상 적어주세요.'} />
+          placeholder={action.type==='DELIVER'?'완료한 내용과 전달 방법을 10자 이상 적어주세요.':'사유를 2자 이상 적어주세요.'} />
         <button className="btn-primary w-full" disabled={actionBusy||text.trim().length<(action.type==='DELIVER'?10:2)}
           onClick={()=>{
             if(action.type==='DELIVER') return deliver(action.order);
@@ -541,7 +648,7 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
       p_delivery_note:delivery,
       p_is_active:existing?.is_active??true,
       p_allow_concurrent_orders:allowConcurrent,
-    }),{successTitle:existing?'서비스 수정 완료':'서비스 등록 완료',onSuccess:()=>{setForm(null);onDone();}});
+    }),{successTitle:existing?'판매글 수정 완료':'판매글 등록 완료',onSuccess:()=>{setForm(null);onDone();}});
   };
 
   const toggle=async(s:MyServiceItem)=>{
@@ -605,7 +712,7 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
     <div className="rounded-card-md border border-gold/25 bg-gold/5 p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-xs font-black text-gold">📣 내 서비스 광고</div>
+          <div className="text-xs font-black text-gold">📣 내 판매글 광고</div>
           <div className="mt-1 text-2xs text-text-secondary">
             1일 100G · 2일 190G · 3일 250G. 신청할 때는 무료이며 선생님이 승인하는 순간에만 GOLD가 차감됩니다.
           </div>
@@ -652,11 +759,11 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
     </div>
 
     <div className="flex items-center justify-between gap-3">
-      <div><h3 className="font-display text-lg text-white">내 판매 서비스</h3><p className="text-xs text-text-secondary">고정가격·옵션가격·견적형으로 서비스를 등록할 수 있습니다.</p></div>
-      <button className="btn-primary" onClick={openNew} disabled={actionBusy||jobs.length===0}>+ 서비스 등록</button>
+      <div><h3 className="font-display text-lg text-white">내 판매글</h3><p className="text-xs text-text-secondary">내 2차직업으로 판매할 서비스 글을 등록하고 관리합니다.</p></div>
+      <button className="btn-primary" onClick={openNew} disabled={actionBusy||jobs.length===0}>+ 판매글 등록</button>
     </div>
-    {jobs.length===0 && <div className="text-xs text-warning">활성 2차직업이 없어 등록 버튼이 비활성화되었습니다.</div>}
-    {!liveItems.length?<EmptyState emoji="🧰" title="등록한 서비스가 없어요" />:<div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+    {jobs.length===0 && <div className="text-xs text-warning">활성 2차직업이 없어 판매글 등록 버튼이 비활성화되었습니다.</div>}
+    {!liveItems.length?<EmptyState emoji="🧰" title="등록한 판매글이 없어요" />:<div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
       {liveItems.map((s)=>{
         const thisOpenAd=openAd?.service_id===s.id?openAd:null;
         const canRequestAd=!!adBoard?.can_submit && s.is_active && !thisOpenAd;
@@ -688,7 +795,7 @@ function MyServices({ items, jobs, reputation, adBoard, adLoading, adError, busy
       })}
     </div>}
 
-    <Modal isOpen={form!==null} onClose={()=>setForm(null)} title={form==='NEW'?'서비스 등록':'서비스 수정'} emoji="🧰" size="lg">
+    <Modal isOpen={form!==null} onClose={()=>setForm(null)} title={form==='NEW'?'판매글 등록':'판매글 수정'} emoji="🧰" size="lg">
       <div className="space-y-3">
         <label className="block"><span className="text-xs font-bold text-text-secondary">연결할 2차직업</span>
           <select className="input-field w-full mt-1" value={jobId} onChange={(e)=>setJobId(Number(e.target.value))}>

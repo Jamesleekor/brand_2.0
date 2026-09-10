@@ -24,9 +24,9 @@ const TABS: { value: MarketTab; label: string; emoji: string; path: string }[] =
   { value: 'inventory', label: '내 가방',   emoji: '🎒', path: '/market/inventory' },
   { value: 'history',   label: '내역',      emoji: '📜', path: '/market/history' },
   { value: 'auction',   label: '경매',      emoji: '🔨', path: '/market/auction' },
-  { value: 'jobs',      label: '2차직업',   emoji: '💼', path: '/market/jobs' },
+  { value: 'jobs',      label: '직업 현황',   emoji: '💼', path: '/market/jobs' },
   { value: 'requests',  label: '공공 의뢰', emoji: '📋', path: '/market/requests' },
-  { value: 'services',  label: '서비스',    emoji: '🛍️', path: '/market/services' },
+  { value: 'services',  label: '서비스 마켓', emoji: '🛍️', path: '/market/services' },
 ];
 
 export default function MarketPage() {

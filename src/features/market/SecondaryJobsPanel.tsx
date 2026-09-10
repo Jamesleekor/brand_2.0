@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { EmptyState, LoadingSpinner, Modal, useRpcCall } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
 import { secondaryJobStudentRpc, type SecondaryJobStatus } from '@/lib/rpc/secondary_job_rpc';
+import { secondaryJobServiceStudentRpc } from '@/lib/rpc/secondary_job_service_rpc';
 import { useClassroomId, useCurrentStudent, useStudentId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
 
@@ -86,6 +87,16 @@ export default function SecondaryJobsPanel() {
     },
   });
 
+  const serviceBoardQuery = useQuery({
+    queryKey: ['secondary-job-service-market'],
+    enabled: classroomId !== null && studentId !== null,
+    queryFn: async () => {
+      const result = await secondaryJobServiceStudentRpc.board(supabase);
+      if ('error' in result) throw new Error(result.error);
+      return result.data;
+    },
+  });
+
   const jobsQuery = useQuery<Job[]>({
     queryKey: ['secondary-jobs', classroomId],
     enabled: classroomId !== null,
@@ -151,13 +162,34 @@ export default function SecondaryJobsPanel() {
       .channel(`secondary-jobs:${classroomId}:${studentId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'secondary_jobs', filter: `classroom_id=eq.${classroomId}` }, invalidateJobs)
       .subscribe();
+    const servicesChannel = supabase
+      .channel(`secondary-job-sale-posts:${classroomId}:${studentId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'secondary_job_services', filter: `classroom_id=eq.${classroomId}` }, () => {
+        void queryClient.invalidateQueries({ queryKey: ['secondary-job-service-market'] });
+      })
+      .subscribe();
     return () => {
       void supabase.removeChannel(appsChannel);
       void supabase.removeChannel(jobsChannel);
+      void supabase.removeChannel(servicesChannel);
     };
   }, [classroomId, queryClient, studentId]);
 
   const myJobs = useMemo(() => (jobsQuery.data ?? []).filter((job) => job.studentId === studentId), [jobsQuery.data, studentId]);
+  const servicesByJob = useMemo(() => {
+    const map = new Map<number, Array<{ id: number }>>();
+    for (const service of serviceBoardQuery.data?.services ?? []) {
+      const current = map.get(service.secondary_job_id) ?? [];
+      current.push({ id: service.id });
+      map.set(service.secondary_job_id, current);
+    }
+    return map;
+  }, [serviceBoardQuery.data?.services]);
+  const serviceBoardState = serviceBoardQuery.isLoading
+    ? 'loading'
+    : serviceBoardQuery.isError
+      ? 'error'
+      : 'ready';
   const status = statusQuery.data;
   const canApply = !!status?.eligible && !status.employment_freeze && status.remaining_slots > 0;
   const pendingCount = useMemo(() => (appQuery.data ?? []).filter((app) => app.status === 'PENDING').length, [appQuery.data]);
@@ -232,7 +264,7 @@ export default function SecondaryJobsPanel() {
               disabled={!canApply}
               className="px-3 py-2 rounded-pill bg-brand-primary text-white border border-brand-primary/60 text-xs font-black disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              ＋ 2차직업 신청
+              ＋ 새 직업 신청
             </button>
             <button
               type="button"
@@ -240,32 +272,57 @@ export default function SecondaryJobsPanel() {
               disabled={myJobs.length === 0}
               className="px-3 py-2 rounded-pill bg-brand-primary/20 text-brand-glow border border-line-brand text-xs font-black disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              🧰 서비스 등록/관리
+              📝 판매글 등록/관리
             </button>
           </div>
         </div>
         {status?.employment_freeze && <div className="mt-2 p-2 rounded-card-sm bg-danger-bg border border-danger/30 text-xs font-bold text-danger">🚫 현재 고용 동결 중이라 신규 신청이 중단되어 있습니다.</div>}
-        {myJobs.length === 0 && <div className="mt-2 text-2xs text-warning">활성 2차직업이 생기면 여기서 바로 서비스를 등록할 수 있습니다.</div>}
+        {myJobs.length === 0 && <div className="mt-2 text-2xs text-warning">활성 2차직업이 생기면 판매글을 등록해 서비스를 판매할 수 있습니다.</div>}
       </section>
 
+      <div className="rounded-card-md border border-brand-primary/25 bg-brand-primary/10 px-3.5 py-3">
+        <div className="text-xs font-black text-white">💡 직업 보유와 판매글 등록은 서로 달라요</div>
+        <div className="mt-1 text-2xs leading-5 text-text-secondary">2차직업이 있어도 자동으로 서비스 마켓에 나타나지 않습니다. 판매하려면 <b className="text-white">서비스 마켓 → 내 판매글</b>에서 판매글을 등록해야 합니다.</div>
+      </div>
+
       <section>
-        <h3 className="font-display text-lg text-white mb-2">우리 반 2차직업 리스트</h3>
+        <h3 className="font-display text-lg text-white mb-2">우리 반 2차직업 현황</h3>
         {!jobsQuery.data?.length ? (
           <EmptyState emoji="💼" title="활동 중인 2차직업이 아직 없어요" />
         ) : (
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-            {jobsQuery.data.map((job) => (
-              <motion.div key={job.id} whileTap={{ scale: 0.99 }} className={cn('bg-bg-card border rounded-card-md p-3', job.studentId === studentId ? 'border-line-brand' : 'border-line')}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="font-display text-sm text-brand-gradient truncate">{job.jobName}</div>
-                    <div className="mt-1 truncate text-xs font-extrabold text-slate-200">👤 {job.studentName}</div>
+            {jobsQuery.data.map((job) => {
+              const jobServices = servicesByJob.get(job.id) ?? [];
+              const hasSalePost = jobServices.length > 0;
+              return (
+                <motion.div key={job.id} whileTap={{ scale: 0.99 }} className={cn('bg-bg-card border rounded-card-md p-3', job.studentId === studentId ? 'border-line-brand' : 'border-line')}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-display text-sm text-brand-gradient truncate">{job.jobName}</div>
+                      <div className="mt-1 truncate text-xs font-extrabold text-slate-200">👤 {job.studentName}</div>
+                    </div>
+                    {job.studentId === studentId && <span className="shrink-0 text-[10px] rounded-pill bg-brand-primary/15 px-2 py-0.5 font-black text-brand-glow">내 직업</span>}
                   </div>
-                  {job.studentId === studentId && <span className="shrink-0 text-[10px] rounded-pill bg-brand-primary/15 px-2 py-0.5 font-black text-brand-glow">내 직업</span>}
-                </div>
-                {job.description && <p className="mt-2 line-clamp-2 text-xs font-medium leading-relaxed text-slate-300">{job.description}</p>}
-              </motion.div>
-            ))}
+                  {job.description && <p className="mt-2 line-clamp-2 text-xs font-medium leading-relaxed text-slate-300">{job.description}</p>}
+                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-line/70 pt-2.5">
+                    <div className={cn('text-2xs font-bold', serviceBoardState === 'error' ? 'text-warning' : hasSalePost ? 'text-success' : 'text-text-muted')}>
+                      {serviceBoardState === 'loading'
+                        ? '⏳ 판매글 확인 중'
+                        : serviceBoardState === 'error'
+                          ? '⚠️ 판매글 상태 확인 실패'
+                          : hasSalePost
+                            ? `🟢 판매 중인 글 ${jobServices.length}개`
+                            : '⚪ 현재 판매 중인 글이 없습니다'}
+                    </div>
+                    {serviceBoardState === 'ready' && hasSalePost ? (
+                      <button type="button" className="shrink-0 text-2xs font-black text-brand-glow underline underline-offset-2" onClick={() => navigate(`/market/services?job=${job.id}`)}>서비스 보기</button>
+                    ) : serviceBoardState === 'ready' && job.studentId === studentId ? (
+                      <button type="button" className="shrink-0 text-2xs font-black text-brand-glow underline underline-offset-2" onClick={() => navigate('/market/services?view=services')}>판매글 만들기</button>
+                    ) : null}
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </section>

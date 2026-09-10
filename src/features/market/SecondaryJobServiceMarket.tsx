@@ -184,7 +184,7 @@ function OrderControls({
       <div className="mb-3 rounded-card-sm bg-bg-deep p-2.5 text-xs leading-5 text-text-secondary">
         {service.pricing_mode === 'QUOTE'
           ? '견적을 요청하거나 판매자가 견적을 제안하는 동안에는 GOLD가 이동하지 않습니다. 구매자가 최종 견적을 수락하는 순간에만 총액이 보류됩니다.'
-          : '결제한 GOLD는 거래 완료 전까지 보류되며, 납품 후 구매 확정 시 판매자에게 정산됩니다.'}
+          : '결제한 GOLD는 거래 완료 전까지 보류되며, 판매자가 완료 알림을 보낸 뒤 구매 확정하면 판매자에게 지급됩니다.'}
       </div>
 
       {service.pricing_mode === 'OPTION' && <label className="block">
@@ -358,6 +358,8 @@ export function SecondaryJobServiceMarket({
   onDone,
   deepLinkServiceId,
   onDeepLinkHandled,
+  jobFilterId,
+  onJobFilterCleared,
 }: {
   items: ServiceMarketItem[];
   reputations: Map<number, ServiceReputation>;
@@ -368,6 +370,8 @@ export function SecondaryJobServiceMarket({
   onDone: () => void;
   deepLinkServiceId: number | null;
   onDeepLinkHandled: () => void;
+  jobFilterId: number | null;
+  onJobFilterCleared: () => void;
 }) {
   const { call, isLoading: rpcLoading } = useRpcCall();
   const actionBusy = busy || rpcLoading;
@@ -381,7 +385,9 @@ export function SecondaryJobServiceMarket({
   const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null);
   const handledDeepLinkRef = useRef<number | null>(null);
 
-  const filtered = useMemo(() => filterServices(items, category), [items, category]);
+  const jobFiltered = useMemo(() => jobFilterId === null ? items : items.filter((item) => item.secondary_job_id === jobFilterId), [items, jobFilterId]);
+  const filtered = useMemo(() => filterServices(jobFiltered, category), [jobFiltered, category]);
+  const jobFilterName = jobFilterId === null ? null : items.find((item) => item.secondary_job_id === jobFilterId)?.job_name ?? null;
   const sorted = useMemo(
     () => sortServices(filtered, sortMode, serverNow, reputations),
     [filtered, sortMode, serverNow, reputations],
@@ -470,10 +476,18 @@ export function SecondaryJobServiceMarket({
   };
 
   if (!items.length) {
-    return <EmptyState emoji="🛍️" title="판매 중인 서비스가 없어요" description="2차직업을 가진 학생이 서비스를 등록하면 여기에 표시됩니다." />;
+    return <EmptyState emoji="🛍️" title="판매 중인 서비스가 없어요" description="2차직업을 가진 학생이 판매글을 등록하면 여기에 표시됩니다." />;
   }
 
   return <div className="space-y-3">
+    {jobFilterId !== null && <div className="flex items-center justify-between gap-3 rounded-card-md border border-brand-primary/30 bg-brand-primary/10 px-3 py-2.5">
+      <div className="min-w-0">
+        <div className="text-2xs font-black text-brand-glow">직업 현황에서 선택한 판매글</div>
+        <div className="mt-0.5 truncate text-xs font-black text-white">{jobFilterName ?? '선택한 2차직업'}의 판매글만 보고 있습니다.</div>
+      </div>
+      <button type="button" className="btn-secondary shrink-0" onClick={()=>{setPage(1);onJobFilterCleared();}}>전체 판매글 보기</button>
+    </div>}
+
     <div className="flex flex-col gap-2 rounded-card-md border border-line bg-bg-card p-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex gap-1.5 overflow-x-auto pb-1 lg:pb-0">
         {SERVICE_CATEGORY_OPTIONS.map((option) => <button
@@ -498,7 +512,11 @@ export function SecondaryJobServiceMarket({
       </select>
     </div>
 
-    {!sorted.length ? <EmptyState emoji="🧭" title="이 카테고리에 등록된 서비스가 없어요" description="다른 카테고리를 선택해보세요." /> : <>
+    {!sorted.length ? <EmptyState
+      emoji="🧭"
+      title={jobFilterId !== null ? '이 직업의 판매글을 찾을 수 없어요' : '이 카테고리에 등록된 판매글이 없어요'}
+      description={jobFilterId !== null ? '판매가 중지되었거나 현재 선택한 카테고리에 해당하는 글이 없을 수 있습니다.' : '다른 카테고리를 선택해보세요.'}
+    /> : <>
       <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:min-h-[370px] lg:grid-cols-4 lg:grid-rows-2">
         {visibleItems.map((service) => <CompactServiceCard
           key={service.id}
