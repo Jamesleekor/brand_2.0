@@ -505,8 +505,9 @@ function ExchangeModal({
                 <button
                   key={token}
                   onClick={() => changeDirection(token)}
+                  disabled={token === "CRYSTAL"}
                   className={cn(
-                    "p-3 rounded-card-md border text-left transition-all",
+                    "p-3 rounded-card-md border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed",
                     fromToken === token
                       ? "bg-brand-primary/15 border-brand-primary/60"
                       : "bg-bg-deep border-line",
