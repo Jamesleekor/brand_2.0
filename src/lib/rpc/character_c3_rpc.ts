@@ -3,9 +3,11 @@ import type { RpcResult } from './student_rpc';
 import {
   TeacherCreateCharacterSchema,
   TeacherGrantCharacterSchema,
+  TeacherSetCharacterShowcaseVariantsSchema,
   TeacherSetCharacterPolicySchema,
   TeacherUpdateCharacterSchema,
   type TeacherCreateCharacterInput,
+  type TeacherSetCharacterShowcaseVariantsInput,
   type TeacherSetCharacterPolicyInput,
   type TeacherUpdateCharacterInput,
 } from '@/lib/zod_schemas/character_c3_schemas';
@@ -53,6 +55,8 @@ export interface TeacherCharacterRow {
   full_image_url: string | null;
   card_image_url: string | null;
   avatar_image_url: string | null;
+  showcase_image_url_2: string | null;
+  showcase_image_url_3: string | null;
   is_active: boolean;
   sort_order: number;
   policy: TeacherCharacterPolicy | null;
@@ -126,6 +130,12 @@ export const characterC3Rpc = {
     const parsed = TeacherUpdateCharacterSchema.safeParse(input);
     if (!parsed.success) return Promise.resolve(validationError<void>(parsed.error.issues[0]?.message ?? '입력값을 확인해주세요.', parsed.error.issues));
     return callRpc<void>(supabase, 'teacher_update_character', parsed.data);
+  },
+
+  setShowcaseVariants: (supabase: SupabaseClient, input: TeacherSetCharacterShowcaseVariantsInput) => {
+    const parsed = TeacherSetCharacterShowcaseVariantsSchema.safeParse(input);
+    if (!parsed.success) return Promise.resolve(validationError<void>(parsed.error.issues[0]?.message ?? '전시 이미지 정보를 확인해주세요.', parsed.error.issues));
+    return callRpc<void>(supabase, 'teacher_set_character_showcase_variants', parsed.data);
   },
 
   setPolicy: (supabase: SupabaseClient, input: TeacherSetCharacterPolicyInput) => {

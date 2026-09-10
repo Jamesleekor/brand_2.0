@@ -31,6 +31,8 @@ type MasterForm = {
   fullImageUrl: string;
   cardImageUrl: string;
   avatarImageUrl: string;
+  showcaseImageUrl2: string;
+  showcaseImageUrl3: string;
   isActive: boolean;
   sortOrder: string;
 };
@@ -68,7 +70,31 @@ export default function CharacterAdmin() {
       if (!classroomId) return { characters: [], students: [], events: [] };
       const result = await characterC3Rpc.board(supabase, classroomId, 150);
       if (result.success === false) throw new Error(result.error);
-      return result.data ?? { characters: [], students: [], events: [] };
+      const board = result.data ?? { characters: [], students: [], events: [] };
+      if (board.characters.length === 0) return board;
+
+      const visualRes = await supabase
+        .from('characters')
+        .select('id,showcase_image_url_2,showcase_image_url_3')
+        .in('id', board.characters.map((row) => row.id));
+
+      if (visualRes.error) throw new Error(`[Character showcase variants] ${visualRes.error.message}`);
+
+      const visualById = new Map<number, { showcase_image_url_2: string | null; showcase_image_url_3: string | null }>(
+        (visualRes.data ?? []).map((row: any) => [Number(row.id), {
+          showcase_image_url_2: row.showcase_image_url_2 ?? null,
+          showcase_image_url_3: row.showcase_image_url_3 ?? null,
+        }]),
+      );
+
+      return {
+        ...board,
+        characters: board.characters.map((row) => ({
+          ...row,
+          showcase_image_url_2: visualById.get(row.id)?.showcase_image_url_2 ?? null,
+          showcase_image_url_3: visualById.get(row.id)?.showcase_image_url_3 ?? null,
+        })),
+      };
     },
     enabled: classroomId !== null,
   });
@@ -612,11 +638,22 @@ function MasterEditorModal({
 
     if (row === 'NEW') {
       await call(
-        () => characterC3Rpc.createCharacter(supabase, {
-          ...common,
-          p_classroom_id: classroomId,
-          p_character_uid: form.uid.trim().toUpperCase(),
-        }),
+        async () => {
+          const created = await characterC3Rpc.createCharacter(supabase, {
+            ...common,
+            p_classroom_id: classroomId,
+            p_character_uid: form.uid.trim().toUpperCase(),
+          });
+          if (created.success === false) return created;
+
+          const variants = await characterC3Rpc.setShowcaseVariants(supabase, {
+            p_character_id: created.data,
+            p_showcase_image_url_2: form.resourceKind === 'EMOJI' ? null : (form.showcaseImageUrl2.trim() || null),
+            p_showcase_image_url_3: form.resourceKind === 'EMOJI' ? null : (form.showcaseImageUrl3.trim() || null),
+          });
+          if (variants.success === false) return variants;
+          return created;
+        },
         {
           successTitle: '새 편린 생성 완료',
           successDescription: form.name.trim(),
@@ -627,7 +664,15 @@ function MasterEditorModal({
     }
 
     await call(
-      () => characterC3Rpc.updateCharacter(supabase, { ...common, p_character_id: row.id }),
+      async () => {
+        const updated = await characterC3Rpc.updateCharacter(supabase, { ...common, p_character_id: row.id });
+        if (updated.success === false) return updated;
+        return characterC3Rpc.setShowcaseVariants(supabase, {
+          p_character_id: row.id,
+          p_showcase_image_url_2: form.resourceKind === 'EMOJI' ? null : (form.showcaseImageUrl2.trim() || null),
+          p_showcase_image_url_3: form.resourceKind === 'EMOJI' ? null : (form.showcaseImageUrl3.trim() || null),
+        });
+      },
       {
         successTitle: '편린 Master 수정 완료',
         successDescription: form.name.trim(),
@@ -669,11 +714,23 @@ function MasterEditorModal({
           )}
         </div>
         {form.resourceKind !== 'EMOJI' && (
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Field label="전체 이미지 URL" help="비우면 기본 URL 사용"><input value={form.fullImageUrl} onChange={(event) => setForm((value) => ({ ...value, fullImageUrl: event.target.value }))} className="input-admin" /></Field>
-            <Field label="카드 이미지 URL" help="비우면 기본 URL 사용"><input value={form.cardImageUrl} onChange={(event) => setForm((value) => ({ ...value, cardImageUrl: event.target.value }))} className="input-admin" /></Field>
-            <Field label="아바타 이미지 URL" help="랭킹/헤더 전용 crop"><input value={form.avatarImageUrl} onChange={(event) => setForm((value) => ({ ...value, avatarImageUrl: event.target.value }))} className="input-admin" /></Field>
-          </div>
+          <>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="전체 이미지 URL" help="비우면 기본 URL 사용"><input value={form.fullImageUrl} onChange={(event) => setForm((value) => ({ ...value, fullImageUrl: event.target.value }))} className="input-admin" /></Field>
+              <Field label="카드 이미지 URL" help="비우면 기본 URL 사용"><input value={form.cardImageUrl} onChange={(event) => setForm((value) => ({ ...value, cardImageUrl: event.target.value }))} className="input-admin" /></Field>
+              <Field label="아바타 이미지 URL" help="랭킹/헤더 전용 crop"><input value={form.avatarImageUrl} onChange={(event) => setForm((value) => ({ ...value, avatarImageUrl: event.target.value }))} className="input-admin" /></Field>
+            </div>
+            <div className="rounded-card-md border border-brand-primary/25 bg-brand-primary/5 p-3">
+              <div className="mb-2">
+                <div className="text-xs font-black text-white">홈 전시 이미지 베리에이션</div>
+                <p className="mt-0.5 text-[10px] font-bold leading-relaxed text-text-secondary">기본 이미지는 위의 전체 이미지 URL을 사용합니다. 고급형 편린은 이미지 2를, 필요할 때만 이미지 3까지 등록하세요.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="전시 이미지 2 URL" help="비우면 이미지 선택 기능 없음"><input value={form.showcaseImageUrl2} onChange={(event) => setForm((value) => ({ ...value, showcaseImageUrl2: event.target.value, showcaseImageUrl3: event.target.value.trim() ? value.showcaseImageUrl3 : '' }))} className="input-admin" placeholder="고급형 SPECIAL 이미지 링크" /></Field>
+                <Field label="전시 이미지 3 URL" help="최고급 편린 등 필요할 때만 사용"><input disabled={!form.showcaseImageUrl2.trim()} value={form.showcaseImageUrl3} onChange={(event) => setForm((value) => ({ ...value, showcaseImageUrl3: event.target.value }))} className="input-admin disabled:cursor-not-allowed disabled:opacity-50" placeholder="선택 사항" /></Field>
+              </div>
+            </div>
+          </>
         )}
         <label className="flex items-center gap-2 rounded-card-md border border-line bg-bg-deep p-3 text-xs font-black text-text-primary">
           <input type="checkbox" checked={form.isActive} onChange={(event) => setForm((value) => ({ ...value, isActive: event.target.checked }))} />
@@ -911,7 +968,7 @@ function Badge({ label, tone }: { label: string; tone: 'success' | 'warning' | '
 function blankMasterForm(): MasterForm {
   return {
     uid: '',name: '',epithet: '',description: '',resourceKind: 'IMAGE',resourceUrl: '',emoji: '',
-    fullImageUrl: '',cardImageUrl: '',avatarImageUrl: '',isActive: true,sortOrder: '40',
+    fullImageUrl: '',cardImageUrl: '',avatarImageUrl: '',showcaseImageUrl2: '',showcaseImageUrl3: '',isActive: true,sortOrder: '40',
   };
 }
 
@@ -927,6 +984,8 @@ function masterFormFromRow(row: TeacherCharacterRow): MasterForm {
     fullImageUrl: row.full_image_url ?? '',
     cardImageUrl: row.card_image_url ?? '',
     avatarImageUrl: row.avatar_image_url ?? '',
+    showcaseImageUrl2: row.showcase_image_url_2 ?? '',
+    showcaseImageUrl3: row.showcase_image_url_3 ?? '',
     isActive: row.is_active,
     sortOrder: String(row.sort_order),
   };

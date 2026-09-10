@@ -25,6 +25,11 @@ interface OwnedBackground {
   isEquipped: boolean;
 }
 
+type ShowcaseCharacterRow = StudentCharacterCollectionRow & {
+  showcase_image_url_2: string | null;
+  showcase_image_url_3: string | null;
+};
+
 type HomeCustomizationSection = 'showcase' | 'background' | 'font';
 
 interface HomeCustomizationPanelProps {
@@ -112,11 +117,12 @@ export function HomeCustomizationPanel({
     );
   };
 
-  const setCharacter = async (characterId: number | null) => {
+  const setCharacter = async (characterId: number | null, visualVariantNo: 1 | 2 | 3 = 1) => {
     await call(
       () => homePersonalizationRpc.setShowcaseSlot(supabase, {
         p_slot_no: activeSlot,
         p_character_id: characterId,
+        p_visual_variant_no: visualVariantNo,
       }),
       {
         successTitle: characterId == null ? '전시 슬롯을 비웠어요' : '편린 전시를 바꿨어요 ✨',
@@ -194,7 +200,7 @@ export function HomeCustomizationPanel({
                   activeSlot={activeSlot}
                   onActiveSlotChange={setActiveSlot}
                   disabled={isMutating}
-                  onSelect={(characterId) => { void setCharacter(characterId); }}
+                  onSelect={(characterId, visualVariantNo) => { void setCharacter(characterId, visualVariantNo); }}
                 />
               ) : section === 'background' ? (
                 <BackgroundSection
@@ -356,9 +362,23 @@ function ShowcaseSection({
   activeSlot: 1 | 2 | 3;
   onActiveSlotChange: (slot: 1 | 2 | 3) => void;
   disabled: boolean;
-  onSelect: (characterId: number | null) => void;
+  onSelect: (characterId: number | null, visualVariantNo?: 1 | 2 | 3) => void;
 }) {
   const current = slotMap.get(activeSlot);
+  const [variantTarget, setVariantTarget] = useState<ShowcaseCharacterRow | null>(null);
+
+  useEffect(() => {
+    setVariantTarget(null);
+  }, [activeSlot]);
+
+  const chooseCharacter = (character: ShowcaseCharacterRow) => {
+    const images = getShowcaseImages(character);
+    if (images.length <= 1) {
+      onSelect(character.character_id, 1);
+      return;
+    }
+    setVariantTarget(character);
+  };
 
   return (
     <div>
@@ -394,18 +414,74 @@ function ShowcaseSection({
         <div className="min-w-0">
           <div className="text-2xs font-black uppercase tracking-wider text-text-muted">{SLOT_LABELS[activeSlot].title}</div>
           <div className="truncate text-sm font-extrabold text-white">{current?.name ?? '현재 비어 있음'}</div>
+          {current?.character_id != null && current.visual_variant_no > 1 && (
+            <div className="mt-0.5 text-[10px] font-bold text-brand-glow">전시 이미지 {current.visual_variant_no} 선택 중</div>
+          )}
         </div>
         {current?.character_id != null && (
           <button
             type="button"
             disabled={disabled}
-            onClick={() => onSelect(null)}
+            onClick={() => onSelect(null, 1)}
             className="flex-none rounded-pill border border-line bg-bg-card px-3 py-1.5 text-2xs font-black text-text-secondary hover:text-white disabled:opacity-50"
           >
             슬롯 비우기
           </button>
         )}
       </div>
+
+      {variantTarget && (
+        <div className="mt-4 rounded-card-lg border border-brand-primary/40 bg-brand-primary/10 p-3 shadow-brand-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs font-black text-white">{variantTarget.name} · 전시 이미지 선택</div>
+              <p className="mt-0.5 text-[10px] font-bold leading-relaxed text-text-secondary">원하는 모습을 고르면 바로 현재 슬롯에 전시됩니다.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setVariantTarget(null)}
+              className="rounded-full border border-line bg-bg-card px-2 py-1 text-[10px] font-black text-text-secondary hover:text-white"
+            >
+              취소
+            </button>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {getShowcaseImages(variantTarget).map((variant) => {
+              const selected = current?.character_id === variantTarget.character_id
+                && current.visual_variant_no === variant.no;
+              return (
+                <button
+                  key={variant.no}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => {
+                    onSelect(variantTarget.character_id, variant.no);
+                    setVariantTarget(null);
+                  }}
+                  className={cn(
+                    'overflow-hidden rounded-card-md border bg-bg-card text-left transition',
+                    selected ? 'border-brand-primary shadow-brand-sm' : 'border-line hover:border-brand-primary/50',
+                    disabled && 'opacity-60',
+                  )}
+                >
+                  <div className="aspect-[3/4] overflow-hidden bg-bg-deep">
+                    <img
+                      src={resolveAssetUrl(variant.url, 'character')}
+                      alt={`${variantTarget.name} 전시 이미지 ${variant.no}`}
+                      className="h-full w-full object-contain p-1"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                    <span className="text-[10px] font-black text-white">{variant.label}</span>
+                    {selected && <span className="text-[9px] font-black text-brand-glow">현재</span>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {query.isLoading ? (
         <PanelLoading label="보유 편린을 불러오는 중..." />
@@ -420,12 +496,13 @@ function ShowcaseSection({
           {(query.data ?? []).map((character) => {
             const usedSlot = usedSlotByCharacter.get(character.character_id);
             const selectedHere = usedSlot === activeSlot;
+            const variantCount = getShowcaseImages(character).length;
             return (
               <button
                 key={character.character_id}
                 type="button"
-                disabled={disabled || selectedHere}
-                onClick={() => onSelect(character.character_id)}
+                disabled={disabled || (selectedHere && variantCount <= 1)}
+                onClick={() => chooseCharacter(character)}
                 className={cn(
                   'group overflow-hidden rounded-card-md border bg-bg-card transition',
                   selectedHere ? 'border-brand-primary shadow-brand-sm' : 'border-line hover:border-brand-primary/50',
@@ -435,10 +512,13 @@ function ShowcaseSection({
                 <div className="relative aspect-[4/5] overflow-hidden bg-bg-deep">
                   <CharacterThumb character={character} />
                   {selectedHere && (
-                    <span className="absolute left-1.5 top-1.5 rounded-pill bg-brand-primary px-1.5 py-0.5 text-[9px] font-black text-white">이 슬롯</span>
+                    <span className="absolute left-1.5 top-1.5 rounded-pill bg-brand-primary px-1.5 py-0.5 text-[9px] font-black text-white">{variantCount > 1 ? '이미지 변경' : '이 슬롯'}</span>
                   )}
                   {!selectedHere && usedSlot != null && (
                     <span className="absolute left-1.5 top-1.5 rounded-pill bg-black/75 px-1.5 py-0.5 text-[9px] font-black text-white">Slot {usedSlot} → 이동</span>
+                  )}
+                  {variantCount > 1 && (
+                    <span className="absolute bottom-1.5 right-1.5 rounded-pill border border-white/15 bg-black/70 px-1.5 py-0.5 text-[9px] font-black text-white">{variantCount}장</span>
                   )}
                 </div>
                 <div className="truncate px-2 py-1.5 text-[10px] font-extrabold text-white">{character.name}</div>
@@ -449,6 +529,19 @@ function ShowcaseSection({
       )}
     </div>
   );
+}
+
+function getShowcaseImages(character: ShowcaseCharacterRow) {
+  const base = character.full_image_url
+    ?? character.card_image_url
+    ?? character.avatar_image_url
+    ?? character.resource_url;
+
+  const images: Array<{ no: 1 | 2 | 3; label: string; url: string }> = [];
+  if (base) images.push({ no: 1, label: '기본 이미지', url: base });
+  if (character.showcase_image_url_2) images.push({ no: 2, label: '이미지 2', url: character.showcase_image_url_2 });
+  if (character.showcase_image_url_3) images.push({ no: 3, label: '이미지 3', url: character.showcase_image_url_3 });
+  return images;
 }
 
 function CharacterThumb({ character }: { character: StudentCharacterCollectionRow }) {
@@ -530,16 +623,40 @@ function useOwnedBackgrounds(studentId: number, enabled: boolean) {
 }
 
 function useOwnedCharacters(enabled: boolean) {
-  return useQuery<StudentCharacterCollectionRow[]>({
+  return useQuery<ShowcaseCharacterRow[]>({
     queryKey: ['character-collection'],
     enabled,
     staleTime: 20_000,
     queryFn: async () => {
       const result = await characterC2Rpc.myCollection(supabase);
       if (result.success === false) throw new Error(result.error);
-      return [...(result.data ?? [])]
+      const owned = [...(result.data ?? [])]
         .filter((row) => row.is_owned)
         .sort((a, b) => a.sort_order - b.sort_order || a.character_uid.localeCompare(b.character_uid));
+
+      if (owned.length === 0) return [];
+
+      const visualRes = await supabase
+        .from('characters')
+        .select('id,showcase_image_url_2,showcase_image_url_3')
+        .in('id', owned.map((row) => row.character_id));
+
+      if (visualRes.error) {
+        throw new Error(`[Character showcase variants] ${visualRes.error.message}`);
+      }
+
+      const visualById = new Map<number, { showcase_image_url_2: string | null; showcase_image_url_3: string | null }>(
+        (visualRes.data ?? []).map((row: any) => [Number(row.id), {
+          showcase_image_url_2: row.showcase_image_url_2 ?? null,
+          showcase_image_url_3: row.showcase_image_url_3 ?? null,
+        }]),
+      );
+
+      return owned.map((row) => ({
+        ...row,
+        showcase_image_url_2: visualById.get(row.character_id)?.showcase_image_url_2 ?? null,
+        showcase_image_url_3: visualById.get(row.character_id)?.showcase_image_url_3 ?? null,
+      }));
     },
   });
 }

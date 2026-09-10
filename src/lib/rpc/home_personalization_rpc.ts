@@ -20,6 +20,9 @@ export interface HomeShowcaseSlot {
   full_image_url: string | null;
   card_image_url: string | null;
   avatar_image_url: string | null;
+  showcase_image_url_2: string | null;
+  showcase_image_url_3: string | null;
+  visual_variant_no: 1 | 2 | 3;
 }
 
 export interface HomePersonalization {
@@ -45,7 +48,11 @@ export const homePersonalizationRpc = {
 
   setShowcaseSlot: (
     supabase: SupabaseClient,
-    input: { p_slot_no: 1 | 2 | 3; p_character_id: number | null },
+    input: {
+      p_slot_no: 1 | 2 | 3;
+      p_character_id: number | null;
+      p_visual_variant_no: 1 | 2 | 3;
+    },
   ) =>
-    callRpc<HomePersonalization>(supabase, 'student_set_home_showcase_slot', input),
+    callRpc<HomePersonalization>(supabase, 'student_set_home_showcase_slot_visual', input),
 };

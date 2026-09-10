@@ -539,16 +539,26 @@ function ShowcaseCharacter({
   position: 'primary' | 'left' | 'right';
   onCustomize: (slotNo: 1 | 2 | 3) => void;
 }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const imageUrl = slot.full_image_url
+  const [preferredImageFailed, setPreferredImageFailed] = useState(false);
+  const [baseImageFailed, setBaseImageFailed] = useState(false);
+  const baseImageUrl = slot.full_image_url
     ?? slot.card_image_url
     ?? slot.avatar_image_url
     ?? slot.resource_url
     ?? null;
+  const preferredImageUrl = slot.visual_variant_no === 3 && slot.showcase_image_url_3
+    ? slot.showcase_image_url_3
+    : slot.visual_variant_no === 2 && slot.showcase_image_url_2
+      ? slot.showcase_image_url_2
+      : baseImageUrl;
+  const imageUrl = preferredImageFailed && preferredImageUrl !== baseImageUrl
+    ? baseImageUrl
+    : preferredImageUrl;
 
   useEffect(() => {
-    setImageFailed(false);
-  }, [slot.character_id, imageUrl]);
+    setPreferredImageFailed(false);
+    setBaseImageFailed(false);
+  }, [slot.character_id, slot.visual_variant_no, preferredImageUrl, baseImageUrl]);
 
   const positionClass = {
     primary: 'left-1/2 bottom-0 z-[3] h-[94%] w-[58%] -translate-x-1/2 lg:w-[48%]',
@@ -564,13 +574,19 @@ function ShowcaseCharacter({
       aria-label={`편린 슬롯 ${slotNo} 변경하기 · ${slot.name ?? '편린'}`}
       title="클릭해서 전시 편린 변경"
     >
-      {!imageFailed && imageUrl && slot.resource_kind !== 'EMOJI' ? (
+      {!baseImageFailed && imageUrl && slot.resource_kind !== 'EMOJI' ? (
         <img
           src={resolveAssetUrl(imageUrl, 'character')}
           alt={slot.name ?? '편린'}
           className="pointer-events-none h-full w-full object-contain object-bottom drop-shadow-[0_14px_18px_rgba(0,0,0,0.45)] transition-[filter,transform] duration-200 hover:brightness-110"
           loading={position === 'primary' ? 'eager' : 'lazy'}
-          onError={() => setImageFailed(true)}
+          onError={() => {
+            if (imageUrl !== baseImageUrl && baseImageUrl) {
+              setPreferredImageFailed(true);
+            } else {
+              setBaseImageFailed(true);
+            }
+          }}
         />
       ) : (
         <div className="pointer-events-none mb-[18%] flex h-24 w-24 items-center justify-center rounded-full border border-white/15 bg-black/25 text-6xl backdrop-blur-sm">

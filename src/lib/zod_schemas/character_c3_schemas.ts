@@ -39,6 +39,20 @@ export const TeacherUpdateCharacterSchema = TeacherCharacterMasterFieldsSchema.a
   p_character_id: z.number().int().positive(),
 }));
 
+export const TeacherSetCharacterShowcaseVariantsSchema = z.object({
+  p_character_id: z.number().int().positive(),
+  p_showcase_image_url_2: z.string().trim().max(4096).nullable(),
+  p_showcase_image_url_3: z.string().trim().max(4096).nullable(),
+}).superRefine((value, ctx) => {
+  if (value.p_showcase_image_url_3 && !value.p_showcase_image_url_2) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['p_showcase_image_url_3'],
+      message: '세 번째 전시 이미지를 사용하려면 두 번째 전시 이미지도 먼저 등록해주세요.',
+    });
+  }
+});
+
 export const CharacterRequirementInputSchema = z.object({
   type: CharacterRequirementTypeSchema,
   grade: CharacterAchievementGradeSchema.nullable(),
@@ -86,6 +100,7 @@ export const TeacherGrantCharacterSchema = z.object({
 
 export type TeacherCreateCharacterInput = z.infer<typeof TeacherCreateCharacterSchema>;
 export type TeacherUpdateCharacterInput = z.infer<typeof TeacherUpdateCharacterSchema>;
+export type TeacherSetCharacterShowcaseVariantsInput = z.infer<typeof TeacherSetCharacterShowcaseVariantsSchema>;
 export type TeacherSetCharacterPolicyInput = z.infer<typeof TeacherSetCharacterPolicySchema>;
 export type CharacterRequirementInput = z.infer<typeof CharacterRequirementInputSchema>;
 export type CharacterRequirementGroupInput = z.infer<typeof CharacterRequirementGroupInputSchema>;
