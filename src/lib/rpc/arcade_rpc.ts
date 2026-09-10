@@ -29,6 +29,11 @@ export interface ArcadeRunBootstrap {
   schedule_seed: number;
   config: Record<string, unknown>;
   is_prerelease_test: boolean;
+  /** Pure Reaction #02 일반 플레이의 KST 일일 도전 제한. 다른 게임/QA 계정은 null 또는 생략. */
+  daily_attempt_limit?: number | null;
+  daily_attempt_used?: number | null;
+  daily_attempt_remaining?: number | null;
+  daily_attempt_resets_at?: string | null;
   run_context?: 'STANDARD' | 'VERIFICATION';
   verification_session_id?: number;
   verification_opportunity_number?: number;
@@ -61,6 +66,11 @@ export interface ArcadeGameAccess {
   public_available: boolean;
   can_start: boolean;
   mode: 'PUBLIC' | 'PRERELEASE_TEST' | 'CLOSED';
+  /** Pure Reaction #02 STANDARD run 생성 횟수. Asia/Seoul 자정에 초기화. */
+  daily_attempt_limit?: number | null;
+  daily_attempt_used?: number | null;
+  daily_attempt_remaining?: number | null;
+  daily_attempt_resets_at?: string | null;
 }
 
 export type ArcadeLeaderboardCertificationStatus = 'NONE' | 'PENDING' | 'CERTIFIED' | 'FAILED';
@@ -311,6 +321,7 @@ export function arcadeErrorMessage(error: { type: string; code?: string; error: 
     P0271: '현재 Top 10 인증이 모두 끝나지 않아 최종 확정할 수 없어요.',
     P0272: '최근 시작된 일반 Arcade 플레이가 끝난 뒤 기록을 동결해주세요.',
     P0273: '이 기록은 이미 동결된 잠정 source라 일반 무효화할 수 없어요. 기록 인증 보정을 사용해주세요.',
+    P0274: '오늘 순수 반응속도 도전 50회를 모두 사용했어요. 내일 00:00에 다시 도전할 수 있어요.',
   };
   if (messages[error.code ?? '']) return messages[error.code ?? ''];
   if (error.type === 'VALIDATION') return error.error;

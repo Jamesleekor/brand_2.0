@@ -70,6 +70,17 @@ export default function ArcadePage() {
     },
   });
   const isPrereleaseTest = gameAccessQuery.data?.mode === 'PRERELEASE_TEST';
+  const dailyAttemptLimit = gameAccessQuery.data?.daily_attempt_limit ?? null;
+  const dailyAttemptUsed = gameAccessQuery.data?.daily_attempt_used ?? null;
+  const dailyAttemptRemaining = gameAccessQuery.data?.daily_attempt_remaining ?? null;
+  // 제한 도입 당일 이미 50회를 넘긴 학생도 UI에는 50/50으로 깔끔하게 표시한다.
+  const dailyAttemptDisplayUsed = dailyAttemptLimit !== null && dailyAttemptUsed !== null
+    ? Math.min(dailyAttemptUsed, dailyAttemptLimit)
+    : dailyAttemptUsed;
+  const dailyAttemptExhausted = game?.code === 'pure_reaction_02'
+    && dailyAttemptLimit !== null
+    && dailyAttemptRemaining !== null
+    && dailyAttemptRemaining <= 0;
 
   const verificationQuery = useQuery({
     queryKey: ['arcade', 'verification-state', studentId, game?.code],
@@ -103,8 +114,12 @@ export default function ArcadePage() {
     setIsCreatingRun(false);
     if (rpc.success === false) {
       setActionError(arcadeErrorMessage(rpc));
+      // 다른 탭에서 50번째 run을 만든 경우에도 즉시 최신 사용량을 표시한다.
+      await gameAccessQuery.refetch();
       return;
     }
+    // run 생성 순간 1회를 사용하므로 다음 화면 복귀 때 최신 잔여 횟수가 보이게 갱신한다.
+    void gameAccessQuery.refetch();
     setBootstrap(rpc.data);
   };
 
@@ -147,6 +162,7 @@ export default function ArcadePage() {
   const handleFinished = () => {
     setBootstrap(null);
     void queryClient.invalidateQueries({ queryKey: ['arcade', 'verification-state'] });
+    void queryClient.invalidateQueries({ queryKey: ['arcade', 'game-access'] });
   };
 
   return <div className="min-h-screen">
@@ -183,10 +199,19 @@ export default function ArcadePage() {
               {gameAccessQuery.isError && <p className="mt-4 rounded-card-md border border-danger/40 bg-danger/10 p-3 text-xs text-danger">게임 시작 권한을 확인하지 못했어요. 새로고침 후 다시 시도해주세요.</p>}
               {gameAccessQuery.data?.mode === 'CLOSED' && <p className="mt-4 rounded-card-md bg-warning/10 p-3 text-xs text-warning">이 게임은 한국 날짜 기준 {game.available_from}부터 열립니다.</p>}
               {isPrereleaseTest && <p className="mt-4 rounded-card-md border border-brand-primary/40 bg-brand-primary/10 p-3 text-xs font-bold text-brand-primary">사전 테스트 모드입니다. 이번 기록은 서버에서 검증되지만 순위와 Guild 2 점수에는 반영되지 않습니다.</p>}
+              {game.code === 'pure_reaction_02' && dailyAttemptLimit !== null && dailyAttemptDisplayUsed !== null && dailyAttemptRemaining !== null && (
+                <div className={`mt-4 rounded-card-md border p-3 ${dailyAttemptExhausted ? 'border-danger/40 bg-danger/10' : 'border-brand-primary/30 bg-brand-primary/10'}`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className={`text-xs font-black ${dailyAttemptExhausted ? 'text-danger' : 'text-brand-primary'}`}>오늘 도전 {dailyAttemptDisplayUsed} / {dailyAttemptLimit}</span>
+                    <span className="text-xs font-black text-white">남은 {dailyAttemptRemaining}회</span>
+                  </div>
+                  <p className="mt-1 text-[11px] font-bold text-text-secondary">{dailyAttemptExhausted ? '오늘 도전을 모두 사용했어요. 내일 00:00에 다시 열립니다.' : '게임을 시작하면 1회가 사용됩니다. 중도 종료·새로고침·부정 출발도 도전 횟수에 포함됩니다.'}</p>
+                </div>
+              )}
               {!selectedPeriod && <p className="mt-4 rounded-card-md bg-warning/10 p-3 text-xs text-warning">플레이 전에 선생님이 랭킹 기간을 열어야 합니다.</p>}
               {actionError && <p className="mt-4 rounded-card-md border border-danger/40 bg-danger/10 p-3 text-sm font-bold text-danger">{actionError}</p>}
               {result && <ResultCard gameCode={game.code} result={result} isVerification={result.run_context === 'VERIFICATION'} summary={playSummary} myRank={leaderboardQuery.data?.my_rank ?? null} myBestScore={leaderboardQuery.data?.my_score ?? null} isRankingUpdating={isResultRankingUpdating || leaderboardQuery.isFetching} onRetry={() => { setResult(null); setPlaySummary(null); setActionError(null); }} />}
-              {!result && <button className="btn-primary mt-5 w-full" disabled={!gameAccessQuery.data?.can_start || !selectedPeriod || selectedPeriod.status !== 'ACTIVE' || isCreatingRun} onClick={() => void startGame()}>{isCreatingRun ? '준비 중...' : selectedPeriod?.status === 'FINALIZED' ? '확정된 기간입니다' : isPrereleaseTest ? '사전 테스트 시작' : '게임 시작'}</button>}
+              {!result && <button className="btn-primary mt-5 w-full" disabled={!gameAccessQuery.data?.can_start || !selectedPeriod || selectedPeriod.status !== 'ACTIVE' || isCreatingRun} onClick={() => void startGame()}>{isCreatingRun ? '준비 중...' : dailyAttemptExhausted ? '오늘 50회 도전 완료' : selectedPeriod?.status === 'FINALIZED' ? '확정된 기간입니다' : isPrereleaseTest ? '사전 테스트 시작' : '게임 시작'}</button>}
             </div>
             <div className="border-t border-line bg-bg-deep/70 p-5 md:border-l md:border-t-0"><h3 className="font-display text-lg text-gold">월간 보너스</h3><p className="mt-1 text-xs text-text-secondary">같은 기간에 한 학생은 최고 점수 하나만 랭킹에 들어갑니다.</p><div className="mt-4 grid grid-cols-2 gap-2 text-sm"><Bonus rank="1위" points="+30" /><Bonus rank="2위" points="+27" /><Bonus rank="3위" points="+24" /><Bonus rank="4~6위" points="+18" /><Bonus rank="7~10위" points="+15" /></div><p className="mt-4 text-xs text-text-muted">원본 보너스는 모두 기록되며, Guild 2 적용값은 학생별 최대 +90입니다.</p></div>
           </div>
