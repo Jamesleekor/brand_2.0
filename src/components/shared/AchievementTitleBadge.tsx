@@ -15,12 +15,14 @@ export function AchievementTitleBadge({
   grade,
   compact = false,
   prominent = false,
+  multiline = false,
   className,
 }: {
   title?: string | null;
   grade?: AchievementGrade | null;
   compact?: boolean;
   prominent?: boolean;
+  multiline?: boolean;
   className?: string;
 }) {
   if (!title) return null;
@@ -36,6 +38,7 @@ export function AchievementTitleBadge({
           : compact
             ? 'px-2 py-1 text-[11px]'
             : 'px-2.5 py-1.5 text-xs',
+        multiline && 'justify-center',
         GRADE_CLASS[safeGrade],
         isPrestige && 'ring-1 ring-white/10',
         className,
@@ -43,15 +46,31 @@ export function AchievementTitleBadge({
       title={`${title} · ${safeGrade}`}
     >
       {isPrestige && (
-        <span aria-hidden="true" className="mr-1 text-[0.9em] opacity-95">
+        <span aria-hidden="true" className="mr-1 shrink-0 text-[0.9em] opacity-95">
           {safeGrade === '유일' ? '◆' : '✦'}
         </span>
       )}
-      <span className={cn('truncate', prominent ? 'max-w-[260px]' : 'max-w-[180px]')}>
+      <span
+        className={cn(
+          prominent ? 'max-w-[260px]' : 'max-w-[180px]',
+          multiline
+            ? 'min-w-0 whitespace-normal break-keep text-center leading-[1.18] overflow-hidden'
+            : 'truncate',
+        )}
+        style={
+          multiline
+            ? {
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+              }
+            : undefined
+        }
+      >
         {title}
       </span>
       {isPrestige && (
-        <span aria-hidden="true" className="ml-1 text-[0.9em] opacity-95">
+        <span aria-hidden="true" className="ml-1 shrink-0 text-[0.9em] opacity-95">
           {safeGrade === '유일' ? '◆' : '✦'}
         </span>
       )}

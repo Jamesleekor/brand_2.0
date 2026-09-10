@@ -152,7 +152,6 @@ export function AchievementRankingShowcase({ ranks, achievementTitles }: Props) 
           </div>
         </section>
       )}
-
     </div>
   );
 }
@@ -201,9 +200,9 @@ function PodiumCard({
       whileHover={{ y: -4 }}
       transition={{ type: 'spring', stiffness: 320, damping: 24 }}
       className={cn(
-        'relative flex min-h-[190px] sm:min-h-[225px] lg:min-h-[250px] flex-col items-center overflow-visible rounded-card-xl border px-1.5 pb-3 pt-4 text-center sm:px-3 sm:pb-4 sm:pt-5',
+        'relative flex min-h-[212px] sm:min-h-[238px] lg:min-h-[250px] flex-col items-center overflow-visible rounded-card-xl border px-1.5 pb-3 pt-4 text-center sm:px-3 sm:pb-4 sm:pt-5',
         accent.card,
-        isChampion && 'min-h-[210px] sm:min-h-[250px] lg:min-h-[278px]'
+        isChampion && 'min-h-[232px] sm:min-h-[263px] lg:min-h-[278px]',
       )}
     >
       {isChampion && (
@@ -234,13 +233,17 @@ function PodiumCard({
         <GuildNameBadge guildName={item.guildName} compact />
       </div>
 
-      <div className="mt-1.5 flex min-h-[22px] max-w-full items-center justify-center overflow-visible">
+      <div className="mt-1.5 flex min-h-[34px] w-full max-w-full items-center justify-center overflow-visible sm:min-h-[38px] lg:min-h-[30px]">
         {achievementTitle?.title ? (
           <AchievementTitleBadge
             title={achievementTitle.title}
             grade={achievementTitle.grade}
             prominent
-            className={cn('max-w-full !px-2.5 !py-1.5', isChampion ? '!text-sm sm:!text-base' : '!text-xs sm:!text-sm')}
+            multiline
+            className={cn(
+              'w-full max-w-full !px-1 !py-1.5 !text-[9px] sm:w-auto sm:!px-2.5 sm:!text-xs lg:!text-sm',
+              isChampion && '!text-[9px] sm:!text-sm lg:!text-base',
+            )}
           />
         ) : (
           <span className="text-[8px] sm:text-[9px] font-bold italic text-slate-300">칭호 미장착</span>
@@ -274,31 +277,46 @@ function EliteRankCard({
     <motion.article
       whileHover={{ y: -2 }}
       className={cn(
-        'relative flex items-center gap-3 overflow-hidden rounded-card-lg border px-3 py-3.5',
+        'relative overflow-hidden rounded-card-lg border px-3 py-3.5',
         'border-bv/30 bg-[linear-gradient(135deg,rgba(177,151,252,0.11),rgba(15,11,26,0.92)_48%,rgba(78,205,196,0.035))]',
         'shadow-[0_10px_30px_rgba(0,0,0,0.24)]',
         item.isMe && 'ring-1 ring-gold/45',
       )}
     >
       <div className="absolute inset-y-0 left-0 w-0.5 bg-gradient-to-b from-bv via-brand-primary/70 to-transparent" />
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-bv/30 bg-bv/10 font-display text-sm font-black text-bv-100">
-        {rank}
-      </div>
-      <RankAvatar item={item} size="elite" />
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0"><GuildNameBadge guildName={item.guildName} compact /></div>
-        <div className="mt-1 flex min-w-0 items-center">
-          <AchievementTitleBadge title={achievementTitle?.title} grade={achievementTitle?.grade} prominent className="max-w-full !px-2.5 !py-1.5 !text-xs sm:!text-sm" />
-          {!achievementTitle?.title && <span className="text-[11px] font-bold text-slate-300">칭호 미장착</span>}
+
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-bv/30 bg-bv/10 font-display text-sm font-black text-bv-100">
+          {rank}
         </div>
-        <div className="mt-1 flex min-w-0 items-center gap-1.5">
-          <span className="truncate text-[17px] sm:text-xl font-black text-white">{item.name}</span>
-          {item.isMe && <MeBadge />}
+        <RankAvatar item={item} size="elite" />
+
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0"><GuildNameBadge guildName={item.guildName} compact /></div>
+          <div className="mt-1 flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-[17px] sm:text-xl font-black text-white">{item.name}</span>
+            {item.isMe && <MeBadge />}
+          </div>
+        </div>
+
+        <div className="shrink-0 text-right">
+          <div className="text-[9px] font-black tracking-[0.10em] text-bv-100">엘리트</div>
+          <div className="mt-1 font-mono text-base font-black text-success">{formatNumber(item.value)}개</div>
         </div>
       </div>
-      <div className="shrink-0 text-right">
-        <div className="text-[9px] font-black tracking-[0.10em] text-bv-100">엘리트</div>
-        <div className="mt-1 font-mono text-base font-black text-success">{formatNumber(item.value)}개</div>
+
+      <div className="mt-3 flex min-h-[34px] w-full items-center justify-center border-t border-white/[0.07] pt-2.5">
+        {achievementTitle?.title ? (
+          <AchievementTitleBadge
+            title={achievementTitle.title}
+            grade={achievementTitle.grade}
+            prominent
+            multiline
+            className="w-full max-w-full justify-center !px-2.5 !py-1.5 !text-xs sm:!text-sm"
+          />
+        ) : (
+          <span className="text-[11px] font-bold text-slate-300">칭호 미장착</span>
+        )}
       </div>
     </motion.article>
   );
