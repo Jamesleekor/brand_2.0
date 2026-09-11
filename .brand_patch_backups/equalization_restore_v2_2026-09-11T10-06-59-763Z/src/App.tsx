@@ -47,7 +47,6 @@ import SecondaryJobPublicRequestAdmin from '@/features/teacher/SecondaryJobPubli
 import SecondaryJobServiceAdmin from '@/features/teacher/SecondaryJobServiceAdmin';
 import SecondaryJobReviewAdmin from '@/features/teacher/SecondaryJobReviewAdmin';
 import ClassroomControl from '@/features/teacher/ClassroomControl';
-import EqualizationContributionAdmin from '@/features/teacher/EqualizationContributionAdmin';
 import AuctionAdmin from '@/features/teacher/AuctionAdmin';
 import AuctionBroadcastPage from '@/features/auction/AuctionBroadcastPage';
 import AnalyticsPage from '@/features/teacher/AnalyticsPage';
@@ -231,7 +230,6 @@ export default function App() {
           path="/teacher/control" 
           element={<ClassroomControl />} 
         />
-        <Route path="/teacher/equalization" element={<EqualizationContributionAdmin />} />
         <Route path="/teacher/control/history" element={<ClassroomControl />} />
         <Route 
           path="/teacher/auction" 
