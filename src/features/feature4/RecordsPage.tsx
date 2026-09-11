@@ -15,6 +15,7 @@ import { RecordsArcadePanel } from '@/features/feature4/RecordsArcadePanel';
 import { RecordsHonorPanel } from '@/features/feature4/RecordsHonorPanel';
 import { RecordsMonthlyMvpPanel } from '@/features/feature4/RecordsMonthlyMvpPanel';
 import { RecordsGuestbookPanel } from '@/features/feature4/RecordsGuestbookPanel';
+import { RecordsLegacySeal } from '@/features/feature4/RecordsLegacySeal';
 import { achievementA1Rpc } from '@/lib/rpc/achievement_a1_rpc';
 import { inventoryMarketRpc } from '@/lib/rpc/inventory_market_rpc';
 import {
@@ -191,6 +192,7 @@ export default function RecordsPage() {
         ) : null}
 
         <RecordsGuestbookPanel />
+        {mainTab === 'HONOR' ? <RecordsLegacySeal /> : null}
       </div>
     </>
   );

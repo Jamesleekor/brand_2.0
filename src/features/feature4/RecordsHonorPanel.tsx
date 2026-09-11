@@ -30,6 +30,7 @@ import { RecordsGoldenChronicleHall } from '@/features/feature4/RecordsGoldenChr
 import { RecordsGuildHegemonyHall } from '@/features/feature4/RecordsGuildHegemonyHall';
 import { RecordsConstellationHall } from '@/features/feature4/RecordsConstellationHall';
 import { RecordsSovereignProofHall } from '@/features/feature4/RecordsSovereignProofHall';
+import { RecordsLegacySuccessorProgress } from '@/features/feature4/RecordsLegacySuccessorProgress';
 import { supabase } from '@/lib/supabase/client';
 import {
   recordsHistoryRpc,
@@ -379,6 +380,7 @@ function HallEntrance({ entriesByHall, onEnter }: { entriesByHall: Map<HallKey, 
             );
           })}
         </nav>
+        <RecordsLegacySuccessorProgress />
       </div>
 
       <div className="relative mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-white/[0.045] pt-5 text-xs font-bold text-text-secondary">
