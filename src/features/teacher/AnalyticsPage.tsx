@@ -391,8 +391,8 @@ function StudentRecord({ data }: { data: AnalyticsJson }) {
             <div className="mt-0.5 text-2xs font-bold text-text-muted">최근 활동 {dateTimeText(activity.recent_activity_at)}</div>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-2xs font-bold text-text-secondary">
-            <span>로그인 <b className="text-white">{numberText(activity.total_login_days)}일</b></span>
-            <span>총 <b className="text-white">{numberText(activity.total_login_count)}회</b></span>
+            <span>인증 로그인 <b className="text-white">{numberText(activity.total_login_days)}일</b></span>
+            <span>인증 횟수 <b className="text-white">{numberText(activity.total_login_count)}회</b></span>
           </div>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:grid-cols-8">

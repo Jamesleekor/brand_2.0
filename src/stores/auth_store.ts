@@ -22,41 +22,30 @@ import {
   type TeacherLoginParams,
 } from '@/lib/supabase/auth_helpers';
 import { recordTrustedLoginEvent } from '@/lib/supabase/login_history';
+import { recordAppAccessEvent } from '@/lib/supabase/app_access';
 
-// 실제 앱 접속은 인증 세션 생성과 별개다. persisted session 복원, 토큰 갱신,
-// 탭 재진입도 해당 날짜의 실제 접속 증거가 되므로 별도 RPC로 기록한다.
-let lastAppAccessSignalAt = 0;
 let accessVisibilityListenerInstalled = false;
-
-async function recordStudentAppAccess(source: string): Promise<void> {
-  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-
-  // auth-state + initialize가 거의 동시에 발생할 수 있으므로 짧은 중복 호출을 억제한다.
-  const now = Date.now();
-  if (now - lastAppAccessSignalAt < 30_000) return;
-  lastAppAccessSignalAt = now;
-
-  try {
-    const { error } = await supabase.rpc('record_app_access', {
-      p_source: source,
-      p_device_type: null,
-      p_browser: null,
-    });
-    if (error) console.warn(`[app-access] ${source} 기록 실패`, error);
-  } catch (error) {
-    console.warn(`[app-access] ${source} 기록 중 예외`, error);
-  }
-}
+let hiddenAt: number | null = null;
 
 function installAccessVisibilityListener(): void {
   if (accessVisibilityListenerInstalled || typeof document === 'undefined') return;
   accessVisibilityListenerInstalled = true;
 
   document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now();
+      return;
+    }
     if (document.visibilityState !== 'visible') return;
+
     const state = useAuthStore.getState();
     if (!state.context?.studentId || !state.session) return;
-    void recordStudentAppAccess('APP_ACCESS');
+
+    // Preserve every app/tab return as a raw access signal.
+    // The server, not the client, decides whether it begins a new 30-minute visit.
+    if (hiddenAt === null) return;
+    hiddenAt = null;
+    void recordAppAccessEvent(supabase, 'APP_RESUME');
   });
 }
 
@@ -121,7 +110,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           });
 
           // 비밀번호를 다시 입력하지 않은 persisted session 복원도 실제 접속이다.
-          if (context.studentId) void recordStudentAppAccess('SESSION_RESTORE');
+          if (context.studentId) void recordAppAccessEvent(supabase, 'SESSION_RESTORE');
         } catch (e) {
           // 컨텍스트 조회 실패 → 세션 만료된 것으로 간주
           await supabase.auth.signOut();
@@ -153,8 +142,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               context,
             });
 
-            // 브라우저 전경에서 발생하는 토큰 갱신 등도 접속 증거로 기록한다.
-            if (context.studentId) void recordStudentAppAccess('AUTH_STATE');
           } catch {
             // 컨텍스트 조회 실패
             set({
@@ -189,7 +176,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const result = await loginStudentApi(supabase, params);
       await recordTrustedLoginEvent(supabase, 'LOGIN_SUCCESS');
-      await recordStudentAppAccess('EXPLICIT_LOGIN');
+      await recordAppAccessEvent(supabase, 'EXPLICIT_LOGIN');
       set({
         session: result.session,
         user: result.user,
