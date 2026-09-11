@@ -12,6 +12,7 @@ export type AchievementRankingEntry = {
   name: string;
   brandName: string | null;
   guildName?: string | null;
+  guildLogoUrl?: string | null;
   tier: Tier;
   value: number;
   isMe: boolean;
@@ -120,9 +121,9 @@ export function AchievementRankingShowcase({ ranks, achievementTitles }: Props) 
             title="★ TOP 10"
             description="우리 반 업적 상위 10인"
           />
-          <div className="mt-3 space-y-2">
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {top10.map((item, idx) => (
-              <TopTenRow
+              <TopTenCard
                 key={item.studentId}
                 rank={idx + 7}
                 item={item}
@@ -221,7 +222,7 @@ function PodiumCard({
         {rank}
       </div>
 
-      <div className={cn('text-[7px] sm:text-[9px] font-black uppercase tracking-[0.13em] sm:tracking-[0.18em]', accent.eyebrow)}>
+      <div className={cn('text-[14px] sm:text-[16px] font-black uppercase tracking-[0.08em] sm:tracking-[0.12em]', accent.eyebrow)}>
         {rank === 1 ? '챔피언' : rank === 2 ? '도전자' : '추격자'}
       </div>
 
@@ -230,7 +231,7 @@ function PodiumCard({
       </div>
 
       <div className="mt-2 sm:mt-3 flex max-w-full justify-center">
-        <GuildNameBadge guildName={item.guildName} compact />
+        <GuildNameBadge guildName={item.guildName} guildLogoUrl={item.guildLogoUrl} variant="ranking" />
       </div>
 
       <div className="mt-1.5 flex min-h-[34px] w-full max-w-full items-center justify-center overflow-visible sm:min-h-[38px] lg:min-h-[30px]">
@@ -277,52 +278,37 @@ function EliteRankCard({
     <motion.article
       whileHover={{ y: -2 }}
       className={cn(
-        'relative overflow-hidden rounded-card-lg border px-3 py-3.5',
+        'relative overflow-hidden rounded-card-lg border px-3 py-3',
         'border-bv/30 bg-[linear-gradient(135deg,rgba(177,151,252,0.11),rgba(15,11,26,0.92)_48%,rgba(78,205,196,0.035))]',
         'shadow-[0_10px_30px_rgba(0,0,0,0.24)]',
         item.isMe && 'ring-1 ring-gold/45',
       )}
     >
       <div className="absolute inset-y-0 left-0 w-0.5 bg-gradient-to-b from-bv via-brand-primary/70 to-transparent" />
-
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-bv/30 bg-bv/10 font-display text-sm font-black text-bv-100">
-          {rank}
-        </div>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bv/30 bg-bv/10 font-display text-sm font-black text-bv-100">{rank}</div>
         <RankAvatar item={item} size="elite" />
-
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0"><GuildNameBadge guildName={item.guildName} compact /></div>
-          <div className="mt-1 flex min-w-0 items-center gap-1.5">
-            <span className="truncate text-[17px] sm:text-xl font-black text-white">{item.name}</span>
+          <div className="flex min-w-0"><GuildNameBadge guildName={item.guildName} guildLogoUrl={item.guildLogoUrl} variant="ranking" className="max-w-full !text-[12px]" /></div>
+          <div className="mt-1.5 flex min-w-0">
+            {achievementTitle?.title ? (
+              <AchievementTitleBadge title={achievementTitle.title} grade={achievementTitle.grade} prominent className="max-w-full !px-2.5 !py-1 !text-[12px]" />
+            ) : (
+              <span className="rounded-pill border border-line bg-bg-deep px-2.5 py-1 text-[12px] font-bold text-slate-400">칭호 미장착</span>
+            )}
+          </div>
+          <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
+            <span className="text-[18px] font-black text-white sm:text-xl">{item.name}</span>
             {item.isMe && <MeBadge />}
           </div>
         </div>
-
-        <div className="shrink-0 text-right">
-          <div className="text-[9px] font-black tracking-[0.10em] text-bv-100">엘리트</div>
-          <div className="mt-1 font-mono text-base font-black text-success">{formatNumber(item.value)}개</div>
-        </div>
       </div>
-
-      <div className="mt-3 flex min-h-[34px] w-full items-center justify-center border-t border-white/[0.07] pt-2.5">
-        {achievementTitle?.title ? (
-          <AchievementTitleBadge
-            title={achievementTitle.title}
-            grade={achievementTitle.grade}
-            prominent
-            multiline
-            className="w-full max-w-full justify-center !px-2.5 !py-1.5 !text-xs sm:!text-sm"
-          />
-        ) : (
-          <span className="text-[11px] font-bold text-slate-300">칭호 미장착</span>
-        )}
-      </div>
+      <div className="mt-2.5 border-t border-white/[0.07] pt-2.5 text-right font-mono text-base font-black text-success">{formatNumber(item.value)}개</div>
     </motion.article>
   );
 }
 
-function TopTenRow({
+function TopTenCard({
   rank,
   item,
   achievementTitle,
@@ -333,26 +319,27 @@ function TopTenRow({
 }) {
   return (
     <motion.article
-      whileHover={{ x: 2 }}
+      whileHover={{ y: -2 }}
       className={cn(
-        'flex items-center gap-3 rounded-card-md border border-gold/15 bg-[linear-gradient(90deg,rgba(255,217,61,0.045),rgba(15,11,26,0.91)_28%,rgba(177,151,252,0.035))] px-3 py-2.5',
+        'relative flex min-h-[252px] flex-col items-center rounded-card-lg border border-gold/15 bg-[linear-gradient(160deg,rgba(255,217,61,0.055),rgba(15,11,26,0.94)_40%,rgba(177,151,252,0.045))] px-3 pb-3 pt-4 text-center',
         item.isMe && 'border-gold/40 bg-gold/[0.07]',
       )}
     >
-      <div className="w-7 shrink-0 text-center font-display text-sm font-black text-gold-200/85">{rank}</div>
+      <div className="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-xl border border-gold/25 bg-gold/[0.08] font-display text-sm font-black text-gold-200">{rank}</div>
       <RankAvatar item={item} size="top10" />
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0"><GuildNameBadge guildName={item.guildName} compact /></div>
-        <div className="mt-1 flex min-w-0 items-center">
-          <AchievementTitleBadge title={achievementTitle?.title} grade={achievementTitle?.grade} prominent className="max-w-full !px-2.5 !py-1.5 !text-xs sm:!text-sm" />
-          {!achievementTitle?.title && <span className="text-[11px] font-bold text-slate-300">칭호 미장착</span>}
-        </div>
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className="truncate text-[17px] sm:text-xl font-black text-white">{item.name}</span>
+      <div className="mt-3 flex w-full flex-col items-center gap-1.5">
+        <GuildNameBadge guildName={item.guildName} guildLogoUrl={item.guildLogoUrl} variant="ranking" className="max-w-full !text-[12px]" />
+        {achievementTitle?.title ? (
+          <AchievementTitleBadge title={achievementTitle.title} grade={achievementTitle.grade} prominent className="max-w-full !px-2.5 !py-1 !text-[12px]" />
+        ) : (
+          <span className="rounded-pill border border-line bg-bg-deep px-2.5 py-1 text-[12px] font-bold text-slate-400">칭호 미장착</span>
+        )}
+        <div className="flex min-w-0 items-center justify-center gap-1.5">
+          <span className="text-[19px] font-black text-white sm:text-xl">{item.name}</span>
           {item.isMe && <MeBadge />}
         </div>
       </div>
-      <div className="shrink-0 font-mono text-base font-black text-success">{formatNumber(item.value)}개</div>
+      <div className="mt-auto w-full border-t border-white/[0.07] pt-3 font-mono text-base font-black text-success">{formatNumber(item.value)}개</div>
     </motion.article>
   );
 }
@@ -376,15 +363,15 @@ function StandardRankRow({
       <div className="w-7 shrink-0 text-center font-mono text-sm font-black text-slate-300">{rank}</div>
       <RankAvatar item={item} size="standard" />
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0"><GuildNameBadge guildName={item.guildName} compact /></div>
+        <div className="flex min-w-0"><GuildNameBadge guildName={item.guildName} guildLogoUrl={item.guildLogoUrl} variant="ranking" className="max-w-full !text-[12px]" /></div>
         <div className="mt-1 flex min-w-0 items-center">
           <AchievementTitleBadge
             title={achievementTitle?.title}
             grade={achievementTitle?.grade}
             prominent
-            className="max-w-full !px-2.5 !py-1.5 !text-xs sm:!text-sm"
+            className="max-w-full !px-2.5 !py-1 !text-[12px]"
           />
-          {!achievementTitle?.title && <span className="text-[11px] font-bold text-slate-300">칭호 미장착</span>}
+          {!achievementTitle?.title && <span className="text-[12px] font-bold text-slate-300">칭호 미장착</span>}
         </div>
         <div className="mt-1 flex min-w-0 items-center gap-1.5">
           <span className="truncate text-base font-black text-white sm:text-lg">{item.name}</span>
@@ -445,25 +432,25 @@ function RankAvatar({
 const AVATAR_SIZE_CLASS: Record<AvatarSize, string> = {
   champion: 'h-[78px] w-[78px] sm:h-[112px] sm:w-[112px] lg:h-[138px] lg:w-[138px]',
   podium: 'h-[62px] w-[62px] sm:h-[88px] sm:w-[88px] lg:h-[108px] lg:w-[108px]',
-  elite: 'h-11 w-11 sm:h-12 sm:w-12',
-  top10: 'h-9 w-9 sm:h-10 sm:w-10',
-  standard: 'h-9 w-9 sm:h-10 sm:w-10',
+  elite: 'h-16 w-16 sm:h-[72px] sm:w-[72px]',
+  top10: 'h-[68px] w-[68px] sm:h-[76px] sm:w-[76px]',
+  standard: 'h-12 w-12 sm:h-14 sm:w-14',
 };
 
 const AVATAR_TEXT_CLASS: Record<AvatarSize, string> = {
   champion: 'text-2xl sm:text-4xl lg:text-5xl',
   podium: 'text-xl sm:text-3xl lg:text-4xl',
-  elite: 'text-lg',
-  top10: 'text-base',
-  standard: 'text-base',
+  elite: 'text-2xl sm:text-3xl',
+  top10: 'text-2xl sm:text-3xl',
+  standard: 'text-lg sm:text-xl',
 };
 
 const AVATAR_EMOJI_CLASS: Record<AvatarSize, string> = {
   champion: 'text-4xl sm:text-6xl lg:text-7xl',
   podium: 'text-3xl sm:text-5xl lg:text-6xl',
-  elite: 'text-2xl',
-  top10: 'text-xl',
-  standard: 'text-xl',
+  elite: 'text-3xl sm:text-4xl',
+  top10: 'text-3xl sm:text-4xl',
+  standard: 'text-xl sm:text-2xl',
 };
 
 const AVATAR_PALETTES = [

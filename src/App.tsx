@@ -51,6 +51,7 @@ import EqualizationContributionAdmin from '@/features/teacher/EqualizationContri
 import AuctionAdmin from '@/features/teacher/AuctionAdmin';
 import AuctionBroadcastPage from '@/features/auction/AuctionBroadcastPage';
 import AnalyticsPage from '@/features/teacher/AnalyticsPage';
+import MvpFoundationAdmin from '@/features/teacher/MvpFoundationAdmin';
 import LoginHistoryAdmin from '@/features/teacher/LoginHistoryAdmin';
 import CommunicationPage from '@/features/feature4/CommunicationPage';
 import AssignmentsPage from '@/features/feature4/AssignmentsPage';
@@ -248,6 +249,7 @@ export default function App() {
         <Route path="/teacher/guild/monthly-close" element={<GuildMonthlyAdmin />} />
         <Route path="/teacher/arcade" element={<TeacherArcadePage />} />
         <Route path="/teacher/analytics" element={<AnalyticsPage />} />
+        <Route path="/teacher/mvp-foundation" element={<MvpFoundationAdmin />} />
         <Route path="/teacher/login-history" element={<LoginHistoryAdmin />} />
         <Route path="/teacher/economy-guard" element={<TeacherShell><EconomyGuardPage embeddedTeacher /></TeacherShell>} />
         <Route path="/teacher/communications" element={<CommunicationAdmin />} />

@@ -1,0 +1,420 @@
+import { useMemo, type ReactNode } from 'react';
+import { motion } from 'framer-motion';
+import { AchievementTitleBadge } from '@/components/shared/AchievementTitleBadge';
+import { GuildNameBadge } from '@/components/shared/GuildNameBadge';
+import { cn } from '@/lib/utils/cn';
+import type { EquippedAchievementTitle } from '@/lib/rpc/achievement_a1_rpc';
+import type { Tier } from '@/types/database_types';
+
+export type RankingV2VisualEntry = {
+  rank: number;
+  studentId: number;
+  name: string;
+  brandName: string | null;
+  guildName?: string | null;
+  guildLogoUrl?: string | null;
+  tier: Tier;
+  isMe: boolean;
+  equippedCharacterUrl?: string | null;
+  characterEmoji?: string | null;
+  metric: ReactNode;
+  detail?: ReactNode;
+  privateDetail?: ReactNode;
+  groupBanner?: ReactNode;
+  onClick?: () => void;
+};
+
+type Props = {
+  ranks: RankingV2VisualEntry[];
+  achievementTitles: Map<number, EquippedAchievementTitle>;
+  heading: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    top10Description: string;
+  };
+  beforeRanks?: ReactNode;
+};
+
+type AvatarSize = 'champion' | 'podium' | 'elite' | 'top10' | 'standard';
+
+const PODIUM_ACCENT = {
+  1: {
+    card: 'border-gold/60 bg-[linear-gradient(160deg,rgba(255,217,61,0.13)_0%,rgba(15,11,26,0.96)_42%,rgba(42,36,56,0.94)_100%)] shadow-[0_0_34px_rgba(255,217,61,0.19),0_18px_44px_rgba(0,0,0,0.35)]',
+    badge: 'border-gold/65 bg-gold text-bg-deep shadow-[0_0_18px_rgba(255,217,61,0.42)]',
+    ring: 'border-gold/55 shadow-[0_0_24px_rgba(255,217,61,0.18)]',
+    value: 'text-gold',
+    eyebrow: 'text-gold-200',
+  },
+  2: {
+    card: 'border-slate-300/35 bg-[linear-gradient(160deg,rgba(203,213,225,0.10)_0%,rgba(15,11,26,0.96)_45%,rgba(42,36,56,0.90)_100%)] shadow-[0_0_22px_rgba(203,213,225,0.10),0_14px_34px_rgba(0,0,0,0.30)]',
+    badge: 'border-slate-200/45 bg-slate-300 text-slate-950',
+    ring: 'border-slate-200/35 shadow-[0_0_18px_rgba(203,213,225,0.10)]',
+    value: 'text-slate-100',
+    eyebrow: 'text-slate-300',
+  },
+  3: {
+    card: 'border-orange-300/35 bg-[linear-gradient(160deg,rgba(194,117,54,0.12)_0%,rgba(15,11,26,0.96)_45%,rgba(42,36,56,0.90)_100%)] shadow-[0_0_22px_rgba(194,117,54,0.10),0_14px_34px_rgba(0,0,0,0.30)]',
+    badge: 'border-orange-200/40 bg-[#C0783C] text-white',
+    ring: 'border-orange-300/30 shadow-[0_0_18px_rgba(194,117,54,0.10)]',
+    value: 'text-orange-200',
+    eyebrow: 'text-orange-200',
+  },
+} as const;
+
+export function RankingV2Showcase({ ranks, achievementTitles, heading, beforeRanks }: Props) {
+  const podium = ranks.slice(0, 3);
+  const elite = ranks.slice(3, 6);
+  const top10 = ranks.slice(6, 10);
+  const standard = ranks.slice(10, 24);
+
+  const podiumDisplayOrder = useMemo(() => {
+    if (podium.length < 3) return podium.map((item) => ({ item, rank: item.rank as 1 | 2 | 3 }));
+    return [
+      { item: podium[1], rank: 2 as const },
+      { item: podium[0], rank: 1 as const },
+      { item: podium[2], rank: 3 as const },
+    ];
+  }, [podium]);
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-7 pb-8">
+      {beforeRanks}
+
+      <section aria-labelledby="ranking-v2-hall-heading" className="pt-2">
+        <SectionHeading
+          id="ranking-v2-hall-heading"
+          eyebrow={heading.eyebrow}
+          title={heading.title}
+          description={heading.description}
+          align="center"
+        />
+
+        <div className="mt-14 grid grid-cols-3 items-end gap-1.5 sm:mt-16 sm:gap-3 lg:gap-5">
+          {podiumDisplayOrder.map(({ item, rank }) => (
+            <div key={item.studentId} className={cn('min-w-0', rank === 1 && 'relative -top-3 sm:-top-5 lg:-top-6')}>
+              <PodiumCard rank={rank} item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {elite.length > 0 && (
+        <section aria-labelledby="ranking-v2-elite-heading">
+          <SectionHeading id="ranking-v2-elite-heading" eyebrow="4~6위" title="⚔ 엘리트 랭커" description="포디움 바로 아래의 최상위 경쟁자" />
+          {elite.some((item) => item.groupBanner) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {elite.filter((item) => item.groupBanner).map((item) => (
+                <GroupBanner key={`elite-battle-${item.studentId}`}>{item.groupBanner}</GroupBanner>
+              ))}
+            </div>
+          )}
+          <div className={cn('grid gap-2.5 md:grid-cols-3', elite.some((item) => item.groupBanner) ? 'mt-2' : 'mt-3')}>
+            {elite.map((item) => (
+              <EliteRankCard key={item.studentId} item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {top10.length > 0 && (
+        <section aria-labelledby="ranking-v2-top-ten-heading">
+          <SectionHeading id="ranking-v2-top-ten-heading" eyebrow="7~10위" title="★ TOP 10" description={heading.top10Description} />
+          {top10.some((item) => item.groupBanner) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {top10.filter((item) => item.groupBanner).map((item) => (
+                <GroupBanner key={`top10-battle-${item.studentId}`}>{item.groupBanner}</GroupBanner>
+              ))}
+            </div>
+          )}
+          <div className={cn('grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4', top10.some((item) => item.groupBanner) ? 'mt-2' : 'mt-3')}>
+            {top10.map((item) => (
+              <TopTenCard key={item.studentId} item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {standard.length > 0 && (
+        <section aria-labelledby="ranking-v2-standard-heading">
+          <SectionHeading id="ranking-v2-standard-heading" eyebrow="11위부터" title="전체 순위" />
+          <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+            {standard.map((item) => (
+              <StandardRankRow key={item.studentId} item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function SectionHeading({ id, eyebrow, title, description, align = 'left' }: { id: string; eyebrow: string; title: string; description?: string; align?: 'left' | 'center' }) {
+  return (
+    <div className={cn('min-w-0', align === 'center' && 'text-center')}>
+      <div className="text-[10px] font-black tracking-[0.16em] text-bv-100 sm:text-[11px] sm:tracking-[0.20em]">{eyebrow}</div>
+      <h2 id={id} className="mt-1 font-display text-lg font-black text-white sm:text-xl">{title}</h2>
+      {description && <p className="mt-1 text-xs font-bold text-slate-300 sm:text-[13px]">{description}</p>}
+    </div>
+  );
+}
+
+function IdentityMeta({
+  item,
+  achievementTitle,
+  center = false,
+  compact = false,
+}: {
+  item: RankingV2VisualEntry;
+  achievementTitle: EquippedAchievementTitle | null;
+  center?: boolean;
+  compact?: boolean;
+}) {
+  if (center) {
+    return (
+      <>
+        <div className="flex min-w-0 justify-center">
+          <GuildNameBadge guildName={item.guildName} guildLogoUrl={item.guildLogoUrl} variant="ranking" />
+        </div>
+        <div className="mt-1.5 flex min-h-[32px] min-w-0 items-center justify-center">
+          {achievementTitle?.title ? (
+            <AchievementTitleBadge
+              title={achievementTitle.title}
+              grade={achievementTitle.grade}
+              prominent
+              multiline
+              className="max-w-full !px-2.5 !py-1.5 !text-xs sm:!text-sm"
+            />
+          ) : (
+            <span className="text-[11px] font-bold text-slate-300">칭호 미장착</span>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div className={cn('flex min-w-0 flex-col items-start gap-1.5', compact && 'gap-1')}>
+      <GuildNameBadge
+        guildName={item.guildName}
+        guildLogoUrl={item.guildLogoUrl}
+        variant="ranking"
+        className="max-w-full !text-[12px]"
+      />
+      {achievementTitle?.title ? (
+        <AchievementTitleBadge
+          title={achievementTitle.title}
+          grade={achievementTitle.grade}
+          prominent
+          className="max-w-full !px-2.5 !py-1 !text-[12px]"
+        />
+      ) : (
+        <span className="rounded-pill border border-line bg-bg-deep px-2.5 py-1 text-[12px] font-bold text-slate-400">
+          칭호 미장착
+        </span>
+      )}
+    </div>
+  );
+}
+
+function PodiumCard({ rank, item, achievementTitle }: { rank: 1 | 2 | 3; item: RankingV2VisualEntry; achievementTitle: EquippedAchievementTitle | null }) {
+  const accent = PODIUM_ACCENT[rank];
+  const isChampion = rank === 1;
+  const avatarSize: AvatarSize = isChampion ? 'champion' : 'podium';
+
+  return (
+    <motion.article
+      whileHover={{ y: -4 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+      onClick={item.onClick}
+      className={cn(
+        'relative flex min-h-[248px] flex-col items-center overflow-visible rounded-card-xl border px-1.5 pb-3 pt-4 text-center sm:min-h-[282px] sm:px-3 sm:pb-4 sm:pt-5 lg:min-h-[296px]',
+        accent.card,
+        isChampion && 'min-h-[268px] sm:min-h-[306px] lg:min-h-[322px]',
+        item.onClick && 'cursor-pointer',
+      )}
+    >
+      {isChampion && <div aria-hidden="true" className="absolute -top-7 left-1/2 -translate-x-1/2 text-2xl drop-shadow-[0_0_10px_rgba(255,217,61,0.55)] sm:text-3xl">👑</div>}
+      <div className={cn('absolute -right-1.5 -top-2 flex h-7 w-7 items-center justify-center rounded-full border-2 font-display text-xs font-black sm:-right-2 sm:-top-2.5 sm:h-8 sm:w-8 sm:text-sm', accent.badge)} aria-label={`${rank}위`}>{rank}</div>
+      <div className={cn('text-[14px] font-black uppercase tracking-[0.08em] sm:text-[16px] sm:tracking-[0.12em]', accent.eyebrow)}>
+        {rank === 1 ? '챔피언' : rank === 2 ? '도전자' : '추격자'}
+      </div>
+      <div className={cn('mt-2 rounded-[18px] border bg-black/15 p-1 sm:mt-3', accent.ring)}><RankAvatar item={item} size={avatarSize} priority={isChampion} /></div>
+      <div className="mt-2 w-full sm:mt-3"><IdentityMeta item={item} achievementTitle={achievementTitle} center /></div>
+      <div className={cn('mt-1.5 max-w-full truncate px-0.5 font-display font-black text-white', isChampion ? 'text-lg sm:text-[22px]' : 'text-base sm:text-xl')}>{item.name}</div>
+      {item.isMe && <div className="mt-1 rounded-pill border border-gold/25 bg-gold/10 px-2 py-0.5 text-[8px] font-black text-gold">나</div>}
+      {item.groupBanner && <div className="mt-2 w-full"><GroupBanner>{item.groupBanner}</GroupBanner></div>}
+      <div className={cn('mt-auto pt-2 font-mono font-black leading-tight', accent.value, isChampion ? 'text-base sm:text-xl' : 'text-sm sm:text-lg')}>{item.metric}</div>
+      {item.detail && <div className="mt-1.5 max-w-full text-[9px] font-bold leading-4 text-slate-300 sm:text-[11px]">{item.detail}</div>}
+      {item.privateDetail && <div className="mt-1.5 max-w-full rounded-pill border border-gold/20 bg-gold/[0.07] px-2 py-1 text-[9px] font-black text-gold sm:text-[10px]">{item.privateDetail}</div>}
+    </motion.article>
+  );
+}
+
+function EliteRankCard({ item, achievementTitle }: { item: RankingV2VisualEntry; achievementTitle: EquippedAchievementTitle | null }) {
+  return (
+    <motion.article
+      whileHover={{ y: -2 }}
+      onClick={item.onClick}
+      className={cn(
+        'relative overflow-hidden rounded-card-lg border border-bv/30 bg-[linear-gradient(135deg,rgba(177,151,252,0.11),rgba(15,11,26,0.92)_48%,rgba(78,205,196,0.035))] px-3 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.24)]',
+        item.isMe && 'ring-1 ring-gold/45',
+        item.onClick && 'cursor-pointer hover:border-crystal/35',
+      )}
+    >
+      <div className="absolute inset-y-0 left-0 w-0.5 bg-gradient-to-b from-bv via-brand-primary/70 to-transparent" />
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-bv/30 bg-bv/10 font-display text-sm font-black text-bv-100">{item.rank}</div>
+        <RankAvatar item={item} size="elite" />
+        <div className="min-w-0 flex-1">
+          <IdentityMeta item={item} achievementTitle={achievementTitle} compact />
+          <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
+            <span className="text-[18px] font-black text-white sm:text-xl">{item.name}</span>
+            {item.isMe && <MeBadge />}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-2.5 flex min-w-0 items-end justify-between gap-3 border-t border-white/[0.07] pt-2.5">
+        <div className="min-w-0 flex-1">
+          {item.detail && <div className="text-[11px] font-bold leading-4 text-slate-300">{item.detail}</div>}
+          {item.onClick && <DetailHint />}
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="font-mono text-sm font-black text-gold sm:text-base">{item.metric}</div>
+          {item.privateDetail && <div className="mt-1 text-[10px] font-black text-gold-100">{item.privateDetail}</div>}
+        </div>
+      </div>
+    </motion.article>
+  );
+}
+
+function TopTenCard({ item, achievementTitle }: { item: RankingV2VisualEntry; achievementTitle: EquippedAchievementTitle | null }) {
+  return (
+    <motion.article
+      whileHover={{ y: -2 }}
+      onClick={item.onClick}
+      className={cn(
+        'relative flex min-h-[270px] flex-col items-center rounded-card-lg border border-gold/15 bg-[linear-gradient(160deg,rgba(255,217,61,0.055),rgba(15,11,26,0.94)_40%,rgba(177,151,252,0.045))] px-3 pb-3 pt-4 text-center',
+        item.isMe && 'border-gold/40 bg-gold/[0.07]',
+        item.onClick && 'cursor-pointer hover:border-crystal/30',
+      )}
+    >
+      <div className="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-xl border border-gold/25 bg-gold/[0.08] font-display text-sm font-black text-gold-200">{item.rank}</div>
+      <RankAvatar item={item} size="top10" />
+
+      <div className="mt-3 flex w-full flex-col items-center gap-1.5">
+        <GuildNameBadge guildName={item.guildName} guildLogoUrl={item.guildLogoUrl} variant="ranking" className="max-w-full !text-[12px]" />
+        {achievementTitle?.title ? (
+          <AchievementTitleBadge
+            title={achievementTitle.title}
+            grade={achievementTitle.grade}
+            prominent
+            className="max-w-full !px-2.5 !py-1 !text-[12px]"
+          />
+        ) : (
+          <span className="rounded-pill border border-line bg-bg-deep px-2.5 py-1 text-[12px] font-bold text-slate-400">칭호 미장착</span>
+        )}
+        <div className="flex min-w-0 items-center justify-center gap-1.5">
+          <span className="text-[19px] font-black text-white sm:text-xl">{item.name}</span>
+          {item.isMe && <MeBadge />}
+        </div>
+      </div>
+
+      <div className="mt-auto w-full border-t border-white/[0.07] pt-3">
+        <div className="font-mono text-sm font-black text-gold sm:text-base">{item.metric}</div>
+        {item.detail && <div className="mt-1.5 text-[11px] font-bold leading-4 text-slate-300">{item.detail}</div>}
+        {item.privateDetail && <div className="mt-1.5 text-[10px] font-black text-gold-100">{item.privateDetail}</div>}
+        {item.onClick && <div className="mt-1.5"><DetailHint inline /></div>}
+      </div>
+    </motion.article>
+  );
+}
+
+function StandardRankRow({ item, achievementTitle }: { item: RankingV2VisualEntry; achievementTitle: EquippedAchievementTitle | null }) {
+  return (
+    <div
+      onClick={item.onClick}
+      className={cn(
+        'rounded-card-md border border-line bg-bg-card px-3 py-2.5 transition-colors hover:border-line-strong',
+        item.isMe && 'border-gold/30 bg-gold/[0.06]',
+        item.onClick && 'cursor-pointer hover:border-crystal/30',
+      )}
+    >
+      {item.groupBanner && <div className="mb-2"><GroupBanner>{item.groupBanner}</GroupBanner></div>}
+      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+        <div className="w-7 shrink-0 text-center font-mono text-sm font-black text-slate-300">{item.rank}</div>
+        <RankAvatar item={item} size="standard" />
+        <div className="min-w-0 flex-1">
+          <IdentityMeta item={item} achievementTitle={achievementTitle} compact />
+          <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
+            <span className="text-base font-black text-white sm:text-lg">{item.name}</span>
+            {item.isMe && <MeBadge />}
+          </div>
+          {(item.detail || item.onClick) && (
+            <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-bold text-slate-300 sm:text-[11px]">
+              {item.detail}
+              {item.onClick && <DetailHint inline />}
+            </div>
+          )}
+        </div>
+        <div className="max-w-[40%] shrink-0 text-right">
+          <div className="font-mono text-sm font-black text-gold sm:text-base">{item.metric}</div>
+          {item.privateDetail && <div className="mt-1 text-[10px] font-black text-gold-100">{item.privateDetail}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GroupBanner({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-card-sm border border-danger/20 bg-danger/[0.06] px-2.5 py-1.5 text-[10px] font-black leading-4 text-orange-100 sm:text-[11px]">
+      {children}
+    </div>
+  );
+}
+
+function DetailHint({ inline = false }: { inline?: boolean }) {
+  return (
+    <span className={cn('font-black text-crystal-100', !inline && 'mt-1 block text-[10px]')}>
+      상세 보기 ›
+    </span>
+  );
+}
+
+function RankAvatar({ item, size, priority = false }: { item: RankingV2VisualEntry; size: AvatarSize; priority?: boolean }) {
+  const imageUrl = item.equippedCharacterUrl || null;
+  const fallbackText = (item.name || '?').trim().charAt(0) || '?';
+  const paletteIndex = stableHash(`${item.studentId}:${item.name}`) % AVATAR_PALETTES.length;
+  const palette = AVATAR_PALETTES[paletteIndex];
+  const sizeClass = AVATAR_SIZE_CLASS[size];
+
+  if (imageUrl) {
+    return <div className={cn('relative shrink-0 overflow-hidden rounded-[16px] bg-bg-deep', sizeClass)}><img src={imageUrl} alt={`${item.name} 장착 편린`} className="h-full w-full object-contain" loading={priority ? 'eager' : 'lazy'} /></div>;
+  }
+  if (item.characterEmoji) {
+    return <div className={cn('flex shrink-0 items-center justify-center rounded-[16px] border border-white/10 bg-bg-deep text-center', sizeClass, AVATAR_EMOJI_CLASS[size])} aria-label={`${item.name} 장착 편린`}>{item.characterEmoji}</div>;
+  }
+  return <div className={cn('flex shrink-0 items-center justify-center rounded-[16px] border font-display font-black shadow-inner', sizeClass, palette.className, AVATAR_TEXT_CLASS[size])} aria-label={`${item.name} 기본 아바타`}>{fallbackText}</div>;
+}
+
+const AVATAR_SIZE_CLASS: Record<AvatarSize, string> = {
+  champion: 'h-[78px] w-[78px] sm:h-[112px] sm:w-[112px] lg:h-[138px] lg:w-[138px]',
+  podium: 'h-[62px] w-[62px] sm:h-[88px] sm:w-[88px] lg:h-[108px] lg:w-[108px]',
+  elite: 'h-16 w-16 sm:h-[72px] sm:w-[72px]',
+  top10: 'h-[68px] w-[68px] sm:h-[76px] sm:w-[76px]',
+  standard: 'h-12 w-12 sm:h-14 sm:w-14',
+};
+const AVATAR_TEXT_CLASS: Record<AvatarSize, string> = { champion: 'text-2xl sm:text-4xl lg:text-5xl', podium: 'text-xl sm:text-3xl lg:text-4xl', elite: 'text-2xl sm:text-3xl', top10: 'text-3xl sm:text-4xl', standard: 'text-lg sm:text-xl' };
+const AVATAR_EMOJI_CLASS: Record<AvatarSize, string> = { champion: 'text-4xl sm:text-6xl lg:text-7xl', podium: 'text-3xl sm:text-5xl lg:text-6xl', elite: 'text-3xl sm:text-4xl', top10: 'text-3xl sm:text-4xl', standard: 'text-xl sm:text-2xl' };
+const AVATAR_PALETTES = [
+  { className: 'border-bv/30 bg-gradient-to-br from-bv/25 via-bg-soft to-bv/5 text-bv-100' },
+  { className: 'border-gold/30 bg-gradient-to-br from-gold/22 via-bg-soft to-brand-primary/8 text-gold-100' },
+  { className: 'border-crystal/30 bg-gradient-to-br from-crystal/22 via-bg-soft to-crystal/5 text-crystal-100' },
+  { className: 'border-success/30 bg-gradient-to-br from-success/20 via-bg-soft to-success/5 text-green-100' },
+  { className: 'border-orange-300/25 bg-gradient-to-br from-orange-400/20 via-bg-soft to-orange-400/5 text-orange-100' },
+  { className: 'border-fuchsia-300/25 bg-gradient-to-br from-fuchsia-400/20 via-bg-soft to-fuchsia-400/5 text-fuchsia-100' },
+];
+function stableHash(value: string) { let hash = 0; for (let index = 0; index < value.length; index += 1) hash = ((hash << 5) - hash + value.charCodeAt(index)) | 0; return Math.abs(hash); }
+function MeBadge() { return <span className="rounded-pill bg-gold/15 px-1.5 py-0.5 text-[8px] font-black text-gold">나</span>; }

@@ -26,6 +26,15 @@ import { AchievementRankingShowcase, type AchievementRankingEntry } from '@/feat
 import { getEquippedCharacterImageUrl, useClassroomEquippedCharacters } from '@/hooks/useEquippedCharacters';
 import { useClassroomStudentGuilds } from '@/hooks/useStudentGuilds';
 import { GuildNameBadge } from '@/components/shared/GuildNameBadge';
+import { RankingV2Showcase, type RankingV2VisualEntry } from '@/features/social/RankingV2Showcase';
+import { RankingCollectionDetailModal } from '@/features/social/RankingCollectionDetailModal';
+import {
+  getClassroomRankingV2,
+  type RankingV2AssetDistributionBucket,
+  type RankingV2AssetRow,
+  type RankingV2AssetStyle,
+  type RankingV2BattleGroup,
+} from '@/lib/rpc/ranking_v2_rpc';
 
 // =====================================================================
 // FriendsPage — 학급 학생 디렉토리
@@ -179,234 +188,320 @@ function FriendCard({
 }
 
 // =====================================================================
-// RankingsPage — 학급 랭킹
+// RankingsPage — 학급 랭킹 V2
 // =====================================================================
 
-type RankingType = 'BV' | 'GOLD' | 'ACHIEVEMENT';
+type RankingType = 'BV' | 'GOLD' | 'ACHIEVEMENT' | 'COLLECTION';
+type CollectionRankingMode = 'SHARDS' | 'COLLECTIONS';
 
 export function RankingsPage() {
   const [type, setType] = useState<RankingType>('BV');
-  
+  const [collectionMode, setCollectionMode] = useState<CollectionRankingMode>('SHARDS');
+
   return (
     <>
       <PageHeader title="랭킹" emoji="📊" />
-      
+
       <div className="px-4 pt-4">
-        {/* 랭킹 타입 탭 */}
-        <div className="flex gap-1.5 mb-4">
+        <div className="grid grid-cols-4 gap-1.5 mb-4">
           {[
-            { value: 'BV',          label: 'BV',     emoji: '⭐' },
-            { value: 'GOLD',        label: '골드',    emoji: '🪙' },
-            { value: 'ACHIEVEMENT', label: '업적',    emoji: '🏆' },
+            { value: 'BV',          label: 'BV',   emoji: '⭐' },
+            { value: 'GOLD',        label: '골드', emoji: '🪙' },
+            { value: 'ACHIEVEMENT', label: '업적', emoji: '🏆' },
+            { value: 'COLLECTION',  label: '수집', emoji: '💎' },
           ].map((tab) => (
             <button
               key={tab.value}
               onClick={() => setType(tab.value as RankingType)}
               className={cn(
-                'flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-pill text-xs font-extrabold transition-all',
+                'flex min-w-0 items-center justify-center gap-1 py-2.5 rounded-pill text-[11px] sm:text-xs font-extrabold transition-all',
                 type === tab.value
                   ? 'bg-gradient-to-r from-brand-primary to-gold text-white shadow-brand-sm'
                   : 'bg-bg-card border border-line text-text-secondary'
               )}
             >
               <span>{tab.emoji}</span>
-              <span>{tab.label}</span>
+              <span className="truncate">{tab.label}</span>
             </button>
           ))}
         </div>
-        
-        <RankingList type={type} />
+
+        {type === 'COLLECTION' && (
+          <div className="mb-4 grid grid-cols-2 gap-2 rounded-card-md border border-line bg-bg-card p-1.5">
+            <button
+              type="button"
+              onClick={() => setCollectionMode('SHARDS')}
+              className={cn(
+                'rounded-card-sm px-3 py-2 text-xs font-black transition-all',
+                collectionMode === 'SHARDS' ? 'bg-crystal/15 text-crystal-100' : 'text-text-secondary hover:text-white',
+              )}
+            >
+              🧩 편린 보유
+            </button>
+            <button
+              type="button"
+              onClick={() => setCollectionMode('COLLECTIONS')}
+              className={cn(
+                'rounded-card-sm px-3 py-2 text-xs font-black transition-all',
+                collectionMode === 'COLLECTIONS' ? 'bg-bv/15 text-bv-100' : 'text-text-secondary hover:text-white',
+              )}
+            >
+              📚 콜렉션 완성
+            </button>
+          </div>
+        )}
+
+        <RankingList type={type} collectionMode={collectionMode} />
       </div>
     </>
   );
 }
 
-function RankingList({ type }: { type: RankingType }) {
+function RankingList({ type, collectionMode }: { type: RankingType; collectionMode: CollectionRankingMode }) {
   const classroomId = useClassroomId();
-  const studentId = useStudentId();
   const { byStudentId: achievementTitles } = useClassroomAchievementTitles();
   const { byStudentId: equippedCharacters } = useClassroomEquippedCharacters();
   const { byStudentId: guildsByStudentId } = useClassroomStudentGuilds();
-  
-  const { data: ranks, isLoading } = useQuery({
-    queryKey: ['rankings', classroomId, type],
-    queryFn: async () => {
-      if (!classroomId) return [];
-      
-      if (type === 'BV' || type === 'GOLD') {
-        // wallets에서 직접 정렬
-        const { data } = await supabase
-          .from('wallets')
-          .select(`
-            student_id, bv, gold,
-            student:students!student_id(id, name, brand_name, cached_tier, classroom_id)
-          `)
-          .order(type === 'BV' ? 'bv' : 'gold', { ascending: false })
-          .limit(30);
-        
-        return (data ?? [])
-          .filter((r: any) => r.student?.classroom_id === classroomId)
-          .map((r: any) => ({
-            studentId: r.student_id,
-            name: r.student?.name ?? '',
-            brandName: r.student?.brand_name,
-            tier: (r.student?.cached_tier ?? '새싹') as Tier,
-            value: Number(type === 'BV' ? r.bv : r.gold),
-            isMe: r.student_id === studentId,
-          }));
-      } else {
-        // 업적 카운트로 정렬
-        const { data } = await supabase
-          .from('student_achievements')
-          .select(`
-            student_id,
-            student:students!student_id(id, name, brand_name, cached_tier, classroom_id)
-          `)
-          .eq('is_revoked', false);
-        
-        // 학급별 + 학생별 카운트
-        const countMap = new Map<number, { count: number; student: any }>();
-        (data ?? []).forEach((sa: any) => {
-          if (sa.student?.classroom_id !== classroomId) return;
-          const existing = countMap.get(sa.student_id);
-          if (existing) {
-            existing.count++;
-          } else {
-            countMap.set(sa.student_id, { count: 1, student: sa.student });
-          }
-        });
-        
-        return Array.from(countMap.entries())
-          .sort(([, a], [, b]) => b.count - a.count)
-          .slice(0, 30)
-          .map(([rankStudentId, { count, student }]) => ({
-            studentId: rankStudentId,
-            name: student?.name ?? '',
-            brandName: student?.brand_name,
-            tier: (student?.cached_tier ?? '새싹') as Tier,
-            value: count,
-            isMe: rankStudentId === studentId,
-          }));
-      }
-    },
+  const [detailStudentId, setDetailStudentId] = useState<number | null>(null);
+  const [detailMode, setDetailMode] = useState<CollectionRankingMode>('SHARDS');
+
+  const boardQuery = useQuery({
+    queryKey: ['ranking-v2-board', classroomId],
     enabled: classroomId !== null,
+    staleTime: 15_000,
+    queryFn: () => getClassroomRankingV2(supabase),
   });
-  
-  if (isLoading) {
+
+  if (boardQuery.isLoading) {
     return <div className="py-8 flex justify-center"><LoadingSpinner size="lg" /></div>;
   }
-  
-  if (!ranks || ranks.length === 0) {
-    return <EmptyState emoji="📊" title="아직 랭킹 데이터가 없어요" />;
+
+  if (boardQuery.isError) {
+    return (
+      <div className="rounded-card-md border border-danger/30 bg-danger-bg p-4 text-center">
+        <div className="font-black text-danger">랭킹을 불러오지 못했습니다.</div>
+        <button type="button" onClick={() => void boardQuery.refetch()} className="btn-secondary mt-3 text-xs">다시 불러오기</button>
+      </div>
+    );
   }
-  
+
+  const board = boardQuery.data;
+  if (!board) return <EmptyState emoji="📊" title="아직 랭킹 데이터가 없어요" />;
+
+  const visualIdentity = (row: { student_id: number; rank: number; name: string; brand_name: string | null; tier: string | null; is_me: boolean }) => {
+    const studentId = Number(row.student_id);
+    const character = equippedCharacters.get(studentId) ?? null;
+    const guild = guildsByStudentId.get(studentId) ?? null;
+    return {
+      rank: Number(row.rank),
+      studentId,
+      name: row.name,
+      brandName: row.brand_name,
+      tier: (row.tier ?? '새싹') as Tier,
+      isMe: Boolean(row.is_me),
+      guildName: guild?.guildName ?? null,
+      guildLogoUrl: guild?.guildLogoUrl ?? null,
+      equippedCharacterUrl: getEquippedCharacterImageUrl(character, 'avatar'),
+      characterEmoji: character?.emoji ?? null,
+    };
+  };
+
   if (type === 'ACHIEVEMENT') {
-    const achievementRanks: AchievementRankingEntry[] = ranks.map((rank) => {
-      const character = equippedCharacters.get(Number(rank.studentId)) ?? null;
+    const achievementRanks: AchievementRankingEntry[] = board.achievement_ranks.map((row) => {
+      const identity = visualIdentity(row);
       return {
-        ...(rank as AchievementRankingEntry),
-        guildName: guildsByStudentId.get(Number(rank.studentId))?.guildName ?? null,
-        equippedCharacterUrl: getEquippedCharacterImageUrl(character, 'avatar'),
-        characterEmoji: character?.emoji ?? null,
+        ...identity,
+        value: Number(row.achievement_count),
       };
     });
 
+    if (achievementRanks.length === 0) return <EmptyState emoji="🏆" title="아직 업적 랭킹 데이터가 없어요" />;
+
+    return <AchievementRankingShowcase ranks={achievementRanks} achievementTitles={achievementTitles} />;
+  }
+
+  if (type === 'BV') {
+    const firstBattleByStudentId = new Map<number, RankingV2BattleGroup>();
+    for (const group of board.bv_battle_groups) {
+      const firstMember = group.members[0];
+      if (firstMember) firstBattleByStudentId.set(firstMember.student_id, group);
+    }
+
+    const ranks: RankingV2VisualEntry[] = board.bv_ranks.map((row) => {
+      const startingGroup = firstBattleByStudentId.get(row.student_id) ?? null;
+      return {
+        ...visualIdentity(row),
+        metric: <span className={row.weekly_delta >= 0 ? 'text-bv-100' : 'text-danger'}>최근 7일 {signedNumber(row.weekly_delta)} BV</span>,
+        groupBanner: startingGroup ? battleLabel(startingGroup) : undefined,
+        privateDetail: row.exact_bv === null ? undefined : <>내 BV {formatNumber(row.exact_bv)}</>,
+      };
+    });
+
+    if (ranks.length === 0) return <EmptyState emoji="⭐" title="아직 BV 랭킹 데이터가 없어요" />;
+
     return (
-      <AchievementRankingShowcase
-        ranks={achievementRanks}
+      <RankingV2Showcase
+        ranks={ranks}
         achievementTitles={achievementTitles}
+        heading={{
+          eyebrow: '현재 BV 랭킹',
+          title: 'BV 성장 경쟁',
+          description: '총점은 숨기고, 최근 7일 동안 얼마나 성장했는지 공개합니다.',
+          top10Description: '우리 반 BV 상위 10인',
+        }}
       />
     );
   }
 
+  if (type === 'GOLD') {
+    const ranks: RankingV2VisualEntry[] = board.asset_ranks.map((row) => ({
+      ...visualIdentity(row),
+      metric: <AssetRankDelta value={row.rank_delta} />,
+      detail: <span>{assetStyleLabel(row.asset_style)}</span>,
+      privateDetail: row.exact_total_asset === null ? undefined : <>내 총자산 {formatNumber(row.exact_total_asset)} GOLD</>,
+    }));
+
+    if (ranks.length === 0) return <EmptyState emoji="🪙" title="아직 총자산 랭킹 데이터가 없어요" />;
+
+    const selfAsset = board.asset_ranks.find((row) => row.is_me) ?? null;
+    return (
+      <RankingV2Showcase
+        ranks={ranks}
+        achievementTitles={achievementTitles}
+        heading={{
+          eyebrow: '현금 + 예금 + 적금 원금',
+          title: '총자산 랭킹',
+          description: '정확한 타인 금액은 숨기고, 자산 운영 스타일과 지난주 대비 순위만 공개합니다.',
+          top10Description: '우리 반 총자산 상위 10인',
+        }}
+        beforeRanks={<AssetDistributionPanel buckets={board.asset_distribution} selfAsset={selfAsset} />}
+      />
+    );
+  }
+
+  const openDetail = (studentId: number, mode: CollectionRankingMode) => {
+    setDetailStudentId(studentId);
+    setDetailMode(mode);
+  };
+
+  const collectionRanks: RankingV2VisualEntry[] = collectionMode === 'SHARDS'
+    ? board.shard_ranks.map((row) => ({
+      ...visualIdentity(row),
+      metric: <>{formatNumber(row.owned_count)}종 보유</>,
+      detail: <>한정판 {formatNumber(row.limited_count)} / {formatNumber(board.limited_character_total)} · 수집 가치 {formatNumber(row.collection_value)} 💎</>,
+      onClick: () => openDetail(row.student_id, 'SHARDS'),
+    }))
+    : board.collection_ranks.map((row) => ({
+      ...visualIdentity(row),
+      metric: <>{formatNumber(row.completed_count)}개 완성</>,
+      detail: row.recent_collection_name ? <>최근 완성 · {row.recent_collection_name}</> : <span className="text-text-muted">아직 완성 콜렉션 없음</span>,
+      onClick: () => openDetail(row.student_id, 'COLLECTIONS'),
+    }));
+
   return (
-    <div className="space-y-1.5">
-      {ranks.map((rank, idx) => (
-        <RankItem
-          key={rank.studentId}
-          rank={idx + 1}
-          item={rank}
-          type={type}
-          achievementTitle={achievementTitles.get(rank.studentId) ?? null}
-          guildName={guildsByStudentId.get(rank.studentId)?.guildName ?? null}
+    <>
+      {collectionRanks.length === 0 ? (
+        <EmptyState emoji="💎" title="아직 수집 랭킹 데이터가 없어요" />
+      ) : (
+        <RankingV2Showcase
+          ranks={collectionRanks}
+          achievementTitles={achievementTitles}
+          heading={collectionMode === 'SHARDS' ? {
+            eyebrow: '편린 수집 랭킹',
+            title: '편린 수집가',
+            description: '보유 편린 수, 이벤트 전용 한정판, 현재 카탈로그 수집 가치를 함께 봅니다.',
+            top10Description: '우리 반 편린 수집 상위 10인',
+          } : {
+            eyebrow: '콜렉션 완성 랭킹',
+            title: '콜렉션 마스터',
+            description: '완성한 콜렉션 수와 가장 최근의 완성 기록을 보여줍니다.',
+            top10Description: '우리 반 콜렉션 완성 상위 10인',
+          }}
         />
-      ))}
-    </div>
+      )}
+      <RankingCollectionDetailModal
+        studentId={detailStudentId}
+        mode={detailMode}
+        onClose={() => setDetailStudentId(null)}
+      />
+    </>
   );
 }
 
-function RankItem({ 
-  rank, item, type, achievementTitle, guildName,
-}: { 
-  rank: number;
-  item: { studentId: number; name: string; brandName: string | null; tier: Tier; value: number; isMe: boolean };
-  type: RankingType;
-  achievementTitle: EquippedAchievementTitle | null;
-  guildName: string | null;
-}) {
-  const isTop3 = rank <= 3;
-  const rankBg = rank === 1 ? 'bg-gold' 
-    : rank === 2 ? 'bg-text-secondary'
-    : rank === 3 ? 'bg-warning'
-    : 'bg-bg-deep';
-  
-  const valueColor = type === 'BV' ? 'text-bv' 
-    : type === 'GOLD' ? 'text-gold'
-    : 'text-success';
-  
-  const valueSuffix = type === 'ACHIEVEMENT' ? '개' : '';
-  
+function AssetDistributionPanel({ buckets, selfAsset }: { buckets: RankingV2AssetDistributionBucket[]; selfAsset: RankingV2AssetRow | null }) {
+  const maxCount = Math.max(1, ...buckets.map((bucket) => Number(bucket.count)));
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      className={cn(
-        'flex items-center gap-3 px-3.5 py-2.5 rounded-card-md transition-all',
-        item.isMe
-          ? 'bg-gold/8 border border-gold/30'
-          : 'bg-bg-card backdrop-blur-card border border-line',
-        isTop3 && !item.isMe && 'border-line-brand'
-      )}
-    >
-      <div className={cn(
-        'w-8 h-8 rounded-full flex items-center justify-center font-display text-sm flex-shrink-0',
-        isTop3 ? `${rankBg} text-bg-base` : 'text-text-muted'
-      )}>
-        {rank <= 3 ? rank : `${rank}`}
+    <section className="space-y-3">
+      <div className="rounded-card-lg border border-gold/20 bg-[linear-gradient(135deg,rgba(255,217,61,0.07),rgba(15,11,26,0.94))] p-4">
+        <div className="text-[10px] font-black tracking-[0.18em] text-gold-200">CLASS ASSET DISTRIBUTION</div>
+        <h2 className="mt-1 font-display text-lg font-black text-white">우리 반 총자산 분포</h2>
+        <p className="mt-1 text-xs font-bold text-text-secondary">구간별 인원수만 공개합니다. 누가 어느 구간인지와 정확한 금액은 공개하지 않습니다.</p>
+        <div className="mt-4 space-y-2.5">
+          {buckets.map((bucket) => {
+            const width = `${Math.max(bucket.count > 0 ? 8 : 0, (bucket.count / maxCount) * 100)}%`;
+            return (
+              <div key={bucket.key} className="grid grid-cols-[104px_1fr_38px] items-center gap-2 sm:grid-cols-[130px_1fr_44px]">
+                <div className="text-[11px] font-black text-slate-300 sm:text-xs">{assetBucketLabel(bucket)}</div>
+                <div className="h-2.5 overflow-hidden rounded-pill bg-bg-deep"><div className="h-full rounded-pill bg-gradient-to-r from-gold/45 to-gold" style={{ width }} /></div>
+                <div className="text-right font-mono text-xs font-black text-gold">{bucket.count}명</div>
+              </div>
+            );
+          })}
+        </div>
       </div>
-      
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-extrabold text-white min-w-0 flex flex-wrap items-center gap-1.5">
-          <span className="truncate">{item.brandName || item.name}</span>
-          {item.isMe && (
-            <span className="text-[9px] font-black text-gold bg-gold/20 px-1.5 py-0.5 rounded-pill">나</span>
-          )}
-        </div>
-        <div className="mt-1 flex min-w-0">
-          <GuildNameBadge guildName={guildName} compact />
-        </div>
-        {achievementTitle?.title && (
-          <div className="mt-1.5 flex min-w-0">
-            <AchievementTitleBadge
-              title={achievementTitle.title}
-              grade={achievementTitle.grade}
-              prominent
-              className="max-w-full !px-2.5 !py-1.5 !text-xs sm:!text-sm"
-            />
+
+      {selfAsset?.exact_total_asset !== null && selfAsset?.exact_total_asset !== undefined && (
+        <div className="rounded-card-md border border-gold/25 bg-gold/[0.06] p-3">
+          <div className="text-[10px] font-black tracking-[0.14em] text-gold">MY ASSET</div>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <span className="font-display text-lg font-black text-white">내 총자산 {formatNumber(selfAsset.exact_total_asset)} GOLD</span>
+            <span className="text-xs font-bold text-text-secondary">현금 {formatNumber(selfAsset.exact_cash_gold ?? 0)} · 예금 {formatNumber(selfAsset.exact_deposit_principal ?? 0)} · 적금 {formatNumber(selfAsset.exact_installment_principal ?? 0)}</span>
           </div>
-        )}
-        <div className="mt-1 text-xs text-slate-200 font-bold truncate">
-          {item.tier}
         </div>
-      </div>
-      
-      <div className="text-right flex-shrink-0">
-        <div className={cn('font-mono text-base font-bold leading-none', valueColor)}>
-          {formatNumber(item.value)}{valueSuffix}
-        </div>
-      </div>
-    </motion.div>
+      )}
+    </section>
   );
+}
+
+function AssetRankDelta({ value }: { value: number | null }) {
+  const result = value === null
+    ? <span className="text-crystal-100">NEW</span>
+    : value > 0
+      ? <span className="text-success">▲ {formatNumber(value)}</span>
+      : value < 0
+        ? <span className="text-danger">▼ {formatNumber(Math.abs(value))}</span>
+        : <span className="text-slate-300">-</span>;
+
+  return (
+    <span className="inline-flex flex-col items-end gap-0.5 leading-none">
+      <span className="font-sans text-[9px] font-black tracking-normal text-text-muted sm:text-[10px]">지난주 대비</span>
+      <span>{result}</span>
+    </span>
+  );
+}
+
+function assetStyleLabel(style: RankingV2AssetStyle) {
+  if (style === 'CASH') return '💵 현금 중심';
+  if (style === 'DEPOSIT') return '🏦 예금 중심';
+  if (style === 'INSTALLMENT') return '🐷 적금 중심';
+  if (style === 'BALANCED') return '⚖️ 균형 자산가';
+  return '자산 스타일 없음';
+}
+
+function assetBucketLabel(bucket: RankingV2AssetDistributionBucket) {
+  if (bucket.max === null) return `${formatNumber(bucket.min)} 이상`;
+  return `${formatNumber(bucket.min)} ~ ${formatNumber(bucket.max)}`;
+}
+
+function signedNumber(value: number) {
+  if (value > 0) return `+${formatNumber(value)}`;
+  return formatNumber(value);
+}
+
+function battleLabel(group: RankingV2BattleGroup) {
+  const names = group.members.map((member) => member.name);
+  if (group.member_count === 2) return `⚔️ ${names[0]} ↔ ${names[1]} · 접전 중`;
+  return `⚔️ ${group.start_rank}~${group.end_rank}위 ${group.member_count}파전 · ${names.join(' · ')}`;
 }
 
 // =====================================================================
