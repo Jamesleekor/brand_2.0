@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { tikatukaRpcErrorMessage, tikatukaStudentRpc } from '@/lib/rpc/tikatuka_rpc';
@@ -8,7 +8,7 @@ import type { TikatukaCompetition } from '@/lib/zod_schemas/tikatuka_competition
 
 const DIFFICULTIES = [1,2,3,4,5,6,7,8,9,10] as const satisfies readonly TikatukaDifficulty[];
 
-export function RakarukaCompetitionPanel() {
+export function RakarukaCompetitionPanel({ gameInProgress = false }: { gameInProgress?: boolean }) {
   const studentId = useStudentId();
   const queryClient = useQueryClient();
   const competitionKey = useMemo(() => ['arcade', 'tikatuka', 'competition', studentId] as const, [studentId]);
@@ -50,7 +50,7 @@ export function RakarukaCompetitionPanel() {
   }, [active?.session_id, active?.difficulty, highestUnlocked]);
 
   const startChallenge = async () => {
-    if (starting || active) return;
+    if (starting || active || gameInProgress) return;
     setStarting(true);
     setActionError(null);
     const rpc = await tikatukaStudentRpc.startOfficialChallenge(supabase, { p_difficulty: selectedDifficulty });
@@ -98,6 +98,7 @@ export function RakarukaCompetitionPanel() {
         selectedDifficulty={selectedDifficulty}
         setSelectedDifficulty={setSelectedDifficulty}
         starting={starting}
+        gameInProgress={gameInProgress}
         actionError={actionError}
         onStart={() => void startChallenge()}
       />
@@ -149,12 +150,13 @@ export function RakarukaCompetitionPanel() {
   </section>;
 }
 
-function OfficialChallengeCard({ data, highestUnlocked, selectedDifficulty, setSelectedDifficulty, starting, actionError, onStart }: {
+function OfficialChallengeCard({ data, highestUnlocked, selectedDifficulty, setSelectedDifficulty, starting, gameInProgress, actionError, onStart }: {
   data: TikatukaCompetition;
   highestUnlocked: TikatukaDifficulty;
   selectedDifficulty: TikatukaDifficulty;
   setSelectedDifficulty: (value: TikatukaDifficulty) => void;
   starting: boolean;
+  gameInProgress: boolean;
   actionError: string | null;
   onStart: () => void;
 }) {
@@ -171,20 +173,21 @@ function OfficialChallengeCard({ data, highestUnlocked, selectedDifficulty, setS
 
   return <div className="rounded-card-lg border border-brand-primary/30 bg-brand-primary/5 p-5">
     <div className="text-sm font-black text-cyan-200">🎯 새 공인 기록 도전</div>
-    <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">현재 해금된 난이도 이하에서 원하는 Lv를 고르세요. 시작하면 그 난이도로 5판이 묶입니다.</p>
+    <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">현재 해금된 난이도 이하에서 원하는 Lv를 고르세요. 공인 도전은 <b className="text-white">게임을 시작하기 전에</b> 생성해야 하며, 시작한 뒤 새로 발급되는 5판이 집계됩니다.</p>
     <div className="mt-4 flex flex-wrap gap-2">
       {DIFFICULTIES.map((level) => {
         const unlocked = level <= highestUnlocked;
-        return <button key={level} type="button" disabled={!unlocked || starting} onClick={() => setSelectedDifficulty(level)} className={`h-10 min-w-10 rounded-lg border px-2 text-sm font-black ${selectedDifficulty === level && unlocked ? 'border-gold bg-gold/15 text-yellow-200' : unlocked ? 'border-white/15 bg-black/20 text-white' : 'cursor-not-allowed border-white/5 bg-black/20 text-slate-700'}`}>{unlocked ? level : '🔒'}</button>;
+        return <button key={level} type="button" disabled={!unlocked || starting || gameInProgress} onClick={() => setSelectedDifficulty(level)} className={`h-10 min-w-10 rounded-lg border px-2 text-sm font-black ${selectedDifficulty === level && unlocked ? 'border-gold bg-gold/15 text-yellow-200' : unlocked ? 'border-white/15 bg-black/20 text-white' : 'cursor-not-allowed border-white/5 bg-black/20 text-slate-700'}`}>{unlocked ? level : '🔒'}</button>;
       })}
     </div>
     <div className="mt-4 rounded-card-md border border-white/10 bg-black/20 p-3 text-sm font-semibold text-slate-300">선택: <b className="text-white">Lv.{selectedDifficulty}</b> · 최고 해금: Lv.{highestUnlocked}</div>
+    {gameInProgress && <div className="mt-3 rounded-card-md border border-warning/40 bg-warning/10 p-3 text-sm font-bold text-warning">현재 판이 진행 중입니다. 이 판을 끝내고 새 게임을 시작하기 전에 공인 도전을 생성하세요.</div>}
     {actionError && <div className="mt-3 rounded-card-md border border-danger/40 bg-danger/10 p-3 text-sm font-bold text-red-200">{actionError}</div>}
-    <button className="btn-primary mt-4 w-full py-3" disabled={starting} onClick={onStart}>{starting ? '공인 도전 생성 중...' : `Lv.${selectedDifficulty} · 5판 공인 도전 시작`}</button>
+    <button className="btn-primary mt-4 w-full py-3" disabled={starting || gameInProgress} onClick={onStart}>{starting ? '공인 도전 생성 중...' : `Lv.${selectedDifficulty} · 5판 공인 도전 시작`}</button>
   </div>;
 }
 
-function RankingTable({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+function RankingTable({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return <div className="min-w-0 border-white/10 p-5 lg:first:border-r"><div className="flex items-end justify-between gap-3"><div><h4 className="font-display text-lg text-white">{title}</h4><p className="mt-1 text-xs font-semibold text-slate-400">{subtitle}</p></div></div><div className="mt-4 max-h-[430px] overflow-y-auto rounded-card-md border border-white/10 bg-black/20">{children}</div></div>;
 }
 
