@@ -1,0 +1,113 @@
+/* Rakaruka presentation-only effects. Game truth remains in the engine. */
+
+/* Make event narration readable instead of flashing by. */
+section[class*="bg-[#090d14]"] div[class*="min-h-[150px]"] > div.flex.flex-col.items-center.justify-center > div.font-display.text-base.font-black {
+  max-width: 32rem;
+  font-size: 1.18rem !important;
+  line-height: 1.55 !important;
+  animation: none !important;
+  text-wrap: balance;
+  filter: drop-shadow(0 2px 8px rgb(0 0 0 / 0.7));
+}
+
+/* Shield dice must read as a different die type at a glance, not as a tiny icon. */
+section[class*="bg-[#090d14]"] span[class*="border-gold/80"][class*="bg-gold/15"][class*="text-yellow-200"] {
+  overflow: visible !important;
+  border-width: 3px !important;
+  border-color: rgb(250 204 21 / 0.98) !important;
+  background:
+    radial-gradient(circle at 50% 32%, rgb(255 255 255 / 0.2), transparent 38%),
+    linear-gradient(145deg, rgb(120 53 15 / 0.94), rgb(202 138 4 / 0.42) 52%, rgb(54 32 5 / 0.98)) !important;
+  color: rgb(255 251 235) !important;
+  outline: 2px solid rgb(250 204 21 / 0.34);
+  outline-offset: 2px;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.18) inset,
+    0 0 20px rgb(250 204 21 / 0.42),
+    0 6px 16px rgb(0 0 0 / 0.42) !important;
+  text-shadow: 0 2px 4px rgb(0 0 0 / 0.8);
+}
+
+section[class*="bg-[#090d14]"] span[class*="border-gold/80"][class*="bg-gold/15"][class*="text-yellow-200"]::before {
+  content: "🛡";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  z-index: 0;
+  transform: translate(-50%, -50%) scale(1.45);
+  font-family: sans-serif;
+  font-size: 1.6em;
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+section[class*="bg-[#090d14]"] span[class*="border-gold/80"][class*="bg-gold/15"][class*="text-yellow-200"]::after {
+  content: "실드";
+  position: absolute;
+  left: 50%;
+  bottom: -0.72rem;
+  z-index: 4;
+  transform: translateX(-50%);
+  border: 1px solid rgb(250 204 21 / 0.85);
+  border-radius: 999px;
+  background: rgb(24 18 5 / 0.96);
+  padding: 0.1rem 0.34rem;
+  color: rgb(254 240 138);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.58rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+section[class*="bg-[#090d14]"] span[class*="border-gold/80"][class*="bg-gold/15"][class*="text-yellow-200"] > span {
+  z-index: 5;
+  right: -0.6rem !important;
+  top: -0.65rem !important;
+  font-size: 1.25rem !important;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.75));
+}
+
+/* Existing linked-die state becomes a persistent, readable DOUBLE/TRIPLE marker. */
+section[class*="bg-[#090d14]"] button:has(> span:nth-child(2) span[class*="ring-2"][class*="ring-gold/70"]) {
+  position: relative;
+  animation: rakaruka-combo-glow 900ms ease-out;
+}
+
+section[class*="bg-[#090d14]"] button:has(> span:nth-child(2) span[class*="ring-2"][class*="ring-gold/70"])::before {
+  content: "더블";
+  position: absolute;
+  right: 3.3rem;
+  top: -0.62rem;
+  z-index: 8;
+  border: 1px solid rgb(250 204 21 / 0.72);
+  border-radius: 999px;
+  background: rgb(74 50 5 / 0.96);
+  padding: 0.18rem 0.48rem;
+  color: rgb(254 240 138);
+  font-size: 0.65rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 0 14px rgb(250 204 21 / 0.2);
+}
+
+section[class*="bg-[#090d14]"] button:has(> span:nth-child(2) > span:nth-child(1) > span[class*="ring-2"]):has(> span:nth-child(2) > span:nth-child(2) > span[class*="ring-2"]):has(> span:nth-child(2) > span:nth-child(3) > span[class*="ring-2"])::before {
+  content: "트리플";
+  border-color: rgb(251 191 36 / 0.95);
+  background: rgb(120 53 15 / 0.98);
+  color: rgb(255 251 235);
+  box-shadow: 0 0 18px rgb(251 191 36 / 0.42);
+}
+
+@keyframes rakaruka-combo-glow {
+  0% { box-shadow: 0 0 0 rgb(250 204 21 / 0); transform: scale(1); }
+  42% { box-shadow: 0 0 32px rgb(250 204 21 / 0.38); transform: scale(1.012); }
+  100% { box-shadow: 0 0 0 rgb(250 204 21 / 0); transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  section[class*="bg-[#090d14]"] button:has(> span:nth-child(2) span[class*="ring-2"]) {
+    animation: none;
+  }
+}
