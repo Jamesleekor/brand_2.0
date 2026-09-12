@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader, LoadingSpinner } from '@/components/shared/components';
 import { FocusReactionGame, type FocusPlaySummary } from '@/features/arcade/FocusReactionGame';
 import { PureReactionGame, type PureReactionPlaySummary } from '@/features/arcade/PureReactionGame';
+import { TikatukaGame } from '@/features/arcade/tikatuka/ui/TikatukaGame';
 import { formatReactionAverage } from '@/features/arcade/pure_reaction_engine';
 import { arcadeErrorMessage, arcadeStudentRpc, type ArcadeRunBootstrap, type ArcadeRunSubmissionResult, type ArcadeVerificationState, type ArcadeVerificationAttempt, type ArcadeLeaderboardRow, type ArcadeGuildTotalRow } from '@/lib/rpc/arcade_rpc';
 import { supabase } from '@/lib/supabase/client';
@@ -41,6 +42,7 @@ export default function ArcadePage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [isCreatingRun, setIsCreatingRun] = useState(false);
   const [isResultRankingUpdating, setIsResultRankingUpdating] = useState(false);
+  const [tikatukaOpen, setTikatukaOpen] = useState(false);
 
   const arcadeQuery = useQuery({
     queryKey: ['arcade', 'catalog', classroomId],
@@ -165,6 +167,15 @@ export default function ArcadePage() {
     void queryClient.invalidateQueries({ queryKey: ['arcade', 'game-access'] });
   };
 
+  if (tikatukaOpen) {
+    return <div className="min-h-screen">
+      <PageHeader title="아케이드 · 타카투카" emoji="🎲" />
+      <main className="mx-auto max-w-6xl px-4 py-5">
+        <TikatukaGame onExit={() => setTikatukaOpen(false)} />
+      </main>
+    </div>;
+  }
+
   return <div className="min-h-screen">
     <PageHeader title="아케이드" emoji="🕹️" />
     <main className="mx-auto max-w-5xl space-y-5 px-4 py-5">
@@ -172,6 +183,18 @@ export default function ArcadePage() {
         <div className="text-xs font-black tracking-[0.18em] text-brand-primary">B.R.A.N.D ARCADE</div>
         <h1 className="mt-2 font-display text-3xl text-white">집중력과 반응의 시험장</h1>
         <p className="mt-2 max-w-2xl text-sm text-text-secondary">한 번의 공식 기록은 서버가 다시 계산합니다. 점수는 화면에서 바꿀 수 없고, 월간 Top 10은 학생 한 명당 최고 기록 하나만 사용합니다.</p>
+      </section>
+
+      <section className="overflow-hidden rounded-card-xl border border-gold/25 bg-gradient-to-r from-gold/10 via-bg-card to-danger/5 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="text-[10px] font-black tracking-[0.2em] text-gold">NEW · GAME #03 · STRATEGY</div>
+            <h2 className="mt-1 font-display text-2xl text-white">🎲 타카투카</h2>
+            <p className="mt-1 max-w-2xl text-sm text-text-secondary">3×3 주사위 보드에서 더블·트리플·알까기·실드를 이용해 AI와 겨루는 전략 게임입니다.</p>
+            <p className="mt-2 text-[11px] font-bold text-text-muted">현재 Phase 6에서는 로컬 플레이만 연결되어 있으며 결과 저장과 난이도 해금은 다음 단계에서 적용됩니다.</p>
+          </div>
+          <button className="btn-primary min-w-[180px]" disabled={Boolean(bootstrap)} onClick={() => setTikatukaOpen(true)}>{bootstrap ? '진행 중인 게임을 먼저 종료하세요' : '타카투카 시작'}</button>
+        </div>
       </section>
 
       {arcadeQuery.isLoading && <div className="py-16 text-center"><LoadingSpinner size="lg" /></div>}
