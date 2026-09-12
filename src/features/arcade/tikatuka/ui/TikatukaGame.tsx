@@ -30,13 +30,8 @@ function eventActor(event:GameEvent):HistoryEntry['actor'] {
 }
 
 function readDisplayedDifficulty(root: HTMLElement): Difficulty | null {
-  const candidates = root.querySelectorAll<HTMLElement>('[class*="font-display"]');
-  for (const candidate of candidates) {
-    const text = candidate.textContent?.trim() ?? '';
-    const match = text.match(/^Lv\.(10|[1-9])\s*·/);
-    if (match) return Number(match[1]) as Difficulty;
-  }
-  return null;
+  const match=(root.textContent ?? '').match(/Lv\.(10|[1-9])\s*·/);
+  return match ? Number(match[1]) as Difficulty : null;
 }
 
 export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
@@ -74,7 +69,7 @@ export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
     if (!root) return undefined;
     const syncDifficulty=()=>{
       const next=readDisplayedDifficulty(root);
-      setOpponentDifficulty(current=>current===next ? current : next);
+      if (next!==null) setOpponentDifficulty(current=>current===next ? current : next);
     };
     syncDifficulty();
     const observer=new MutationObserver(syncDifficulty);
@@ -162,9 +157,10 @@ function OpponentEncounterCard({opponent,character}:{opponent:RakarukaOpponentPr
 
 function RakarukaActionHistory({entries,opponentName}:{entries:HistoryEntry[];opponentName:string}) {
   const visible=entries.slice(-6).reverse();
+  const nameAi=(text:string)=>text.replaceAll('상대 AI',opponentName);
   return <section className="overflow-hidden rounded-card-lg border border-white/15 bg-[#0a0e15] shadow-card">
     <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-2.5"><div><h3 className="text-sm font-black text-white">📜 최근 행동</h3><p className="text-[11px] font-semibold text-slate-400">{opponentName}의 선택과 방금 일어난 일을 여기서 바로 확인합니다.</p></div><span className="rounded-pill bg-white/5 px-2 py-1 text-[10px] font-black text-slate-400">최근 6개</span></div>
-    <div className="max-h-44 overflow-y-auto p-2"><div className="space-y-1.5">{visible.map(entry=><div key={entry.id} className={`grid grid-cols-[34px_1fr] gap-2 rounded-card-md border px-2.5 py-2 ${entry.actor==='ai'?'border-rose-400/20 bg-rose-400/[0.05]':entry.actor==='player'?'border-emerald-400/20 bg-emerald-400/[0.05]':'border-white/10 bg-white/[0.025]'}`}><span className="text-[10px] font-black text-slate-500">#{entry.id}</span><span className={`text-xs font-bold leading-5 ${entry.actor==='ai'?'text-rose-100':entry.actor==='player'?'text-emerald-100':'text-slate-200'}`}>{entry.text}</span></div>)}</div></div>
+    <div className="max-h-44 overflow-y-auto p-2"><div className="space-y-1.5">{visible.map(entry=><div key={entry.id} className={`grid grid-cols-[34px_1fr] gap-2 rounded-card-md border px-2.5 py-2 ${entry.actor==='ai'?'border-rose-400/20 bg-rose-400/[0.05]':entry.actor==='player'?'border-emerald-400/20 bg-emerald-400/[0.05]':'border-white/10 bg-white/[0.025]'}`}><span className="text-[10px] font-black text-slate-500">#{entry.id}</span><span className={`text-xs font-bold leading-5 ${entry.actor==='ai'?'text-rose-100':entry.actor==='player'?'text-emerald-100':'text-slate-200'}`}>{nameAi(entry.text)}</span></div>)}</div></div>
   </section>;
 }
 
