@@ -1,5 +1,7 @@
 import type { Difficulty, GameEvent, RowId, Side } from '../engine';
 
+export const RAKARUKA_DICE_REVEAL_MS = 2_000;
+
 export type TikatukaEventTone = 'neutral' | 'player' | 'ai' | 'gold' | 'danger' | 'success';
 
 export interface TikatukaEventPresentation {
@@ -43,13 +45,13 @@ export function getEventPresentation(event: GameEvent): TikatukaEventPresentatio
       return {
         text: `${sideLabel(event.side)}가 주사위를 굴립니다`,
         tone: event.side === 'player' ? 'player' : 'ai',
-        durationMs: 2_000,
+        durationMs: RAKARUKA_DICE_REVEAL_MS,
       };
     case 'TAZZA_USED':
       return {
         text: `${sideLabel(event.side)}가 타짜를 사용해 다시 굴립니다`,
         tone: 'gold',
-        durationMs: 2_000,
+        durationMs: RAKARUKA_DICE_REVEAL_MS,
       };
     case 'DIE_HELD':
       return {
