@@ -60,6 +60,12 @@ export type GamePhase =
 
 export type GameWinner = 'player' | 'ai' | 'draw' | null;
 
+/**
+ * A target selected with the current die.
+ * - normal die + own board: place the die
+ * - normal die + opponent board: perform an explicit knock attack; the die is consumed and not placed
+ * - shield die: place on either board
+ */
 export interface Placement {
   targetSide: Side;
   row: RowId;
@@ -136,7 +142,7 @@ export type GameEvent =
   | { type: 'DIE_HELD'; side: Side; die: Die }
   | { type: 'FORCED_PASS'; side: Side; die: Die }
   | { type: 'DIE_PLACED'; side: Side; die: Die; placement: Placement }
-  | { type: 'DICE_KNOCKED'; attackingSide: Side; targetSide: Side; row: RowId; removedDice: Die[] }
+  | { type: 'DICE_KNOCKED'; attackingSide: Side; targetSide: Side; row: RowId; attackingDie?: Die; removedDice: Die[] }
   | { type: 'SHIELD_QUEUED'; side: Side; value: DieValue }
   | { type: 'SHIELD_GRANTED'; side: Side; die: Die }
   | { type: 'TURN_CHANGED'; side: Side }
