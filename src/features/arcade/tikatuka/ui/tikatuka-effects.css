@@ -35,6 +35,35 @@ section[class*="bg-[#090d14]"] button[class*="border-gold"][class*="bg-gold/10"]
   animation: rakaruka-row-impact 720ms ease-in-out infinite alternate;
 }
 
+/* When the player's current die is NORMAL, enabled rows on the opponent board are explicit knock targets. */
+section[class*="bg-[#090d14]"]:has(div[class*="min-h-[150px]"] span[class*="border-white/30"][class*="bg-white/10"])
+  div[class*="xl:grid-cols-2"] > div:nth-child(2) button:not(:disabled) {
+  position: relative;
+  border-width: 2px !important;
+  border-color: rgb(251 113 133 / 0.88) !important;
+  background: linear-gradient(90deg, rgb(244 63 94 / 0.11), rgb(244 63 94 / 0.045)) !important;
+  box-shadow: 0 0 20px rgb(244 63 94 / 0.16);
+}
+
+section[class*="bg-[#090d14]"]:has(div[class*="min-h-[150px]"] span[class*="border-white/30"][class*="bg-white/10"])
+  div[class*="xl:grid-cols-2"] > div:nth-child(2) button:not(:disabled)::after {
+  content: "💥 알까기 가능";
+  position: absolute;
+  right: 0.65rem;
+  top: -0.72rem;
+  z-index: 10;
+  border: 1px solid rgb(251 113 133 / 0.9);
+  border-radius: 999px;
+  background: rgb(76 5 25 / 0.96);
+  padding: 0.22rem 0.55rem;
+  color: rgb(255 228 230);
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 0 16px rgb(244 63 94 / 0.3);
+  animation: rakaruka-knock-target 850ms ease-in-out infinite alternate;
+}
+
 /* Shield dice must read as a different die type at a glance, not as a tiny icon. */
 section[class*="bg-[#090d14]"] span[class*="border-gold/80"][class*="bg-gold/15"][class*="text-yellow-200"] {
   overflow: visible !important;
@@ -125,6 +154,24 @@ section[class*="bg-[#090d14]"] button:has(> span:nth-child(2) > span:nth-child(1
   box-shadow: 0 0 22px rgb(251 191 36 / 0.5);
 }
 
+/* Full-screen knock cut-in makes the cause/effect readable even if the board changed atomically. */
+.rakaruka-knock-overlay {
+  background: radial-gradient(circle at center, rgb(244 63 94 / 0.12), transparent 52%);
+  animation: rakaruka-overlay-in 180ms ease-out;
+}
+
+.rakaruka-knock-card {
+  animation: rakaruka-knock-card 300ms cubic-bezier(.2,.85,.32,1.1);
+}
+
+.rakaruka-attack-die {
+  animation: rakaruka-attack-die 900ms cubic-bezier(.22,.8,.35,1) 300ms both;
+}
+
+.rakaruka-target-die {
+  animation: rakaruka-target-hit 1.15s ease-in-out 850ms both;
+}
+
 @keyframes rakaruka-event-pop {
   0% { opacity: 0; transform: translateY(8px) scale(0.985); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
@@ -135,16 +182,51 @@ section[class*="bg-[#090d14]"] button:has(> span:nth-child(2) > span:nth-child(1
   100% { box-shadow: 0 0 34px rgb(250 204 21 / 0.48); transform: translateX(2px); }
 }
 
+@keyframes rakaruka-knock-target {
+  0% { transform: translateY(0) scale(1); box-shadow: 0 0 10px rgb(244 63 94 / 0.18); }
+  100% { transform: translateY(-1px) scale(1.04); box-shadow: 0 0 22px rgb(244 63 94 / 0.48); }
+}
+
 @keyframes rakaruka-combo-glow {
   0% { box-shadow: 0 0 0 rgb(250 204 21 / 0); transform: scale(1); }
   42% { box-shadow: 0 0 34px rgb(250 204 21 / 0.42); transform: scale(1.014); }
   100% { box-shadow: 0 0 0 rgb(250 204 21 / 0); transform: scale(1); }
 }
 
+@keyframes rakaruka-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes rakaruka-knock-card {
+  0% { opacity: 0; transform: scale(0.92) translateY(16px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes rakaruka-attack-die {
+  0% { transform: translateX(-72px) rotate(-180deg) scale(0.8); }
+  65% { transform: translateX(28px) rotate(260deg) scale(1.08); }
+  100% { transform: translateX(52px) rotate(360deg) scale(1); }
+}
+
+@keyframes rakaruka-target-hit {
+  0%, 24% { opacity: 1; transform: translateX(0) rotate(0) scale(1); }
+  34% { transform: translateX(-9px) rotate(-6deg) scale(1.08); }
+  44% { transform: translateX(9px) rotate(6deg) scale(1.08); }
+  54% { transform: translateX(-6px) rotate(-4deg) scale(1.05); }
+  68% { opacity: 1; transform: translateX(0) rotate(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-18px) scale(0.55); filter: blur(3px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   section[class*="bg-[#090d14]"] div[class*="min-h-[150px]"] > div.flex.flex-col.items-center.justify-center,
   section[class*="bg-[#090d14]"] button[class*="border-gold"][class*="bg-gold/10"],
-  section[class*="bg-[#090d14]"] button:has(> span:nth-child(2) span[class*="ring-2"]) {
+  section[class*="bg-[#090d14]"] button:has(> span:nth-child(2) span[class*="ring-2"]),
+  section[class*="bg-[#090d14]"] div[class*="xl:grid-cols-2"] > div:nth-child(2) button:not(:disabled)::after,
+  .rakaruka-knock-overlay,
+  .rakaruka-knock-card,
+  .rakaruka-attack-die,
+  .rakaruka-target-die {
     animation: none;
   }
 }
