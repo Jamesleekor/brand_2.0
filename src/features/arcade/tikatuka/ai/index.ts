@@ -3,3 +3,5 @@ export * from './profiles';
 export * from './evaluateState';
 export * from './evaluatePlacement';
 export * from './chooseAction';
+export * from './stateHash';
+export * from './searchContext';
