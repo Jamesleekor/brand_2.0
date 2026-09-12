@@ -8,6 +8,7 @@ import './phase5_advanced_ai.test';
 import './phase5_regression.test';
 import './phase6_ui_presentation.test';
 import './phase7_persistence.test';
+import './phase8_competition.test';
 import { runRegisteredTests } from './testHarness';
 
 void runRegisteredTests().catch((error) => {
