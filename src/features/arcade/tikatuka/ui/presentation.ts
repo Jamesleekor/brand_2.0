@@ -1,4 +1,4 @@
-import type { Difficulty, GameEvent, Side } from '../engine';
+import type { Difficulty, GameEvent, RowId, Side } from '../engine';
 
 export type TikatukaEventTone = 'neutral' | 'player' | 'ai' | 'gold' | 'danger' | 'success';
 
@@ -14,7 +14,13 @@ export interface ThinkingDelayRange {
 }
 
 export function sideLabel(side: Side): string {
-  return side === 'player' ? 'PLAYER' : 'AI';
+  return side === 'player' ? '플레이어' : '상대';
+}
+
+export function rowLabel(row: RowId): string {
+  if (row === 'top') return '상단';
+  if (row === 'middle') return '중단';
+  return '하단';
 }
 
 export function difficultyLabel(difficulty: Difficulty): string {
@@ -35,67 +41,67 @@ export function getEventPresentation(event: GameEvent): TikatukaEventPresentatio
   switch (event.type) {
     case 'DIE_ROLLED':
       return {
-        text: `${sideLabel(event.side)} 주사위 ${event.die.value}`,
+        text: `${sideLabel(event.side)}가 주사위를 굴립니다`,
         tone: event.side === 'player' ? 'player' : 'ai',
-        durationMs: 360,
+        durationMs: 2_000,
       };
     case 'TAZZA_USED':
       return {
-        text: `${sideLabel(event.side)} 타짜의 손놀림 · ${event.previous.value} → ${event.next.value}`,
+        text: `${sideLabel(event.side)}가 타짜를 사용해 다시 굴립니다`,
         tone: 'gold',
-        durationMs: 520,
+        durationMs: 2_000,
       };
     case 'DIE_HELD':
       return {
-        text: `${sideLabel(event.side)} HOLD · ${event.die.kind === 'shield' ? '🛡️ ' : ''}${event.die.value} 보관`,
+        text: `${sideLabel(event.side)} 홀드 · ${event.die.kind === 'shield' ? '🛡️ ' : ''}${event.die.value} 보관`,
         tone: 'gold',
-        durationMs: 440,
+        durationMs: 560,
       };
     case 'FORCED_PASS':
       return {
         text: `${sideLabel(event.side)} 놓을 곳 없음 · 주사위 ${event.die.value} 보존`,
         tone: 'neutral',
-        durationMs: 420,
+        durationMs: 520,
       };
     case 'DIE_PLACED':
       return {
-        text: `${sideLabel(event.side)} ${event.placement.row.toUpperCase()} 배치 · ${event.die.kind === 'shield' ? '🛡️ ' : ''}${event.die.value}`,
+        text: `${sideLabel(event.side)} ${rowLabel(event.placement.row)} 배치 · ${event.die.kind === 'shield' ? '🛡️ ' : ''}${event.die.value}`,
         tone: event.side === 'player' ? 'player' : 'ai',
-        durationMs: 300,
+        durationMs: 380,
       };
     case 'DICE_KNOCKED':
       return {
         text: `알까기! ${event.removedDice[0]?.value ?? ''} × ${event.removedDice.length} 제거`,
         tone: 'danger',
-        durationMs: 520,
+        durationMs: 620,
       };
     case 'SHIELD_QUEUED':
       return {
         text: `${sideLabel(event.side)} 다음 턴 🛡️${event.value} 획득`,
         tone: 'gold',
-        durationMs: 420,
+        durationMs: 520,
       };
     case 'SHIELD_GRANTED':
       return {
-        text: `${sideLabel(event.side)} 실드 주사위 🛡️${event.die.value}`, 
+        text: `${sideLabel(event.side)} 실드 주사위 🛡️${event.die.value}`,
         tone: 'gold',
-        durationMs: 420,
+        durationMs: 620,
       };
     case 'TURN_CHANGED':
       return {
-        text: `${sideLabel(event.side)} TURN`,
+        text: event.side === 'player' ? '당신의 턴' : '상대의 턴',
         tone: event.side === 'player' ? 'player' : 'ai',
-        durationMs: 220,
+        durationMs: 320,
       };
     case 'GAME_FINISHED':
       return {
         text: event.result.winner === 'draw'
-          ? 'DRAW'
+          ? '무승부'
           : event.result.winner === 'player'
-            ? 'PLAYER VICTORY'
-            : 'AI VICTORY',
+            ? '승리!'
+            : '패배',
         tone: event.result.winner === 'player' ? 'success' : event.result.winner === 'ai' ? 'danger' : 'neutral',
-        durationMs: 720,
+        durationMs: 820,
       };
     default: {
       const exhaustive: never = event;
