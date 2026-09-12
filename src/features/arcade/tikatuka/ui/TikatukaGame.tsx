@@ -87,14 +87,20 @@ export function TikatukaGame({ onExit }: TikatukaGameProps) {
   }, []);
 
   useEffect(() => {
-    if (activeAnimation !== null || eventQueue.length === 0) return undefined;
+    if (activeAnimation !== null || eventQueue.length === 0) return;
     const [next, ...rest] = eventQueue;
-    const presentation = getEventPresentation(next);
     setEventQueue(rest);
-    setActiveAnimation({ event: next, presentation });
-    const timer = window.setTimeout(() => setActiveAnimation(null), presentation.durationMs);
-    return () => window.clearTimeout(timer);
+    setActiveAnimation({ event: next, presentation: getEventPresentation(next) });
   }, [activeAnimation, eventQueue]);
+
+  useEffect(() => {
+    if (activeAnimation === null) return undefined;
+    const timer = window.setTimeout(
+      () => setActiveAnimation(null),
+      activeAnimation.presentation.durationMs,
+    );
+    return () => window.clearTimeout(timer);
+  }, [activeAnimation]);
 
   const applyAction = useCallback((state: GameState, action: GameAction, actor: Side) => {
     const deps = depsRef.current;
