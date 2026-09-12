@@ -131,3 +131,23 @@ test('phase8 opponent UX: AI roll result is shown before thinking can begin', ()
   assert(presentation.includes("RAKARUKA_DICE_REVEAL_MS + (event.side === 'ai' ? RAKARUKA_AI_RESULT_HOLD_MS : 0)"));
   assert(presentation.includes("RAKARUKA_TAZZA_REVEAL_MS + (event.side === 'ai' ? RAKARUKA_AI_RESULT_HOLD_MS : 0)"));
 });
+
+test('phase8 Guild 2: Rakaruka monthly bonus is sourced only from the official five-match Top 10', () => {
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260913_03_tikatuka_official_top10_guild2.sql'), 'utf8');
+  const compactSql = sql.replace(/\s+/g, ' ');
+
+  assert(sql.includes('tikatuka_monthly_official_snapshots'));
+  assert(sql.includes('tikatuka_monthly_official_snapshot_entries'));
+  assert(sql.includes('tikatuka_resolve_period_official_ranks'));
+  assert(sql.includes("os.status = 'COMPLETED'"));
+  assert(sql.includes('os.points >= 3'));
+  assert(sql.includes('dense_rank() OVER (ORDER BY b.difficulty DESC, b.points DESC)'));
+  assert(sql.includes('WHEN r.official_rank = 1 THEN 30::numeric'));
+  assert(sql.includes('WHEN r.official_rank = 2 THEN 27::numeric'));
+  assert(sql.includes('WHEN r.official_rank = 3 THEN 24::numeric'));
+  assert(sql.includes('WHEN r.official_rank BETWEEN 4 AND 6 THEN 18::numeric'));
+  assert(sql.includes('WHEN r.official_rank BETWEEN 7 AND 10 THEN 15::numeric'));
+  assert(compactSql.includes('UNION ALL SELECT entry.student_id, entry.raw_bonus FROM public.tikatuka_monthly_official_snapshots'));
+  assert(sql.includes("os.status = 'ACTIVE'"));
+  assert(!sql.includes('cleared_level'));
+});
