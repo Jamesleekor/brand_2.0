@@ -19,10 +19,12 @@ import {
   type TikatukaSubmissionResponse,
 } from '@/lib/zod_schemas/tikatuka_schemas';
 import {
+  StudentGetTikatukaCompetitionSchema,
   StudentStartTikatukaOfficialChallengeSchema,
   TeacherSetTikatukaOfficialWindowSchema,
   TeacherTikatukaOfficialWindowSchema,
   TikatukaCompetitionSchema,
+  type StudentGetTikatukaCompetitionInput,
   type StudentStartTikatukaOfficialChallengeInput,
   type TeacherSetTikatukaOfficialWindowInput,
   type TeacherTikatukaOfficialWindow,
@@ -103,8 +105,13 @@ export const tikatukaStudentRpc = {
     return callTikatukaRpc(client, 'student_submit_tikatuka_result', TikatukaSubmissionResponseSchema, parsed.data);
   },
 
-  async getCompetition(client: SupabaseClient): Promise<TikatukaRpcResult<TikatukaCompetition>> {
-    return callTikatukaRpc(client, 'student_get_tikatuka_competition_v1', TikatukaCompetitionSchema);
+  async getCompetition(
+    client: SupabaseClient,
+    input: StudentGetTikatukaCompetitionInput,
+  ): Promise<TikatukaRpcResult<TikatukaCompetition>> {
+    const parsed = StudentGetTikatukaCompetitionSchema.safeParse(input);
+    if (!parsed.success) return validationError(parsed.error, 'TIKATUKA_INVALID_COMPETITION_INPUT');
+    return callTikatukaRpc(client, 'student_get_tikatuka_competition_v2', TikatukaCompetitionSchema, parsed.data);
   },
 
   async startOfficialChallenge(
@@ -113,7 +120,7 @@ export const tikatukaStudentRpc = {
   ): Promise<TikatukaRpcResult<TikatukaCompetition>> {
     const parsed = StudentStartTikatukaOfficialChallengeSchema.safeParse(input);
     if (!parsed.success) return validationError(parsed.error, 'TIKATUKA_INVALID_OFFICIAL_INPUT');
-    return callTikatukaRpc(client, 'student_start_tikatuka_official_challenge_v1', TikatukaCompetitionSchema, parsed.data);
+    return callTikatukaRpc(client, 'student_start_tikatuka_official_challenge_v2', TikatukaCompetitionSchema, parsed.data);
   },
 };
 
@@ -178,8 +185,12 @@ export function tikatukaRpcErrorMessage(result: TikatukaRpcResult<unknown>): str
     case 'PTK45': return '이번 공인 기간의 1회 도전을 이미 사용했습니다.';
     case 'PTK46': return '기존 공인 기록에 중복 데이터가 있어 1회 제한을 적용할 수 없습니다.';
     case 'PTK47': return '공인 도전 공개 상태 값이 올바르지 않습니다.';
+    case 'PTK48': return '기존 라카루카 공인 기록을 Arcade 랭킹 기간에 연결하지 못했습니다.';
+    case 'PTK49': return '선택한 Arcade 랭킹 기간을 찾을 수 없습니다.';
+    case 'PTK50': return '현재 선택한 Arcade 랭킹 기간에서는 새 공인 도전을 시작할 수 없습니다.';
     case 'TIKATUKA_INVALID_TEACHER_INPUT': return '학생 또는 해금 난이도 값이 올바르지 않습니다.';
-    case 'TIKATUKA_INVALID_OFFICIAL_INPUT': return '공인 기록 도전 난이도 값이 올바르지 않습니다.';
+    case 'TIKATUKA_INVALID_COMPETITION_INPUT': return '라카루카 랭킹 기간 값이 올바르지 않습니다.';
+    case 'TIKATUKA_INVALID_OFFICIAL_INPUT': return '공인 기록 도전 난이도 또는 기간 값이 올바르지 않습니다.';
     case 'TIKATUKA_INVALID_OFFICIAL_WINDOW_INPUT': return '공인 도전 공개 설정 값이 올바르지 않습니다.';
     case 'TIKATUKA_INVALID_SERVER_RESPONSE':
       return '라카루카 서버 응답 형식이 올바르지 않습니다. 새 게임을 시작하지 말고 다시 시도해주세요.';
