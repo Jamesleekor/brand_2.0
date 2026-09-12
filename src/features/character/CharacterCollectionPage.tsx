@@ -13,6 +13,21 @@ import { StudentCharacterCollectionsPanel } from './StudentCharacterCollectionsP
 import { characterS1Rpc, type StudentCharacterRecruitmentRow } from '@/lib/rpc/character_s1_rpc';
 import { useWallet } from '@/hooks/useWallet';
 import { cn } from '@/lib/utils/cn';
+import {
+  characterHasElement,
+  getCharacterElementTrait,
+  parseCharacterElementProfile,
+  type CharacterElementFilter,
+  type CharacterElementProfile,
+  type CharacterElementTierFilter,
+  type CharacterElementTraitFilter,
+} from '@/lib/character_elements';
+import {
+  CharacterElementDetailPanel,
+  CharacterElementFilters,
+  CharacterElementInlineSummary,
+  CharacterElementTierBadge,
+} from './CharacterElementsUi';
 
 // =====================================================================
 // B.R.A.N.D 2.0 — Character Collection C2 + C4-C + S1
@@ -39,15 +54,23 @@ const PAGE_TABS: Array<{ key: CharacterPageTab; label: string; icon: string; des
 export default function CharacterCollectionPage() {
   const [tab, setTab] = useState<CharacterPageTab>('LIBRARY');
   const [filter, setFilter] = useState<FilterKey>('ALL');
+  const [elementFilter, setElementFilter] = useState<CharacterElementFilter>('ALL');
+  const [traitFilter, setTraitFilter] = useState<CharacterElementTraitFilter>('ALL');
+  const [tierFilter, setTierFilter] = useState<CharacterElementTierFilter>('ALL');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<StudentCharacterCollectionRow | null>(null);
 
   const collectionQuery = useCharacterCollection();
   const recruitmentQuery = useCharacterRecruitmentStore();
+  const elementQuery = useCharacterElementProfiles();
   const characters = collectionQuery.data ?? [];
   const recruitmentById = useMemo(
     () => new Map((recruitmentQuery.data ?? []).map((row) => [row.character_id, row])),
     [recruitmentQuery.data],
+  );
+  const elementById = useMemo(
+    () => new Map((elementQuery.data ?? []).map((row) => [row.character_id, row])),
+    [elementQuery.data],
   );
 
   const ownedCount = useMemo(
@@ -74,12 +97,35 @@ export default function CharacterCollectionPage() {
         !recruitmentById.get(character.character_id)?.can_self_recruit
       ) return false;
 
+      const elementProfile = elementById.get(character.character_id) ?? null;
+      if (
+        elementFilter !== 'ALL' &&
+        (!elementProfile || !characterHasElement(elementProfile, elementFilter))
+      ) return false;
+      if (
+        traitFilter !== 'ALL' &&
+        (!elementProfile || getCharacterElementTrait(elementProfile) !== traitFilter)
+      ) return false;
+      if (
+        tierFilter !== 'ALL' &&
+        (!elementProfile || elementProfile.element_budget !== tierFilter)
+      ) return false;
+
       if (!needle) return true;
       return [character.name, character.epithet, character.character_uid]
         .filter(Boolean)
         .some((value) => String(value).toLocaleLowerCase('ko-KR').includes(needle));
     });
-  }, [characters, filter, recruitmentById, search]);
+  }, [
+    characters,
+    elementById,
+    elementFilter,
+    filter,
+    recruitmentById,
+    search,
+    tierFilter,
+    traitFilter,
+  ]);
 
   const characterById = useMemo(
     () => new Map(characters.map((character) => [character.character_id, character])),
@@ -106,6 +152,12 @@ export default function CharacterCollectionPage() {
             {recruitmentQuery.isError && (
               <div className="mt-3 rounded-card-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-bold text-warning">
                 영입 가격/경로 정보를 불러오지 못했습니다. 새로고침 후 다시 확인해주세요.
+              </div>
+            )}
+
+            {elementQuery.isError && (
+              <div className="mt-3 rounded-card-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-bold text-warning">
+                편린 속성 정보를 불러오지 못했습니다. 도감은 계속 사용할 수 있지만 속성·성향·체급 필터는 잠시 사용할 수 없습니다.
               </div>
             )}
 
@@ -139,6 +191,16 @@ export default function CharacterCollectionPage() {
                   />
                 </label>
               </div>
+
+              <CharacterElementFilters
+                elementFilter={elementFilter}
+                onElementFilterChange={setElementFilter}
+                traitFilter={traitFilter}
+                onTraitFilterChange={setTraitFilter}
+                tierFilter={tierFilter}
+                onTierFilterChange={setTierFilter}
+                disabled={elementQuery.isLoading || elementQuery.isError}
+              />
             </div>
 
             {collectionQuery.isLoading ? (
@@ -170,6 +232,7 @@ export default function CharacterCollectionPage() {
                     key={character.character_id}
                     character={character}
                     recruitment={recruitmentById.get(character.character_id) ?? null}
+                    elementProfile={elementById.get(character.character_id) ?? null}
                     onClick={() => setSelected(character)}
                   />
                 ))}
@@ -190,6 +253,7 @@ export default function CharacterCollectionPage() {
       <CharacterDetailModal
         character={selected}
         recruitment={selected ? recruitmentById.get(selected.character_id) ?? null : null}
+        elementProfile={selected ? elementById.get(selected.character_id) ?? null : null}
         onClose={() => setSelected(null)}
       />
     </>
@@ -318,10 +382,12 @@ function SummaryPill({ label, value, emphasis = false }: { label: string; value:
 function CharacterCard({
   character,
   recruitment,
+  elementProfile,
   onClick,
 }: {
   character: StudentCharacterCollectionRow;
   recruitment: StudentCharacterRecruitmentRow | null;
+  elementProfile: CharacterElementProfile | null;
   onClick: () => void;
 }) {
   const state = getCharacterState(character, recruitment);
@@ -355,9 +421,14 @@ function CharacterCard({
           <StateBadge state={state} />
         </div>
 
-        {character.is_equipped && (
-          <div className="absolute right-2 top-2 rounded-pill border border-gold/50 bg-bg-base/90 px-2 py-1 text-[9px] font-black text-gold shadow-brand-sm">
-            ✦ 장착중
+        {(elementProfile || character.is_equipped) && (
+          <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
+            {elementProfile && <CharacterElementTierBadge profile={elementProfile} />}
+            {character.is_equipped && (
+              <div className="rounded-pill border border-gold/50 bg-bg-base/90 px-2 py-1 text-[9px] font-black text-gold shadow-brand-sm">
+                ✦ 장착중
+              </div>
+            )}
           </div>
         )}
 
@@ -368,14 +439,15 @@ function CharacterCard({
         )}
       </div>
 
-      <div className="min-h-[86px] p-2.5 lg:p-3">
+      <div className="min-h-[108px] p-2.5 lg:p-3">
         <p className="truncate text-[10px] font-bold text-text-secondary">
           {character.epithet || 'B.R.A.N.D 편린'}
         </p>
         <h3 className="mt-0.5 truncate text-sm font-black text-text-primary lg:text-[15px]">
           {character.name}
         </h3>
-        <p className={cn('mt-2 truncate text-[10px] font-bold', state.textClass)}>
+        {elementProfile && <CharacterElementInlineSummary profile={elementProfile} />}
+        <p className={cn(elementProfile ? 'mt-1.5' : 'mt-2', 'truncate text-[10px] font-bold', state.textClass)}>
           {state.detail}
         </p>
       </div>
@@ -520,10 +592,12 @@ function CharacterArtwork({
 function CharacterDetailModal({
   character,
   recruitment,
+  elementProfile,
   onClose,
 }: {
   character: StudentCharacterCollectionRow | null;
   recruitment: StudentCharacterRecruitmentRow | null;
+  elementProfile: CharacterElementProfile | null;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -564,14 +638,17 @@ function CharacterDetailModal({
             className="flex h-[calc(100dvh-24px)] w-full max-w-[820px] flex-col overflow-hidden rounded-card-xl border border-line-strong bg-bg-base shadow-2xl sm:h-[calc(100dvh-40px)] md:grid md:max-h-[760px] md:grid-cols-[minmax(280px,0.9fr)_minmax(320px,1.1fr)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="relative h-[240px] min-h-[240px] flex-none bg-bg-deep sm:h-[280px] sm:min-h-[280px] md:h-auto md:min-h-0">
-              <div className="absolute inset-0">
-                <CharacterDetailArtwork character={character} />
+            <div className="flex flex-none flex-col bg-bg-deep md:h-full md:min-h-0">
+              <div className="relative h-[240px] min-h-[240px] flex-none sm:h-[280px] sm:min-h-[280px] md:h-auto md:min-h-0 md:flex-1">
+                <div className="absolute inset-0">
+                  <CharacterDetailArtwork character={character} />
+                </div>
+                <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-bg-base to-transparent md:hidden" />
+                <div className="absolute left-3 top-3">
+                  <StateBadge state={getCharacterState(character, recruitment)} />
+                </div>
               </div>
-              <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-bg-base to-transparent md:hidden" />
-              <div className="absolute left-3 top-3">
-                <StateBadge state={getCharacterState(character, recruitment)} />
-              </div>
+              {elementProfile && <CharacterElementDetailPanel profile={elementProfile} />}
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -897,6 +974,23 @@ function useCharacterCollection() {
   });
 }
 
+
+function useCharacterElementProfiles() {
+  return useQuery<CharacterElementProfile[]>({
+    queryKey: ['character-element-profiles'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('character_element_profiles')
+        .select('character_id,element_budget,primary_element,primary_points,secondary_element,secondary_points')
+        .order('character_id', { ascending: true });
+
+      if (error) throw error;
+      return (data ?? []).map((row) => parseCharacterElementProfile(row as Record<string, unknown>));
+    },
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+}
 
 function useCharacterRecruitmentStore() {
   return useQuery<StudentCharacterRecruitmentRow[]>({
