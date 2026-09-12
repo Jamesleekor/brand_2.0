@@ -14,6 +14,8 @@ import './tikatuka-layout.css';
 
 type KnockEvent = Extract<GameEvent, { type: 'DICE_KNOCKED' }>;
 type AiRollRevealEvent = Extract<GameEvent, { type: 'DIE_ROLLED' | 'TAZZA_USED' }>;
+type AiRollStage = 'rolling' | 'result';
+interface AiRollPresentation { event: AiRollRevealEvent; stage: AiRollStage; }
 interface HistoryEntry { id:number; text:string; actor:'player'|'ai'|'system'; }
 
 function eventActor(event:GameEvent):HistoryEntry['actor'] {
@@ -25,7 +27,7 @@ function eventActor(event:GameEvent):HistoryEntry['actor'] {
 export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
   const [history,setHistory]=useState<HistoryEntry[]>([]);
   const [impact,setImpact]=useState<KnockEvent|null>(null);
-  const [aiRollReveal,setAiRollReveal]=useState<AiRollRevealEvent|null>(null);
+  const [aiRollPresentation,setAiRollPresentation]=useState<AiRollPresentation|null>(null);
   const sequenceRef=useRef(0);
   const impactTimerRef=useRef<number|null>(null);
   const aiRevealStartTimerRef=useRef<number|null>(null);
@@ -49,7 +51,7 @@ export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
         setHistory([]); sequenceRef.current=0; gameEndedRef.current=false;
         seenEventsRef.current=new WeakSet<object>(); seenEventsRef.current.add(event);
         clearAiRevealTimers();
-        setAiRollReveal(null);
+        setAiRollPresentation(null);
       }
       const text=getEventLogText(event);
       if (text) {
@@ -59,13 +61,13 @@ export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
       }
       if ((event.type==='DIE_ROLLED' || event.type==='TAZZA_USED') && event.side==='ai') {
         clearAiRevealTimers();
-        setAiRollReveal(null);
+        setAiRollPresentation({event,stage:'rolling'});
         const revealDelay=event.type==='DIE_ROLLED' ? RAKARUKA_DICE_REVEAL_MS : RAKARUKA_TAZZA_REVEAL_MS;
         aiRevealStartTimerRef.current=window.setTimeout(()=>{
           aiRevealStartTimerRef.current=null;
-          setAiRollReveal(event);
+          setAiRollPresentation({event,stage:'result'});
           aiRevealEndTimerRef.current=window.setTimeout(()=>{
-            setAiRollReveal(null);
+            setAiRollPresentation(null);
             aiRevealEndTimerRef.current=null;
           },RAKARUKA_AI_RESULT_HOLD_MS);
         },revealDelay);
@@ -89,7 +91,7 @@ export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
     {history.length > 0 && <RakarukaActionHistory entries={history}/>} 
     <TikatukaGameCore {...props}/>
     <RakarukaRulesGuide/>
-    {aiRollReveal && <AiRollRevealOverlay event={aiRollReveal}/>} 
+    {aiRollPresentation && <AiRollRevealOverlay event={aiRollPresentation.event} stage={aiRollPresentation.stage}/>} 
     {impact && <KnockImpactOverlay event={impact}/>} 
   </div>;
 }
@@ -102,14 +104,21 @@ function RakarukaActionHistory({entries}:{entries:HistoryEntry[]}) {
   </section>;
 }
 
-function AiRollRevealOverlay({event}:{event:AiRollRevealEvent}) {
+function AiRollRevealOverlay({event,stage}:{event:AiRollRevealEvent;stage:AiRollStage}) {
   const die=event.type==='DIE_ROLLED' ? event.die : event.next;
+  const reroll=event.type==='TAZZA_USED';
   return <div className="pointer-events-none fixed inset-0 z-[65] flex items-center justify-center bg-black/20 p-4 backdrop-blur-[1px]">
     <div className="w-full max-w-sm rounded-3xl border border-rose-300/45 bg-[#100b12]/95 p-6 text-center shadow-2xl backdrop-blur-xl">
       <div className="text-sm font-black tracking-[0.16em] text-rose-300">🎲 상대 AI의 주사위</div>
-      <div className="mx-auto mt-5 flex h-28 w-28 items-center justify-center rounded-3xl border-2 border-rose-300/70 bg-rose-400/10 font-display text-6xl font-black text-white shadow-[0_0_32px_rgba(251,113,133,0.18)]">{die.value}</div>
-      <div className="mt-5 text-xl font-black text-white">상대 AI가 숫자 {die.value}을(를) 얻었습니다.</div>
-      <div className="mt-2 text-sm font-bold text-slate-300">{event.type==='TAZZA_USED'?'타짜 재굴림 결과':'굴림 결과'} · 1.5초 뒤 수를 결정합니다.</div>
+      {stage==='rolling' ? <>
+        <div className="mx-auto mt-5 flex h-28 w-28 animate-spin items-center justify-center rounded-3xl border-2 border-rose-300/55 bg-rose-400/10 text-6xl shadow-[0_0_32px_rgba(251,113,133,0.18)] [animation-duration:450ms]">🎲</div>
+        <div className="mt-5 text-xl font-black text-white">{reroll?'타짜! 다시 굴리는 중...':'상대 AI가 주사위를 굴립니다'}</div>
+        <div className="mt-2 text-sm font-bold text-slate-300">{reroll?'2.5초 후 재굴림 결과 공개':'2초 후 결과 공개'}</div>
+      </> : <>
+        <div className="mx-auto mt-5 flex h-28 w-28 items-center justify-center rounded-3xl border-2 border-rose-300/70 bg-rose-400/10 font-display text-6xl font-black text-white shadow-[0_0_32px_rgba(251,113,133,0.18)]">{die.value}</div>
+        <div className="mt-5 text-xl font-black text-white">상대 AI가 숫자 {die.value}을(를) 얻었습니다.</div>
+        <div className="mt-2 text-sm font-bold text-slate-300">{reroll?'타짜 재굴림 결과':'굴림 결과'} · 1.5초 동안 결과를 확인합니다.</div>
+      </>}
     </div>
   </div>;
 }
