@@ -11,17 +11,19 @@
 - Phase 6 closeout checkpoint: `821cf4b780e5e54c659c7b0e6ce336f6366226b7`
 - Phase 7 source closeout checkpoint: `3c42b0d0f114d06a5b5e1721077f99cf3e4df735`
 - Rakaruka display rename checkpoint: `d6147e3f66858e64dbefc7c226b5477e2442d1b0`
+- Production migration/status checkpoint before RPC smoke: `e2167e760a3933432fe90e17b31f9d1cd531ba10`
 - Current branch: `feat/tikatuka-phase7-persistence`
 - Specification: `tikatuka_engine_ai_spec_v1.2.md`
 
 ## Current phase
 - Phase 7 — progress persistence and result integrity — **COMPLETE**
 - Production Supabase migration — **APPLIED**
-- Authenticated student end-to-end smoke test — **PENDING**
+- Authenticated production RPC end-to-end smoke test — **PASS**
+- Browser/UI click-through smoke test — **PENDING**
 - Merge/deploy of frontend feature branch to `main` — **NOT YET DONE**
 
 ## Last known good implementation checkpoint before this status update
-- Commit: `d6147e3f66858e64dbefc7c226b5477e2442d1b0`
+- Commit: `e2167e760a3933432fe90e17b31f9d1cd531ba10`
 - CI: `npm ci` PASS
 - Automated tests: **49/49 PASS**
 - Production build: `npm run build` PASS
@@ -61,6 +63,27 @@
 - `tikatuka_games_guard_history` trigger exists and is enabled.
 - Immediately after deployment both new tables contained 0 rows, so migration introduced no synthetic student/game records.
 
+## Production authenticated RPC E2E smoke — PASS
+The production DB smoke test used only the dedicated test student `테스트요원 / QA-01` (`is_test_account=true`). The JWT subject was injected into a DB transaction so the real `auth.uid() -> current_student_id() -> current_classroom_id()` path and the same public student RPCs used by the frontend were exercised.
+
+All gameplay writes were performed inside one transaction and **ROLLED BACK** after assertions. A final production row-count check confirmed `tikatuka_progress = 0` and `tikatuka_games = 0`, so no smoke-test progression or game history remains in production.
+
+Verified checks:
+1. Fresh progress returns 0 games and only Lv1 unlocked.
+2. Lv2 start before clearing Lv1 is rejected with `PTK03`.
+3. Lv1 start issues a server UUID at difficulty 1.
+4. A server-validated Lv1 player win unlocks Lv2 and records one win in the transaction.
+5. A fresh `student_get_tikatuka_progress()` call sees Lv2 unlocked and cleared difficulty `[1]`.
+6. Resubmitting the exact same result/game UUID returns `duplicate=true` without increasing games played.
+7. Reusing the same completed game UUID with different result data is rejected with `PTK05`.
+8. Lv2 can be issued after the verified Lv1 win.
+9. A Lv2 loss is accepted but does not unlock Lv3.
+10. A Lv2 draw is accepted but does not unlock Lv3.
+11. Lv3 remains rejected with `PTK03` after the loss/draw sequence.
+12. Logged-out and unmapped-auth contexts are rejected with `PTK01`.
+
+The smoke used structurally valid completed boards so PostgreSQL executed the same final-board validation, row scoring, raw-pip calculation, row-win calculation, winner recomputation, skill/counter bounds, idempotency, and progression code paths used by the production frontend.
+
 ## Security-advisor interpretation
 - Supabase reports `rls_enabled_no_policy` INFO for the two Tikatuka tables. This is intentional: direct authenticated table privileges are revoked and access is RPC-only.
 - Supabase reports the three student RPCs as authenticated-executable `SECURITY DEFINER` functions. This is intentional; each RPC derives the current student/classroom from authenticated server context and anon EXECUTE is revoked.
@@ -97,23 +120,24 @@ Therefore Rakaruka remains intentionally disconnected from official Arcade ranki
 - Phase 7 progression/persistence contract tests remain green.
 - Total automated coverage: **49/49 PASS**.
 - Production build: **PASS** after the Rakaruka display rename.
+- Production authenticated RPC smoke: **12/12 PASS** with all transactional test writes rolled back.
 
 ## Current deployment boundary
-- Production DB: **ready**; Phase 7 migration is applied.
-- Feature branch frontend: **ready for local authenticated testing**.
+- Production DB: **ready**; Phase 7 migration is applied and authenticated RPC E2E passed.
+- Feature branch frontend: **ready for browser smoke testing**.
 - `main`: **unchanged** at the recorded baseline; the Rakaruka frontend has not yet been merged/deployed from this feature branch.
 - A hosted production frontend will not show Rakaruka until the feature branch is merged/deployed.
 
-## Remaining smoke test
-Use a real authenticated student account against the feature branch frontend and verify:
-1. Initial progress loads with only Lv1 available.
-2. Lv2 cannot be started before Lv1 is cleared.
-3. A verified Lv1 player win unlocks Lv2.
-4. Refresh preserves the unlocked level.
-5. Loss/draw does not unlock another level.
-6. Result submission reconciles successfully and retry works after a transient failure.
-7. Logout/invalid auth cannot call the student RPCs.
-8. A duplicate identical result remains idempotent.
+## Remaining browser smoke test
+The remaining check is UI integration rather than DB contract validation. Against the feature branch frontend, verify by clicking through:
+1. Arcade card/header/start button display **라카루카**.
+2. Initial selector shows only Lv1 available.
+3. Starting Lv1 reaches the playable 3x3 board.
+4. Tazza/HOLD/shield/AI turns render and controls enable/disable correctly.
+5. Game-over result submission resolves without a UI error.
+6. A real Lv1 win refreshes the selector with Lv2 unlocked.
+7. Refresh/re-entry preserves the server progress.
+8. Result-submit retry UI behaves correctly if a transient RPC failure is deliberately induced.
 
 ## Recovery rule
 If a later session is interrupted, do not continue from memory. Read this file, fetch the active implementation branch HEAD, verify the latest CI result, and resume only from the most recent successful checkpoint.
