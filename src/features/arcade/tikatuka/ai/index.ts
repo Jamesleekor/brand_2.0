@@ -7,3 +7,4 @@ export * from './stateHash';
 export * from './searchContext';
 export * from './evaluateTazza';
 export * from './turnSimulation';
+export * from './search';

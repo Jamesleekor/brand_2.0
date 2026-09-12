@@ -1,5 +1,5 @@
 import { canUseTazza } from '../engine/rules/tazza';
-import type { DieValue, GameState } from '../engine/types';
+import type { DieValue, GameState, Side } from '../engine/types';
 import { rankAIPlacementCandidates } from './evaluatePlacement';
 import { getAIProfile } from './profiles';
 import type { AIProfile } from './types';
@@ -19,30 +19,31 @@ export interface AITazzaEvaluation {
 
 export function createHypotheticalTazzaState(
   state: GameState,
+  side: Side,
   value: DieValue,
 ): GameState {
   const currentDie = state.turn.currentDie;
-  if (!canUseTazza(state, 'ai') || currentDie === null || currentDie.kind !== 'normal') {
-    throw new Error('타카투카 AI Tazza 가상 상태를 만들 수 없는 상태입니다.');
+  if (!canUseTazza(state, side) || currentDie === null || currentDie.kind !== 'normal') {
+    throw new Error('타카투카 search에서 Tazza 가상 상태를 만들 수 없는 상태입니다.');
   }
 
   return {
     ...state,
     sides: {
       ...state.sides,
-      ai: {
-        ...state.sides.ai,
+      [side]: {
+        ...state.sides[side],
         skills: {
-          ...state.sides.ai.skills,
-          tazzaRemaining: state.sides.ai.skills.tazzaRemaining - 1,
+          ...state.sides[side].skills,
+          tazzaRemaining: state.sides[side].skills.tazzaRemaining - 1,
         },
       },
     },
     stats: {
       ...state.stats,
-      ai: {
-        ...state.stats.ai,
-        tazzaUsed: state.stats.ai.tazzaUsed + 1,
+      [side]: {
+        ...state.stats[side],
+        tazzaUsed: state.stats[side].tazzaUsed + 1,
       },
     },
     turn: {
@@ -57,10 +58,7 @@ export function createHypotheticalTazzaState(
   };
 }
 
-/**
- * Evaluates Tazza without touching gameRng.
- * The six legal reroll values are enumerated at uniform 1/6 probability.
- */
+/** Enumerates 1..6 at uniform probability; never touches gameRng. */
 export function evaluateAITazza(
   state: GameState,
   profile: AIProfile = getAIProfile(state.difficulty),
@@ -70,27 +68,19 @@ export function evaluateAITazza(
   }
 
   const currentRanked = rankAIPlacementCandidates(state, profile);
-  if (currentRanked.length === 0) {
-    throw new Error('Tazza 평가 전에 현재 주사위의 합법 Placement가 필요합니다.');
-  }
+  if (currentRanked.length === 0) throw new Error('Tazza 평가 전에 현재 주사위의 합법 Placement가 필요합니다.');
   const currentBestScore = currentRanked[0].score;
 
   const values: readonly DieValue[] = [1, 2, 3, 4, 5, 6];
   const outcomes = values.map((value): AITazzaOutcomeValue => {
-    const hypothetical = createHypotheticalTazzaState(state, value);
+    const hypothetical = createHypotheticalTazzaState(state, 'ai', value);
     const ranked = rankAIPlacementCandidates(hypothetical, profile);
-    if (ranked.length === 0) {
-      throw new Error(`Tazza 가상 눈 ${value}에서 합법 Placement가 없습니다.`);
-    }
-    return {
-      value,
-      bestPlacementScore: ranked[0].score,
-    };
+    if (ranked.length === 0) throw new Error(`Tazza 가상 눈 ${value}에서 합법 Placement가 없습니다.`);
+    return { value, bestPlacementScore: ranked[0].score };
   });
 
   const rerollExpectedScore = outcomes.reduce((sum, item) => sum + item.bestPlacementScore, 0) / outcomes.length;
   const expectedGain = rerollExpectedScore - currentBestScore;
-
   return {
     currentBestScore,
     rerollExpectedScore,

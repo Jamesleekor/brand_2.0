@@ -24,15 +24,12 @@ function summarizeCombos(board: BoardState): ComboSummary {
 
     for (const die of row.dice) {
       allCounts.set(die.value, (allCounts.get(die.value) ?? 0) + 1);
-      if (die.kind === 'normal') {
-        normalCounts.set(die.value, (normalCounts.get(die.value) ?? 0) + 1);
-      }
+      if (die.kind === 'normal') normalCounts.set(die.value, (normalCounts.get(die.value) ?? 0) + 1);
     }
 
     for (const count of allCounts.values()) {
       if (count === 2) doubles += 1;
       else if (count === 3) triples += 1;
-
       if (!isRowFull(board, rowId)) {
         if (count === 2) openPotential += 2;
         else if (count === 1) openPotential += 0.5;
@@ -49,7 +46,6 @@ function summarizeCombos(board: BoardState): ComboSummary {
 
 function shieldStrategicValue(state: GameState, profile: AIProfile): number {
   if (!profile.evaluateShieldBlock) return 0;
-
   let value = 0;
   const ownWeight = profile.weights.shieldOwnedPlacement;
   const blockWeight = profile.weights.opponentSlotBlock;
@@ -58,12 +54,8 @@ function shieldStrategicValue(state: GameState, profile: AIProfile): number {
     for (const rowId of TIKATUKA_ROW_IDS) {
       for (const die of state.sides[boardSide].board.rows[rowId].dice) {
         if (die.kind !== 'shield') continue;
-
-        if (die.owner === 'ai') {
-          value += boardSide === 'ai' ? ownWeight : blockWeight;
-        } else {
-          value -= boardSide === 'player' ? ownWeight : blockWeight;
-        }
+        if (die.owner === 'ai') value += boardSide === 'ai' ? ownWeight : blockWeight;
+        else value -= boardSide === 'player' ? ownWeight : blockWeight;
       }
     }
   };
@@ -75,7 +67,6 @@ function shieldStrategicValue(state: GameState, profile: AIProfile): number {
   const playerPending = state.sides.player.pendingShieldValue;
   if (aiPending !== null) value += ownWeight * (1 + aiPending / 6);
   if (playerPending !== null) value -= ownWeight * (1 + playerPending / 6);
-
   return value;
 }
 
@@ -112,18 +103,20 @@ export function evaluateStateForAI(state: GameState, profile: AIProfile): number
 
   const aiCombo = summarizeCombos(aiBoard);
   const playerCombo = summarizeCombos(playerBoard);
-
   if (profile.evaluateCombo) {
     score += (aiCombo.doubles - playerCombo.doubles) * profile.weights.double;
     score += (aiCombo.triples - playerCombo.triples) * profile.weights.triple;
     score += (aiCombo.openPotential - playerCombo.openPotential) * profile.weights.openComboPotential;
   }
-
   if (profile.evaluateVulnerability) {
     score += (aiCombo.duplicateRisk - playerCombo.duplicateRisk) * profile.weights.exposedDuplicateRisk;
   }
 
   score += shieldStrategicValue(state, profile);
+
+  // Remaining skills have small option value so search does not burn scarce charges for negligible gain.
+  score += (state.sides.ai.skills.tazzaRemaining - state.sides.player.skills.tazzaRemaining) * profile.weights.tazzaReserve;
+  score += (state.sides.ai.skills.holdRemaining - state.sides.player.skills.holdRemaining) * profile.weights.holdReserve;
 
   if (profile.evaluateEndgame) {
     const occupied = countBoardDice(aiBoard) + countBoardDice(playerBoard);

@@ -11,6 +11,8 @@ export const BASE_AI_WEIGHTS: AIWeights = {
   shieldOwnedPlacement: 2.0,
   opponentSlotBlock: 2.5,
   exposedDuplicateRisk: -2.0,
+  tazzaReserve: 0.8,
+  holdReserve: 1.2,
   terminalWin: 10_000,
   terminalLoss: -10_000,
   terminalDraw: 0,

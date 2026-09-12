@@ -1,7 +1,9 @@
 import type { Difficulty, GameAction, GameState, Placement } from '../engine';
+import type { AISearchAbortReason } from './searchContext';
 
 export type AISearchDepth = 0 | 1 | 2;
 export type AIPlacementAction = Extract<GameAction, { type: 'PLACE_DIE' }>;
+export type AIAdvancedAction = Extract<GameAction, { type: 'PLACE_DIE' | 'USE_TAZZA' | 'HOLD' }>;
 
 export interface AIWeights {
   boardScore: number;
@@ -13,6 +15,8 @@ export interface AIWeights {
   shieldOwnedPlacement: number;
   opponentSlotBlock: number;
   exposedDuplicateRisk: number;
+  tazzaReserve: number;
+  holdReserve: number;
   terminalWin: number;
   terminalLoss: number;
   terminalDraw: number;
@@ -20,7 +24,6 @@ export interface AIWeights {
 
 export interface AIProfile {
   difficulty: Difficulty;
-  /** Reserved for the advanced-search phase. Phase 4 remains immediate-evaluation only. */
   searchDepth: AISearchDepth;
   mistakeRate: number;
   candidatePoolSize: number;
@@ -44,4 +47,19 @@ export interface AIBasicChoice {
   score: number;
   usedMistake: boolean;
   rankedCandidates: readonly AIPlacementCandidate[];
+}
+
+export interface AIAdvancedActionCandidate {
+  action: AIAdvancedAction;
+  score: number;
+}
+
+export interface AIAdvancedChoice {
+  action: AIAdvancedAction;
+  score: number;
+  usedMistake: boolean;
+  rankedCandidates: readonly AIAdvancedActionCandidate[];
+  searchDepth: AISearchDepth;
+  nodesVisited: number;
+  searchAbortReason: AISearchAbortReason | null;
 }
