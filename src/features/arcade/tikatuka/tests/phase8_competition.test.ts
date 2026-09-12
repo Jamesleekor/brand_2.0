@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { TikatukaCompetitionSchema } from '../../../../lib/zod_schemas/tikatuka_competition_schemas';
 import { assert, assertEqual, test } from './testHarness';
 
-test('phase8 competition: frontend schema accepts the confirmed five-match ranking contract', () => {
+test('phase8 competition: frontend schema accepts the confirmed five-match single-attempt contract', () => {
   const sample = {
     period_key: '2026-09',
     general_leaderboard: [
@@ -18,6 +18,11 @@ test('phase8 competition: frontend schema accepts the confirmed five-match ranki
     my_official: { rank: 1, difficulty: 10, wins: 1, draws: 0, losses: 4, points: 3, ranking_score: 163, completed_at: '2026-09-12T13:00:00+09:00' },
     active_challenge: { session_id: 7, difficulty: 8, games_played: 2, remaining_games: 3, wins: 1, draws: 0, losses: 1, points: 3, started_at: '2026-09-12T12:00:00+09:00' },
     recent_challenges: [],
+    official_window_open: true,
+    official_window_opened_at: '2026-09-12T11:50:00+09:00',
+    official_window_closed_at: null,
+    official_attempt_used: true,
+    official_can_start: false,
     rules: { matches_per_challenge: 5, win_points: 3, draw_points: 1, loss_points: 0, minimum_qualifying_points: 3 },
   };
 
@@ -25,6 +30,8 @@ test('phase8 competition: frontend schema accepts the confirmed five-match ranki
   assert(parsed.success, 'competition payload should satisfy the confirmed schema');
   if (!parsed.success) return;
   assertEqual(parsed.data.official_leaderboard[0].ranking_score > parsed.data.official_leaderboard[1].ranking_score, true);
+  assertEqual(parsed.data.official_attempt_used, true);
+  assertEqual(parsed.data.official_can_start, false);
 });
 
 test('phase8 competition migration: official challenge is exactly five verified games with 3/1/0 scoring and three-point qualification', () => {
@@ -54,4 +61,20 @@ test('phase8 competition migration: active challenge locks all newly issued game
   assert(sql.includes('NEW.difficulty <> v_difficulty'));
   assert(sql.includes("ERRCODE = 'PTK43'"));
   assert(sql.includes('BEFORE INSERT ON public.tikatuka_games'));
+});
+
+test('phase8 official day: teacher gate and one-attempt rule are server-enforced', () => {
+  const sql = readFileSync(
+    resolve(process.cwd(), 'supabase/migrations/20260913_01_tikatuka_official_day_single_attempt.sql'),
+    'utf8',
+  );
+
+  assert(sql.includes('CREATE TABLE public.tikatuka_official_windows'));
+  assert(sql.includes('ux_tikatuka_official_one_attempt_student_period'));
+  assert(sql.includes("ERRCODE = 'PTK44'"), 'closed Official Day must reject new challenge starts');
+  assert(sql.includes("ERRCODE = 'PTK45'"), 'second challenge attempt must be rejected');
+  assert(sql.includes('teacher_set_tikatuka_official_window_v1'));
+  assert(sql.includes("'official_attempt_used', v_attempt_used"));
+  assert(sql.includes("'official_can_start', v_open AND NOT v_attempt_used"));
+  assert(sql.includes('Closing Official Day blocks NEW sessions only'));
 });
