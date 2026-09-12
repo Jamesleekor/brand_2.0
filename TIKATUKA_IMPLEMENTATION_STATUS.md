@@ -10,9 +10,13 @@
 ## Current phase
 - Phase 3 — state machine and safety guards
 
+## Last known good
+- Commit: `6ab39d3560ac72e4f6e8d47e87c82298c622a25f`
+- CI: `npm ci` PASS, `npm run build` PASS
+
 ## Checkpoints
 - [x] Phase 3-A: dedicated branch created from Phase 2 last-known-good commit.
-- [ ] Phase 3-B: `validateAction` + state invariants committed and build-verified.
+- [x] Phase 3-B: `validateAction` + state invariants committed and build-verified.
 - [ ] Phase 3-C: reducer / atomic placement transaction committed and build-verified.
 - [ ] Phase 3-D: no-dependency automated rule/state-machine tests added and CI-verified.
 - [ ] Phase 3-E: final regression build and phase closeout.
