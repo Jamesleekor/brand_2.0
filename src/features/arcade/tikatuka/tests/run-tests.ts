@@ -3,6 +3,7 @@ import './phase3_state_machine.test';
 import './phase4_basic_ai.test';
 import './phase5_search_safety.test';
 import './phase5_tazza.test';
+import './phase5_turn_simulation.test';
 import { runRegisteredTests } from './testHarness';
 
 void runRegisteredTests().catch((error) => {
