@@ -3,78 +3,83 @@
 ## Baseline
 - Repository: `Jamesleekor/brand_2.0`
 - Main baseline: `1b5f058508b1eb2480e45650db41c33175a68278`
-- Phase 4 final checkpoint: `4d0e782d977cac3dff5d1e23dc42e36823bbc44f`
-- Current branch: `feat/tikatuka-phase5-advanced-ai`
+- Phase 5 closeout checkpoint: `ab406761db4b85642bbf77d3aa0281b637824c34`
+- Current branch: `feat/tikatuka-phase6-ui-integration`
 - Specification: `tikatuka_engine_ai_spec_v1.2.md`
 
 ## Current phase
-- Phase 5 — advanced AI — **COMPLETE**
+- Phase 6 — UI / Arcade integration — **COMPLETE**
 
 ## Last known good source checkpoint
-- Commit: `e582b5130563db83f96c86955d88136fcd9fda1b`
+- Commit: `5ef1cc1d3a9acbe8b52dbf643cffa398ca99580d`
 - CI: `npm ci` PASS
-- Tikatuka automated tests: **40/40 PASS**
+- Tikatuka automated tests: **44/44 PASS**
 - Production build: `npm run build` PASS
 
 ## Checkpoints
-- [x] Phase 5-A: dedicated branch created from Phase 4 final checkpoint.
-- [x] Phase 5-B: canonical `stateHash`, active-path cycle guard, node limit and hard-time-budget guard added and CI-verified.
-- [x] Phase 5-C: RNG-free Tazza expected-value evaluation added; all six reroll values are enumerated uniformly without peeking/advancing `gameRng`.
-- [x] Phase 5-D: HOLD / Forced Pass / held-die / pending-shield / random-next-turn search simulation added without consuming real RNG.
-- [x] Phase 5-E: final advanced action ranking added for PLACE / TAZZA / HOLD with difficulty-aware depth 0/1/2 search and opponent minimizing responses; CI PASS.
-- [x] Phase 5-F: regression tests added for shield-Tazza prohibition and held-normal next-turn Tazza reset; total 40/40 tests + production build PASS; Phase 4 diff and `main` stability verified.
+- [x] Phase 6-A: dedicated branch created from the Phase 5 closeout checkpoint; existing Arcade page, Game #01/#02 run flow, Core engine and advanced-AI APIs inspected before editing.
+- [x] Phase 6-B: standalone playable React surface added with Lv1–10 test selection, 3×3 boards, score display, legal-placement UI, Tazza/HOLD controls and result screen; tests/build PASS.
+- [x] Phase 6-C: live UI connected only through the existing Core reducer/selectors and `chooseAdvancedAIAction()`; no score/knock/shield rules reimplemented in React.
+- [x] Phase 6-D: Engine `GameEvent[]` presentation queue, board highlights and difficulty-aware AI thinking delay added with UI randomness isolated from `gameRng`/`aiRng`.
+- [x] Phase 6-E: Tikatuka Game #03 local-play entry connected to `ArcadePage.tsx` without entering the existing server-run bootstrap/leaderboard flow; integration CI PASS.
+- [x] Phase 6-F: event-animation timer lifecycle reviewed and hardened, Phase 5 diff scope verified, `main` stability verified, final 44/44 tests + production build PASS.
 
-## Phase 5 delivered
-- Canonical AI state hash excludes irrelevant identifiers/statistics while retaining all rule-relevant board, die, skill, pending, held and turn data.
-- Search has active-path repetition protection plus `maxNodes=5000` and `hardTimeBudgetMs=100` production safeguards.
-- Tazza decision uses uniform 1..6 expected value and never inspects the actual future `gameRng` result.
-- A low die can correctly be kept when it has strong knock/combo value; a high useful die is not rerolled merely because Tazza is available.
-- HOLD search preserves the exact die, spends the HOLD resource only for voluntary HOLD, and models the opponent intervening turn before that die returns.
-- Next-turn search obeys `heldDie > pendingShield > normal roll`; random normal roll is represented as six 1/6 chance branches rather than consuming `gameRng`.
-- Forced Pass remains distinct from HOLD and preserves the exact die without spending a HOLD charge.
-- Search depth is measured by future completed turns, so HOLD cannot create unbounded same-board recursion.
-- Future AI turns maximize AI evaluation; future Player turns minimize it; random rolls are chance nodes.
-- Difficulty profile is active: Lv1–4 depth 0, Lv5–7 depth 1, Lv8–10 depth 2.
-- AI skill availability remains the confirmed v1.2 table: Tazza from Lv4, HOLD from Lv7, with Lv8–10 having Tazza 2 / HOLD 1.
-- Remaining Tazza/HOLD charges have small option value so the search avoids wasting scarce skills for negligible gains.
-- Root mistakes remain bounded to near-best candidates and use only `aiRng`; Lv10 top-1 policy does not consume mistake RNG.
-- AI search does not perturb actual game RNG sequence.
+## Phase 6 delivered
+- `src/features/arcade/tikatuka/ui/TikatukaGame.tsx` provides a complete playable Player-vs-AI game surface.
+- Setup screen exposes Lv1–10 during Phase 6 testing and shows Player/AI Tazza and HOLD resources for the selected difficulty.
+- Live gameplay uses `dispatchTikatukaAction()` for Player and AI actions; UI does not mutate game rules or board state independently.
+- AI decisions use the completed Phase 5 `chooseAdvancedAIAction()` implementation, including difficulty-aware PLACE / TAZZA / HOLD behavior.
+- Player legal-placement highlighting is generated by Core `getLegalPlacements()`; normal dice stay on the Player board and shield dice naturally expose both boards as legal targets when allowed.
+- Row and board scores come from Core `calculateRowScore()` / `calculateBoardScore()` selectors.
+- Tazza and HOLD buttons are gated by Core `canUseTazza()` / `canHold()` rules.
+- Separate seeded `gameRng` and `aiRng` are created per local game. UI-only thinking delay randomness uses a separate browser randomness path and cannot alter die outcomes or AI decision RNG.
+- AI thinking delay follows the confirmed bands: Lv1–3 400–700ms, Lv4–7 600–900ms, Lv8–10 800–1200ms.
+- Engine events are shown as sequential presentation banners for roll, placement, knock, shield, Tazza, HOLD, turn change and game finish events.
+- Placement/knock rows receive temporary visual emphasis; duplicate-value dice receive a visual link/ring while scoring remains entirely Core-owned.
+- Pending shields and held dice are visible in side status cards.
+- Result screen reads the engine-produced `GameResult` and shows winner, Row wins, score, raw pips, knocks and shields without recomputing victory rules in React.
+- Animation queue consumption and animation timeout are separate effects so a React state update cannot prematurely cancel the currently displayed event timer.
+- `ArcadePage.tsx` now exposes a separate Game #03 Tikatuka launcher. Existing Game #01/#02 server-run, ranking, verification and submission flows remain unchanged.
+- If an existing server-backed Arcade run is active, the Tikatuka launcher is disabled until that run ends.
 
-## Automated coverage after Phase 5
-- Core rules/state-machine tests remain green.
-- AI state hash equivalence/difference cases.
-- Active-path cycle guard and node/time budget cutoffs.
-- Tazza low-roll/high-roll/strong-knock EV cases.
-- Tazza hypothetical evaluation does not mutate live state or consume RNG.
-- HOLD exact-die/resource/stat simulation.
-- held-die and pending-shield deterministic next-turn priority.
-- normal next-roll six-way 1/6 chance branching.
-- Forced Pass exact-die preservation without HOLD cost.
-- Difficulty-gated action availability: placement-only early levels, Tazza from Lv4, HOLD from Lv7.
-- Lv8 depth-2 constrained search completes inside node limits.
-- Search does not alter game RNG sequence.
-- Lv10 top-1 policy avoids unnecessary `aiRng` consumption.
-- Shield current die never exposes Tazza.
-- Held normal returns next own turn with `tazzaUsedThisTurn=false` and may use remaining Tazza.
+## Automated coverage after Phase 6
+- All 40 Phase 2–5 Core/state-machine/AI tests remain green.
+- AI thinking-delay bands are locked to the confirmed difficulty ranges.
+- Difficulty labels cover all ten levels.
+- Knock and shield Engine events map to readable UI presentation data.
+- Game-finished presentation consumes the engine-provided winner/result instead of recomputing the game outcome.
+- Total Tikatuka automated coverage: **44/44 PASS**.
 
 ## Regression scope
-Compared with the Phase 4 final checkpoint, Phase 5 changes are limited to:
-- `src/features/arcade/tikatuka/ai/*`
-- `src/features/arcade/tikatuka/tests/phase5_*`
+Compared with the Phase 5 closeout checkpoint, Phase 6 changes are limited to:
+- `src/features/arcade/ArcadePage.tsx` — Tikatuka import, local Game #03 launcher, local Tikatuka surface switch only
+- `src/features/arcade/tikatuka/ui/TikatukaGame.tsx`
+- `src/features/arcade/tikatuka/ui/presentation.ts`
+- `src/features/arcade/tikatuka/tests/phase6_ui_presentation.test.ts`
 - Tikatuka test registration
 - this status document
 
-No Phase 5 changes were made to:
-- `ArcadePage.tsx`
-- existing Game #01 / Game #02 implementations
-- Supabase RPC/schema/migrations
+No Phase 6 changes were made to:
+- Tikatuka Core engine rules/state machine
+- Tikatuka advanced-AI implementation
+- existing `FocusReactionGame` / `PureReactionGame` source
+- Arcade Supabase RPC/schema/migrations
 - production DB
+- difficulty progress persistence
+- server result submission
 - `main`
 
-`main` was rechecked at Phase 5 closeout and remains `1b5f058508b1eb2480e45650db41c33175a68278`.
+`main` was rechecked at Phase 6 closeout and remains `1b5f058508b1eb2480e45650db41c33175a68278`.
+
+## Deliberately deferred to Phase 7
+- Persisted `TikatukaProgress` / highest-unlocked difficulty.
+- Clear-prior-level unlock enforcement in production UI.
+- Trusted/idempotent server-side result submission and duplicate `gameId` protection.
+- Any official reward/ranking integration tied to a Tikatuka result.
+- Replacing the Phase 6 all-level test selector with persisted unlock state.
 
 ## Infrastructure note
-CI succeeds with the repository's existing setup. GitHub Actions/Supabase still emit the pre-existing Node-version deprecation/engine warnings. The project currently builds successfully despite those warnings; do not mix a Node-runtime migration into the Tikatuka feature phases.
+CI succeeds with the repository's existing setup. GitHub Actions/Supabase still emit the pre-existing Node-version deprecation/engine warnings. The project builds successfully despite those warnings; do not mix a Node-runtime migration into the Tikatuka feature phases.
 
 ## Recovery rule
 If a later session is interrupted, do not continue from memory. Read this file, fetch the active implementation branch HEAD, verify the latest CI result, and resume only from the most recent successful checkpoint.
@@ -84,9 +89,9 @@ If a later session is interrupted, do not continue from memory. Read this file, 
 2. Keep phase/checkpoint commits recoverable.
 3. Do not stack new work on failing tests or build.
 4. `gameRng`, `aiRng`, and UI randomness stay separate.
-5. AI simulation must reuse Core rules; do not duplicate score/knock/shield logic in AI.
-6. Search must never read or advance future `gameRng` for decision making.
-7. UI/Supabase integration remains deferred to its assigned phase.
+5. React/UI must consume Core state and selectors rather than duplicating game-rule logic.
+6. AI simulation/search must never read or advance future `gameRng` for decision making.
+7. Phase 7 persistence/result integrity must be added without retrofitting client-only trust into meaningful progress/rewards.
 
 ## Next phase
-- Phase 6 — UI / Arcade integration: create the Tikatuka React game surface, connect the existing Core engine and advanced AI, implement event-driven animations/thinking delay, and integrate the game entry into the Arcade page without touching persistence yet.
+- Phase 7 — progress persistence and result integrity: persisted difficulty unlocks, clear-prior-level progression, authenticated/idempotent Tikatuka result submission, duplicate-game protection, and production UI integration for locked/unlocked difficulties. Official reward/ranking behavior must remain explicit rather than assumed.
