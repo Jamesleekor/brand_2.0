@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import type { GameEvent } from '../engine';
 import { TikatukaGame as TikatukaGameCore } from './TikatukaGameCore';
+import { RakarukaCompetitionPanel } from './RakarukaCompetitionPanel';
 import { getEventLogText, RAKARUKA_UI_EVENT, rowLabel } from './presentation';
 import './tikatuka-effects.css';
 
@@ -31,9 +32,6 @@ export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
       const event = (raw as CustomEvent<GameEvent>).detail;
       if (!event) return;
 
-      // React development StrictMode may replay an effect. The engine event object is
-      // the same reference, so record/animate it only once without suppressing later
-      // legitimate events that merely have identical values.
       if (seenEventsRef.current.has(event)) return;
       seenEventsRef.current.add(event);
 
@@ -74,6 +72,7 @@ export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
   return (
     <div className="relative space-y-4">
       <TikatukaGameCore {...props} />
+      <RakarukaCompetitionPanel />
       <RakarukaActionHistory entries={history} />
       <RakarukaRulesGuide />
       {impact && <KnockImpactOverlay event={impact} />}
