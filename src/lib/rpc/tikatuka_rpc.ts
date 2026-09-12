@@ -32,9 +32,6 @@ export interface TikatukaRpcError {
   hint?: string | null;
 }
 
-// The app tsconfig currently has strict=false. Keeping both union keys present as optional
-// makes the result ergonomic under those control-flow rules while `success` remains the
-// authoritative runtime discriminator. No success response carries an actual error value.
 export type TikatukaRpcResult<T> =
   | { success: true; data: T; error?: undefined }
   | { success: false; error: TikatukaRpcError; data?: undefined };
@@ -159,6 +156,7 @@ export function tikatukaRpcErrorMessage(result: TikatukaRpcResult<unknown>): str
     case 'PTK40': return '라카루카 랭킹 기능에 필요한 서버 구성이 아직 적용되지 않았습니다.';
     case 'PTK41': return '공인 기록 도전 난이도가 올바르지 않습니다.';
     case 'PTK42': return '이미 진행 중인 공인 기록 도전이 있습니다. 현재 5판을 먼저 완료해주세요.';
+    case 'PTK43': return '공인 기록 도전이 진행 중입니다. 공인 도전에서 선택한 난이도로만 플레이할 수 있습니다.';
     case 'TIKATUKA_INVALID_TEACHER_INPUT': return '학생 또는 해금 난이도 값이 올바르지 않습니다.';
     case 'TIKATUKA_INVALID_OFFICIAL_INPUT': return '공인 기록 도전 난이도 값이 올바르지 않습니다.';
     case 'TIKATUKA_INVALID_SERVER_RESPONSE':
