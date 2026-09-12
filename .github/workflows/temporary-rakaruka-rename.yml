@@ -1,0 +1,56 @@
+name: Temporary Rakaruka Display Rename
+
+on:
+  push:
+    branches:
+      - feat/tikatuka-phase7-persistence
+
+permissions:
+  contents: write
+
+jobs:
+  rename-display-text:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/tikatuka-phase7-persistence
+          fetch-depth: 0
+
+      - name: Rename user-facing game text
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          src = Path('src')
+          changed = []
+          for path in src.rglob('*'):
+              if not path.is_file() or path.suffix not in {'.ts', '.tsx', '.js', '.jsx'}:
+                  continue
+              text = path.read_text(encoding='utf-8')
+              next_text = text.replace('타카투카', '라카루카')
+              if path.as_posix() == 'src/features/arcade/ArcadePage.tsx':
+                  next_text = next_text.replace(
+                      '현재 Phase 6에서는 로컬 플레이만 연결되어 있으며 결과 저장과 난이도 해금은 다음 단계에서 적용됩니다.',
+                      '진행도와 난이도 해금은 서버에 저장되며, 승리한 단계의 다음 난이도만 순차적으로 해금됩니다.'
+                  )
+              if next_text != text:
+                  path.write_text(next_text, encoding='utf-8')
+                  changed.append(path.as_posix())
+
+          if not changed:
+              raise SystemExit('No Rakaruka display-name changes were produced.')
+          print('\n'.join(changed))
+          PY
+
+      - name: Commit rename
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src
+          git diff --cached --check
+          git commit -m "refactor(arcade): rename Tikatuka display name to Rakaruka"
+          git push origin HEAD:feat/tikatuka-phase7-persistence
