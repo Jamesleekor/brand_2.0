@@ -90,9 +90,43 @@ test('phase8 layout: ranking lives on Arcade selector and not inside live Rakaru
 
   assert(arcadePage.includes('<RakarukaCompetitionPanel periodId={selectedPeriod.id} />'));
   assert(arcadePage.includes('랭킹 기간 선택'));
+  assert(arcadePage.includes('월간 Top 10 보너스 기준'));
   assert(!arcadePage.includes('월간 Top 10과는 별도의 전략 게임입니다.'));
   assert(!gamePage.includes('RakarukaCompetitionPanel'));
   assert(gamePage.indexOf('<RakarukaActionHistory') < gamePage.indexOf('<TikatukaGameCore'));
   assert(layoutCss.includes('min-height: 108px'));
   assert(layoutCss.includes('> div:last-child'));
+});
+
+test('phase8 opponent UX: every difficulty maps to the intended shard character', () => {
+  const opponents = readFileSync(resolve(process.cwd(), 'src/features/arcade/tikatuka/ui/opponents.ts'), 'utf8');
+  const expected = [
+    "1: {\n    difficulty: 1,\n    characterUid: 'CHAR-001'",
+    "2: {\n    difficulty: 2,\n    characterUid: 'CHAR-004'",
+    "3: {\n    difficulty: 3,\n    characterUid: 'CHAR-015'",
+    "4: {\n    difficulty: 4,\n    characterUid: 'CHAR-043'",
+    "5: {\n    difficulty: 5,\n    characterUid: 'CHAR-047'",
+    "6: {\n    difficulty: 6,\n    characterUid: 'CHAR-076'",
+    "7: {\n    difficulty: 7,\n    characterUid: 'CHAR-064'",
+    "8: {\n    difficulty: 8,\n    characterUid: 'CHAR-052'",
+    "9: {\n    difficulty: 9,\n    characterUid: 'CHAR-055'",
+    "10: {\n    difficulty: 10,\n    characterUid: 'CHAR-022'",
+  ];
+  for (const marker of expected) assert(opponents.includes(marker), `missing opponent mapping: ${marker}`);
+  assert(opponents.includes("name: '레티시아'"));
+  assert(opponents.includes("name: '아스텔'"));
+});
+
+test('phase8 opponent UX: AI roll result is shown before thinking can begin', () => {
+  const gamePage = readFileSync(resolve(process.cwd(), 'src/features/arcade/tikatuka/ui/TikatukaGame.tsx'), 'utf8');
+  const presentation = readFileSync(resolve(process.cwd(), 'src/features/arcade/tikatuka/ui/presentation.ts'), 'utf8');
+
+  assert(gamePage.includes("setAiRollPresentation({event,stage:'rolling'})"));
+  assert(gamePage.includes("setAiRollPresentation({event,stage:'result'})"));
+  assert(gamePage.includes('1.5초 동안 결과를 확인합니다.'));
+  assert(gamePage.includes('<OpponentEncounterCard'));
+  assert(gamePage.includes('characterC2Rpc.myCollection(supabase)'));
+  assert(presentation.includes('export const RAKARUKA_AI_RESULT_HOLD_MS = 1_500'));
+  assert(presentation.includes("RAKARUKA_DICE_REVEAL_MS + (event.side === 'ai' ? RAKARUKA_AI_RESULT_HOLD_MS : 0)"));
+  assert(presentation.includes("RAKARUKA_TAZZA_REVEAL_MS + (event.side === 'ai' ? RAKARUKA_AI_RESULT_HOLD_MS : 0)"));
 });
