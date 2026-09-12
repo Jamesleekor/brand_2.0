@@ -4,5 +4,6 @@ export * from './rng';
 export * from './initialState';
 export * from './invariants';
 export * from './validateAction';
+export * from './placementResolution';
 export * from './reducer';
 export * from './rules';

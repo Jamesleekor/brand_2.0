@@ -8,15 +8,13 @@ import type {
   TurnState,
 } from './types';
 import { assertGameStateInvariant } from './invariants';
+import { resolvePlacementOutcome } from './placementResolution';
 import { validateAction } from './validateAction';
 import { otherSide } from './rules/board';
 import { canUseTazza, rollTazzaReplacement } from './rules/tazza';
 import { canHold } from './rules/hold';
-import { placeDie, shouldForcePass } from './rules/placement';
-import { resolveKnockOff } from './rules/knock';
-import { queuePendingShield } from './rules/shield';
+import { shouldForcePass } from './rules/placement';
 import { prepareTurnDieForSide } from './rules/turn';
-import { createGameResult, isGameOver } from './rules/victory';
 
 const MAX_AUTOMATIC_TURN_TRANSITIONS = 4;
 
@@ -237,71 +235,9 @@ function resolveForcedPass(state: GameState, actor: Side, deps: EngineDependenci
   return advanceToNextTurn(turnEndState, deps, [{ type: 'FORCED_PASS', side: actor, die }]);
 }
 
-function resolvePlacementUnchecked(
-  state: GameState,
-  action: Extract<GameAction, { type: 'PLACE_DIE' }>,
-  actor: Side,
-  deps: EngineDependencies,
-): EngineTransition {
-  const die = state.turn.currentDie;
-  if (die === null) throw new Error('타카투카 내부 오류: PLACE 시 currentDie가 없습니다.');
-
-  const placement = { targetSide: action.targetSide, row: action.row } as const;
-  let working: GameState = { ...state, phase: 'resolving_place' };
-  const events: GameEvent[] = [];
-
-  working = placeDie(working, actor, die, placement);
-  events.push({ type: 'DIE_PLACED', side: actor, die, placement });
-
-  const knock = resolveKnockOff(working, actor, placement, die);
-  working = knock.nextState;
-
-  if (knock.result.triggered) {
-    events.push({
-      type: 'DICE_KNOCKED',
-      attackingSide: actor,
-      targetSide: knock.result.targetSide,
-      row: knock.result.row,
-      removedDice: knock.result.removedDice,
-    });
-
-    working = queuePendingShield(working, actor, die.value);
-    working = {
-      ...working,
-      stats: {
-        ...working.stats,
-        [actor]: {
-          ...working.stats[actor],
-          knockCount: working.stats[actor].knockCount + 1,
-          diceRemoved: working.stats[actor].diceRemoved + knock.result.removedDice.length,
-          shieldsEarned: working.stats[actor].shieldsEarned + 1,
-        },
-      },
-    };
-    events.push({ type: 'SHIELD_QUEUED', side: actor, value: die.value });
-  }
-
-  working = {
-    ...working,
-    phase: 'turn_end',
-    turn: emptyTurnState(),
-  };
-
-  // Game-over is checked only after placement + knock + pending-shield/stat resolution.
-  if (isGameOver(working)) {
-    const result = createGameResult(working);
-    const gameOverState: GameState = {
-      ...working,
-      phase: 'game_over',
-      winner: result.winner,
-      result,
-    };
-    events.push({ type: 'GAME_FINISHED', result });
-    assertGameStateInvariant(gameOverState);
-    return { nextState: gameOverState, events };
-  }
-
-  return advanceToNextTurn(working, deps, events);
+function continueAfterPlacementOutcome(outcome: EngineTransition, deps: EngineDependencies): EngineTransition {
+  if (outcome.nextState.phase === 'game_over') return outcome;
+  return advanceToNextTurn(outcome.nextState, deps, outcome.events);
 }
 
 export function resolvePlacementTransaction(
@@ -310,10 +246,7 @@ export function resolvePlacementTransaction(
   actor: Side,
   deps: EngineDependencies,
 ): EngineTransition {
-  assertGameStateInvariant(state);
-  const validation = validateAction(state, action, actor);
-  if (!validation.ok) throw invalidActionError(action, validation.reason);
-  return resolvePlacementUnchecked(state, action, actor, deps);
+  return continueAfterPlacementOutcome(resolvePlacementOutcome(state, action, actor), deps);
 }
 
 export function dispatchTikatukaAction(
@@ -353,7 +286,7 @@ export function dispatchTikatukaAction(
       break;
 
     case 'PLACE_DIE':
-      transition = resolvePlacementUnchecked(state, action, actor, deps);
+      transition = continueAfterPlacementOutcome(resolvePlacementOutcome(state, action, actor), deps);
       break;
 
     case 'FORCED_PASS':
