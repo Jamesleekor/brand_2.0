@@ -67,7 +67,7 @@ function assertSideState(state: GameState, side: Side, seenIds: Set<string>): vo
     for (const die of dice) {
       assertDie(die, `${side}.${row}`, seenIds);
       if (die.kind === 'normal' && die.owner !== side) {
-        throw new Error(`타카투카 상태 불변식 위반: normal 주사위가 owner와 다른 Board에 있습니다.`);
+        throw new Error('타카투카 상태 불변식 위반: normal 주사위가 owner와 다른 Board에 있습니다.');
       }
     }
   }
@@ -128,7 +128,12 @@ export function assertGameStateInvariant(state: GameState): void {
     if (state.winner !== state.result.winner) {
       throw new Error('타카투카 상태 불변식 위반: winner와 result.winner가 다릅니다.');
     }
-  } else if (state.winner !== null || state.result !== null) {
-    throw new Error('타카투카 상태 불변식 위반: game_over 이전에는 winner/result가 없어야 합니다.');
+  } else {
+    if (bothBoardsFull) {
+      throw new Error('타카투카 상태 불변식 위반: 양쪽 Board가 9/9인데 game_over가 아닙니다.');
+    }
+    if (state.winner !== null || state.result !== null) {
+      throw new Error('타카투카 상태 불변식 위반: game_over 이전에는 winner/result가 없어야 합니다.');
+    }
   }
 }

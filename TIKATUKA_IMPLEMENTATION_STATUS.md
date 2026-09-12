@@ -17,7 +17,7 @@
 ## Checkpoints
 - [x] Phase 3-A: dedicated branch created from Phase 2 last-known-good commit.
 - [x] Phase 3-B: `validateAction` + state invariants committed and build-verified.
-- [ ] Phase 3-C: reducer / atomic placement transaction committed and build-verified.
+- [ ] Phase 3-C: reducer / atomic placement transaction committed and build-verified. (implementation candidate in current commit; CI confirmation pending)
 - [ ] Phase 3-D: no-dependency automated rule/state-machine tests added and CI-verified.
 - [ ] Phase 3-E: final regression build and phase closeout.
 
