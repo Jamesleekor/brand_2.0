@@ -74,13 +74,14 @@ test('phase8 official day: teacher gate and one-attempt rule are server-enforced
 
 test('phase8 period alignment: Rakaruka uses Arcade ranking period ids and exact period boundaries', () => {
   const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260913_02_tikatuka_align_arcade_periods.sql'), 'utf8');
+  const compactSql = sql.replace(/\s+/g, '');
   assert(sql.includes('arcade_period_id bigint REFERENCES public.arcade_ranking_periods(id)'));
   assert(sql.includes('student_get_tikatuka_competition_v2'));
   assert(sql.includes('student_start_tikatuka_official_challenge_v2'));
-  assert(sql.includes('g.completed_at >= v_period.starts_at'));
-  assert(sql.includes('g.completed_at < v_period.ends_at_exclusive'));
+  assert(compactSql.includes('g.completed_at>=v_period.starts_at'));
+  assert(compactSql.includes('g.completed_at<v_period.ends_at_exclusive'));
   assert(sql.includes('ux_tikatuka_official_one_attempt_student_arcade_period'));
-  assert(sql.includes("v_period.status<>'ACTIVE'"));
+  assert(compactSql.includes("v_period.status<>'ACTIVE'"));
 });
 
 test('phase8 layout: ranking lives on Arcade selector and not inside live Rakaruka game', () => {
