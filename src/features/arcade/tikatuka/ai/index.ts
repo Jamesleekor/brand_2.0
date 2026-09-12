@@ -5,3 +5,4 @@ export * from './evaluatePlacement';
 export * from './chooseAction';
 export * from './stateHash';
 export * from './searchContext';
+export * from './evaluateTazza';
