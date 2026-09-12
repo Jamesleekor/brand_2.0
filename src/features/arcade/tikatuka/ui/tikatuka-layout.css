@@ -1,0 +1,59 @@
+/* Rakaruka live-game layout polish only. No engine/game-state behavior here. */
+
+/* Compact the player / turn / opponent strip. */
+.rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div {
+  gap: 0.55rem !important;
+  margin-top: 0.8rem !important;
+}
+
+.rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div > div:nth-child(1),
+.rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div > div:nth-child(3) {
+  padding: 0.65rem 0.8rem !important;
+}
+
+.rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div > div:nth-child(1) > div:first-child > span:first-child,
+.rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div > div:nth-child(3) > div:first-child > span:first-child {
+  font-size: 0.82rem !important;
+}
+
+.rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div > div:nth-child(1) > div:first-child > span:last-child,
+.rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div > div:nth-child(3) > div:first-child > span:last-child {
+  font-size: 1.3rem !important;
+}
+
+.rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div > div:nth-child(1) > div:nth-child(2),
+.rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div > div:nth-child(3) > div:nth-child(2) {
+  margin-top: 0.45rem !important;
+  gap: 0.35rem !important;
+  font-size: 0.72rem !important;
+}
+
+.rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div > div:nth-child(1) > div:nth-child(2) > span,
+.rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div > div:nth-child(3) > div:nth-child(2) > span {
+  padding: 0.25rem 0.55rem !important;
+}
+
+/* Keep the turn card readable, but remove unnecessary vertical dead space. */
+.rakaruka-game-shell section[class*="bg-[#090d14]"] div[class*="min-h-[150px]"] {
+  min-height: 108px !important;
+  padding: 0.55rem !important;
+}
+
+.rakaruka-game-shell section[class*="bg-[#090d14]"] div[class*="min-h-[150px]"] span[class*="h-20"][class*="w-20"] {
+  width: 4rem !important;
+  height: 4rem !important;
+  min-width: 4rem !important;
+  min-height: 4rem !important;
+  font-size: 1.55rem !important;
+}
+
+/* The detailed rule guide below already explains this; do not repeat it in live play. */
+.rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > div:last-child {
+  display: none !important;
+}
+
+@media (max-width: 767px) {
+  .rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div {
+    gap: 0.45rem !important;
+  }
+}
