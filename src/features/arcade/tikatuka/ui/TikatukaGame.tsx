@@ -24,16 +24,25 @@ export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
   const sequenceRef = useRef(0);
   const impactTimerRef = useRef<number | null>(null);
   const gameEndedRef = useRef(false);
+  const seenEventsRef = useRef(new WeakSet<object>());
 
   useEffect(() => {
     const handleEvent = (raw: Event) => {
       const event = (raw as CustomEvent<GameEvent>).detail;
       if (!event) return;
 
+      // React development StrictMode may replay an effect. The engine event object is
+      // the same reference, so record/animate it only once without suppressing later
+      // legitimate events that merely have identical values.
+      if (seenEventsRef.current.has(event)) return;
+      seenEventsRef.current.add(event);
+
       if (event.type === 'DIE_ROLLED' && gameEndedRef.current) {
         setHistory([]);
         sequenceRef.current = 0;
         gameEndedRef.current = false;
+        seenEventsRef.current = new WeakSet<object>();
+        seenEventsRef.current.add(event);
       }
 
       const text = getEventLogText(event);
