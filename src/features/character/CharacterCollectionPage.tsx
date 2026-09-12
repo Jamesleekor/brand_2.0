@@ -224,17 +224,17 @@ export default function CharacterCollectionPage() {
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
-                <ElementFilterGroup
+                <ElementFilterGroup<ElementFilterKey>
                   items={ELEMENT_FILTERS}
                   value={elementFilter}
                   onChange={setElementFilter}
                 />
-                <ElementFilterGroup
+                <ElementFilterGroup<TendencyFilterKey>
                   items={TENDENCY_FILTERS}
                   value={tendencyFilter}
                   onChange={setTendencyFilter}
                 />
-                <ElementFilterGroup
+                <ElementFilterGroup<TierFilterKey>
                   items={TIER_FILTERS}
                   value={tierFilter}
                   onChange={setTierFilter}
