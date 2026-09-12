@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { TikatukaCompetitionSchema } from '@/lib/zod_schemas/tikatuka_competition_schemas';
+import { TikatukaCompetitionSchema } from '../../../../lib/zod_schemas/tikatuka_competition_schemas';
 import { assert, assertEqual, test } from './testHarness';
 
 test('phase8 competition: frontend schema accepts the confirmed five-match ranking contract', () => {
