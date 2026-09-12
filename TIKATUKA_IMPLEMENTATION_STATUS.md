@@ -3,256 +3,189 @@
 ## Naming / authority
 - User-facing game name: **라카루카**.
 - Internal technical identifiers remain `tikatuka_*` / `Tikatuka*` for compatibility.
-- Active implementation branch: `feat/tikatuka-rakaruka-ui-admin-polish`.
+- Active branch: `feat/tikatuka-rakaruka-ui-admin-polish`.
 - Historical reference: `tikatuka_engine_ai_spec_v1.2.md`.
-- **IMPORTANT RULE OVERRIDES:**
-  1. The explicit 알까기 rule confirmed on 2026-09-12 overrides the old automatic-knock rule.
-  2. The **Official Day single-attempt policy confirmed on 2026-09-13 overrides the earlier Phase-8 unlimited same-month retry design.**
+- **Authoritative overrides:**
+  1. Explicit 알까기 replaces the old automatic-knock rule.
+  2. Official challenge is teacher-gated and **one 5-game attempt per student per Arcade ranking period**. Earlier unlimited/month-calendar retry notes are obsolete.
+  3. Rakaruka ranking periods use `public.arcade_ranking_periods` exactly like Arcade #01/#02; direct KST calendar-month scoping is obsolete.
 
-## Current implementation state
-- Core rules / state machine / AI: implemented.
-- Student Game #03 integration: implemented.
-- Persistence / difficulty unlock: production DB deployed.
-- Teacher Rakaruka progress admin: production DB deployed.
-- Corrected explicit 알까기 + effects/action history: implemented and browser-tested by user.
-- General ranking + official 5-match ranking: implemented.
-- **Official Day teacher gate + one attempt per student/current KST month: source implemented, production DB deployed, DB E2E PASS / ROLLED BACK.**
-- Latest frontend local build/browser verification after Official Day changes: **PENDING USER CHECK**.
-- Main merge/deployment: **NOT DONE by ChatGPT**.
+## Current source state
+Implemented:
+- Core/state machine/AI and corrected explicit 알까기.
+- Student Game #03 selector integration.
+- Server progression and difficulty unlock persistence.
+- Teacher progress admin.
+- Slow readable presentation, shield styling, knock cut-in and action history.
+- General ranking and official 5-game ranking.
+- Teacher Official Day OPEN/CLOSED gate and single-attempt policy.
+- **Rakaruka ranking/official panel moved out of the live game and onto the common Arcade game-selection page.**
+- **Rakaruka now uses the same `랭킹 기간 선택` control as Game #01/#02.**
+- Live-game player/turn/opponent strip compacted with presentation-only CSS.
+- Live-game redundant normal/shield explanatory paragraph removed from view because the detailed rule guide already covers it.
+- Recent action history moved above the live game and compacted to the latest six events.
 
-# Authoritative gameplay rules
+Frontend local build after the latest selector/layout changes: **PENDING USER CHECK**.
+ChatGPT must not run `npm ci`, `npm run build`, or CI unless the user explicitly changes that instruction.
 
-## 알까기
-For a normal die the actor chooses exactly one action:
-1. **Normal placement:** place it in a non-full row on the actor's own board. This never auto-attacks.
-2. **알까기:** if an opponent row contains one or more same-value normal dice, select that opponent row instead of placing the die.
+## Authoritative 알까기 rule
+For a normal die choose exactly one:
+1. place it in a non-full row on the actor's own board; this never auto-attacks;
+2. if an opponent row contains one or more same-value normal dice, click that opponent row to attack instead of placing the die.
 
-Knock semantics:
-- attacking normal die is consumed and is not placed;
+Attack semantics:
+- attacking die is consumed and not placed;
 - only the selected opponent row is affected;
 - all same-value normal dice in that row are removed;
-- same-value shields survive;
-- normal double/triple may be broken in one attack;
-- a successful knock gives exactly one same-value pending shield for next own turn;
-- only rows containing a matching normal die are legal knock targets.
+- same-value shield dice survive;
+- double/triple matching normals may be removed together;
+- any successful attack grants exactly one pending same-value shield for the attacker's next own turn.
 
-Shield semantics:
-- shield may be placed in any non-full row on either board;
-- it scores on the board where placed and participates in double/triple;
-- shield cannot Tazza; it may be held.
+Shield:
+- may be placed on either board;
+- scores and participates in double/triple on the board where it is placed;
+- immune to knock;
+- cannot Tazza; may be held.
 
-# Readability / gameplay UX
-Implemented:
-- larger fonts / contrast / boards;
-- Korean row and turn labels;
-- 2-second dice reveal and slower AI/event narration;
-- strongly differentiated shield dice;
-- double/triple markers;
-- `💥 알까기 가능` only on legal opponent rows;
-- knock impact cut-in;
-- persistent action history;
-- detailed rules guide.
+## Ranking rules
+### General ranking
+- Uses highest **actually cleared** difficulty from verified player wins inside the selected Arcade ranking period.
+- Teacher-adjustable unlocked difficulty is not the ranking value.
+- Same cleared Lv = same `dense_rank`.
+- Test accounts excluded from public ranking.
 
-# Teacher Rakaruka management
-Source:
-- `TeacherArcadePage.tsx`
-- `TeacherTikatukaAdminPage.tsx`
-- `TeacherTikatukaOfficialWindowCard.tsx`
+### Official ranking
+- Teacher must OPEN Official Day.
+- Student chooses any unlocked difficulty.
+- One attempt = exactly 5 completed games at that fixed difficulty.
+- W +3 / D +1 / L +0.
+- All five games required.
+- 3+ points qualifies; 0–2 does not.
+- The attempt is consumed when the session starts, even if it later fails to qualify.
+- Exactly one attempt per student per **Arcade ranking period id**.
+- Ranking order: difficulty DESC → points DESC; exact ties share rank.
+- Lv.10 / 3 points outranks Lv.9 / 15 points.
+- Closing Official Day blocks new sessions only; already-started sessions may finish.
 
-Teacher progress RPCs:
-- `teacher_get_tikatuka_progress_v1()`
-- `teacher_set_tikatuka_progress_v1(integer,integer)`
+## Common Arcade period alignment
+Rakaruka now scopes rankings to `public.arcade_ranking_periods`.
 
-Official Day RPCs:
-- `teacher_get_tikatuka_official_window_v1()`
-- `teacher_set_tikatuka_official_window_v1(boolean)`
+Student selector behavior:
+- Game #01/#02/#03 all show the same `랭킹 기간 선택` buttons.
+- Historical visible periods can be selected for leaderboard viewing.
+- New Rakaruka play/official challenge starts only in an ACTIVE period.
+- General ranking filters completed Rakaruka games to `starts_at <= completed_at < ends_at_exclusive`.
+- Official sessions and Official Day windows are keyed by `arcade_period_id`.
 
-Teacher may adjust only `highest_unlocked_difficulty`; completed-game history is not rewritten. Server re-checks teacher role/current classroom.
+Current production ACTIVE example when migration was tested:
+- period id 12
+- `2026년 9월 Arcade`
+- kind `MONTHLY`
+- contribution month `2026-09`
 
-Official Day admin behavior:
-- default state is **CLOSED** when no window row exists;
-- teacher can OPEN/CLOSE from Rakaruka admin;
-- OPEN allows students who have not used their attempt to start;
-- CLOSE prevents **new** challenge starts;
-- CLOSE does **not** cancel students who already started; their remaining matches continue;
-- admin panel shows started/completed participant counts.
+## Monthly bonus display
+Rakaruka's difficulty-progress card on the Arcade selector now displays the same common Arcade Top-10 bonus reference:
+- 1st +30
+- 2nd +27
+- 3rd +24
+- 4–6th +18
+- 7–10th +15
 
-# Phase 7 persistence / integrity
-Production migration:
+Important integrity note:
+- For Game #01/#02 these values are already persisted through `arcade_monthly_snapshot_entries.raw_bonus` and feed Guild 2.
+- **Rakaruka currently displays the same bonus reference, but its ranking has NOT yet been wired into the existing Arcade monthly-snapshot/Guild-2 finalization pipeline. Do not claim Rakaruka bonus is already automatically applied to Guild 2.**
+
+## Selector/live-game UX changes — 2026-09-13
+`ArcadePage.tsx`:
+- imports and renders `RakarukaCompetitionPanel` under the Rakaruka description card;
+- common ranking-period selector is shown for Rakaruka instead of the old separate progress badge;
+- removed copy: `월간 Top 10과는 별도의 전략 게임입니다. 승리한 난이도와 다음 단계 해금은 서버에 영구 저장됩니다.`;
+- Rakaruka progress card includes common Top-10 bonus numbers;
+- live start is disabled when the selected period is not ACTIVE.
+
+`TikatukaGame.tsx`:
+- no `RakarukaCompetitionPanel` inside the game;
+- recent action history is above the core game;
+- rule guide remains below;
+- knock cut-in remains.
+
+`tikatuka-layout.css`:
+- compacts player/opponent score + Tazza/Hold cards;
+- reduces turn-card vertical height;
+- hides the duplicate normal/shield paragraph in live play.
+
+## Production migrations
+Relevant live migrations:
 - `20260912085916 · tikatuka_progress_results`
-
-Teacher admin migration:
 - `20260912122941 · tikatuka_teacher_progress_admin`
-
-Server-owned persistence includes:
-- `tikatuka_progress`
-- `tikatuka_games`
-- server-issued game UUIDs
-- server-derived student/classroom identity
-- final-board/score/winner recomputation
-- idempotent identical submission / conflicting duplicate rejection
-- verified player win only advances progression.
-
-Integrity boundary: server validates completed board/result but does not replay every turn from a server-issued RNG seed. Ranking is class honor ranking, not BV/currency/Guild reward source.
-
-# Phase 8 — Ranking
-
-## General ranking
-- Uses highest **actually cleared** difficulty from verified completed wins.
-- Does not use teacher-adjustable highest-unlocked as ranking value.
-- Same highest-cleared Lv = same rank (`dense_rank`).
-- Test accounts excluded from public leaderboard.
-
-## Official ranking — authoritative 2026-09-13
-- Current competition period key = current **KST month**.
-- Official challenge is available only when teacher opens **Official Day**.
-- Each student gets **exactly one challenge session per period**.
-- One session = exactly **5 completed games**.
-- Student chooses any currently unlocked difficulty at challenge start.
-- Chosen difficulty is fixed for all 5 games.
-- Win +3 / Draw +1 / Loss 0.
-- All 5 games must finish before finalization.
-- Minimum 3 points for ranking eligibility.
-  - 1W4L = 3 → eligible.
-  - 3D2L = 3 → eligible.
-  - 2D3L = 2 → not eligible.
-  - 1D4L = 1 → not eligible.
-  - 5L = 0 → not eligible.
-- **The one attempt is consumed regardless of whether the final record qualifies. No retry.**
-- Ranking priority: difficulty DESC → points DESC.
-- Same difficulty + same points = same rank.
-- Therefore Lv.10 / 1W4L / 3 points outranks Lv.9 / 5W / 15 points.
-- Internal comparison value may use `difficulty * 16 + points`; UI shows Lv + W/D/L + points.
-
-## Phase 8 DB migrations
 - `20260912135952 · tikatuka_official_ranking`
 - `20260912140004 · tikatuka_official_difficulty_lock`
 - `20260912153133 · tikatuka_official_day_single_attempt`
+- `20260912155213 · tikatuka_align_arcade_periods`
 
-Migration source:
-- `supabase/migrations/20260912_03_tikatuka_official_ranking.sql`
-- `supabase/migrations/20260912_04_tikatuka_official_difficulty_lock.sql`
-- `supabase/migrations/20260913_01_tikatuka_official_day_single_attempt.sql`
+Latest period alignment migration adds:
+- `tikatuka_official_sessions.arcade_period_id`
+- `tikatuka_official_windows.arcade_period_id`
+- one-attempt uniqueness keyed by Arcade period id
+- `student_get_tikatuka_competition_v2(bigint)`
+- `student_start_tikatuka_official_challenge_v2(bigint,integer)`
+- period-scoped payload metadata and ranking filters
+- teacher Official Day mapped to the currently ACTIVE Arcade period.
 
-Tables:
-- `tikatuka_official_sessions`
-- `tikatuka_official_windows`
+Migration source was corrected after a syntax-only check found that PostgreSQL does not allow the UPDATE target alias inside that `FROM LATERAL` backfill form. Repository source now uses the same correlated scalar-subquery backfill successfully deployed to production.
 
-`tikatuka_games` official fields:
-- `official_session_id`
-- `official_match_number`
-
-Student RPCs:
-- `student_get_tikatuka_competition_v1()`
-- `student_start_tikatuka_official_challenge_v1(integer)`
-
-Server enforcement:
-1. `tikatuka_official_windows` defaults effectively CLOSED when no current-period row exists.
-2. Student challenge start while CLOSED → `PTK44`.
-3. Unique index `(classroom_id, student_id, period_key)` enforces one attempt per period.
-4. Second challenge start → `PTK45`.
-5. Active challenge locks newly issued Rakaruka games to its chosen difficulty (`PTK43`).
-6. Closing Official Day affects only new session creation; active sessions stay active.
-7. Verified `READY → COMPLETED` games only are captured into active session.
-8. Fifth counted match automatically completes session.
-
-Security:
-- official tables have RLS enabled;
-- authenticated client has no direct table CRUD;
-- student/teacher use narrow SECURITY DEFINER RPCs;
-- anon has no execute on those RPCs;
-- internal helpers are not executable by authenticated clients;
-- fixed `search_path=public, pg_temp`.
-
-# Production E2E — Official Day single-attempt policy
-Performed against production using dedicated QA test identity inside one transaction and **ROLLBACK**.
-
-Verified:
-1. default CLOSED blocks student challenge creation with `PTK44`;
-2. teacher RPC opens Official Day;
-3. first student challenge creation succeeds;
-4. payload reports `official_attempt_used=true`, `official_can_start=false` and active challenge;
-5. second challenge creation in same period is rejected with `PTK45`;
-6. teacher RPC closes Official Day;
-7. already-started student can still issue the next game at the active challenge difficulty after closing;
-8. student competition payload after close reports CLOSED + used attempt + active challenge;
-9. all test mutations rolled back.
+## Production E2E / postchecks
+Period-scoped E2E passed in one transaction and was rolled back:
+- student v2 payload for period 12 returned the correct period id/display;
+- CLOSED baseline enforced;
+- teacher OPEN targeted period 12;
+- first student official session at period 12 succeeded;
+- second same-period attempt rejected with `PTK45`;
+- non-ACTIVE period could not accept a new official challenge (`PTK50`).
 
 Post-rollback production counts:
-- `tikatuka_official_windows`: 0
-- `tikatuka_official_sessions`: 0
-- games tagged to official sessions: 0
+- official windows: 0
+- official sessions: 0
+- tagged official games: 0
 
-Therefore current production starts in CLOSED state until teacher deliberately opens Official Day.
+Earlier Official Day/persistence authenticated E2E also passed and was rolled back.
 
-# Phase 8 frontend
-Added/updated:
-- `tikatuka_competition_schemas.ts`
-- competition + Official Day RPC methods in `tikatuka_rpc.ts`
-- `RakarukaCompetitionPanel.tsx`
-- `TeacherTikatukaOfficialWindowCard.tsx`
-- `TeacherTikatukaAdminPage.tsx`
+## Test contract prepared, NOT executed by ChatGPT
+`phase8_competition.test.ts` now statically locks:
+- period metadata schema;
+- 5-game / 3-1-0 / 3-point rules;
+- difficulty-first ranking;
+- teacher gate / one attempt;
+- `arcade_period_id` and exact Arcade-period boundary filtering;
+- v2 competition RPC names;
+- ranking panel present in `ArcadePage.tsx` and absent from live `TikatukaGame.tsx`;
+- removed old separate-strategy copy;
+- action history before live core;
+- compact layout override existence.
 
-Student UI states:
-- CLOSED: no start button; tells student teacher must open Official Day.
-- OPEN + unused: unlocked Lv selection + strong one-chance warning + start button.
-- ACTIVE: x/5, W/D/L, points, remaining games; continues even if teacher later closes.
-- USED/completed: no retry button; shows the single challenge result and qualification state.
-
-Teacher UI:
-- OPEN/CLOSED status;
-- started/completed counts;
-- open/close controls with confirmation;
-- warning that closing does not cancel active sessions.
-
-# Test contract
-`phase8_competition.test.ts` now checks:
-- competition payload gate/attempt fields;
-- 5-game 3/1/0 scoring contract;
-- minimum 3-point qualification;
-- difficulty-first dense ranking;
-- PTK43 active-difficulty lock;
-- Official Day table;
-- one-attempt unique index;
-- PTK44 closed-window rejection;
-- PTK45 second-attempt rejection;
-- teacher Official Day RPC presence.
-
-**These frontend/static tests have not been run by ChatGPT.**
-
-# User verification boundary
-The user explicitly instructed ChatGPT **not to run `npm ci`, `npm run build`, or CI**. Keep following that instruction.
-
-When ready for local verification, user should run:
+## Next verification handoff
+When the user is ready, ask them to update this branch and run only the local verification they agreed to perform. At minimum:
 ```bash
 git fetch origin
 git switch feat/tikatuka-rakaruka-ui-admin-polish
 git pull
 npm run build
 ```
-`npm ci` is needed only if local dependencies are not already installed/current.
+Do not claim build success until the user reports it.
 
-Browser smoke after successful build:
-1. Teacher Rakaruka admin initially shows Official Day CLOSED.
-2. Student Rakaruka panel shows CLOSED and no start action.
-3. Teacher presses OPEN.
-4. Student panel refreshes to OPEN and offers unlocked Lv selection.
-5. Student starts one challenge; active panel shows 0/5.
-6. A second start is impossible in UI/server.
-7. Teacher may CLOSE while challenge is active; student continues remaining matches.
-8. After 5 matches, result becomes eligible at 3+ points or not eligible at 0–2.
-9. Student receives no retry button after completion.
-10. General and official leaderboards retain confirmed ranking rules.
+After build success, browser smoke should check:
+1. Arcade selector: #01 → #02 → #03 and common ranking-period buttons.
+2. Rakaruka description has no old “별도의 전략 게임” copy.
+3. Rakaruka right side shows difficulty progress + common bonus reference.
+4. Rakaruka general/official ranking panel is on selector page, not live game.
+5. Changing selected Arcade period changes Rakaruka ranking payload.
+6. Live game has no ranking panel.
+7. Live player/turn/opponent cards are visibly shorter.
+8. Duplicate normal/shield paragraph is gone.
+9. Recent action history is immediately visible above the game after actions begin.
+10. Teacher Official Day OPEN → student one-shot challenge still works.
 
-# Main / deployment boundary
+## Main/deployment boundary
 - Do not merge/edit `main` without explicit user instruction.
-- Production DB migrations through Official Day single-attempt policy are already applied.
-- Frontend remains on `feat/tikatuka-rakaruka-ui-admin-polish` until user local verification and explicit merge/deploy instruction.
-
-# Recovery rule
-After interruption:
-1. Read this file first.
-2. Fetch current branch HEAD.
-3. Preserve corrected explicit-knock rule.
-4. Preserve Official Day single-attempt policy as authoritative over earlier Phase-8 retry design.
-5. Do not run npm/build/CI unless user explicitly asks.
+- Production DB migrations above are already live.
+- Frontend remains on `feat/tikatuka-rakaruka-ui-admin-polish` until user local build/browser verification and explicit merge/deploy request.
