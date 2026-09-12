@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Tikatuka tests
+        run: npm run test:tikatuka
+
       - name: Build
         run: npm run build
         env:
