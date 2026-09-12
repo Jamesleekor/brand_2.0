@@ -2,4 +2,6 @@ export * from './types';
 export * from './config';
 export * from './rng';
 export * from './initialState';
+export * from './invariants';
+export * from './validateAction';
 export * from './rules';
