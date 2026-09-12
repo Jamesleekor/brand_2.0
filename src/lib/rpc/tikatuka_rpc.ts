@@ -20,9 +20,12 @@ export interface TikatukaRpcError {
   hint?: string | null;
 }
 
+// The app tsconfig currently has strict=false. Keeping both union keys present as optional
+// makes the result ergonomic under those control-flow rules while `success` remains the
+// authoritative runtime discriminator. No success response carries an actual error value.
 export type TikatukaRpcResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: TikatukaRpcError };
+  | { success: true; data: T; error?: undefined }
+  | { success: false; error: TikatukaRpcError; data?: undefined };
 
 function validationError(error: z.ZodError, code: string): TikatukaRpcResult<never> {
   return {
@@ -88,8 +91,11 @@ export const tikatukaStudentRpc = {
   },
 };
 
-export function tikatukaRpcErrorMessage(result: { success: false; error: TikatukaRpcError }): string {
-  switch (result.error.code) {
+export function tikatukaRpcErrorMessage(result: TikatukaRpcResult<unknown>): string {
+  const error = result.error;
+  if (!error) return '타카투카 서버 요청을 처리하지 못했습니다.';
+
+  switch (error.code) {
     case 'PTK01': return '학생 로그인 정보를 확인할 수 없습니다. 다시 로그인해주세요.';
     case 'PTK02': return '선택한 난이도가 올바르지 않습니다.';
     case 'PTK03': return '아직 해금되지 않은 난이도입니다.';
@@ -109,6 +115,6 @@ export function tikatukaRpcErrorMessage(result: { success: false; error: Tikatuk
     case 'TIKATUKA_INVALID_SERVER_RESPONSE':
       return '타카투카 서버 응답 형식이 올바르지 않습니다. 새 게임을 시작하지 말고 다시 시도해주세요.';
     default:
-      return result.error.message || '타카투카 서버 요청을 처리하지 못했습니다.';
+      return error.message || '타카투카 서버 요청을 처리하지 못했습니다.';
   }
 }
