@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/shared/components';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
+import { TeacherTikatukaOfficialWindowCard } from '@/features/arcade/TeacherTikatukaOfficialWindowCard';
 import { supabase } from '@/lib/supabase/client';
 import { tikatukaRpcErrorMessage, tikatukaTeacherRpc } from '@/lib/rpc/tikatuka_rpc';
 import type { TikatukaDifficulty } from '@/lib/zod_schemas/tikatuka_schemas';
@@ -66,10 +67,12 @@ export default function TeacherTikatukaAdminPage() {
           <div>
             <div className="text-xs font-black tracking-[0.18em] text-brand-primary">ARCADE · GAME #03</div>
             <h1 className="mt-1 font-display text-2xl text-brand-gradient">🛡️ 라카루카 관리</h1>
-            <p className="mt-1 text-sm font-bold text-text-secondary">학생별 최고 해금 난이도를 확인하고 필요한 경우 직접 조정합니다.</p>
+            <p className="mt-1 text-sm font-bold text-text-secondary">공인 도전 운영과 학생별 최고 해금 난이도를 관리합니다.</p>
           </div>
           <Link className="btn-secondary" to="/teacher/arcade">← Arcade 운영</Link>
         </div>
+
+        <TeacherTikatukaOfficialWindowCard />
 
         <section className="glass-card border-brand-primary/30 p-5">
           <h2 className="font-display text-lg text-white">관리 원칙</h2>
