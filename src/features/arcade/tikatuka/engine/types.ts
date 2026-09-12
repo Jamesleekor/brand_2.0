@@ -32,6 +32,14 @@ export interface SideState {
   heldDie: Die | null;
 }
 
+export interface SideRuntimeStats {
+  knockCount: number;
+  diceRemoved: number;
+  shieldsEarned: number;
+  tazzaUsed: number;
+  holdUsed: number;
+}
+
 export type TurnDieSource = 'rolled' | 'shield' | 'held';
 
 export interface TurnState {
@@ -83,10 +91,12 @@ export interface GameResult {
 
 export interface GameState {
   version: 1;
+  gameId: string;
   difficulty: Difficulty;
   phase: GamePhase;
   currentSide: Side;
   sides: Record<Side, SideState>;
+  stats: Record<Side, SideRuntimeStats>;
   turn: TurnState;
   turnNumber: number;
   winner: GameWinner;
