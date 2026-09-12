@@ -25,7 +25,7 @@ function aiTurn(gameId: string, difficulty: GameState['difficulty'], die: Die): 
   return state;
 }
 
-test('basic AI: obvious two-die knock is ranked above non-knocking rows', () => {
+test('basic AI: obvious two-die explicit knock is ranked above ordinary own-board placements', () => {
   const state = aiTurn('ai-knock', 10, normal('current', 5, 'ai'));
   state.sides.player.board.rows.top.dice = [
     normal('p1', 5, 'player'),
@@ -33,10 +33,11 @@ test('basic AI: obvious two-die knock is ranked above non-knocking rows', () => 
   ];
 
   const ranked = rankAIPlacementCandidates(state, getAIProfile(10));
-  assertEqual(ranked[0]?.action.targetSide, 'ai');
+  assertEqual(ranked[0]?.action.targetSide, 'player');
   assertEqual(ranked[0]?.action.row, 'top');
   assertEqual(ranked[0]?.resultingState.sides.player.board.rows.top.dice.length, 0);
   assertEqual(ranked[0]?.resultingState.sides.ai.pendingShieldValue, 5);
+  assertEqual(ranked[0]?.resultingState.sides.ai.board.rows.top.dice.length, 0);
 });
 
 test('basic AI: high-level shield evaluation avoids gifting an opponent 5-triple', () => {
