@@ -51,7 +51,7 @@ test('state machine: Player always starts and receives the deterministic first r
   assertEqual(transition.events[0]?.type, 'DIE_ROLLED');
 });
 
-test('validation: stale actor and normal-on-opponent placement are rejected in the engine', () => {
+test('validation: stale actor and opponent rows without a matching normal die are rejected', () => {
   const { deps } = deterministicDeps([3]);
   const state = startGame(createInitialTikatukaState('validate-actions', 1), deps);
 
@@ -61,7 +61,7 @@ test('validation: stale actor and normal-on-opponent placement are rejected in t
 
   const opponent = validateAction(state, { type: 'PLACE_DIE', targetSide: 'ai', row: 'top' }, 'player');
   assertEqual(opponent.ok, false);
-  assertEqual(opponent.reason, 'NORMAL_DIE_CANNOT_TARGET_OPPONENT');
+  assertEqual(opponent.reason, 'ILLEGAL_PLACEMENT');
 });
 
 test('Tazza: reroll may return the same value, consumes one charge, and cannot be used twice in a turn', () => {
@@ -104,7 +104,7 @@ test('HOLD: exact die returns next own turn without consuming another game RNG v
   assertEqual(gameRng.consumedCount(), 2);
 });
 
-test('atomic PLACE: knock removes normals, preserves shield, queues shield, then grants it next own turn', () => {
+test('explicit knock: attack die is consumed, matching normals are removed, shield survives, and next-own-turn shield is queued', () => {
   const { deps } = deterministicDeps([5, 3]);
   const initial = createInitialTikatukaState('knock-shield-flow', 1);
   initial.sides.ai.board.rows.top.dice = [
@@ -114,17 +114,21 @@ test('atomic PLACE: knock removes normals, preserves shield, queues shield, then
   ];
 
   let state = startGame(initial, deps);
-  const first = dispatchTikatukaAction(state, { type: 'PLACE_DIE', targetSide: 'player', row: 'top' }, deps, 'player');
+  const first = dispatchTikatukaAction(state, { type: 'PLACE_DIE', targetSide: 'ai', row: 'top' }, deps, 'player');
   state = first.nextState;
 
   assertEqual(state.sides.ai.board.rows.top.dice.length, 1);
   assertEqual(state.sides.ai.board.rows.top.dice[0]?.kind, 'shield');
+  assertEqual(state.sides.player.board.rows.top.dice.length, 0);
   assertEqual(state.sides.player.pendingShieldValue, 5);
   assertEqual(state.stats.player.knockCount, 1);
   assertEqual(state.stats.player.diceRemoved, 2);
   assertEqual(state.stats.player.shieldsEarned, 1);
-  assert(first.events.some((event) => event.type === 'DICE_KNOCKED'));
+  const knockEvent = first.events.find((event) => event.type === 'DICE_KNOCKED');
+  assert(knockEvent?.type === 'DICE_KNOCKED');
+  assertEqual(knockEvent?.attackingDie?.value, 5);
   assert(first.events.some((event) => event.type === 'SHIELD_QUEUED'));
+  assertEqual(first.events.some((event) => event.type === 'DIE_PLACED'), false);
 
   assertEqual(state.currentSide, 'ai');
   assertEqual(state.turn.currentDie?.value, 3);
@@ -142,7 +146,22 @@ test('atomic PLACE: knock removes normals, preserves shield, queues shield, then
   assertEqual(tazzaOnShield.reason, 'TAZZA_FORBIDDEN_FOR_SHIELD');
 });
 
-test('Forced Pass: no HOLD charge is spent and the exact die returns after opponent knock reopens the board', () => {
+test('own placement: putting a normal die on your board never auto-knocks the opponent', () => {
+  const { deps } = deterministicDeps([6, 2]);
+  const initial = createInitialTikatukaState('no-auto-knock', 1);
+  initial.sides.ai.board.rows.top.dice = [normal('enemy-six', 6, 'ai')];
+
+  let state = startGame(initial, deps);
+  const placed = dispatchTikatukaAction(state, { type: 'PLACE_DIE', targetSide: 'player', row: 'top' }, deps, 'player');
+  state = placed.nextState;
+
+  assertEqual(state.sides.player.board.rows.top.dice.some((die) => die.value === 6), true);
+  assertEqual(state.sides.ai.board.rows.top.dice.length, 1);
+  assertEqual(placed.events.some((event) => event.type === 'DICE_KNOCKED'), false);
+  assertEqual(state.stats.player.knockCount, 0);
+});
+
+test('Forced Pass: no HOLD charge is spent, but an available knock prevents forced pass', () => {
   const { deps, gameRng } = deterministicDeps([4, 1]);
   const initial = createInitialTikatukaState('forced-pass', 1);
   initial.sides.player.board.rows.top.dice = [
@@ -166,15 +185,16 @@ test('Forced Pass: no HOLD charge is spent and the exact die returns after oppon
   assertEqual(state.sides.player.heldDie?.value, 4);
   assertEqual(state.turn.currentDie?.value, 1);
 
-  state = dispatchTikatukaAction(state, { type: 'PLACE_DIE', targetSide: 'ai', row: 'top' }, deps, 'ai').nextState;
+  state = dispatchTikatukaAction(state, { type: 'PLACE_DIE', targetSide: 'player', row: 'top' }, deps, 'ai').nextState;
   assertEqual(state.currentSide, 'player');
   assertEqual(state.turn.currentDie?.id, forcedId);
   assertEqual(state.turn.currentDie?.value, 4);
   assertEqual(state.sides.player.heldDie, null);
+  assertEqual(state.sides.player.board.rows.top.dice.length, 2);
   assertEqual(gameRng.consumedCount(), 2);
 });
 
-test('game over: both boards at 9/9 after resolved knock phase finishes the game', () => {
+test('game over: both boards at 9/9 after a normal placement finishes the game', () => {
   const { deps } = deterministicDeps([6]);
   const initial = createInitialTikatukaState('game-over', 1);
   initial.sides.player.board.rows.top.dice = [
@@ -197,35 +217,6 @@ test('game over: both boards at 9/9 after resolved knock phase finishes the game
   assert(state.result !== null);
   assertEqual(state.result?.gameId, 'game-over');
   assert(finished.events.some((event) => event.type === 'GAME_FINISHED'));
-});
-
-test('game over ordering: a ninth placement that knocks opponent back to 8/9 does not finish', () => {
-  const { deps } = deterministicDeps([6, 5, 2]);
-  const initial = createInitialTikatukaState('game-over-order', 1);
-
-  initial.sides.player.board.rows.top.dice = [
-    normal('pt5', 5, 'player'), normal('pt1', 1, 'player'), normal('pt2', 2, 'player'),
-  ];
-  initial.sides.player.board.rows.middle.dice = [
-    normal('pm1', 1, 'player'), normal('pm2', 2, 'player'), normal('pm3', 3, 'player'),
-  ];
-  initial.sides.player.board.rows.bottom.dice = [normal('pb1', 1, 'player'), normal('pb2', 2, 'player')];
-
-  initial.sides.ai.board.rows.top.dice = [normal('at1', 1, 'ai'), normal('at2', 2, 'ai')];
-  initial.sides.ai.board.rows.middle.dice = [normal('am1', 1, 'ai'), normal('am2', 2, 'ai'), normal('am3', 3, 'ai')];
-  initial.sides.ai.board.rows.bottom.dice = [normal('ab1', 1, 'ai'), normal('ab2', 2, 'ai'), normal('ab3', 3, 'ai')];
-
-  let state = startGame(initial, deps);
-  state = dispatchTikatukaAction(state, { type: 'PLACE_DIE', targetSide: 'player', row: 'bottom' }, deps, 'player').nextState;
-  assertEqual(state.currentSide, 'ai');
-  assertEqual(state.turn.currentDie?.value, 5);
-
-  state = dispatchTikatukaAction(state, { type: 'PLACE_DIE', targetSide: 'ai', row: 'top' }, deps, 'ai').nextState;
-  assertEqual(state.phase, 'awaiting_action');
-  assertEqual(state.result, null);
-  assertEqual(state.currentSide, 'player');
-  assertEqual(state.sides.player.board.rows.top.dice.length, 2);
-  assertEqual(state.turn.currentDie?.value, 2);
 });
 
 test('invariant guard: duplicated die ids across board and currentDie are rejected', () => {
