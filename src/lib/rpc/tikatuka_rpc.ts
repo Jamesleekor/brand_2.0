@@ -20,8 +20,12 @@ import {
 } from '@/lib/zod_schemas/tikatuka_schemas';
 import {
   StudentStartTikatukaOfficialChallengeSchema,
+  TeacherSetTikatukaOfficialWindowSchema,
+  TeacherTikatukaOfficialWindowSchema,
   TikatukaCompetitionSchema,
   type StudentStartTikatukaOfficialChallengeInput,
+  type TeacherSetTikatukaOfficialWindowInput,
+  type TeacherTikatukaOfficialWindow,
   type TikatukaCompetition,
 } from '@/lib/zod_schemas/tikatuka_competition_schemas';
 
@@ -126,6 +130,19 @@ export const tikatukaTeacherRpc = {
     if (!parsed.success) return validationError(parsed.error, 'TIKATUKA_INVALID_TEACHER_INPUT');
     return callTikatukaRpc(client, 'teacher_set_tikatuka_progress_v1', TeacherTikatukaProgressItemSchema, parsed.data);
   },
+
+  async getOfficialWindow(client: SupabaseClient): Promise<TikatukaRpcResult<TeacherTikatukaOfficialWindow>> {
+    return callTikatukaRpc(client, 'teacher_get_tikatuka_official_window_v1', TeacherTikatukaOfficialWindowSchema);
+  },
+
+  async setOfficialWindow(
+    client: SupabaseClient,
+    input: TeacherSetTikatukaOfficialWindowInput,
+  ): Promise<TikatukaRpcResult<TeacherTikatukaOfficialWindow>> {
+    const parsed = TeacherSetTikatukaOfficialWindowSchema.safeParse(input);
+    if (!parsed.success) return validationError(parsed.error, 'TIKATUKA_INVALID_OFFICIAL_WINDOW_INPUT');
+    return callTikatukaRpc(client, 'teacher_set_tikatuka_official_window_v1', TeacherTikatukaOfficialWindowSchema, parsed.data);
+  },
 };
 
 export function tikatukaRpcErrorMessage(result: TikatukaRpcResult<unknown>): string {
@@ -157,8 +174,13 @@ export function tikatukaRpcErrorMessage(result: TikatukaRpcResult<unknown>): str
     case 'PTK41': return '공인 기록 도전 난이도가 올바르지 않습니다.';
     case 'PTK42': return '이미 진행 중인 공인 기록 도전이 있습니다. 현재 5판을 먼저 완료해주세요.';
     case 'PTK43': return '공인 기록 도전이 진행 중입니다. 공인 도전에서 선택한 난이도로만 플레이할 수 있습니다.';
+    case 'PTK44': return '지금은 공인 기록 도전 시간이 아닙니다. 선생님이 공인 도전을 열어야 시작할 수 있습니다.';
+    case 'PTK45': return '이번 공인 기간의 1회 도전을 이미 사용했습니다.';
+    case 'PTK46': return '기존 공인 기록에 중복 데이터가 있어 1회 제한을 적용할 수 없습니다.';
+    case 'PTK47': return '공인 도전 공개 상태 값이 올바르지 않습니다.';
     case 'TIKATUKA_INVALID_TEACHER_INPUT': return '학생 또는 해금 난이도 값이 올바르지 않습니다.';
     case 'TIKATUKA_INVALID_OFFICIAL_INPUT': return '공인 기록 도전 난이도 값이 올바르지 않습니다.';
+    case 'TIKATUKA_INVALID_OFFICIAL_WINDOW_INPUT': return '공인 도전 공개 설정 값이 올바르지 않습니다.';
     case 'TIKATUKA_INVALID_SERVER_RESPONSE':
       return '라카루카 서버 응답 형식이 올바르지 않습니다. 새 게임을 시작하지 말고 다시 시도해주세요.';
     default:
