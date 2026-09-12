@@ -1,5 +1,12 @@
 import { createInitialTikatukaState, type GameEvent } from '../engine';
-import { difficultyLabel, getAiThinkingDelayRange, getEventPresentation } from '../ui/presentation';
+import {
+  RAKARUKA_DICE_REVEAL_MS,
+  difficultyLabel,
+  getAiThinkingDelayRange,
+  getEventPresentation,
+  rowLabel,
+  sideLabel,
+} from '../ui/presentation';
 import { assert, assertEqual, test } from './testHarness';
 
 test('phase6 UI: AI thinking delay follows confirmed difficulty bands', () => {
@@ -17,6 +24,33 @@ test('phase6 UI: difficulty labels cover all ten levels', () => {
   assertEqual(difficultyLabel(6), '중급');
   assertEqual(difficultyLabel(8), '상급');
   assertEqual(difficultyLabel(10), '최상급');
+});
+
+test('Rakaruka UI: side and row labels are Korean and turn-friendly', () => {
+  assertEqual(sideLabel('player'), '플레이어');
+  assertEqual(sideLabel('ai'), '상대');
+  assertEqual(rowLabel('top'), '상단');
+  assertEqual(rowLabel('middle'), '중단');
+  assertEqual(rowLabel('bottom'), '하단');
+});
+
+test('Rakaruka UI: normal roll and Tazza hide the result for exactly two seconds', () => {
+  const rolled = getEventPresentation({
+    type: 'DIE_ROLLED',
+    side: 'player',
+    die: { id: 'roll', value: 6, kind: 'normal', owner: 'player' },
+  });
+  const tazza = getEventPresentation({
+    type: 'TAZZA_USED',
+    side: 'player',
+    previousDie: { id: 'before', value: 1, kind: 'normal', owner: 'player' },
+    newDie: { id: 'after', value: 6, kind: 'normal', owner: 'player' },
+  });
+  assertEqual(RAKARUKA_DICE_REVEAL_MS, 2_000);
+  assertEqual(rolled.durationMs, 2_000);
+  assertEqual(tazza.durationMs, 2_000);
+  assert(!rolled.text.includes('6'), 'roll banner must not reveal the result before animation ends');
+  assert(!tazza.text.includes('6'), 'Tazza banner must not reveal the replacement result before animation ends');
 });
 
 test('phase6 UI: knock and shield events produce readable event banners', () => {
@@ -68,6 +102,6 @@ test('phase6 UI: game-finished event reflects winner without recomputing rules',
     },
   };
   const presentation = getEventPresentation(event);
-  assertEqual(presentation.text, 'PLAYER VICTORY');
+  assertEqual(presentation.text, '승리!');
   assertEqual(presentation.tone, 'success');
 });
