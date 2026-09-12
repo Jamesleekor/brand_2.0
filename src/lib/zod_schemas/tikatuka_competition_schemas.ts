@@ -78,7 +78,13 @@ export const TikatukaCompetitionRulesSchema = z.object({
 }).strict();
 
 export const TikatukaCompetitionSchema = z.object({
+  period_id: z.number().int().positive(),
   period_key: z.string().regex(/^\d{4}-\d{2}$/),
+  period_display_name: z.string().min(1),
+  period_kind: z.enum(['MONTHLY', 'SEASON']),
+  period_status: z.enum(['ACTIVE', 'VERIFICATION', 'READY_TO_FINALIZE', 'FINALIZED']),
+  period_starts_at: z.string().datetime({ offset: true }),
+  period_ends_at_exclusive: z.string().datetime({ offset: true }),
   general_leaderboard: z.array(TikatukaGeneralRankingRowSchema),
   official_leaderboard: z.array(TikatukaOfficialRankingRowSchema),
   my_general: TikatukaMyGeneralRankSchema.nullable(),
@@ -94,13 +100,21 @@ export const TikatukaCompetitionSchema = z.object({
 }).strict();
 export type TikatukaCompetition = z.infer<typeof TikatukaCompetitionSchema>;
 
+export const StudentGetTikatukaCompetitionSchema = z.object({
+  p_period_id: z.number().int().positive(),
+}).strict();
+export type StudentGetTikatukaCompetitionInput = z.infer<typeof StudentGetTikatukaCompetitionSchema>;
+
 export const StudentStartTikatukaOfficialChallengeSchema = z.object({
+  p_period_id: z.number().int().positive(),
   p_difficulty: TikatukaDifficultySchema,
 }).strict();
 export type StudentStartTikatukaOfficialChallengeInput = z.infer<typeof StudentStartTikatukaOfficialChallengeSchema>;
 
 export const TeacherTikatukaOfficialWindowSchema = z.object({
   period_key: z.string().regex(/^\d{4}-\d{2}$/),
+  period_id: z.number().int().positive().nullable(),
+  period_display_name: z.string().min(1).nullable(),
   is_open: z.boolean(),
   opened_at: z.string().datetime({ offset: true }).nullable(),
   closed_at: z.string().datetime({ offset: true }).nullable(),
