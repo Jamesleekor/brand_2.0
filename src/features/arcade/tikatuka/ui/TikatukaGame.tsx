@@ -3,6 +3,7 @@ import type { GameEvent } from '../engine';
 import { TikatukaGame as TikatukaGameCore } from './TikatukaGameCore';
 import { getEventLogText, RAKARUKA_UI_EVENT, rowLabel } from './presentation';
 import './tikatuka-effects.css';
+import './tikatuka-layout.css';
 
 type KnockEvent = Extract<GameEvent, { type: 'DICE_KNOCKED' }>;
 interface HistoryEntry { id:number; text:string; actor:'player'|'ai'|'system'; }
