@@ -93,13 +93,13 @@ export const tikatukaStudentRpc = {
 
 export function tikatukaRpcErrorMessage(result: TikatukaRpcResult<unknown>): string {
   const error = result.error;
-  if (!error) return '타카투카 서버 요청을 처리하지 못했습니다.';
+  if (!error) return '라카루카 서버 요청을 처리하지 못했습니다.';
 
   switch (error.code) {
     case 'PTK01': return '학생 로그인 정보를 확인할 수 없습니다. 다시 로그인해주세요.';
     case 'PTK02': return '선택한 난이도가 올바르지 않습니다.';
     case 'PTK03': return '아직 해금되지 않은 난이도입니다.';
-    case 'PTK04': return '이 타카투카 게임 기록을 서버에서 찾을 수 없습니다.';
+    case 'PTK04': return '이 라카루카 게임 기록을 서버에서 찾을 수 없습니다.';
     case 'PTK05': return '같은 게임 식별값으로 서로 다른 결과가 제출되었습니다. 기록을 저장하지 않았습니다.';
     case 'PTK06': return '게임 엔진 버전이 서버와 일치하지 않습니다.';
     case 'PTK07': return '시작한 난이도와 제출한 난이도가 일치하지 않습니다.';
@@ -113,8 +113,8 @@ export function tikatukaRpcErrorMessage(result: TikatukaRpcResult<unknown>): str
     case 'PTK15':
       return '게임 결과 검증에 실패했습니다. 이 결과로 난이도를 해금하지 않았습니다.';
     case 'TIKATUKA_INVALID_SERVER_RESPONSE':
-      return '타카투카 서버 응답 형식이 올바르지 않습니다. 새 게임을 시작하지 말고 다시 시도해주세요.';
+      return '라카루카 서버 응답 형식이 올바르지 않습니다. 새 게임을 시작하지 말고 다시 시도해주세요.';
     default:
-      return error.message || '타카투카 서버 요청을 처리하지 못했습니다.';
+      return error.message || '라카루카 서버 요청을 처리하지 못했습니다.';
   }
 }

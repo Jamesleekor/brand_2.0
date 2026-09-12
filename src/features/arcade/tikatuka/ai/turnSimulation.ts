@@ -28,10 +28,10 @@ function syntheticDie(state: GameState, side: Side, kind: 'normal' | 'shield', v
 
 export function createHypotheticalHoldState(state: GameState, side: Side): GameState {
   if (!canHold(state, side) || state.turn.currentDie === null) {
-    throw new Error('타카투카 AI search에서 HOLD를 시뮬레이션할 수 없는 상태입니다.');
+    throw new Error('라카루카 AI search에서 HOLD를 시뮬레이션할 수 없는 상태입니다.');
   }
   if (state.sides[side].heldDie !== null) {
-    throw new Error('타카투카 AI search HOLD 대상 Side에 이미 heldDie가 있습니다.');
+    throw new Error('라카루카 AI search HOLD 대상 Side에 이미 heldDie가 있습니다.');
   }
 
   const die = state.turn.currentDie;
@@ -126,10 +126,10 @@ export function createHypotheticalForcedPassState(state: GameState): GameState {
   const side = state.currentSide;
   const die = state.turn.currentDie;
   if (state.phase !== 'awaiting_action' || die === null || getLegalPlacements(state, side, die).length !== 0) {
-    throw new Error('타카투카 AI search에서 Forced Pass를 적용할 수 없는 상태입니다.');
+    throw new Error('라카루카 AI search에서 Forced Pass를 적용할 수 없는 상태입니다.');
   }
   if (state.sides[side].heldDie !== null) {
-    throw new Error('타카투카 AI search Forced Pass 대상 Side에 이미 heldDie가 있습니다.');
+    throw new Error('라카루카 AI search Forced Pass 대상 Side에 이미 heldDie가 있습니다.');
   }
 
   return {

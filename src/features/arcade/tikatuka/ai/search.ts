@@ -170,15 +170,15 @@ export function rankAdvancedAIActions(
   options?: AdvancedSearchOptions,
 ): AdvancedAIRanking {
   if (state.currentSide !== 'ai' || state.phase !== 'awaiting_action' || state.turn.currentDie === null) {
-    throw new Error('타카투카 고급 AI는 AI awaiting_action 상태에서만 행동을 평가할 수 있습니다.');
+    throw new Error('라카루카 고급 AI는 AI awaiting_action 상태에서만 행동을 평가할 수 있습니다.');
   }
   if (getLegalPlacements(state, 'ai', state.turn.currentDie).length === 0) {
-    throw new Error('타카투카 고급 AI root에는 자동 Forced Pass 이전의 상태를 전달할 수 없습니다.');
+    throw new Error('라카루카 고급 AI root에는 자동 Forced Pass 이전의 상태를 전달할 수 없습니다.');
   }
 
   const context = createAISearchContext(options);
   const candidates = collectTurnActionValues(state, profile.searchDepth, profile, context).sort(compareAdvancedCandidates);
-  if (candidates.length === 0) throw new Error('타카투카 고급 AI에 합법적인 행동 후보가 없습니다.');
+  if (candidates.length === 0) throw new Error('라카루카 고급 AI에 합법적인 행동 후보가 없습니다.');
 
   return {
     rankedCandidates: candidates,

@@ -33,7 +33,7 @@ export function chooseBasicAIPlacement(
   profile: AIProfile = getAIProfile(state.difficulty),
 ): AIBasicChoice {
   const ranked: readonly AIPlacementCandidate[] = rankAIPlacementCandidates(state, profile);
-  if (ranked.length === 0) throw new Error('타카투카 기본 AI에 합법적인 Placement 후보가 없습니다.');
+  if (ranked.length === 0) throw new Error('라카루카 기본 AI에 합법적인 Placement 후보가 없습니다.');
 
   const best = ranked[0];
   const pool = eligibleMistakePool(ranked, profile);

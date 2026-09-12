@@ -28,12 +28,12 @@ function emptyTurnState(): TurnState {
 }
 
 function invalidActionError(action: GameAction, reason: string | undefined): Error {
-  return new Error(`타카투카 액션 ${action.type}을 처리할 수 없습니다: ${reason ?? 'UNKNOWN'}`);
+  return new Error(`라카루카 액션 ${action.type}을 처리할 수 없습니다: ${reason ?? 'UNKNOWN'}`);
 }
 
 function prepareCurrentTurn(state: GameState, deps: EngineDependencies): EngineTransition {
   if (state.phase !== 'turn_start') {
-    throw new Error('타카투카 내부 오류: turn_start 단계가 아닌 상태에서 턴을 준비했습니다.');
+    throw new Error('라카루카 내부 오류: turn_start 단계가 아닌 상태에서 턴을 준비했습니다.');
   }
 
   let working = state;
@@ -95,7 +95,7 @@ function prepareCurrentTurn(state: GameState, deps: EngineDependencies): EngineT
     events.push({ type: 'TURN_CHANGED', side: nextSide });
   }
 
-  throw new Error('타카투카 내부 오류: 자동 Forced Pass 전환이 안전 상한을 초과했습니다.');
+  throw new Error('라카루카 내부 오류: 자동 Forced Pass 전환이 안전 상한을 초과했습니다.');
 }
 
 function advanceToNextTurn(
@@ -104,7 +104,7 @@ function advanceToNextTurn(
   priorEvents: GameEvent[] = [],
 ): EngineTransition {
   if (state.turn.currentDie !== null) {
-    throw new Error('타카투카 내부 오류: currentDie가 남아 있는 상태에서 턴을 넘길 수 없습니다.');
+    throw new Error('라카루카 내부 오류: currentDie가 남아 있는 상태에서 턴을 넘길 수 없습니다.');
   }
 
   const nextSide = otherSide(state.currentSide);
@@ -124,7 +124,7 @@ function advanceToNextTurn(
 
 function resolveTazza(state: GameState, actor: Side, deps: EngineDependencies): EngineTransition {
   if (!canUseTazza(state, actor) || state.turn.currentDie === null) {
-    throw new Error('타카투카 내부 오류: 검증을 통과하지 않은 타짜 액션입니다.');
+    throw new Error('라카루카 내부 오류: 검증을 통과하지 않은 타짜 액션입니다.');
   }
 
   const previous = state.turn.currentDie;
@@ -167,13 +167,13 @@ function resolveTazza(state: GameState, actor: Side, deps: EngineDependencies): 
 
 function resolveHold(state: GameState, actor: Side, deps: EngineDependencies): EngineTransition {
   if (!canHold(state, actor) || state.turn.currentDie === null) {
-    throw new Error('타카투카 내부 오류: 검증을 통과하지 않은 HOLD 액션입니다.');
+    throw new Error('라카루카 내부 오류: 검증을 통과하지 않은 HOLD 액션입니다.');
   }
 
   const die = state.turn.currentDie;
   const actorState = state.sides[actor];
   if (actorState.heldDie !== null) {
-    throw new Error('타카투카 내부 오류: HOLD 저장 공간에 이미 주사위가 있습니다.');
+    throw new Error('라카루카 내부 오류: HOLD 저장 공간에 이미 주사위가 있습니다.');
   }
 
   const turnEndState: GameState = {
@@ -206,12 +206,12 @@ function resolveHold(state: GameState, actor: Side, deps: EngineDependencies): E
 function resolveForcedPass(state: GameState, actor: Side, deps: EngineDependencies): EngineTransition {
   const die = state.turn.currentDie;
   if (die === null || !shouldForcePass(state, actor, die)) {
-    throw new Error('타카투카 내부 오류: 검증을 통과하지 않은 Forced Pass 액션입니다.');
+    throw new Error('라카루카 내부 오류: 검증을 통과하지 않은 Forced Pass 액션입니다.');
   }
 
   const actorState = state.sides[actor];
   if (actorState.heldDie !== null) {
-    throw new Error('타카투카 내부 오류: Forced Pass 저장 공간에 이미 주사위가 있습니다.');
+    throw new Error('라카루카 내부 오류: Forced Pass 저장 공간에 이미 주사위가 있습니다.');
   }
 
   const turnEndState: GameState = {

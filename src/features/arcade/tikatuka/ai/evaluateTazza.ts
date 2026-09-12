@@ -24,7 +24,7 @@ export function createHypotheticalTazzaState(
 ): GameState {
   const currentDie = state.turn.currentDie;
   if (!canUseTazza(state, side) || currentDie === null || currentDie.kind !== 'normal') {
-    throw new Error('타카투카 search에서 Tazza 가상 상태를 만들 수 없는 상태입니다.');
+    throw new Error('라카루카 search에서 Tazza 가상 상태를 만들 수 없는 상태입니다.');
   }
 
   return {
@@ -64,7 +64,7 @@ export function evaluateAITazza(
   profile: AIProfile = getAIProfile(state.difficulty),
 ): AITazzaEvaluation {
   if (!canUseTazza(state, 'ai')) {
-    throw new Error('타카투카 AI는 현재 상태에서 Tazza를 사용할 수 없습니다.');
+    throw new Error('라카루카 AI는 현재 상태에서 Tazza를 사용할 수 없습니다.');
   }
 
   const currentRanked = rankAIPlacementCandidates(state, profile);

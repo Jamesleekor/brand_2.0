@@ -169,7 +169,7 @@ export default function ArcadePage() {
 
   if (tikatukaOpen) {
     return <div className="min-h-screen">
-      <PageHeader title="아케이드 · 타카투카" emoji="🎲" />
+      <PageHeader title="아케이드 · 라카루카" emoji="🎲" />
       <main className="mx-auto max-w-6xl px-4 py-5">
         <TikatukaGame onExit={() => setTikatukaOpen(false)} />
       </main>
@@ -189,11 +189,11 @@ export default function ArcadePage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="text-[10px] font-black tracking-[0.2em] text-gold">NEW · GAME #03 · STRATEGY</div>
-            <h2 className="mt-1 font-display text-2xl text-white">🎲 타카투카</h2>
+            <h2 className="mt-1 font-display text-2xl text-white">🎲 라카루카</h2>
             <p className="mt-1 max-w-2xl text-sm text-text-secondary">3×3 주사위 보드에서 더블·트리플·알까기·실드를 이용해 AI와 겨루는 전략 게임입니다.</p>
-            <p className="mt-2 text-[11px] font-bold text-text-muted">현재 Phase 6에서는 로컬 플레이만 연결되어 있으며 결과 저장과 난이도 해금은 다음 단계에서 적용됩니다.</p>
+            <p className="mt-2 text-[11px] font-bold text-text-muted">진행도와 난이도 해금은 서버에 저장되며, 승리한 단계의 다음 난이도만 순차적으로 해금됩니다.</p>
           </div>
-          <button className="btn-primary min-w-[180px]" disabled={Boolean(bootstrap)} onClick={() => setTikatukaOpen(true)}>{bootstrap ? '진행 중인 게임을 먼저 종료하세요' : '타카투카 시작'}</button>
+          <button className="btn-primary min-w-[180px]" disabled={Boolean(bootstrap)} onClick={() => setTikatukaOpen(true)}>{bootstrap ? '진행 중인 게임을 먼저 종료하세요' : '라카루카 시작'}</button>
         </div>
       </section>
 

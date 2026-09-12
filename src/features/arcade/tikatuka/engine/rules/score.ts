@@ -10,7 +10,7 @@ export function calculateRowScore(row: RowState): number {
     if (count === 1) total += value;
     else if (count === 2) total += value * 3;
     else if (count === 3) total += value * 5;
-    else throw new Error('타카투카 Row에는 같은 눈이 3개를 초과할 수 없습니다.');
+    else throw new Error('라카루카 Row에는 같은 눈이 3개를 초과할 수 없습니다.');
   }
   return total;
 }

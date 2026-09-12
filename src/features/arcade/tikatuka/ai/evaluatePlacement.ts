@@ -20,10 +20,10 @@ export function rankAIPlacementCandidates(
   profile: AIProfile = getAIProfile(state.difficulty),
 ): AIPlacementCandidate[] {
   if (state.currentSide !== 'ai') {
-    throw new Error('타카투카 기본 AI는 AI 차례에서만 Placement를 평가할 수 있습니다.');
+    throw new Error('라카루카 기본 AI는 AI 차례에서만 Placement를 평가할 수 있습니다.');
   }
   if (state.phase !== 'awaiting_action' || state.turn.currentDie === null) {
-    throw new Error('타카투카 기본 AI는 awaiting_action 상태와 currentDie가 필요합니다.');
+    throw new Error('라카루카 기본 AI는 awaiting_action 상태와 currentDie가 필요합니다.');
   }
 
   const placements = getLegalPlacements(state, 'ai', state.turn.currentDie);

@@ -12,7 +12,7 @@ function createSideState(side: Side, difficulty: Difficulty) {
 }
 
 export function createInitialTikatukaState(gameId: string, difficulty: Difficulty): GameState {
-  if (!gameId.trim()) throw new Error('타카투카 gameId가 필요합니다.');
+  if (!gameId.trim()) throw new Error('라카루카 gameId가 필요합니다.');
 
   return {
     version: TIKATUKA_ENGINE_VERSION,

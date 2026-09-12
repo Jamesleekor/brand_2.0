@@ -7,7 +7,7 @@ import type { Difficulty, GameState, RowState } from '../engine';
 
 function serializeFinalRow(row: RowState): TikatukaFinalRow {
   if (row.dice.length !== 3) {
-    throw new Error('완료된 타카투카 Row는 정확히 3개의 주사위를 가져야 합니다.');
+    throw new Error('완료된 라카루카 Row는 정확히 3개의 주사위를 가져야 합니다.');
   }
 
   const serialized = row.dice.map((die) => ({ value: die.value, kind: die.kind }));
@@ -16,12 +16,12 @@ function serializeFinalRow(row: RowState): TikatukaFinalRow {
 
 export function createTikatukaSubmissionInput(state: GameState): StudentSubmitTikatukaResultInput {
   if (state.phase !== 'game_over' || state.result === null) {
-    throw new Error('종료되지 않은 타카투카 게임은 서버에 제출할 수 없습니다.');
+    throw new Error('종료되지 않은 라카루카 게임은 서버에 제출할 수 없습니다.');
   }
 
   const result = state.result;
   if (result.gameId !== state.gameId) {
-    throw new Error('타카투카 결과 gameId가 현재 게임과 일치하지 않습니다.');
+    throw new Error('라카루카 결과 gameId가 현재 게임과 일치하지 않습니다.');
   }
 
   return {

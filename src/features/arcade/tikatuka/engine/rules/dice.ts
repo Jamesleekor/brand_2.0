@@ -7,7 +7,7 @@ export function isDieValue(value: unknown): value is DieValue {
 
 export function rollNormalDie(side: Side, deps: EngineDependencies): Die {
   const value = deps.gameRng.nextInt(TIKATUKA_DIE_MIN, TIKATUKA_DIE_MAX);
-  if (!isDieValue(value)) throw new Error('gameRng가 유효하지 않은 타카투카 주사위 눈을 반환했습니다.');
+  if (!isDieValue(value)) throw new Error('gameRng가 유효하지 않은 라카루카 주사위 눈을 반환했습니다.');
   return {
     id: deps.createId(),
     value,

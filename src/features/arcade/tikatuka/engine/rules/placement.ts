@@ -28,7 +28,7 @@ export function shouldForcePass(state: GameState, actor: Side, die: Die): boolea
 
 export function placeDie(state: GameState, actor: Side, die: Die, placement: Placement): GameState {
   if (!isLegalPlacement(state, actor, die, placement)) {
-    throw new Error('합법적이지 않은 타카투카 배치입니다.');
+    throw new Error('합법적이지 않은 라카루카 배치입니다.');
   }
 
   const targetSideState = state.sides[placement.targetSide];

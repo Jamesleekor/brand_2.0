@@ -158,7 +158,7 @@ export function TikatukaGame({ onExit }: TikatukaGameProps) {
       enqueueEvents(transition.events);
       setError(null);
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : '타카투카 액션을 처리하지 못했습니다.';
+      const message = caught instanceof Error ? caught.message : '라카루카 액션을 처리하지 못했습니다.';
       setError(message);
     }
   }, [enqueueEvents]);
@@ -167,7 +167,7 @@ export function TikatukaGame({ onExit }: TikatukaGameProps) {
     if (isStarting) return;
     const progress = progressQuery.data;
     if (!studentId || !progress) {
-      setError('타카투카 진행도를 불러온 뒤 게임을 시작할 수 있습니다.');
+      setError('라카루카 진행도를 불러온 뒤 게임을 시작할 수 있습니다.');
       return;
     }
     if (!isTikatukaDifficultyUnlocked(progress, nextDifficulty)) {
@@ -293,7 +293,7 @@ export function TikatukaGame({ onExit }: TikatukaGameProps) {
       setSubmission(rpc.data);
       queryClient.setQueryData(progressQueryKey, rpc.data.progress);
     } catch (caught) {
-      setSubmitError(caught instanceof Error ? caught.message : '타카투카 결과를 서버에 제출하지 못했습니다.');
+      setSubmitError(caught instanceof Error ? caught.message : '라카루카 결과를 서버에 제출하지 못했습니다.');
     } finally {
       if (submissionInFlightRef.current === state.gameId) submissionInFlightRef.current = null;
       setIsSubmitting(false);
@@ -388,7 +388,7 @@ export function TikatukaGame({ onExit }: TikatukaGameProps) {
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
         <div>
           <div className="text-[10px] font-black tracking-[0.22em] text-gold">TACTICAL DICE DUEL</div>
-          <h2 className="mt-1 font-display text-2xl text-white">🎲 타카투카</h2>
+          <h2 className="mt-1 font-display text-2xl text-white">🎲 라카루카</h2>
           <p className="mt-1 text-xs text-text-secondary">Lv.{gameState.difficulty} · {difficultyLabel(gameState.difficulty)} · 서버 발급 게임</p>
         </div>
         <div className="flex gap-2">
@@ -447,7 +447,7 @@ function SetupScreen({ difficulty, progress, progressLoading, progressError, isS
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
         <div className="text-xs font-black tracking-[0.2em] text-gold">GAME #03 · STRATEGY</div>
-        <h2 className="mt-2 font-display text-3xl text-white">🎲 타카투카</h2>
+        <h2 className="mt-2 font-display text-3xl text-white">🎲 라카루카</h2>
         <p className="mt-2 max-w-2xl text-sm text-text-secondary">같은 눈을 모아 점수를 폭발시키고, 상대의 같은 눈은 알까기로 제거하세요. 성공한 알까기는 다음 자기 턴에 같은 눈의 실드 주사위를 줍니다.</p>
       </div>
       <button className="btn-secondary text-xs" disabled={isStarting} onClick={onExit}>아케이드로 돌아가기</button>

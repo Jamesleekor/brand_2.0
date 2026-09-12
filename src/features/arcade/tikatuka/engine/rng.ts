@@ -11,7 +11,7 @@ function assertIntegerRange(minInclusive: number, maxInclusive: number) {
 
 function normalizeNonZeroUint32Seed(seed: number): number {
   if (!Number.isInteger(seed) || seed < 1 || seed > UINT32_MAX) {
-    throw new Error('타카투카 RNG seed는 1~4294967295 정수여야 합니다.');
+    throw new Error('라카루카 RNG seed는 1~4294967295 정수여야 합니다.');
   }
   return seed >>> 0;
 }

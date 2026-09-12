@@ -16,7 +16,7 @@ function emptyTurnState(): TurnState {
 }
 
 function invalidPlacementError(action: Extract<GameAction, { type: 'PLACE_DIE' }>, reason: string | undefined): Error {
-  return new Error(`타카투카 PLACE_DIE을 처리할 수 없습니다: ${reason ?? 'UNKNOWN'}`);
+  return new Error(`라카루카 PLACE_DIE을 처리할 수 없습니다: ${reason ?? 'UNKNOWN'}`);
 }
 
 /**
@@ -36,7 +36,7 @@ export function resolvePlacementOutcome(
   if (!validation.ok) throw invalidPlacementError(action, validation.reason);
 
   const die = state.turn.currentDie;
-  if (die === null) throw new Error('타카투카 내부 오류: PLACE 시 currentDie가 없습니다.');
+  if (die === null) throw new Error('라카루카 내부 오류: PLACE 시 currentDie가 없습니다.');
 
   const placement = { targetSide: action.targetSide, row: action.row } as const;
   let working: GameState = { ...state, phase: 'resolving_place' };
