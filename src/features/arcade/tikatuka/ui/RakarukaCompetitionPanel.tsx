@@ -50,13 +50,15 @@ export function RakarukaCompetitionPanel({ gameInProgress = false }: { gameInPro
   }, [active?.session_id, active?.difficulty, highestUnlocked]);
 
   const startChallenge = async () => {
-    if (starting || active || gameInProgress) return;
+    const current = competitionQuery.data;
+    if (starting || active || gameInProgress || !current?.official_can_start) return;
     setStarting(true);
     setActionError(null);
     const rpc = await tikatukaStudentRpc.startOfficialChallenge(supabase, { p_difficulty: selectedDifficulty });
     setStarting(false);
     if (rpc.success === false) {
       setActionError(tikatukaRpcErrorMessage(rpc));
+      void competitionQuery.refetch();
       return;
     }
     queryClient.setQueryData(competitionKey, rpc.data);
@@ -85,9 +87,14 @@ export function RakarukaCompetitionPanel({ gameInProgress = false }: { gameInPro
         <div>
           <div className="text-xs font-black tracking-[0.18em] text-gold">RAKARUKA RANKING · {data.period_key}</div>
           <h3 className="mt-1 font-display text-2xl text-white">🏆 라카루카 랭킹 & 공인 기록</h3>
-          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-300">일반 랭킹은 실제 최고 클리어 Lv만 비교하며 같은 Lv는 공동 순위입니다. 공인 랭킹은 선택한 난이도로 5판을 완료한 기록끼리 비교합니다.</p>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-300">일반 랭킹은 실제 최고 클리어 Lv만 비교하며 같은 Lv는 공동 순위입니다. 공인 도전은 선생님이 연 공인데이에 학생당 단 1회, 5판만 진행합니다.</p>
         </div>
-        <button className="btn-secondary text-xs" onClick={() => void competitionQuery.refetch()}>새로고침</button>
+        <div className="flex items-center gap-2">
+          <span className={`rounded-pill border px-3 py-1 text-xs font-black ${data.official_window_open ? 'border-success/40 bg-success/10 text-success' : 'border-white/10 bg-white/5 text-slate-500'}`}>
+            {data.official_window_open ? '공인 도전 OPEN' : '공인 도전 CLOSED'}
+          </span>
+          <button className="btn-secondary text-xs" onClick={() => void competitionQuery.refetch()}>새로고침</button>
+        </div>
       </div>
     </div>
 
@@ -111,11 +118,11 @@ export function RakarukaCompetitionPanel({ gameInProgress = false }: { gameInPro
           <RuleStat label="패배" value="0점" />
         </div>
         <div className="mt-4 space-y-2 text-sm font-semibold leading-6 text-slate-300">
-          <p>• <b className="text-white">5판을 모두 완료</b>해야 하나의 공인 기록이 됩니다.</p>
+          <p>• 공인 도전은 <b className="text-yellow-200">이번 기간에 딱 1회</b>이며, 시작하면 5판을 모두 완료해야 합니다.</p>
           <p>• 총 <b className="text-yellow-200">3점 이상</b>이어야 랭킹에 인정됩니다. 5패·1무 4패·2무 3패는 미인정입니다.</p>
+          <p>• 미인정 기록이 나와도 <b className="text-white">1회 기회는 이미 사용한 것</b>이므로 다시 도전할 수 없습니다.</p>
           <p>• 순위는 <b className="text-white">도전 난이도 우선 → 같은 난이도에서는 결과점수</b> 순입니다.</p>
           <p>• 그래서 <b className="text-emerald-200">Lv.10 · 1승 4패(3점)</b>가 <b>Lv.9 · 5승(15점)</b>보다 위입니다.</p>
-          <p>• 같은 달에 다시 도전할 수 있으며 <b className="text-white">가장 좋은 성립 기록만</b> 랭킹에 사용됩니다.</p>
         </div>
       </div>
     </div>
@@ -129,7 +136,7 @@ export function RakarukaCompetitionPanel({ gameInProgress = false }: { gameInPro
         </div>) : <EmptyRanking />}
       </RankingTable>
 
-      <RankingTable title="🏅 공인 기록 랭킹" subtitle="도전 Lv 우선 · 5판 결과점수 · 동점 공동 순위">
+      <RankingTable title="🏅 공인 기록 랭킹" subtitle="1회 5판 · 도전 Lv 우선 · 동점 공동 순위">
         {data.official_leaderboard.length ? data.official_leaderboard.map((row) => <div key={row.student_id} className="grid grid-cols-[48px_1fr_auto] items-center gap-3 border-b border-white/5 px-4 py-3 last:border-b-0">
           <RankBadge rank={row.rank} />
           <div><div className="font-black text-white">{row.brand_name || row.student_name}</div><div className="mt-0.5 text-xs font-semibold text-slate-400">{row.wins}승 {row.draws}무 {row.losses}패</div></div>
@@ -139,7 +146,7 @@ export function RakarukaCompetitionPanel({ gameInProgress = false }: { gameInPro
     </div>
 
     {data.recent_challenges.length > 0 && <div className="border-t border-white/10 p-5">
-      <div className="text-sm font-black text-slate-200">내 최근 공인 도전</div>
+      <div className="text-sm font-black text-slate-200">내 공인 도전 결과</div>
       <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
         {data.recent_challenges.map((item) => <div key={item.session_id} className={`min-w-[190px] rounded-card-md border p-3 ${item.qualified ? 'border-success/30 bg-success/5' : 'border-white/10 bg-black/20'}`}>
           <div className="flex items-center justify-between"><b className="text-white">Lv.{item.difficulty}</b><span className={`text-xs font-black ${item.qualified ? 'text-emerald-300' : 'text-slate-500'}`}>{item.qualified ? '공인 성립' : '미인정'}</span></div>
@@ -166,14 +173,37 @@ function OfficialChallengeCard({ data, highestUnlocked, selectedDifficulty, setS
       <div className="flex items-start justify-between gap-3"><div><div className="text-sm font-black text-yellow-200">🔥 공인 기록 도전 진행 중</div><div className="mt-1 font-display text-3xl text-white">Lv.{active.difficulty}</div></div><div className="rounded-pill bg-black/25 px-3 py-1 text-sm font-black text-yellow-100">{active.games_played}/5판</div></div>
       <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-black/35"><div className="h-full rounded-full bg-gold transition-all" style={{ width: `${active.games_played * 20}%` }} /></div>
       <div className="mt-4 grid grid-cols-4 gap-2 text-center"><MiniStat label="승" value={active.wins} /><MiniStat label="무" value={active.draws} /><MiniStat label="패" value={active.losses} /><MiniStat label="점수" value={active.points} /></div>
-      <p className="mt-4 text-sm font-semibold leading-6 text-yellow-50">남은 <b>{active.remaining_games}판</b>도 Lv.{active.difficulty}로 진행하세요. 공인 도전이 끝날 때까지 서버가 다른 난이도 게임 시작을 막습니다.</p>
-      <p className="mt-2 text-xs font-bold text-yellow-200/80">3점 이상이어도 5판을 모두 끝내야 공인 기록이 확정됩니다.</p>
+      <p className="mt-4 text-sm font-semibold leading-6 text-yellow-50">남은 <b>{active.remaining_games}판</b>도 Lv.{active.difficulty}로 진행하세요. 선생님이 공인데이를 닫더라도 이미 시작한 이 5판은 끝까지 진행할 수 있습니다.</p>
+      <p className="mt-2 text-xs font-bold text-yellow-200/80">이 도전이 이번 기간의 유일한 공인 기회입니다.</p>
+    </div>;
+  }
+
+  const completed = data.recent_challenges[0] ?? null;
+  if (data.official_attempt_used) {
+    return <div className="rounded-card-lg border border-white/15 bg-black/25 p-5">
+      <div className="text-sm font-black text-slate-300">✓ 이번 공인 도전 사용 완료</div>
+      {completed ? <>
+        <div className="mt-2 font-display text-3xl text-white">Lv.{completed.difficulty} · {completed.points}점</div>
+        <div className="mt-3 text-sm font-bold text-slate-300">{completed.wins}승 {completed.draws}무 {completed.losses}패</div>
+        <div className={`mt-4 rounded-card-md border p-3 text-sm font-black ${completed.qualified ? 'border-success/35 bg-success/10 text-success' : 'border-white/10 bg-white/5 text-slate-400'}`}>
+          {completed.qualified ? '🏅 공인 기록 성립' : '공인 기록 미인정 · 3점 미만'}
+        </div>
+      </> : <p className="mt-3 text-sm font-semibold text-slate-400">공인 도전 기록을 처리 중입니다.</p>}
+      <p className="mt-4 text-xs font-bold leading-5 text-slate-500">공인 도전은 이번 기간에 1회만 가능합니다. 다시 시작할 수 없습니다.</p>
+    </div>;
+  }
+
+  if (!data.official_window_open) {
+    return <div className="rounded-card-lg border border-white/10 bg-black/25 p-5">
+      <div className="text-sm font-black text-slate-400">🔒 공인 기록 도전 CLOSED</div>
+      <div className="mt-2 font-display text-2xl text-white">아직 공인데이가 열리지 않았습니다.</div>
+      <p className="mt-3 text-sm font-semibold leading-6 text-slate-400">선생님이 교사 운영 패널에서 공인 도전을 열면 난이도를 선택하고 1회 5판 도전을 시작할 수 있습니다.</p>
     </div>;
   }
 
   return <div className="rounded-card-lg border border-brand-primary/30 bg-brand-primary/5 p-5">
-    <div className="text-sm font-black text-cyan-200">🎯 새 공인 기록 도전</div>
-    <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">현재 해금된 난이도 이하에서 원하는 Lv를 고르세요. 공인 도전은 <b className="text-white">게임을 시작하기 전에</b> 생성해야 하며, 시작한 뒤 새로 발급되는 5판이 집계됩니다.</p>
+    <div className="text-sm font-black text-cyan-200">🎯 공인 기록 도전 · 1회 한정</div>
+    <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">현재 해금된 난이도 이하에서 원하는 Lv를 고르세요. <b className="text-yellow-200">시작 버튼을 누르는 순간 이번 기간의 유일한 공인 도전 기회를 사용</b>합니다.</p>
     <div className="mt-4 flex flex-wrap gap-2">
       {DIFFICULTIES.map((level) => {
         const unlocked = level <= highestUnlocked;
@@ -181,9 +211,10 @@ function OfficialChallengeCard({ data, highestUnlocked, selectedDifficulty, setS
       })}
     </div>
     <div className="mt-4 rounded-card-md border border-white/10 bg-black/20 p-3 text-sm font-semibold text-slate-300">선택: <b className="text-white">Lv.{selectedDifficulty}</b> · 최고 해금: Lv.{highestUnlocked}</div>
-    {gameInProgress && <div className="mt-3 rounded-card-md border border-warning/40 bg-warning/10 p-3 text-sm font-bold text-warning">현재 판이 진행 중입니다. 이 판을 끝내고 새 게임을 시작하기 전에 공인 도전을 생성하세요.</div>}
+    <div className="mt-3 rounded-card-md border border-warning/40 bg-warning/10 p-3 text-sm font-bold leading-6 text-warning">⚠️ 5판 결과가 3점 미만이어도 재도전은 없습니다. 난이도를 신중하게 선택하세요.</div>
+    {gameInProgress && <div className="mt-3 rounded-card-md border border-warning/40 bg-warning/10 p-3 text-sm font-bold text-warning">현재 일반 판이 진행 중입니다. 이 판을 끝낸 뒤 공인 도전을 시작하세요.</div>}
     {actionError && <div className="mt-3 rounded-card-md border border-danger/40 bg-danger/10 p-3 text-sm font-bold text-red-200">{actionError}</div>}
-    <button className="btn-primary mt-4 w-full py-3" disabled={starting || gameInProgress} onClick={onStart}>{starting ? '공인 도전 생성 중...' : `Lv.${selectedDifficulty} · 5판 공인 도전 시작`}</button>
+    <button className="btn-primary mt-4 w-full py-3" disabled={starting || gameInProgress || !data.official_can_start} onClick={onStart}>{starting ? '공인 도전 생성 중...' : `Lv.${selectedDifficulty} · 유일한 5판 공인 도전 시작`}</button>
   </div>;
 }
 
