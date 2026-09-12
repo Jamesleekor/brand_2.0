@@ -85,6 +85,11 @@ export const TikatukaCompetitionSchema = z.object({
   my_official: TikatukaMyOfficialRankSchema.nullable(),
   active_challenge: TikatukaActiveChallengeSchema.nullable(),
   recent_challenges: z.array(TikatukaRecentChallengeSchema),
+  official_window_open: z.boolean(),
+  official_window_opened_at: z.string().datetime({ offset: true }).nullable(),
+  official_window_closed_at: z.string().datetime({ offset: true }).nullable(),
+  official_attempt_used: z.boolean(),
+  official_can_start: z.boolean(),
   rules: TikatukaCompetitionRulesSchema,
 }).strict();
 export type TikatukaCompetition = z.infer<typeof TikatukaCompetitionSchema>;
@@ -93,3 +98,18 @@ export const StudentStartTikatukaOfficialChallengeSchema = z.object({
   p_difficulty: TikatukaDifficultySchema,
 }).strict();
 export type StudentStartTikatukaOfficialChallengeInput = z.infer<typeof StudentStartTikatukaOfficialChallengeSchema>;
+
+export const TeacherTikatukaOfficialWindowSchema = z.object({
+  period_key: z.string().regex(/^\d{4}-\d{2}$/),
+  is_open: z.boolean(),
+  opened_at: z.string().datetime({ offset: true }).nullable(),
+  closed_at: z.string().datetime({ offset: true }).nullable(),
+  started_count: z.number().int().nonnegative(),
+  completed_count: z.number().int().nonnegative(),
+}).strict();
+export type TeacherTikatukaOfficialWindow = z.infer<typeof TeacherTikatukaOfficialWindowSchema>;
+
+export const TeacherSetTikatukaOfficialWindowSchema = z.object({
+  p_is_open: z.boolean(),
+}).strict();
+export type TeacherSetTikatukaOfficialWindowInput = z.infer<typeof TeacherSetTikatukaOfficialWindowSchema>;
