@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import type { GameEvent } from '../engine';
 import { TikatukaGame as TikatukaGameCore } from './TikatukaGameCore';
-import { getEventLogText, RAKARUKA_UI_EVENT, rowLabel } from './presentation';
+import {
+  getEventLogText,
+  RAKARUKA_AI_RESULT_HOLD_MS,
+  RAKARUKA_DICE_REVEAL_MS,
+  RAKARUKA_TAZZA_REVEAL_MS,
+  RAKARUKA_UI_EVENT,
+  rowLabel,
+} from './presentation';
 import './tikatuka-effects.css';
 import './tikatuka-layout.css';
 
 type KnockEvent = Extract<GameEvent, { type: 'DICE_KNOCKED' }>;
+type AiRollRevealEvent = Extract<GameEvent, { type: 'DIE_ROLLED' | 'TAZZA_USED' }>;
 interface HistoryEntry { id:number; text:string; actor:'player'|'ai'|'system'; }
 
 function eventActor(event:GameEvent):HistoryEntry['actor'] {
@@ -17,12 +25,22 @@ function eventActor(event:GameEvent):HistoryEntry['actor'] {
 export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
   const [history,setHistory]=useState<HistoryEntry[]>([]);
   const [impact,setImpact]=useState<KnockEvent|null>(null);
+  const [aiRollReveal,setAiRollReveal]=useState<AiRollRevealEvent|null>(null);
   const sequenceRef=useRef(0);
   const impactTimerRef=useRef<number|null>(null);
+  const aiRevealStartTimerRef=useRef<number|null>(null);
+  const aiRevealEndTimerRef=useRef<number|null>(null);
   const gameEndedRef=useRef(false);
   const seenEventsRef=useRef(new WeakSet<object>());
 
   useEffect(()=>{
+    const clearAiRevealTimers=()=>{
+      if (aiRevealStartTimerRef.current!==null) window.clearTimeout(aiRevealStartTimerRef.current);
+      if (aiRevealEndTimerRef.current!==null) window.clearTimeout(aiRevealEndTimerRef.current);
+      aiRevealStartTimerRef.current=null;
+      aiRevealEndTimerRef.current=null;
+    };
+
     const handleEvent=(raw:Event)=>{
       const event=(raw as CustomEvent<GameEvent>).detail;
       if (!event || seenEventsRef.current.has(event)) return;
@@ -30,12 +48,27 @@ export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
       if (event.type==='DIE_ROLLED' && gameEndedRef.current) {
         setHistory([]); sequenceRef.current=0; gameEndedRef.current=false;
         seenEventsRef.current=new WeakSet<object>(); seenEventsRef.current.add(event);
+        clearAiRevealTimers();
+        setAiRollReveal(null);
       }
       const text=getEventLogText(event);
       if (text) {
         sequenceRef.current+=1;
         const entry:HistoryEntry={id:sequenceRef.current,text,actor:eventActor(event)};
         setHistory(current=>[...current.slice(-19),entry]);
+      }
+      if ((event.type==='DIE_ROLLED' || event.type==='TAZZA_USED') && event.side==='ai') {
+        clearAiRevealTimers();
+        setAiRollReveal(null);
+        const revealDelay=event.type==='DIE_ROLLED' ? RAKARUKA_DICE_REVEAL_MS : RAKARUKA_TAZZA_REVEAL_MS;
+        aiRevealStartTimerRef.current=window.setTimeout(()=>{
+          aiRevealStartTimerRef.current=null;
+          setAiRollReveal(event);
+          aiRevealEndTimerRef.current=window.setTimeout(()=>{
+            setAiRollReveal(null);
+            aiRevealEndTimerRef.current=null;
+          },RAKARUKA_AI_RESULT_HOLD_MS);
+        },revealDelay);
       }
       if (event.type==='DICE_KNOCKED') {
         setImpact(event);
@@ -45,13 +78,18 @@ export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
       if (event.type==='GAME_FINISHED') gameEndedRef.current=true;
     };
     window.addEventListener(RAKARUKA_UI_EVENT,handleEvent as EventListener);
-    return ()=>{ window.removeEventListener(RAKARUKA_UI_EVENT,handleEvent as EventListener); if (impactTimerRef.current!==null) window.clearTimeout(impactTimerRef.current); };
+    return ()=>{
+      window.removeEventListener(RAKARUKA_UI_EVENT,handleEvent as EventListener);
+      if (impactTimerRef.current!==null) window.clearTimeout(impactTimerRef.current);
+      clearAiRevealTimers();
+    };
   },[]);
 
   return <div className="rakaruka-game-shell relative space-y-3">
     {history.length > 0 && <RakarukaActionHistory entries={history}/>} 
     <TikatukaGameCore {...props}/>
     <RakarukaRulesGuide/>
+    {aiRollReveal && <AiRollRevealOverlay event={aiRollReveal}/>} 
     {impact && <KnockImpactOverlay event={impact}/>} 
   </div>;
 }
@@ -62,6 +100,18 @@ function RakarukaActionHistory({entries}:{entries:HistoryEntry[]}) {
     <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-2.5"><div><h3 className="text-sm font-black text-white">📜 최근 행동</h3><p className="text-[11px] font-semibold text-slate-400">AI가 방금 무엇을 했는지 여기서 바로 확인할 수 있습니다.</p></div><span className="rounded-pill bg-white/5 px-2 py-1 text-[10px] font-black text-slate-400">최근 6개</span></div>
     <div className="max-h-44 overflow-y-auto p-2"><div className="space-y-1.5">{visible.map(entry=><div key={entry.id} className={`grid grid-cols-[34px_1fr] gap-2 rounded-card-md border px-2.5 py-2 ${entry.actor==='ai'?'border-rose-400/20 bg-rose-400/[0.05]':entry.actor==='player'?'border-emerald-400/20 bg-emerald-400/[0.05]':'border-white/10 bg-white/[0.025]'}`}><span className="text-[10px] font-black text-slate-500">#{entry.id}</span><span className={`text-xs font-bold leading-5 ${entry.actor==='ai'?'text-rose-100':entry.actor==='player'?'text-emerald-100':'text-slate-200'}`}>{entry.text}</span></div>)}</div></div>
   </section>;
+}
+
+function AiRollRevealOverlay({event}:{event:AiRollRevealEvent}) {
+  const die=event.type==='DIE_ROLLED' ? event.die : event.next;
+  return <div className="pointer-events-none fixed inset-0 z-[65] flex items-center justify-center bg-black/20 p-4 backdrop-blur-[1px]">
+    <div className="w-full max-w-sm rounded-3xl border border-rose-300/45 bg-[#100b12]/95 p-6 text-center shadow-2xl backdrop-blur-xl">
+      <div className="text-sm font-black tracking-[0.16em] text-rose-300">🎲 상대 AI의 주사위</div>
+      <div className="mx-auto mt-5 flex h-28 w-28 items-center justify-center rounded-3xl border-2 border-rose-300/70 bg-rose-400/10 font-display text-6xl font-black text-white shadow-[0_0_32px_rgba(251,113,133,0.18)]">{die.value}</div>
+      <div className="mt-5 text-xl font-black text-white">상대 AI가 숫자 {die.value}을(를) 얻었습니다.</div>
+      <div className="mt-2 text-sm font-bold text-slate-300">{event.type==='TAZZA_USED'?'타짜 재굴림 결과':'굴림 결과'} · 1.5초 뒤 수를 결정합니다.</div>
+    </div>
+  </div>;
 }
 
 function KnockImpactOverlay({event}:{event:KnockEvent}) {
