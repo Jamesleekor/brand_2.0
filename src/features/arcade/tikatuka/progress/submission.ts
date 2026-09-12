@@ -2,7 +2,7 @@ import type {
   StudentSubmitTikatukaResultInput,
   TikatukaFinalRow,
   TikatukaProgress,
-} from '@/lib/zod_schemas/tikatuka_schemas';
+} from '../../../../lib/zod_schemas/tikatuka_schemas';
 import type { Difficulty, GameState, RowState } from '../engine';
 
 function serializeFinalRow(row: RowState): TikatukaFinalRow {
