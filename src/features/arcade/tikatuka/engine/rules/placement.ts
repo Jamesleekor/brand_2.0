@@ -21,3 +21,35 @@ export function isLegalPlacement(state: GameState, actor: Side, die: Die, placem
     (candidate) => candidate.targetSide === placement.targetSide && candidate.row === placement.row,
   );
 }
+
+export function shouldForcePass(state: GameState, actor: Side, die: Die): boolean {
+  return getLegalPlacements(state, actor, die).length === 0;
+}
+
+export function placeDie(state: GameState, actor: Side, die: Die, placement: Placement): GameState {
+  if (!isLegalPlacement(state, actor, die, placement)) {
+    throw new Error('합법적이지 않은 타카투카 배치입니다.');
+  }
+
+  const targetSideState = state.sides[placement.targetSide];
+  const targetRow = targetSideState.board.rows[placement.row];
+
+  return {
+    ...state,
+    sides: {
+      ...state.sides,
+      [placement.targetSide]: {
+        ...targetSideState,
+        board: {
+          ...targetSideState.board,
+          rows: {
+            ...targetSideState.board.rows,
+            [placement.row]: {
+              dice: [...targetRow.dice, die],
+            },
+          },
+        },
+      },
+    },
+  };
+}
