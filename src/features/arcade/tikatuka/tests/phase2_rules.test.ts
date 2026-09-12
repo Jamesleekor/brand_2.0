@@ -39,18 +39,23 @@ test('score: shield is a full scoring die regardless of provenance owner', () =>
   ] }), 25);
 });
 
-test('placement: normal stays on own board while shield can target either board freely', () => {
+test('placement: normal may place on own free row or explicitly knock an opponent row with matching normals', () => {
   const state = createInitialTikatukaState('rules-placement', 1);
   state.sides.player.board.rows.top.dice = [
     die('p1', 1, 'normal', 'player'),
     die('p2', 2, 'normal', 'player'),
     die('p3', 3, 'normal', 'player'),
   ];
+  state.sides.ai.board.rows.middle.dice = [
+    die('a1', 4, 'normal', 'ai'),
+    die('a2', 4, 'shield', 'ai'),
+  ];
 
   const normalPlacements = getLegalPlacements(state, 'player', die('n', 4, 'normal', 'player'));
   assertDeepEqual(normalPlacements, [
     { targetSide: 'player', row: 'middle' },
     { targetSide: 'player', row: 'bottom' },
+    { targetSide: 'ai', row: 'middle' },
   ]);
 
   const shieldPlacements = getLegalPlacements(state, 'player', die('s', 4, 'shield', 'player'));
@@ -58,7 +63,7 @@ test('placement: normal stays on own board while shield can target either board 
   assertEqual(shieldPlacements.filter((x) => x.targetSide === 'ai').length, 3);
 });
 
-test('knock: matching normal dice are all removed but matching shields survive', () => {
+test('knock: chosen opponent row loses matching normals, matching shields survive, attacking die is not placed here', () => {
   const state = createInitialTikatukaState('rules-knock', 1);
   state.sides.ai.board.rows.top.dice = [
     die('a1', 5, 'normal', 'ai'),
@@ -69,7 +74,7 @@ test('knock: matching normal dice are all removed but matching shields survive',
   const result = resolveKnockOff(
     state,
     'player',
-    { targetSide: 'player', row: 'top' },
+    { targetSide: 'ai', row: 'top' },
     die('attack', 5, 'normal', 'player'),
   );
 
@@ -77,6 +82,7 @@ test('knock: matching normal dice are all removed but matching shields survive',
   assertEqual(result.result.removedDice.length, 2);
   assertEqual(result.result.shieldEarned, true);
   assertDeepEqual(result.nextState.sides.ai.board.rows.top.dice.map((x) => [x.id, x.kind]), [['a2', 'shield']]);
+  assertEqual(result.nextState.sides.player.board.rows.top.dice.length, 0);
 });
 
 test('rng: consuming ai RNG never changes the game RNG sequence', () => {
