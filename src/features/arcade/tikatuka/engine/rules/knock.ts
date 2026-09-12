@@ -15,26 +15,26 @@ export function resolveKnockOff(
   state: GameState,
   attacker: Side,
   placement: Placement,
-  placedDie: Die,
+  attackingDie: Die,
 ): { nextState: GameState; result: KnockResult } {
-  const targetSide = otherSide(attacker);
+  const targetSide = placement.targetSide;
   const emptyResult: KnockResult = {
     triggered: false,
     attackingSide: attacker,
     targetSide,
     row: placement.row,
-    value: placedDie.value,
+    value: attackingDie.value,
     removedDice: [],
     shieldEarned: false,
   };
 
-  if (placedDie.kind !== 'normal' || placement.targetSide !== attacker) {
+  if (attackingDie.kind !== 'normal' || targetSide !== otherSide(attacker)) {
     return { nextState: state, result: emptyResult };
   }
 
   const targetRow = state.sides[targetSide].board.rows[placement.row];
   const removedDice = targetRow.dice.filter(
-    (die) => die.kind === 'normal' && die.value === placedDie.value,
+    (die) => die.kind === 'normal' && die.value === attackingDie.value,
   );
 
   if (removedDice.length === 0) {
@@ -42,7 +42,7 @@ export function resolveKnockOff(
   }
 
   const survivingDice = targetRow.dice.filter(
-    (die) => die.kind !== 'normal' || die.value !== placedDie.value,
+    (die) => die.kind !== 'normal' || die.value !== attackingDie.value,
   );
 
   const nextState: GameState = {
