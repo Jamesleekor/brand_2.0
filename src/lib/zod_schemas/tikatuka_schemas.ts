@@ -4,6 +4,7 @@ export const TikatukaDifficultySchema = z.union([
   z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5),
   z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10),
 ]);
+export type TikatukaDifficulty = z.infer<typeof TikatukaDifficultySchema>;
 export const TikatukaWinnerSchema = z.enum(['player', 'ai', 'draw']);
 
 export const TikatukaProgressSchema = z.object({
@@ -16,6 +17,24 @@ export const TikatukaProgressSchema = z.object({
   last_played_at: z.string().datetime({ offset: true }).nullable(),
 }).strict();
 export type TikatukaProgress = z.infer<typeof TikatukaProgressSchema>;
+
+export const TeacherTikatukaProgressItemSchema = TikatukaProgressSchema.extend({
+  student_id: z.number().int().positive(),
+  student_name: z.string().min(1),
+  brand_name: z.string().nullable(),
+}).strict();
+export type TeacherTikatukaProgressItem = z.infer<typeof TeacherTikatukaProgressItemSchema>;
+
+export const TeacherTikatukaProgressListSchema = z.object({
+  items: z.array(TeacherTikatukaProgressItemSchema),
+}).strict();
+export type TeacherTikatukaProgressList = z.infer<typeof TeacherTikatukaProgressListSchema>;
+
+export const TeacherSetTikatukaProgressSchema = z.object({
+  p_student_id: z.number().int().positive(),
+  p_highest_unlocked_difficulty: TikatukaDifficultySchema,
+}).strict();
+export type TeacherSetTikatukaProgressInput = z.infer<typeof TeacherSetTikatukaProgressSchema>;
 
 export const StudentCreateTikatukaGameSchema = z.object({
   p_difficulty: TikatukaDifficultySchema,

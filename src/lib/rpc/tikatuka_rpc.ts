@@ -3,11 +3,17 @@ import { z, type ZodType } from 'zod';
 import {
   StudentCreateTikatukaGameSchema,
   StudentSubmitTikatukaResultSchema,
+  TeacherSetTikatukaProgressSchema,
+  TeacherTikatukaProgressItemSchema,
+  TeacherTikatukaProgressListSchema,
   TikatukaIssuedGameSchema,
   TikatukaProgressSchema,
   TikatukaSubmissionResponseSchema,
   type StudentCreateTikatukaGameInput,
   type StudentSubmitTikatukaResultInput,
+  type TeacherSetTikatukaProgressInput,
+  type TeacherTikatukaProgressItem,
+  type TeacherTikatukaProgressList,
   type TikatukaIssuedGame,
   type TikatukaProgress,
   type TikatukaSubmissionResponse,
@@ -91,6 +97,21 @@ export const tikatukaStudentRpc = {
   },
 };
 
+export const tikatukaTeacherRpc = {
+  async listProgress(client: SupabaseClient): Promise<TikatukaRpcResult<TeacherTikatukaProgressList>> {
+    return callTikatukaRpc(client, 'teacher_get_tikatuka_progress_v1', TeacherTikatukaProgressListSchema);
+  },
+
+  async setProgress(
+    client: SupabaseClient,
+    input: TeacherSetTikatukaProgressInput,
+  ): Promise<TikatukaRpcResult<TeacherTikatukaProgressItem>> {
+    const parsed = TeacherSetTikatukaProgressSchema.safeParse(input);
+    if (!parsed.success) return validationError(parsed.error, 'TIKATUKA_INVALID_TEACHER_INPUT');
+    return callTikatukaRpc(client, 'teacher_set_tikatuka_progress_v1', TeacherTikatukaProgressItemSchema, parsed.data);
+  },
+};
+
 export function tikatukaRpcErrorMessage(result: TikatukaRpcResult<unknown>): string {
   const error = result.error;
   if (!error) return '라카루카 서버 요청을 처리하지 못했습니다.';
@@ -112,6 +133,11 @@ export function tikatukaRpcErrorMessage(result: TikatukaRpcResult<unknown>): str
     case 'PTK14':
     case 'PTK15':
       return '게임 결과 검증에 실패했습니다. 이 결과로 난이도를 해금하지 않았습니다.';
+    case 'PTK30': return '라카루카 교사 관리 기능에 필요한 서버 구성이 아직 적용되지 않았습니다.';
+    case 'PTK31': return '교사 로그인 또는 담당 학급 정보를 확인할 수 없습니다.';
+    case 'PTK32': return '현재 학급에서 관리할 수 있는 학생을 찾을 수 없습니다.';
+    case 'PTK33': return '해금 난이도는 Lv.1부터 Lv.10 사이여야 합니다.';
+    case 'TIKATUKA_INVALID_TEACHER_INPUT': return '학생 또는 해금 난이도 값이 올바르지 않습니다.';
     case 'TIKATUKA_INVALID_SERVER_RESPONSE':
       return '라카루카 서버 응답 형식이 올바르지 않습니다. 새 게임을 시작하지 말고 다시 시도해주세요.';
     default:
