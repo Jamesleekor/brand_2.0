@@ -1,29 +1,31 @@
-# TIKATUKA IMPLEMENTATION STATUS
+# RAKARUKA / TIKATUKA IMPLEMENTATION STATUS
+
+## Naming
+- User-facing game name: **라카루카**
+- Internal technical identifiers remain `tikatuka_*` / `Tikatuka*` for compatibility and to avoid destabilizing the already-tested engine, RPC, migration, and persistence contracts.
+- The user-facing rename was applied after Phase 7 and passed the full Tikatuka/Rakaruka regression suite and production build.
 
 ## Baseline
 - Repository: `Jamesleekor/brand_2.0`
 - Main baseline: `1b5f058508b1eb2480e45650db41c33175a68278`
 - Phase 6 closeout checkpoint: `821cf4b780e5e54c659c7b0e6ce336f6366226b7`
+- Phase 7 source closeout checkpoint: `3c42b0d0f114d06a5b5e1721077f99cf3e4df735`
+- Rakaruka display rename checkpoint: `d6147e3f66858e64dbefc7c226b5477e2442d1b0`
 - Current branch: `feat/tikatuka-phase7-persistence`
 - Specification: `tikatuka_engine_ai_spec_v1.2.md`
 
 ## Current phase
-- Phase 7 — progress persistence and result integrity — **SOURCE IMPLEMENTATION COMPLETE**
-- Production DB migration deployment — **NOT YET APPLIED**
+- Phase 7 — progress persistence and result integrity — **COMPLETE**
+- Production Supabase migration — **APPLIED**
+- Authenticated student end-to-end smoke test — **PENDING**
+- Merge/deploy of frontend feature branch to `main` — **NOT YET DONE**
 
-## Last known good implementation checkpoint
-- Commit: `865a6e8414a2ecdc946534462de786cc3357c919`
+## Last known good implementation checkpoint before this status update
+- Commit: `d6147e3f66858e64dbefc7c226b5477e2442d1b0`
 - CI: `npm ci` PASS
-- Tikatuka automated tests: **49/49 PASS**
+- Automated tests: **49/49 PASS**
 - Production build: `npm run build` PASS
-
-## Checkpoints
-- [x] Phase 7-A: dedicated branch created exactly from the Phase 6 closeout checkpoint; existing Arcade/Supabase identity and RPC security patterns inspected before editing.
-- [x] Phase 7-B: server-owned progression and server-issued Tikatuka game UUID migration added with RLS/direct-table access lockdown and narrow authenticated RPCs.
-- [x] Phase 7-C: Zod persistence contracts, RPC client, engine-result serializer and persistence regression tests added; an initial `Difficulty` inference mismatch was fixed at the schema boundary before continuing.
-- [x] Phase 7-D: Phase 6 all-level test selector replaced with persisted locked/unlocked progression; game start now requires a server-issued UUID and completed games automatically submit for server verification before navigation/replay is enabled.
-- [x] Phase 7-E: production TypeScript union-narrowing issue under repository `strict=false` settings fixed without weakening runtime response validation; final 49/49 tests + production build PASS.
-- [x] Phase 7-F: migration function signatures/ACL/trigger flow statically audited, Phase 6→7 diff scope verified, and `main` stability rechecked.
+- User-facing display name: **라카루카**
 
 ## Phase 7 delivered
 - `supabase/migrations/20260912_01_tikatuka_progress_results.sql` defines server-owned `tikatuka_progress` and `tikatuka_games` persistence.
@@ -32,73 +34,86 @@
 - `student_get_tikatuka_progress()` returns highest unlocked difficulty, cleared levels and aggregate play results.
 - `student_create_tikatuka_game(difficulty)` verifies that the requested difficulty is already unlocked, then issues a server-owned UUID and engine version before the client game starts.
 - `student_submit_tikatuka_result(...)` is idempotent by issued game UUID. An identical repeat submission returns the prior verified result; a conflicting payload for an already-completed UUID is rejected.
-- Result submission includes simplified final 3×3 boards containing only die `value` and `kind`; client-only die IDs/provenance owners are not part of persistence evidence.
-- Server validation requires exactly three rows × three dice per side and validates die values/kinds.
-- PostgreSQL recomputes every Row score, board score, raw pip total, Row wins/ties and final winner from the submitted final boards, then requires those values to match the engine result summary before persistence/progression can advance.
-- Result counters are checked for nonnegative values, knock/shield consistency and difficulty-specific Tazza/HOLD upper bounds.
-- Only a server-verified `player` win may advance progression, and progression can advance only to `min(10, clearedDifficulty + 1)` via `greatest(currentUnlock, nextDifficulty)`.
+- Final board submission contains only die `value` and `kind`; client-only die IDs/provenance owners are not persistence evidence.
+- PostgreSQL recomputes every Row score, board score, raw pip total, Row wins/ties and final winner from the submitted final boards before progression can advance.
+- Only a server-verified `player` win may advance progression to `min(10, clearedDifficulty + 1)`.
 - Losses and draws are persisted but do not unlock a new difficulty.
-- Production UI now loads server progression, disables locked levels, marks cleared levels, defaults to the highest unlocked level, and shows wins/play-count statistics.
-- The engine now starts only after `student_create_tikatuka_game()` succeeds and uses the returned server UUID as its `gameId`.
-- When the engine reaches `game_over`, the UI waits for event presentation to finish, submits the result, and updates progression only from the server response.
-- A failed result submission never unlocks a level locally. The result screen provides an explicit retry path and prevents starting/leaving for another game until the issued result is successfully reconciled.
-- Successful progression can display an explicit newly-unlocked level banner.
-- Existing Game #01/#02 run/ranking/verification code and Tikatuka Core/advanced-AI code were not modified in Phase 7.
+- UI loads server progression, disables locked levels, marks cleared levels, defaults to the highest unlocked level, and updates progression only from the server response.
+- A failed result submission never unlocks a level locally.
+
+## Production DB deployment
+- Supabase project: `BRAND_2.0`
+- Project id: `tnsmjyzbjgfepubxvstw`
+- Migration applied successfully: `tikatuka_progress_results`
+- Recorded migration version: `20260912085916`
+- Preflight confirmed `tikatuka_progress`, `tikatuka_games`, and the three student RPCs did not already exist.
+- Required helpers `current_student_id()`, `current_classroom_id()`, and `gen_random_uuid()` existed before deployment.
+
+### Production postchecks — PASS
+- `public.tikatuka_progress`: RLS enabled.
+- `public.tikatuka_games`: RLS enabled.
+- `authenticated` has no direct SELECT / INSERT / UPDATE / DELETE privilege on either table.
+- `student_get_tikatuka_progress()`: `SECURITY DEFINER`, fixed `search_path=public, pg_temp`, authenticated EXECUTE allowed, anon EXECUTE denied.
+- `student_create_tikatuka_game(integer)`: same security posture.
+- `student_submit_tikatuka_result(...)`: same security posture.
+- Internal `tikatuka_*` helper functions are not executable by authenticated/anon roles.
+- `tikatuka_progress_set_updated_at` trigger exists and is enabled.
+- `tikatuka_games_guard_history` trigger exists and is enabled.
+- Immediately after deployment both new tables contained 0 rows, so migration introduced no synthetic student/game records.
+
+## Security-advisor interpretation
+- Supabase reports `rls_enabled_no_policy` INFO for the two Tikatuka tables. This is intentional: direct authenticated table privileges are revoked and access is RPC-only.
+- Supabase reports the three student RPCs as authenticated-executable `SECURITY DEFINER` functions. This is intentional; each RPC derives the current student/classroom from authenticated server context and anon EXECUTE is revoked.
+- No new mutable-search-path finding was produced for the new Tikatuka functions because their search paths are fixed.
+- No new anon-executable Tikatuka `SECURITY DEFINER` finding was produced.
+- Other advisor warnings/errors are pre-existing project-wide findings and were not introduced by the Rakaruka migration.
+
+## Rakaruka rename
+- User-visible Korean name was changed from `타카투카` to `라카루카` throughout `src`.
+- Arcade page header/card/start button now display `라카루카`.
+- The stale Phase 6 explanatory text on the Arcade card was updated to state that progression and difficulty unlocks are stored on the server.
+- Internal TypeScript symbols, directories, SQL tables/functions, migration filename, and RPC names intentionally remain `tikatuka_*` / `Tikatuka*`.
+- This compatibility-preserving rename passed **49/49 tests + production build**.
 
 ## Result-integrity boundary
 Phase 7 materially improves integrity but does **not** claim full authoritative server replay.
 
-What the server now proves:
-- the authenticated student was issued this game UUID at an already-unlocked difficulty;
+The server proves:
+- the authenticated student was issued the game UUID at an already-unlocked difficulty;
 - the UUID cannot be completed twice with conflicting data;
 - the submitted final board is structurally valid;
 - Row scores, total scores, raw pips, Row wins and final winner are internally consistent with that final board;
 - reported skill/knock counters remain inside defined structural/resource bounds;
 - only the server may write progression.
 
-What Phase 7 does **not** prove:
-- the server does not replay every Player/AI action from turn 1;
-- the game RNG seed is not server-issued and replayed server-side;
-- therefore a malicious custom client capable of fabricating an internally consistent final board is outside the protection boundary of this phase.
+Phase 7 does not prove:
+- every Player/AI action from turn 1 is replayed server-side;
+- the game RNG seed is server-issued and replayed server-side.
 
-Because of that boundary, Phase 7 deliberately does **not** attach Tikatuka results to official Arcade rankings, Guild 2 scores, currency, or other meaningful rewards. Full anti-cheat reward integration would require a stronger protocol such as server-issued RNG plus an action log/replay validator (or an equivalent authoritative server execution model).
+Therefore Rakaruka remains intentionally disconnected from official Arcade rankings, Guild 2 scores, currency, BV, or other meaningful rewards until a stronger authoritative replay protocol is implemented.
 
-## Automated coverage after Phase 7
-- All 44 Phase 2–6 Core/state-machine/AI/UI tests remain green.
-- Progress helper tests verify only `difficulty <= highestUnlocked` is playable and cleared-state/default-selection behavior.
-- Submission serialization requires an actual completed engine state, preserves the server-issued game UUID and strips die IDs/provenance owner fields.
-- Unfinished games and incomplete final rows are rejected before RPC submission.
-- Zod validation rejects inconsistent Row win/tie totals at the client boundary.
-- Static migration contract tests lock RPC-only table access, authenticated identity helpers, server game issuance, idempotent duplicate behavior, final-board recomputation and player-win-only progression.
-- Total Tikatuka automated coverage: **49/49 PASS**.
+## Automated coverage
+- Phase 2–6 Core/state-machine/AI/UI regressions remain green.
+- Phase 7 progression/persistence contract tests remain green.
+- Total automated coverage: **49/49 PASS**.
+- Production build: **PASS** after the Rakaruka display rename.
 
-## Regression scope
-Compared with the Phase 6 closeout checkpoint, Phase 7 changes are limited to:
-- `supabase/migrations/20260912_01_tikatuka_progress_results.sql`
-- `src/lib/zod_schemas/tikatuka_schemas.ts`
-- `src/lib/rpc/tikatuka_rpc.ts`
-- `src/features/arcade/tikatuka/progress/submission.ts`
-- `src/features/arcade/tikatuka/ui/TikatukaGame.tsx`
-- `src/features/arcade/tikatuka/tests/phase7_persistence.test.ts`
-- Tikatuka test registration
-- this status document
+## Current deployment boundary
+- Production DB: **ready**; Phase 7 migration is applied.
+- Feature branch frontend: **ready for local authenticated testing**.
+- `main`: **unchanged** at the recorded baseline; the Rakaruka frontend has not yet been merged/deployed from this feature branch.
+- A hosted production frontend will not show Rakaruka until the feature branch is merged/deployed.
 
-No Phase 7 changes were made to:
-- Tikatuka Core rules/state machine
-- Tikatuka advanced-AI implementation
-- `src/features/arcade/ArcadePage.tsx`
-- existing `FocusReactionGame` / `PureReactionGame` source
-- existing Arcade ranking/verification RPCs
-- production DB
-- `main`
-
-`main` was rechecked at Phase 7 closeout and remains `1b5f058508b1eb2480e45650db41c33175a68278`.
-
-## Deployment state
-The migration file is committed to the Phase 7 branch, but it has **not** been executed against the production Supabase database in this phase. Until that migration is applied, a deployed Phase 7 frontend would not be able to call the new Tikatuka RPCs. Apply/migrate and perform authenticated end-to-end smoke tests as a separate deployment step rather than silently changing production during implementation.
-
-## Infrastructure note
-CI succeeds with the repository's existing setup. GitHub Actions/Supabase still emit the pre-existing Node-version deprecation/engine warnings, npm audit warnings and large-bundle warning. The project builds successfully despite those warnings; do not mix Node/runtime dependency migration into the Tikatuka feature implementation.
+## Remaining smoke test
+Use a real authenticated student account against the feature branch frontend and verify:
+1. Initial progress loads with only Lv1 available.
+2. Lv2 cannot be started before Lv1 is cleared.
+3. A verified Lv1 player win unlocks Lv2.
+4. Refresh preserves the unlocked level.
+5. Loss/draw does not unlock another level.
+6. Result submission reconciles successfully and retry works after a transient failure.
+7. Logout/invalid auth cannot call the student RPCs.
+8. A duplicate identical result remains idempotent.
 
 ## Recovery rule
 If a later session is interrupted, do not continue from memory. Read this file, fetch the active implementation branch HEAD, verify the latest CI result, and resume only from the most recent successful checkpoint.
@@ -108,11 +123,7 @@ If a later session is interrupted, do not continue from memory. Read this file, 
 2. Keep phase/checkpoint commits recoverable.
 3. Do not stack new work on failing tests or build.
 4. `gameRng`, `aiRng`, and UI randomness stay separate.
-5. React/UI must consume Core state and selectors rather than duplicating game-rule logic.
+5. React/UI must consume Core state/selectors rather than duplicating rule logic.
 6. AI simulation/search must never read or advance future `gameRng` for decision making.
 7. Meaningful progression is server-owned; client state never directly unlocks a level.
-8. Do not connect Tikatuka to official ranking/rewards until the chosen integrity boundary is explicitly sufficient for that use case.
-
-## Next step
-- Deployment / production integration: merge the reviewed branch when desired, apply `20260912_01_tikatuka_progress_results.sql` to the target Supabase project, then run authenticated student smoke tests for initial Lv1, locked Lv2, verified win→Lv2 unlock, loss/draw no-unlock, duplicate result submission, logout/wrong-user behavior, and refresh persistence.
-- If future official rewards/rankings are desired, design a separate full-replay integrity phase before enabling them.
+8. Do not connect Rakaruka to official ranking/rewards until the integrity boundary is explicitly strengthened for that use case.
