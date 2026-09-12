@@ -5,7 +5,7 @@ import type {
   GameState,
   Side,
 } from './types';
-import { getLegalPlacements, isLegalPlacement, shouldForcePass } from './rules/placement';
+import { getLegalPlacements, isKnockPlacement, isLegalPlacement, shouldForcePass } from './rules/placement';
 import { isRowFull } from './rules/board';
 
 function ok(): ActionValidationResult {
@@ -64,13 +64,11 @@ export function validateAction(
       const die = state.turn.currentDie;
       if (die === null) return fail('NO_CURRENT_DIE');
 
-      if (isRowFull(state.sides[action.targetSide].board, action.row)) return fail('ROW_FULL');
-      if (die.kind === 'normal' && action.targetSide !== actor) {
-        return fail('NORMAL_DIE_CANNOT_TARGET_OPPONENT');
-      }
-      if (!isLegalPlacement(state, actor, die, { targetSide: action.targetSide, row: action.row })) {
-        return fail('ILLEGAL_PLACEMENT');
-      }
+      const placement = { targetSide: action.targetSide, row: action.row } as const;
+      const knock = isKnockPlacement(actor, die, placement);
+
+      if (!knock && isRowFull(state.sides[action.targetSide].board, action.row)) return fail('ROW_FULL');
+      if (!isLegalPlacement(state, actor, die, placement)) return fail('ILLEGAL_PLACEMENT');
       return ok();
     }
 
