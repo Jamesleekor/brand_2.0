@@ -22,6 +22,7 @@ function eventActor(event: GameEvent): HistoryEntry['actor'] {
 export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [impact, setImpact] = useState<KnockEvent | null>(null);
+  const [gameInProgress, setGameInProgress] = useState(false);
   const sequenceRef = useRef(0);
   const impactTimerRef = useRef<number | null>(null);
   const gameEndedRef = useRef(false);
@@ -35,12 +36,15 @@ export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
       if (seenEventsRef.current.has(event)) return;
       seenEventsRef.current.add(event);
 
-      if (event.type === 'DIE_ROLLED' && gameEndedRef.current) {
-        setHistory([]);
-        sequenceRef.current = 0;
-        gameEndedRef.current = false;
-        seenEventsRef.current = new WeakSet<object>();
-        seenEventsRef.current.add(event);
+      if (event.type === 'DIE_ROLLED') {
+        setGameInProgress(true);
+        if (gameEndedRef.current) {
+          setHistory([]);
+          sequenceRef.current = 0;
+          gameEndedRef.current = false;
+          seenEventsRef.current = new WeakSet<object>();
+          seenEventsRef.current.add(event);
+        }
       }
 
       const text = getEventLogText(event);
@@ -59,7 +63,10 @@ export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
         }, 2_700);
       }
 
-      if (event.type === 'GAME_FINISHED') gameEndedRef.current = true;
+      if (event.type === 'GAME_FINISHED') {
+        gameEndedRef.current = true;
+        setGameInProgress(false);
+      }
     };
 
     window.addEventListener(RAKARUKA_UI_EVENT, handleEvent as EventListener);
@@ -72,7 +79,7 @@ export function TikatukaGame(props: ComponentProps<typeof TikatukaGameCore>) {
   return (
     <div className="relative space-y-4">
       <TikatukaGameCore {...props} />
-      <RakarukaCompetitionPanel />
+      <RakarukaCompetitionPanel gameInProgress={gameInProgress} />
       <RakarukaActionHistory entries={history} />
       <RakarukaRulesGuide />
       {impact && <KnockImpactOverlay event={impact} />}
