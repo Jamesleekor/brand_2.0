@@ -1,6 +1,8 @@
 import type { Difficulty, GameEvent, RowId, Side } from '../engine';
 
 export const RAKARUKA_DICE_REVEAL_MS = 2_000;
+export const RAKARUKA_TAZZA_REVEAL_MS = 2_500;
+export const RAKARUKA_AI_RESULT_HOLD_MS = 1_500;
 export const RAKARUKA_UI_EVENT = 'rakaruka-ui-event';
 
 export type TikatukaEventTone = 'neutral' | 'player' | 'ai' | 'gold' | 'danger' | 'success';
@@ -53,9 +55,9 @@ function emitUiEvent(event: GameEvent) {
 export function getEventLogText(event: GameEvent): string | null {
   switch (event.type) {
     case 'DIE_ROLLED':
-      return `${sideLabel(event.side)} · 주사위 굴림`;
+      return `${sideLabel(event.side)} · 주사위 ${event.die.value} 굴림`;
     case 'TAZZA_USED':
-      return `${sideLabel(event.side)} · 타짜 사용 (${event.previous.value} 다시 굴림)`;
+      return `${sideLabel(event.side)} · 타짜 사용 (${event.previous.value} → ${event.next.value})`;
     case 'DIE_HELD':
       return `${sideLabel(event.side)} · 홀드 ${event.die.kind === 'shield' ? '실드 ' : ''}${event.die.value}`;
     case 'FORCED_PASS':
@@ -89,13 +91,13 @@ export function getEventPresentation(event: GameEvent): TikatukaEventPresentatio
       return {
         text: `${sideLabel(event.side)}가 주사위를 굴립니다`,
         tone: event.side === 'player' ? 'player' : 'ai',
-        durationMs: RAKARUKA_DICE_REVEAL_MS,
+        durationMs: RAKARUKA_DICE_REVEAL_MS + (event.side === 'ai' ? RAKARUKA_AI_RESULT_HOLD_MS : 0),
       };
     case 'TAZZA_USED':
       return {
         text: `🃏 타짜! ${sideLabel(event.side)}가 숫자 ${event.previous.value}을(를) 버리고 다시 굴립니다`,
         tone: 'gold',
-        durationMs: 2_500,
+        durationMs: RAKARUKA_TAZZA_REVEAL_MS + (event.side === 'ai' ? RAKARUKA_AI_RESULT_HOLD_MS : 0),
       };
     case 'DIE_HELD':
       return {
