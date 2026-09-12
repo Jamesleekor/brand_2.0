@@ -15,18 +15,67 @@ import { useWallet } from '@/hooks/useWallet';
 import { cn } from '@/lib/utils/cn';
 
 // =====================================================================
-// B.R.A.N.D 2.0 — Character Collection C2 + C4-C + S1
-// 학생 편린 도감 / 직접 영입 / 콜렉션 진행도 / 활성 버프 / 장착
+// B.R.A.N.D 2.0 — Character Collection C2 + C4-C + S1 + E1-A
+// 학생 편린 도감 / 직접 영입 / 콜렉션 진행도 / 활성 버프 / 장착 / 편린 속성
 // Primary viewport: 1366x768 Chromebook
 // =====================================================================
 
 type FilterKey = 'ALL' | 'OWNED' | 'UNOWNED' | 'ELIGIBLE';
+
+type ElementCode = 'WATER' | 'FIRE' | 'WIND' | 'EARTH' | 'LIGHT' | 'DARK';
+type ElementFilterKey = 'ALL' | ElementCode;
+type TendencyKey = 'PURE' | 'EXTREME' | 'SPECIALIZED' | 'BALANCED';
+type TendencyFilterKey = 'ALL' | TendencyKey;
+type TierFilterKey = 'ALL' | '8' | '9' | '10';
+
+type CharacterElementProfile = {
+  character_id: number;
+  element_budget: number;
+  primary_element: ElementCode;
+  primary_points: number;
+  secondary_element: ElementCode | null;
+  secondary_points: number;
+};
 
 const FILTERS: Array<{ key: FilterKey; label: string; icon: string }> = [
   { key: 'ALL', label: '전체', icon: '✦' },
   { key: 'OWNED', label: '보유', icon: '✓' },
   { key: 'UNOWNED', label: '미보유', icon: '◇' },
   { key: 'ELIGIBLE', label: '영입 가능', icon: '★' },
+];
+
+const ELEMENT_META: Record<ElementCode, { label: string; icon: string }> = {
+  FIRE: { label: '화', icon: '🔥' },
+  WATER: { label: '수', icon: '💧' },
+  WIND: { label: '풍', icon: '🍃' },
+  EARTH: { label: '토', icon: '🪨' },
+  LIGHT: { label: '빛', icon: '✦' },
+  DARK: { label: '암', icon: '☾' },
+};
+
+const ELEMENT_FILTERS: Array<{ key: ElementFilterKey; label: string }> = [
+  { key: 'ALL', label: '속성 전체' },
+  { key: 'FIRE', label: '🔥 화' },
+  { key: 'WATER', label: '💧 수' },
+  { key: 'WIND', label: '🍃 풍' },
+  { key: 'EARTH', label: '🪨 토' },
+  { key: 'LIGHT', label: '✦ 빛' },
+  { key: 'DARK', label: '☾ 암' },
+];
+
+const TENDENCY_FILTERS: Array<{ key: TendencyFilterKey; label: string }> = [
+  { key: 'ALL', label: '성향 전체' },
+  { key: 'PURE', label: '순수' },
+  { key: 'EXTREME', label: '극특화' },
+  { key: 'SPECIALIZED', label: '특화' },
+  { key: 'BALANCED', label: '균형' },
+];
+
+const TIER_FILTERS: Array<{ key: TierFilterKey; label: string }> = [
+  { key: 'ALL', label: '전체 체급' },
+  { key: '8', label: '일반형' },
+  { key: '9', label: '상급형' },
+  { key: '10', label: '최고급형' },
 ];
 
 type CharacterPageTab = 'LIBRARY' | 'COLLECTIONS';
@@ -39,15 +88,23 @@ const PAGE_TABS: Array<{ key: CharacterPageTab; label: string; icon: string; des
 export default function CharacterCollectionPage() {
   const [tab, setTab] = useState<CharacterPageTab>('LIBRARY');
   const [filter, setFilter] = useState<FilterKey>('ALL');
+  const [elementFilter, setElementFilter] = useState<ElementFilterKey>('ALL');
+  const [tendencyFilter, setTendencyFilter] = useState<TendencyFilterKey>('ALL');
+  const [tierFilter, setTierFilter] = useState<TierFilterKey>('ALL');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<StudentCharacterCollectionRow | null>(null);
 
   const collectionQuery = useCharacterCollection();
   const recruitmentQuery = useCharacterRecruitmentStore();
+  const elementQuery = useCharacterElementProfiles();
   const characters = collectionQuery.data ?? [];
   const recruitmentById = useMemo(
     () => new Map((recruitmentQuery.data ?? []).map((row) => [row.character_id, row])),
     [recruitmentQuery.data],
+  );
+  const elementById = useMemo(
+    () => new Map((elementQuery.data ?? []).map((row) => [row.character_id, row])),
+    [elementQuery.data],
   );
 
   const ownedCount = useMemo(
@@ -74,12 +131,32 @@ export default function CharacterCollectionPage() {
         !recruitmentById.get(character.character_id)?.can_self_recruit
       ) return false;
 
+      const profile = elementById.get(character.character_id) ?? null;
+      if (elementFilter !== 'ALL') {
+        if (!profile || !profileHasElement(profile, elementFilter)) return false;
+      }
+      if (tendencyFilter !== 'ALL') {
+        if (!profile || getElementTendency(profile) !== tendencyFilter) return false;
+      }
+      if (tierFilter !== 'ALL') {
+        if (!profile || String(profile.element_budget) !== tierFilter) return false;
+      }
+
       if (!needle) return true;
       return [character.name, character.epithet, character.character_uid]
         .filter(Boolean)
         .some((value) => String(value).toLocaleLowerCase('ko-KR').includes(needle));
     });
-  }, [characters, filter, recruitmentById, search]);
+  }, [
+    characters,
+    elementById,
+    elementFilter,
+    filter,
+    recruitmentById,
+    search,
+    tendencyFilter,
+    tierFilter,
+  ]);
 
   const characterById = useMemo(
     () => new Map(characters.map((character) => [character.character_id, character])),
@@ -106,6 +183,12 @@ export default function CharacterCollectionPage() {
             {recruitmentQuery.isError && (
               <div className="mt-3 rounded-card-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-bold text-warning">
                 영입 가격/경로 정보를 불러오지 못했습니다. 새로고침 후 다시 확인해주세요.
+              </div>
+            )}
+
+            {elementQuery.isError && (
+              <div className="mt-3 rounded-card-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-bold text-warning">
+                편린 속성 정보를 불러오지 못했습니다. 속성 필터와 표시는 잠시 사용할 수 없습니다.
               </div>
             )}
 
@@ -139,6 +222,24 @@ export default function CharacterCollectionPage() {
                   />
                 </label>
               </div>
+
+              <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-3">
+                <ElementFilterGroup
+                  items={ELEMENT_FILTERS}
+                  value={elementFilter}
+                  onChange={setElementFilter}
+                />
+                <ElementFilterGroup
+                  items={TENDENCY_FILTERS}
+                  value={tendencyFilter}
+                  onChange={setTendencyFilter}
+                />
+                <ElementFilterGroup
+                  items={TIER_FILTERS}
+                  value={tierFilter}
+                  onChange={setTierFilter}
+                />
+              </div>
             </div>
 
             {collectionQuery.isLoading ? (
@@ -170,6 +271,7 @@ export default function CharacterCollectionPage() {
                     key={character.character_id}
                     character={character}
                     recruitment={recruitmentById.get(character.character_id) ?? null}
+                    elementProfile={elementById.get(character.character_id) ?? null}
                     onClick={() => setSelected(character)}
                   />
                 ))}
@@ -190,9 +292,40 @@ export default function CharacterCollectionPage() {
       <CharacterDetailModal
         character={selected}
         recruitment={selected ? recruitmentById.get(selected.character_id) ?? null : null}
+        elementProfile={selected ? elementById.get(selected.character_id) ?? null : null}
         onClose={() => setSelected(null)}
       />
     </>
+  );
+}
+
+function ElementFilterGroup<T extends string>({
+  items,
+  value,
+  onChange,
+}: {
+  items: Array<{ key: T; label: string }>;
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="flex max-w-full gap-1 overflow-x-auto rounded-pill border border-line bg-bg-deep/50 p-1 scrollbar-hide">
+      {items.map((item) => (
+        <button
+          key={item.key}
+          type="button"
+          onClick={() => onChange(item.key)}
+          className={cn(
+            'flex-shrink-0 rounded-pill px-2.5 py-1.5 text-[10px] font-black transition-all',
+            value === item.key
+              ? 'bg-brand-primary/20 text-white shadow-brand-sm'
+              : 'text-text-secondary hover:bg-bg-card hover:text-text-primary',
+          )}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -318,10 +451,12 @@ function SummaryPill({ label, value, emphasis = false }: { label: string; value:
 function CharacterCard({
   character,
   recruitment,
+  elementProfile,
   onClick,
 }: {
   character: StudentCharacterCollectionRow;
   recruitment: StudentCharacterRecruitmentRow | null;
+  elementProfile: CharacterElementProfile | null;
   onClick: () => void;
 }) {
   const state = getCharacterState(character, recruitment);
@@ -355,11 +490,14 @@ function CharacterCard({
           <StateBadge state={state} />
         </div>
 
-        {character.is_equipped && (
-          <div className="absolute right-2 top-2 rounded-pill border border-gold/50 bg-bg-base/90 px-2 py-1 text-[9px] font-black text-gold shadow-brand-sm">
-            ✦ 장착중
-          </div>
-        )}
+        <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
+          {elementProfile && <TierBadge budget={elementProfile.element_budget} />}
+          {character.is_equipped && (
+            <div className="rounded-pill border border-gold/50 bg-bg-base/90 px-2 py-1 text-[9px] font-black text-gold shadow-brand-sm">
+              ✦ 장착중
+            </div>
+          )}
+        </div>
 
         {!character.is_owned && (
           <div className="absolute bottom-2 right-2 flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-black/55 text-sm text-white/75 backdrop-blur-sm">
@@ -368,7 +506,7 @@ function CharacterCard({
         )}
       </div>
 
-      <div className="min-h-[86px] p-2.5 lg:p-3">
+      <div className="min-h-[108px] p-2.5 lg:p-3">
         <p className="truncate text-[10px] font-bold text-text-secondary">
           {character.epithet || 'B.R.A.N.D 편린'}
         </p>
@@ -378,8 +516,33 @@ function CharacterCard({
         <p className={cn('mt-2 truncate text-[10px] font-bold', state.textClass)}>
           {state.detail}
         </p>
+        {elementProfile && <CharacterElementLine profile={elementProfile} />}
       </div>
     </motion.button>
+  );
+}
+
+function TierBadge({ budget }: { budget: number }) {
+  return (
+    <span className="rounded-pill border border-white/15 bg-bg-base/90 px-2 py-1 text-[9px] font-black text-text-primary backdrop-blur-sm">
+      {getTierLabel(budget)}
+    </span>
+  );
+}
+
+function CharacterElementLine({ profile }: { profile: CharacterElementProfile }) {
+  const primary = ELEMENT_META[profile.primary_element];
+  const secondary = profile.secondary_element ? ELEMENT_META[profile.secondary_element] : null;
+  return (
+    <div className="mt-2 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-black text-text-primary">
+      <span className="flex-shrink-0">{primary.icon} {profile.primary_points}</span>
+      {secondary && profile.secondary_points > 0 && (
+        <span className="flex-shrink-0">{secondary.icon} {profile.secondary_points}</span>
+      )}
+      <span className="truncate rounded-pill border border-line bg-bg-deep/70 px-1.5 py-0.5 text-[9px] text-text-secondary">
+        {getTendencyShortLabel(getElementTendency(profile))}
+      </span>
+    </div>
   );
 }
 
@@ -520,10 +683,12 @@ function CharacterArtwork({
 function CharacterDetailModal({
   character,
   recruitment,
+  elementProfile,
   onClose,
 }: {
   character: StudentCharacterCollectionRow | null;
   recruitment: StudentCharacterRecruitmentRow | null;
+  elementProfile: CharacterElementProfile | null;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -561,17 +726,20 @@ function CharacterDetailModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.98 }}
             transition={{ duration: 0.18 }}
-            className="flex h-[calc(100dvh-24px)] w-full max-w-[820px] flex-col overflow-hidden rounded-card-xl border border-line-strong bg-bg-base shadow-2xl sm:h-[calc(100dvh-40px)] md:grid md:max-h-[760px] md:grid-cols-[minmax(280px,0.9fr)_minmax(320px,1.1fr)]"
+            className="flex h-[calc(100dvh-24px)] w-full max-w-[860px] flex-col overflow-hidden rounded-card-xl border border-line-strong bg-bg-base shadow-2xl sm:h-[calc(100dvh-40px)] md:grid md:max-h-[760px] md:grid-cols-[minmax(300px,0.92fr)_minmax(320px,1.08fr)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="relative h-[240px] min-h-[240px] flex-none bg-bg-deep sm:h-[280px] sm:min-h-[280px] md:h-auto md:min-h-0">
-              <div className="absolute inset-0">
-                <CharacterDetailArtwork character={character} />
+            <div className="flex h-[320px] min-h-[320px] flex-none flex-col bg-bg-deep sm:h-[360px] sm:min-h-[360px] md:h-auto md:min-h-0">
+              <div className="relative min-h-0 flex-1">
+                <div className="absolute inset-0">
+                  <CharacterDetailArtwork character={character} />
+                </div>
+                <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-bg-deep to-transparent md:hidden" />
+                <div className="absolute left-3 top-3">
+                  <StateBadge state={getCharacterState(character, recruitment)} />
+                </div>
               </div>
-              <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-bg-base to-transparent md:hidden" />
-              <div className="absolute left-3 top-3">
-                <StateBadge state={getCharacterState(character, recruitment)} />
-              </div>
+              {elementProfile && <CharacterElementPanel profile={elementProfile} />}
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -680,6 +848,51 @@ function CharacterDetailModal({
       )}
     </AnimatePresence>,
     document.body,
+  );
+}
+
+function CharacterElementPanel({ profile }: { profile: CharacterElementProfile }) {
+  const primary = ELEMENT_META[profile.primary_element];
+  const secondary = profile.secondary_element ? ELEMENT_META[profile.secondary_element] : null;
+  const primaryPercent = profile.element_budget > 0
+    ? Math.max(0, Math.min(100, (profile.primary_points / profile.element_budget) * 100))
+    : 0;
+  const secondaryPercent = Math.max(0, 100 - primaryPercent);
+
+  return (
+    <div className="flex-none border-t border-line bg-bg-card/95 p-3.5 backdrop-blur-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-[0.13em] text-text-muted">편린 속성</div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-black">
+            <span className="text-text-primary">{getTierLabel(profile.element_budget)} · {profile.element_budget}</span>
+            <span className="text-text-muted">·</span>
+            <span className="text-brand-primary">{getTendencyFullLabel(getElementTendency(profile))}</span>
+          </div>
+        </div>
+        <div className="text-right text-xs font-black text-text-primary">
+          <span>{primary.icon} {primary.label} {profile.primary_points}</span>
+          {secondary && profile.secondary_points > 0 && (
+            <span className="ml-2">{secondary.icon} {secondary.label} {profile.secondary_points}</span>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-2.5 flex h-2.5 overflow-hidden rounded-pill bg-bg-deep">
+        <div
+          className="h-full bg-brand-primary"
+          style={{ width: `${primaryPercent}%` }}
+          title={`${primary.label} ${profile.primary_points}`}
+        />
+        {secondary && profile.secondary_points > 0 && (
+          <div
+            className="h-full bg-gold"
+            style={{ width: `${secondaryPercent}%` }}
+            title={`${secondary.label} ${profile.secondary_points}`}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -897,6 +1110,28 @@ function useCharacterCollection() {
   });
 }
 
+function useCharacterElementProfiles() {
+  return useQuery<CharacterElementProfile[]>({
+    queryKey: ['character-element-profiles'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('character_element_profiles')
+        .select('character_id,element_budget,primary_element,primary_points,secondary_element,secondary_points');
+
+      if (error) throw error;
+
+      return (data ?? []).map((row) => ({
+        character_id: Number(row.character_id),
+        element_budget: Number(row.element_budget),
+        primary_element: row.primary_element as ElementCode,
+        primary_points: Number(row.primary_points),
+        secondary_element: row.secondary_element ? row.secondary_element as ElementCode : null,
+        secondary_points: Number(row.secondary_points ?? 0),
+      }));
+    },
+    staleTime: 5 * 60_000,
+  });
+}
 
 function useCharacterRecruitmentStore() {
   return useQuery<StudentCharacterRecruitmentRow[]>({
@@ -909,6 +1144,43 @@ function useCharacterRecruitmentStore() {
     staleTime: 10_000,
     refetchOnWindowFocus: true,
   });
+}
+
+function profileHasElement(profile: CharacterElementProfile, element: ElementCode) {
+  return profile.primary_element === element
+    || (profile.secondary_element === element && profile.secondary_points > 0);
+}
+
+function getElementTendency(profile: CharacterElementProfile): TendencyKey {
+  if (!profile.secondary_element || profile.secondary_points <= 0) return 'PURE';
+  const ratio = profile.element_budget > 0 ? profile.primary_points / profile.element_budget : 0;
+  if (ratio >= 0.8) return 'EXTREME';
+  if (ratio >= 0.6) return 'SPECIALIZED';
+  return 'BALANCED';
+}
+
+function getTendencyShortLabel(tendency: TendencyKey) {
+  switch (tendency) {
+    case 'PURE': return '순수';
+    case 'EXTREME': return '극특화';
+    case 'SPECIALIZED': return '특화';
+    case 'BALANCED': return '균형';
+  }
+}
+
+function getTendencyFullLabel(tendency: TendencyKey) {
+  switch (tendency) {
+    case 'PURE': return '순수형';
+    case 'EXTREME': return '극특화';
+    case 'SPECIALIZED': return '특화';
+    case 'BALANCED': return '균형형';
+  }
+}
+
+function getTierLabel(budget: number) {
+  if (budget >= 10) return '최고급형';
+  if (budget === 9) return '상급형';
+  return '일반형';
 }
 
 function formatGold(value: number) {
