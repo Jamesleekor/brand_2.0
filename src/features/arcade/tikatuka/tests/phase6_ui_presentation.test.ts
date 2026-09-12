@@ -43,8 +43,8 @@ test('Rakaruka UI: normal roll and Tazza hide the result for exactly two seconds
   const tazza = getEventPresentation({
     type: 'TAZZA_USED',
     side: 'player',
-    previousDie: { id: 'before', value: 1, kind: 'normal', owner: 'player' },
-    newDie: { id: 'after', value: 6, kind: 'normal', owner: 'player' },
+    previous: { id: 'before', value: 1, kind: 'normal', owner: 'player' },
+    next: { id: 'after', value: 6, kind: 'normal', owner: 'player' },
   });
   assertEqual(RAKARUKA_DICE_REVEAL_MS, 2_000);
   assertEqual(rolled.durationMs, 2_000);
