@@ -2,7 +2,7 @@ import type { GameState, RandomSource } from '../engine';
 import { getAIProfile } from './profiles';
 import { rankAIPlacementCandidates } from './evaluatePlacement';
 import { rankAdvancedAIActions, type AdvancedSearchOptions } from './search';
-import { rerankStrategicAIActions } from './strategic';
+import { evaluateHighLevelSearchState, rerankStrategicAIActions } from './strategic';
 import { rankWinProbabilityAIActions } from './winProbability';
 import type {
   AIAdvancedActionCandidate,
@@ -51,9 +51,10 @@ export function chooseBasicAIPlacement(
 /**
  * Final AI chooser.
  * - Lv.1~8: established tactical search path.
- * - Lv.9: depth-2 search + two-row strategic rerank.
- * - Lv.10: the same strategic shortlist is re-evaluated by independent
- *   Monte Carlo futures and the highest estimated win probability is chosen.
+ * - Lv.9: depth-2 search whose leaves carry the two-row win plan, followed by
+ *   threat-aware root reranking.
+ * - Lv.10: the same strategic search/shortlist is re-evaluated by independent
+ *   adaptive Monte Carlo futures and the highest estimated win probability wins.
  */
 export function chooseAdvancedAIAction(
   state: GameState,
@@ -61,7 +62,10 @@ export function chooseAdvancedAIAction(
   profile: AIProfile = getAIProfile(state.difficulty),
   options?: AdvancedSearchOptions,
 ): AIAdvancedChoice {
-  const ranking = rankAdvancedAIActions(state, profile, options);
+  const highLevelOptions: AdvancedSearchOptions | undefined = profile.difficulty >= 9
+    ? { ...options, evaluateState: evaluateHighLevelSearchState }
+    : options;
+  const ranking = rankAdvancedAIActions(state, profile, highLevelOptions);
 
   if (profile.difficulty === 10) {
     const strategic = rerankStrategicAIActions(state, ranking.rankedCandidates, profile).rankedCandidates;
