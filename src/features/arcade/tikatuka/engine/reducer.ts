@@ -158,10 +158,23 @@ function resolveTazza(state: GameState, actor: Side, deps: EngineDependencies): 
     },
   };
 
+  const tazzaEvent: GameEvent = { type: 'TAZZA_USED', side: actor, previous, next };
+
+  // A Tazza replacement can remove the only actionable knock/placement value.
+  // Mirror normal turn-start behavior and auto-pass immediately instead of
+  // exposing an impossible awaiting_action state to the live AI/UI.
+  if (shouldForcePass(nextState, actor, next)) {
+    const passed = resolveForcedPass(nextState, actor, deps);
+    return {
+      nextState: passed.nextState,
+      events: [tazzaEvent, ...passed.events],
+    };
+  }
+
   assertGameStateInvariant(nextState);
   return {
     nextState,
-    events: [{ type: 'TAZZA_USED', side: actor, previous, next }],
+    events: [tazzaEvent],
   };
 }
 
