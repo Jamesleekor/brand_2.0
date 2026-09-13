@@ -3,6 +3,7 @@ import { getAIProfile } from './profiles';
 import { rankAIPlacementCandidates } from './evaluatePlacement';
 import { rankAdvancedAIActions, type AdvancedSearchOptions } from './search';
 import { rerankStrategicAIActions } from './strategic';
+import { rankWinProbabilityAIActions } from './winProbability';
 import type {
   AIAdvancedActionCandidate,
   AIAdvancedChoice,
@@ -48,9 +49,11 @@ export function chooseBasicAIPlacement(
 }
 
 /**
- * Final Phase-5 AI chooser. Placement, Tazza and HOLD are ranked by the same search value.
- * Lv.9 adds a two-row win-plan rerank on top of the unchanged depth-2 tactical search.
- * Lv.10 remains on the legacy chooser until the isolated win-probability rollout passes validation.
+ * Final AI chooser.
+ * - Lv.1~8: established tactical search path.
+ * - Lv.9: depth-2 search + two-row strategic rerank.
+ * - Lv.10: the same strategic shortlist is re-evaluated by independent
+ *   Monte Carlo futures and the highest estimated win probability is chosen.
  */
 export function chooseAdvancedAIAction(
   state: GameState,
@@ -59,6 +62,27 @@ export function chooseAdvancedAIAction(
   options?: AdvancedSearchOptions,
 ): AIAdvancedChoice {
   const ranking = rankAdvancedAIActions(state, profile, options);
+
+  if (profile.difficulty === 10) {
+    const strategic = rerankStrategicAIActions(state, ranking.rankedCandidates, profile).rankedCandidates;
+    const probability = rankWinProbabilityAIActions(state, aiRng, strategic, profile);
+    const ranked = probability.rankedCandidates.map((candidate) => ({
+      action: candidate.action,
+      score: candidate.estimatedWinProbability * 1_000_000 + candidate.baseScore,
+    } satisfies AIAdvancedActionCandidate));
+    const best = ranked[0];
+
+    return {
+      action: best.action,
+      score: best.score,
+      usedMistake: false,
+      rankedCandidates: ranked,
+      searchDepth: profile.searchDepth,
+      nodesVisited: ranking.nodesVisited,
+      searchAbortReason: ranking.searchAbortReason,
+    };
+  }
+
   const ranked: readonly AIAdvancedActionCandidate[] = profile.difficulty === 9
     ? rerankStrategicAIActions(state, ranking.rankedCandidates, profile).rankedCandidates
     : ranking.rankedCandidates;
