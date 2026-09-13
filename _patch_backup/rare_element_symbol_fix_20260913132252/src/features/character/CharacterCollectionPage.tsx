@@ -947,13 +947,17 @@ function CharacterElementPanel({ profile }: { profile: CharacterElementProfile }
           <span
             className="inline-flex items-center gap-1 rounded-pill border px-2.5 py-1"
             style={elementChipStyle(primary)}
-          >            <span>{primary.icon} {primary.label} {profile.primary_points}</span>
+          >
+            {primary.rare && <span aria-hidden="true">✦</span>}
+            <span>{primary.icon} {primary.label} {profile.primary_points}</span>
           </span>
           {secondary && profile.secondary_points > 0 && (
             <span
               className="inline-flex items-center gap-1 rounded-pill border px-2.5 py-1"
               style={elementChipStyle(secondary)}
-            >              <span>{secondary.icon} {secondary.label} {profile.secondary_points}</span>
+            >
+              {secondary.rare && <span aria-hidden="true">✦</span>}
+              <span>{secondary.icon} {secondary.label} {profile.secondary_points}</span>
             </span>
           )}
         </div>

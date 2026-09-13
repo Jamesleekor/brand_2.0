@@ -44,67 +44,25 @@ const FILTERS: Array<{ key: FilterKey; label: string; icon: string }> = [
   { key: 'ELIGIBLE', label: '영입 가능', icon: '★' },
 ];
 
-type ElementVisualMeta = {
-  label: string;
-  icon: string;
-  barGradient: string;
-  textColor: string;
-  chipBackground: string;
-  chipBorder: string;
-  glow: string;
-  textShadow: string;
-  rare?: boolean;
+const ELEMENT_META: Record<ElementCode, { label: string; icon: string }> = {
+  FIRE: { label: '화', icon: '🔥' },
+  WATER: { label: '수', icon: '💧' },
+  WIND: { label: '풍', icon: '🍃' },
+  EARTH: { label: '토', icon: '🪨' },
+  LIGHT: { label: '빛', icon: '✦' },
+  DARK: { label: '암', icon: '☾' },
 };
 
-const ELEMENT_META: Record<ElementCode, ElementVisualMeta> = {
-  FIRE: {
-    label: '화', icon: '🔥',
-    barGradient: 'linear-gradient(90deg, #ff7a63 0%, #ef4444 48%, #b91c1c 100%)',
-    textColor: '#FF9A88', chipBackground: 'rgba(94, 29, 24, 0.72)', chipBorder: 'rgba(255, 122, 99, 0.58)',
-    glow: '0 0 8px rgba(239, 68, 68, 0.24)', textShadow: '0 0 8px rgba(255, 90, 72, 0.18)',
-  },
-  WATER: {
-    label: '수', icon: '💧',
-    barGradient: 'linear-gradient(90deg, #67d4ff 0%, #3b82f6 52%, #1d4ed8 100%)',
-    textColor: '#86D9FF', chipBackground: 'rgba(22, 52, 92, 0.74)', chipBorder: 'rgba(83, 181, 255, 0.60)',
-    glow: '0 0 8px rgba(59, 130, 246, 0.24)', textShadow: '0 0 8px rgba(80, 180, 255, 0.20)',
-  },
-  EARTH: {
-    label: '토', icon: '🪨',
-    barGradient: 'linear-gradient(90deg, #c9905b 0%, #9a6438 52%, #6f4528 100%)',
-    textColor: '#E5B982', chipBackground: 'rgba(74, 48, 30, 0.78)', chipBorder: 'rgba(201, 144, 91, 0.58)',
-    glow: '0 0 8px rgba(154, 100, 56, 0.22)', textShadow: '0 0 8px rgba(201, 144, 91, 0.18)',
-  },
-  WIND: {
-    label: '풍', icon: '💫',
-    barGradient: 'linear-gradient(90deg, #fff59d 0%, #facc15 48%, #eab308 100%)',
-    textColor: '#FFF27A', chipBackground: 'rgba(84, 70, 15, 0.74)', chipBorder: 'rgba(250, 204, 21, 0.60)',
-    glow: '0 0 8px rgba(250, 204, 21, 0.24)', textShadow: '0 0 8px rgba(255, 230, 80, 0.18)',
-  },
-  DARK: {
-    label: '암', icon: '☾',
-    barGradient: 'linear-gradient(90deg, #2e1065 0%, #6d28d9 32%, #c084fc 50%, #7c3aed 68%, #24103f 100%)',
-    textColor: '#D8B4FE', chipBackground: 'linear-gradient(135deg, rgba(49, 20, 85, 0.94), rgba(91, 33, 182, 0.52))', chipBorder: 'rgba(192, 132, 252, 0.78)',
-    glow: '0 0 12px rgba(147, 51, 234, 0.42), inset 0 0 10px rgba(216, 180, 254, 0.08)',
-    textShadow: '0 0 10px rgba(192, 132, 252, 0.58)', rare: true,
-  },
-  LIGHT: {
-    label: '빛', icon: '✦',
-    barGradient: 'linear-gradient(90deg, #b7791f 0%, #f6c453 24%, #fff3b0 48%, #ffffff 52%, #f6d365 68%, #c58b22 100%)',
-    textColor: '#FFE58A', chipBackground: 'linear-gradient(135deg, rgba(103, 72, 14, 0.92), rgba(225, 174, 55, 0.38))', chipBorder: 'rgba(255, 226, 123, 0.84)',
-    glow: '0 0 12px rgba(255, 211, 90, 0.48), inset 0 0 10px rgba(255, 255, 255, 0.12)',
-    textShadow: '0 0 10px rgba(255, 229, 138, 0.62)', rare: true,
-  },
-};
 const ELEMENT_FILTERS: Array<{ key: ElementFilterKey; label: string }> = [
   { key: 'ALL', label: '속성 전체' },
   { key: 'FIRE', label: '🔥 화' },
   { key: 'WATER', label: '💧 수' },
-  { key: 'WIND', label: '💫 풍' },
+  { key: 'WIND', label: '🍃 풍' },
   { key: 'EARTH', label: '🪨 토' },
   { key: 'LIGHT', label: '✦ 빛' },
   { key: 'DARK', label: '☾ 암' },
 ];
+
 const TENDENCY_FILTERS: Array<{ key: TendencyFilterKey; label: string }> = [
   { key: 'ALL', label: '성향 전체' },
   { key: 'PURE', label: '순수' },
@@ -809,8 +767,8 @@ function CharacterDetailModal({
                 <DetailStatusPanel character={character} recruitment={recruitment} />
 
                 <div className="mt-4 rounded-card-lg border border-line bg-bg-card p-4">
-                  <div className="text-[14px] font-black uppercase tracking-[0.13em] text-[#FFD58A]">영입 조건</div>
-                  <p className="mt-2 text-[18px] font-black leading-7 text-[#FFF7ED]">
+                  <div className="text-[10px] font-black uppercase tracking-[0.13em] text-text-muted">영입 조건</div>
+                  <p className="mt-1.5 text-sm font-black leading-relaxed text-text-primary">
                     {character.policy_status === 'DRAFT'
                       ? '영입 조건 준비 중'
                       : character.source_condition_text || '조건 없음'}
@@ -828,8 +786,8 @@ function CharacterDetailModal({
                 </div>
 
                 <div className="mt-3 rounded-card-lg border border-line bg-bg-card p-4">
-                  <div className="text-[14px] font-black uppercase tracking-[0.13em] text-[#FFD58A]">편린 소개</div>
-                  <p className="mt-2 whitespace-pre-wrap break-words text-[18px] font-semibold leading-7 text-[#FFF7ED]">
+                  <div className="text-[10px] font-black uppercase tracking-[0.13em] text-text-muted">편린 소개</div>
+                  <p className="mt-1.5 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-text-primary">
                     {character.description?.trim() || '아직 등록된 소개가 없습니다.'}
                   </p>
                 </div>
@@ -900,19 +858,19 @@ function CharacterRaidAbilityPanel({ character }: { character: StudentCharacterC
   const critBonusBp = Math.max(0, Number(character.raid_crit_bonus_bp ?? 0));
 
   return (
-    <div className="flex-none border-t border-line bg-[#120D1B]/98 p-4 backdrop-blur-sm">
-      <div className="text-[14px] font-black uppercase tracking-[0.13em] text-[#FFF0D6]">편린 능력</div>
-      <div className="mt-2.5 grid grid-cols-2 gap-3">
-        <div className="rounded-card-md border border-[#FF9A4D]/50 bg-[#3A211D]/88 px-3.5 py-3">
-          <div className="text-[13px] font-black text-[#FFD7A3]">✦ 공명력</div>
-          <div className="mt-1 text-[20px] font-black text-[#FF9A4D]">{formatGold(resonancePower)}</div>
+    <div className="flex-none border-t border-line bg-bg-card/95 p-3.5 backdrop-blur-sm">
+      <div className="text-[10px] font-black uppercase tracking-[0.13em] text-text-muted">편린 능력</div>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="rounded-card-md border border-brand-primary/25 bg-brand-primary/10 px-3 py-2.5">
+          <div className="text-[9px] font-black text-text-muted">✦ 공명력</div>
+          <div className="mt-0.5 text-base font-black text-brand-primary">{formatGold(resonancePower)}</div>
         </div>
-        <div className="rounded-card-md border border-[#FFD84D]/50 bg-[#342A16]/88 px-3.5 py-3">
-          <div className="text-[13px] font-black text-[#FFF1A8]">🎯 치명타율</div>
-          <div className="mt-1 text-[20px] font-black text-[#FFD84D]">+{formatCritBonus(critBonusBp)}</div>
+        <div className="rounded-card-md border border-gold/25 bg-gold/10 px-3 py-2.5">
+          <div className="text-[9px] font-black text-text-muted">🎯 치명타율</div>
+          <div className="mt-0.5 text-base font-black text-gold">+{formatCritBonus(critBonusBp)}</div>
         </div>
       </div>
-      <div className="mt-2 text-[13px] font-bold leading-5 text-[#F1DDB8]">보유 시 레이드 능력치에 자동 합산됩니다.</div>
+      <div className="mt-1.5 text-[9px] font-bold text-text-muted">보유 시 레이드 능력치에 자동 합산됩니다.</div>
     </div>
   );
 }
@@ -924,59 +882,35 @@ function CharacterElementPanel({ profile }: { profile: CharacterElementProfile }
     : 0;
   const secondaryPercent = Math.max(0, 100 - primaryPercent);
 
-  const elementChipStyle = (meta: ElementVisualMeta) => ({
-    color: meta.textColor,
-    background: meta.chipBackground,
-    borderColor: meta.chipBorder,
-    boxShadow: meta.glow,
-    textShadow: meta.textShadow,
-  });
-
   return (
-    <div className="flex-none border-t border-line bg-[#120D1B]/98 p-4 backdrop-blur-sm">
+    <div className="flex-none border-t border-line bg-bg-card/95 p-3.5 backdrop-blur-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[14px] font-black uppercase tracking-[0.13em] text-[#FFF0D6]">편린 속성</div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[15px] font-black">
-            <span className="text-[#FFF7ED]">{getTierLabel(profile.element_budget)} · {profile.element_budget}</span>
-            <span className="text-[#E7CFA4]">·</span>
-            <span className="text-[#FFB56B]">{getTendencyFullLabel(getElementTendency(profile))}</span>
+          <div className="text-[10px] font-black uppercase tracking-[0.13em] text-text-muted">편린 속성</div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-black">
+            <span className="text-text-primary">{getTierLabel(profile.element_budget)} · {profile.element_budget}</span>
+            <span className="text-text-muted">·</span>
+            <span className="text-brand-primary">{getTendencyFullLabel(getElementTendency(profile))}</span>
           </div>
         </div>
-        <div className="flex flex-wrap justify-end gap-2 text-[16px] font-black">
-          <span
-            className="inline-flex items-center gap-1 rounded-pill border px-2.5 py-1"
-            style={elementChipStyle(primary)}
-          >            <span>{primary.icon} {primary.label} {profile.primary_points}</span>
-          </span>
+        <div className="text-right text-xs font-black text-text-primary">
+          <span>{primary.icon} {primary.label} {profile.primary_points}</span>
           {secondary && profile.secondary_points > 0 && (
-            <span
-              className="inline-flex items-center gap-1 rounded-pill border px-2.5 py-1"
-              style={elementChipStyle(secondary)}
-            >              <span>{secondary.icon} {secondary.label} {profile.secondary_points}</span>
-            </span>
+            <span className="ml-2">{secondary.icon} {secondary.label} {profile.secondary_points}</span>
           )}
         </div>
       </div>
 
-      <div className="mt-3 flex h-3.5 overflow-hidden rounded-pill bg-[#241B31] ring-1 ring-white/10">
+      <div className="mt-2.5 flex h-2.5 overflow-hidden rounded-pill bg-bg-deep">
         <div
-          className="h-full"
-          style={{
-            width: `${primaryPercent}%`,
-            background: primary.barGradient,
-            boxShadow: primary.rare ? primary.glow : 'none',
-          }}
+          className="h-full bg-brand-primary"
+          style={{ width: `${primaryPercent}%` }}
           title={`${primary.label} ${profile.primary_points}`}
         />
         {secondary && profile.secondary_points > 0 && (
           <div
-            className="h-full"
-            style={{
-              width: `${secondaryPercent}%`,
-              background: secondary.barGradient,
-              boxShadow: secondary.rare ? secondary.glow : 'none',
-            }}
+            className="h-full bg-gold"
+            style={{ width: `${secondaryPercent}%` }}
             title={`${secondary.label} ${profile.secondary_points}`}
           />
         )}
@@ -984,6 +918,7 @@ function CharacterElementPanel({ profile }: { profile: CharacterElementProfile }
     </div>
   );
 }
+
 function CharacterDetailArtwork({ character }: { character: StudentCharacterCollectionRow }) {
   if (character.resource_kind === 'EMOJI') {
     return (
@@ -1017,7 +952,7 @@ function DetailStatusPanel({
     return (
       <div className="rounded-card-lg border border-gold/35 bg-gold/10 p-4">
         <p className="text-sm font-black text-gold">✦ 현재 장착 중</p>
-        <p className="mt-1 text-xs font-semibold text-[#F2EADB]">현재 당신을 대표하는 편린입니다.</p>
+        <p className="mt-1 text-xs font-semibold text-text-secondary">현재 당신을 대표하는 편린입니다.</p>
       </div>
     );
   }
@@ -1025,7 +960,7 @@ function DetailStatusPanel({
     return (
       <div className="rounded-card-lg border border-success/35 bg-success-bg p-4">
         <p className="text-sm font-black text-success">✓ 영입 완료</p>
-        <p className="mt-1 text-xs font-semibold text-[#F2EADB]">보유 중인 편린입니다. 원하는 편린 하나를 장착할 수 있어요.</p>
+        <p className="mt-1 text-xs font-semibold text-text-secondary">보유 중인 편린입니다. 원하는 편린 하나를 장착할 수 있어요.</p>
       </div>
     );
   }
@@ -1033,7 +968,7 @@ function DetailStatusPanel({
     return (
       <div className="rounded-card-lg border border-brand-primary/35 bg-brand-primary/10 p-4">
         <p className="text-sm font-black text-brand-primary">★ 지금 영입할 수 있어요</p>
-        <p className="mt-1 text-xs font-semibold text-[#F2EADB]">
+        <p className="mt-1 text-xs font-semibold text-text-secondary">
           영입 조건과 판매 설정이 모두 열려 있습니다.
         </p>
       </div>
@@ -1043,7 +978,7 @@ function DetailStatusPanel({
     return (
       <div className="rounded-card-lg border border-crystal/35 bg-crystal/10 p-4">
         <p className="text-sm font-black text-crystal">✦ 교사 지급 전용 편린</p>
-        <p className="mt-1 text-xs font-semibold text-[#F2EADB]">학생이 직접 구매하지 않고 운영국을 통해 획득하는 편린입니다.</p>
+        <p className="mt-1 text-xs font-semibold text-text-secondary">학생이 직접 구매하지 않고 운영국을 통해 획득하는 편린입니다.</p>
       </div>
     );
   }
@@ -1051,7 +986,7 @@ function DetailStatusPanel({
     return (
       <div className="rounded-card-lg border border-gold/35 bg-gold/10 p-4">
         <p className="text-sm font-black text-gold">🎟 이벤트 전용 편린</p>
-        <p className="mt-1 text-xs font-semibold text-[#F2EADB]">특별 이벤트에서 획득 기회가 열립니다.</p>
+        <p className="mt-1 text-xs font-semibold text-text-secondary">특별 이벤트에서 획득 기회가 열립니다.</p>
       </div>
     );
   }
@@ -1059,7 +994,7 @@ function DetailStatusPanel({
     return (
       <div className="rounded-card-lg border border-warning/35 bg-warning/10 p-4">
         <p className="text-sm font-black text-warning">복원 확인 필요</p>
-        <p className="mt-1 text-xs font-semibold text-[#F2EADB]">회수 이력이 있어 운영국에서 복원해야 다시 보유할 수 있습니다.</p>
+        <p className="mt-1 text-xs font-semibold text-text-secondary">회수 이력이 있어 운영국에서 복원해야 다시 보유할 수 있습니다.</p>
       </div>
     );
   }
@@ -1067,14 +1002,14 @@ function DetailStatusPanel({
     return (
       <div className="rounded-card-lg border border-line bg-bg-card p-4">
         <p className="text-sm font-black text-text-primary">◇ 아직 만나지 못한 편린</p>
-        <p className="mt-1 text-xs font-semibold text-[#F2EADB]">영입 조건을 달성하면 직접 영입 버튼이 열립니다.</p>
+        <p className="mt-1 text-xs font-semibold text-text-secondary">영입 조건을 달성하면 직접 영입 버튼이 열립니다.</p>
       </div>
     );
   }
   return (
     <div className="rounded-card-lg border border-line bg-bg-card p-4">
       <p className="text-sm font-black text-text-primary">◇ 영입 경로 준비 중</p>
-      <p className="mt-1 text-xs font-semibold text-[#F2EADB]">편린의 이름은 공개되지만 아직 Season 2 영입 경로가 열리지 않았습니다.</p>
+      <p className="mt-1 text-xs font-semibold text-text-secondary">편린의 이름은 공개되지만 아직 Season 2 영입 경로가 열리지 않았습니다.</p>
     </div>
   );
 }
