@@ -54,7 +54,11 @@ test('Lv10 rollout: common Monte Carlo seed set is deterministic for the same AI
 
   assertDeepEqual(first, second);
   assertEqual(first.shortlistSize, 2);
-  assertEqual(first.samplesPerCandidate, 10);
+  assert(
+    first.samplesPerCandidate === 16 || first.samplesPerCandidate === 32,
+    'Early-game Lv10 should use the 16-sample first pass and only extend a close decision to 32.',
+  );
+  assert(first.rankedCandidates.every((candidate) => candidate.samples === first.samplesPerCandidate));
   assert(first.rankedCandidates.every((candidate) => candidate.estimatedWinProbability >= 0 && candidate.estimatedWinProbability <= 1));
 });
 
