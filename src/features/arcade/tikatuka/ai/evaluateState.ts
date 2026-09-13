@@ -77,6 +77,25 @@ function terminalScore(state: GameState, profile: AIProfile): number | null {
   return profile.weights.terminalDraw;
 }
 
+/**
+ * Lv.9+ stops treating every extra point in an already-won row as equally useful.
+ * The middle value after sorting is the strategically important "second row":
+ * taking two of three rows wins the match. Raw score still matters, but only as a
+ * secondary tie-break at the top levels.
+ */
+function highLevelTwoRowValue(
+  state: GameState,
+  aiScores: ReturnType<typeof calculateBoardScores>,
+  playerScores: ReturnType<typeof calculateBoardScores>,
+): number {
+  const margins = TIKATUKA_ROW_IDS
+    .map((rowId) => Math.tanh((aiScores[rowId] - playerScores[rowId]) / 8))
+    .sort((a, b) => b - a);
+  const occupied = countBoardDice(state.sides.ai.board) + countBoardDice(state.sides.player.board);
+  const maturity = occupied >= 14 ? 1 : occupied >= 10 ? 0.8 : occupied >= 6 ? 0.55 : 0.3;
+  return (margins[0] * 4 + margins[1] * 22 + margins[2]) * maturity;
+}
+
 /** Immediate board evaluation from the AI side's perspective. Higher is better for AI. */
 export function evaluateStateForAI(state: GameState, profile: AIProfile): number {
   const terminal = terminalScore(state, profile);
@@ -86,8 +105,12 @@ export function evaluateStateForAI(state: GameState, profile: AIProfile): number
   const playerBoard = state.sides.player.board;
   const aiScores = calculateBoardScores(aiBoard);
   const playerScores = calculateBoardScores(playerBoard);
+  const highLevelStrategy = profile.difficulty >= 9;
+  const rawBoardScale = highLevelStrategy ? 0.2 : 1;
 
-  let score = (calculateBoardScore(aiBoard) - calculateBoardScore(playerBoard)) * profile.weights.boardScore;
+  let score = (calculateBoardScore(aiBoard) - calculateBoardScore(playerBoard))
+    * profile.weights.boardScore
+    * rawBoardScale;
 
   let rowLeadDifference = 0;
   for (const rowId of TIKATUKA_ROW_IDS) {
@@ -100,6 +123,7 @@ export function evaluateStateForAI(state: GameState, profile: AIProfile): number
     }
   }
   score += rowLeadDifference * profile.weights.rowLead;
+  if (highLevelStrategy) score += highLevelTwoRowValue(state, aiScores, playerScores);
 
   const aiCombo = summarizeCombos(aiBoard);
   const playerCombo = summarizeCombos(playerBoard);
