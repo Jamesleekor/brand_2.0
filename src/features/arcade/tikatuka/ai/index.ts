@@ -8,3 +8,4 @@ export * from './searchContext';
 export * from './evaluateTazza';
 export * from './turnSimulation';
 export * from './search';
+export * from './strategic';
