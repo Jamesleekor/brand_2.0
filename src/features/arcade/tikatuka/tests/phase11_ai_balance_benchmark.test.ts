@@ -42,7 +42,8 @@ function createDependencies(seed: number, label: string): EngineDependencies {
 }
 
 function legacyAIAction(state: GameState): Extract<GameAction, { type: 'PLACE_DIE' | 'USE_TAZZA' | 'HOLD' }> {
-  const profile = { ...getAIProfile(state.difficulty), mistakeRate: 0 };
+  // Lv8 is the frozen pre-redesign depth-2 evaluator, so it is our legacy high-level baseline.
+  const profile = { ...getAIProfile(8), mistakeRate: 0 };
   const ranking = rankAdvancedAIActions(state, profile, SEARCH_OPTIONS);
   return ranking.rankedCandidates[0].action;
 }
