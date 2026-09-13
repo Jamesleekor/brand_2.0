@@ -128,7 +128,7 @@ export function getEventPresentation(event: GameEvent): TikatukaEventPresentatio
     case 'DICE_KNOCKED': {
       const value = event.attackingDie?.value ?? event.removedDice[0]?.value ?? '?';
       return {
-        text: `💥 알까기! ${subjectLabel(event.attackingSide)} 숫자 ${value}로 ${sideLabel(event.targetSide)} ${rowLabel(event.row)}의 같은 숫자 일반 주사위 ${event.removedDice.length}개를 제거했습니다`,
+        text: `💥 알까기! ${subjectLabel(event.attackingSide)} 숫자 ${value} 주사위를 배치하지 않고 공격해 ${sideLabel(event.targetSide)} ${rowLabel(event.row)}의 같은 숫자 일반 주사위 ${event.removedDice.length}개를 제거했습니다`,
         tone: 'danger',
         durationMs: 3_000,
       };
