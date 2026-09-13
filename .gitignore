@@ -1,5 +1,6 @@
 node_modules
 dist
+.tikatuka-test-build
 .env.local
 *.log
 
