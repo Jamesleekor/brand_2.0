@@ -1,8 +1,8 @@
 import {
   chooseAdvancedAIAction,
-  chooseFastRolloutAction,
   getAIProfile,
   rankAdvancedAIActions,
+  rankAdvancedTurnActions,
 } from '../ai';
 import {
   SeededRandomSource,
@@ -47,13 +47,18 @@ function legacyAIAction(state: GameState): Extract<GameAction, { type: 'PLACE_DI
   return ranking.rankedCandidates[0].action;
 }
 
+function strongPlayerAction(state: GameState): Extract<GameAction, { type: 'PLACE_DIE' | 'USE_TAZZA' | 'HOLD' }> {
+  const strongPlayerProfile = { ...getAIProfile(10), mistakeRate: 0 };
+  const ranking = rankAdvancedTurnActions(state, strongPlayerProfile, SEARCH_OPTIONS);
+  return ranking.rankedCandidates[0].action;
+}
+
 function runBenchmarkGame(difficulty: Difficulty, seed: number, mode: AIMode): BenchmarkGame {
   const label = `benchmark-${difficulty}-${mode}-${seed}`;
   const deps = createDependencies(seed, label);
   let state = createInitialTikatukaState(label, difficulty);
   state = dispatchTikatukaAction(state, { type: 'START_GAME', difficulty }, deps, 'player').nextState;
 
-  const strongPlayerProfile = { ...getAIProfile(10), mistakeRate: 0 };
   let decisions = 0;
 
   while (state.phase !== 'game_over' && decisions < MAX_DECISIONS) {
@@ -61,7 +66,7 @@ function runBenchmarkGame(difficulty: Difficulty, seed: number, mode: AIMode): B
     assert(state.turn.currentDie !== null);
 
     const action = state.currentSide === 'player'
-      ? chooseFastRolloutAction(state, strongPlayerProfile).action
+      ? strongPlayerAction(state)
       : mode === 'current'
         ? chooseAdvancedAIAction(state, deps.aiRng, getAIProfile(difficulty), SEARCH_OPTIONS).action
         : legacyAIAction(state);
@@ -95,14 +100,14 @@ function summary(difficulty: Difficulty, mode: AIMode, games: readonly Benchmark
   return `Lv.${difficulty} ${mode}: player ${player}/${games.length}, AI ${ai}/${games.length}, draw ${draw}/${games.length}, avgTurns ${averageTurns.toFixed(1)}`;
 }
 
-test('balance benchmark: strong proxy A/B baseline for Lv8~10', () => {
+test('balance benchmark: strong depth-2 proxy A/B baseline for Lv8~10', () => {
   const lv8 = runGroup(8, 'current');
   const lv9Legacy = runGroup(9, 'legacy');
   const lv9Current = runGroup(9, 'current');
   const lv10Legacy = runGroup(10, 'legacy');
   const lv10Current = runGroup(10, 'current');
 
-  console.log('\n[Rakaruka strong-proxy A/B]');
+  console.log('\n[Rakaruka strong depth-2 proxy A/B]');
   console.log(summary(8, 'current', lv8));
   console.log(summary(9, 'legacy', lv9Legacy));
   console.log(summary(9, 'current', lv9Current));
