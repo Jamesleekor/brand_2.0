@@ -1,7 +1,7 @@
 import { getLegalPlacements, resolvePlacementOutcome } from '../engine';
 import { canHold } from '../engine/rules/hold';
 import { canUseTazza } from '../engine/rules/tazza';
-import type { DieValue, GameAction, GameState } from '../engine/types';
+import type { DieValue, GameAction, GameState, Side } from '../engine/types';
 import { evaluateStateForAI } from './evaluateState';
 import { createHypotheticalTazzaState } from './evaluateTazza';
 import {
@@ -34,8 +34,7 @@ export interface AdvancedAIRanking {
   searchAbortReason: ReturnType<typeof createAISearchContext>['abortedBy'];
 }
 
-function compareAdvancedCandidates(a: AIAdvancedActionCandidate, b: AIAdvancedActionCandidate): number {
-  if (b.score !== a.score) return b.score - a.score;
+function compareActionTieBreak(a: AIAdvancedActionCandidate, b: AIAdvancedActionCandidate): number {
   const actionOrder = ACTION_ORDER[a.action.type] - ACTION_ORDER[b.action.type];
   if (actionOrder !== 0) return actionOrder;
   if (a.action.type === 'PLACE_DIE' && b.action.type === 'PLACE_DIE') {
@@ -44,6 +43,15 @@ function compareAdvancedCandidates(a: AIAdvancedActionCandidate, b: AIAdvancedAc
     return ROW_ORDER[a.action.row] - ROW_ORDER[b.action.row];
   }
   return 0;
+}
+
+function compareAdvancedCandidatesForSide(
+  side: Side,
+  a: AIAdvancedActionCandidate,
+  b: AIAdvancedActionCandidate,
+): number {
+  if (b.score !== a.score) return side === 'ai' ? b.score - a.score : a.score - b.score;
+  return compareActionTieBreak(a, b);
 }
 
 function afterCompletedTurnValue(
@@ -164,25 +172,43 @@ function bestTurnValue(
   }
 }
 
-export function rankAdvancedAIActions(
+/**
+ * Symmetric root ranking used by balance simulations. The heuristic remains AI-centric,
+ * so AI sorts high-to-low while Player sorts low-to-high. Production AI continues to
+ * enter through rankAdvancedAIActions below.
+ */
+export function rankAdvancedTurnActions(
   state: GameState,
   profile: AIProfile,
   options?: AdvancedSearchOptions,
 ): AdvancedAIRanking {
-  if (state.currentSide !== 'ai' || state.phase !== 'awaiting_action' || state.turn.currentDie === null) {
-    throw new Error('라카루카 고급 AI는 AI awaiting_action 상태에서만 행동을 평가할 수 있습니다.');
+  if (state.phase !== 'awaiting_action' || state.turn.currentDie === null) {
+    throw new Error('라카루카 고급 탐색은 awaiting_action 상태에서만 행동을 평가할 수 있습니다.');
   }
-  if (getLegalPlacements(state, 'ai', state.turn.currentDie).length === 0) {
-    throw new Error('라카루카 고급 AI root에는 자동 Forced Pass 이전의 상태를 전달할 수 없습니다.');
+  if (getLegalPlacements(state, state.currentSide, state.turn.currentDie).length === 0) {
+    throw new Error('라카루카 고급 탐색 root에는 자동 Forced Pass 이전의 상태를 전달할 수 없습니다.');
   }
 
   const context = createAISearchContext(options);
-  const candidates = collectTurnActionValues(state, profile.searchDepth, profile, context).sort(compareAdvancedCandidates);
-  if (candidates.length === 0) throw new Error('라카루카 고급 AI에 합법적인 행동 후보가 없습니다.');
+  const side = state.currentSide;
+  const candidates = collectTurnActionValues(state, profile.searchDepth, profile, context)
+    .sort((a, b) => compareAdvancedCandidatesForSide(side, a, b));
+  if (candidates.length === 0) throw new Error('라카루카 고급 탐색에 합법적인 행동 후보가 없습니다.');
 
   return {
     rankedCandidates: candidates,
     nodesVisited: context.nodesVisited,
     searchAbortReason: context.abortedBy,
   };
+}
+
+export function rankAdvancedAIActions(
+  state: GameState,
+  profile: AIProfile,
+  options?: AdvancedSearchOptions,
+): AdvancedAIRanking {
+  if (state.currentSide !== 'ai') {
+    throw new Error('라카루카 고급 AI는 AI 턴에서만 행동을 평가할 수 있습니다.');
+  }
+  return rankAdvancedTurnActions(state, profile, options);
 }
