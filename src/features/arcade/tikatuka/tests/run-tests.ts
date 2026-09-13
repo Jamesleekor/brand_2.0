@@ -10,6 +10,7 @@ import './phase6_ui_presentation.test';
 import './phase7_persistence.test';
 import './phase8_competition.test';
 import './phase9_strategic_ai.test';
+import './phase10_win_probability_ai.test';
 import { runRegisteredTests } from './testHarness';
 
 void runRegisteredTests().catch((error) => {
