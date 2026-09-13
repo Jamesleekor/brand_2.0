@@ -87,10 +87,10 @@ test('basic AI: AI decision RNG cannot perturb actual game RNG sequence', () => 
   assertDeepEqual(afterAI, untouched);
 });
 
-test('basic AI: v1.2 difficulty profile keeps future search depth reserved without using it in Phase 4', () => {
+test('basic AI: difficulty profile reserves depth while Lv10 has no intentional mistake rate', () => {
   assertEqual(getAIProfile(1).searchDepth, 0);
   assertEqual(getAIProfile(5).searchDepth, 1);
   assertEqual(getAIProfile(8).searchDepth, 2);
   assertEqual(getAIProfile(10).candidatePoolSize, 1);
-  assertEqual(getAIProfile(10).mistakeRate, 0.01);
+  assertEqual(getAIProfile(10).mistakeRate, 0);
 });
