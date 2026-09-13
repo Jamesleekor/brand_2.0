@@ -1,11 +1,13 @@
 import {
   TIKATUKA_ROW_IDS,
   calculateBoardScores,
+  countBoardDice,
   getLegalPlacements,
   isRowFull,
   resolvePlacementOutcome,
 } from '../engine';
 import type { DieValue, GameAction, GameState } from '../engine';
+import { evaluateStateForAI } from './evaluateState';
 import { createHypotheticalTazzaState } from './evaluateTazza';
 import {
   createHypotheticalHoldState,
@@ -74,6 +76,22 @@ export function evaluateStrategicWinPlan(state: GameState): number {
   if (securedWins >= 2) score += 140;
   if (securedLosses >= 2) score -= 140;
   return score;
+}
+
+/**
+ * Production-only high-level leaf evaluator for Lv9/Lv10. The benchmark's strong
+ * player keeps the generic evaluator, while the late-game opponents carry their
+ * two-row plan through every leaf of the depth-2 tree instead of only reranking
+ * the root after search has finished.
+ */
+export function evaluateHighLevelSearchState(state: GameState, profile: AIProfile): number {
+  const base = evaluateStateForAI(state, profile);
+  if (state.phase === 'game_over') return base;
+
+  const occupied = countBoardDice(state.sides.ai.board) + countBoardDice(state.sides.player.board);
+  const maturity = occupied >= 14 ? 1 : occupied >= 10 ? 0.82 : occupied >= 6 ? 0.58 : 0.35;
+  const strategicWeight = profile.difficulty >= 10 ? 1.15 : 0.9;
+  return base + evaluateStrategicWinPlan(state) * maturity * strategicWeight;
 }
 
 function bestImmediateStrategicPlacementValue(state: GameState): number {
