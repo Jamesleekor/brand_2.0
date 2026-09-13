@@ -1,6 +1,11 @@
 import { evaluateAITazza } from '../ai';
-import { createInitialTikatukaState } from '../engine';
-import type { Die, DieValue, GameState, Side } from '../engine';
+import {
+  SeededRandomSource,
+  SequenceRandomSource,
+  createInitialTikatukaState,
+  dispatchTikatukaAction,
+} from '../engine';
+import type { Die, DieValue, EngineDependencies, GameState, Side } from '../engine';
 import { assert, assertEqual, test } from './testHarness';
 
 function normal(id: string, value: DieValue, owner: Side): Die {
@@ -57,4 +62,36 @@ test('advanced AI Tazza: hypothetical rerolls consume no real RNG and mark Tazza
   assertEqual(state.sides.ai.skills.tazzaRemaining, beforeRemaining);
   assertEqual(state.turn.tazzaUsedThisTurn, false);
   assertEqual(evaluation.outcomes.map((item) => item.value).join(','), '1,2,3,4,5,6');
+});
+
+test('Tazza regression: impossible replacement auto-passes before AI/UI can receive a dead root', () => {
+  const state = aiTurn('tazza-auto-pass', 8, 5);
+  state.sides.ai.board.rows.top.dice = [
+    normal('at1', 1, 'ai'), normal('at2', 2, 'ai'), normal('at3', 3, 'ai'),
+  ];
+  state.sides.ai.board.rows.middle.dice = [
+    normal('am1', 1, 'ai'), normal('am2', 2, 'ai'), normal('am3', 3, 'ai'),
+  ];
+  state.sides.ai.board.rows.bottom.dice = [
+    normal('ab1', 1, 'ai'), normal('ab2', 2, 'ai'), normal('ab3', 3, 'ai'),
+  ];
+  state.sides.player.board.rows.top.dice = [normal('p5', 5, 'player')];
+
+  const gameRng = new SequenceRandomSource([6, 2]);
+  const deps: EngineDependencies = {
+    gameRng,
+    aiRng: new SeededRandomSource(987654321),
+    createId: (() => {
+      let id = 0;
+      return () => `tazza-auto-${++id}`;
+    })(),
+  };
+
+  const transition = dispatchTikatukaAction(state, { type: 'USE_TAZZA' }, deps, 'ai');
+  assert(transition.events.some((event) => event.type === 'TAZZA_USED'));
+  assert(transition.events.some((event) => event.type === 'FORCED_PASS'));
+  assertEqual(transition.nextState.currentSide, 'player');
+  assertEqual(transition.nextState.turn.currentDie?.value, 2);
+  assertEqual(transition.nextState.sides.ai.heldDie?.value, 6);
+  assertEqual(transition.nextState.sides.ai.skills.tazzaRemaining, state.sides.ai.skills.tazzaRemaining - 1);
 });
