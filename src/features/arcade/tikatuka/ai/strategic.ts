@@ -11,7 +11,8 @@ import { createHypotheticalHoldState } from './turnSimulation';
 import type { AIAdvancedActionCandidate, AIProfile } from './types';
 
 const DIE_VALUES: readonly DieValue[] = [1, 2, 3, 4, 5, 6];
-const STRATEGIC_RERANK_WEIGHT = 8;
+const STRATEGIC_RERANK_WEIGHT = 2.25;
+const MAX_STRATEGIC_DELTA = 7;
 
 export interface StrategicAIRanking {
   rankedCandidates: readonly AIAdvancedActionCandidate[];
@@ -38,11 +39,7 @@ function rowStrategicValue(state: GameState, row: (typeof TIKATUKA_ROW_IDS)[numb
 
 /**
  * Strategic, win-condition-aware state value from the AI perspective.
- *
- * Unlike the ordinary heuristic, this deliberately saturates huge row leads and
- * heavily weights the second-best row. Rakaruka is won by taking two of three
- * rows, so spending another strong die on an already dominant row should usually
- * lose to strengthening the row that can become the AI's second win.
+ * The second-best row carries the most weight because two row wins decide the match.
  */
 export function evaluateStrategicWinPlan(state: GameState): number {
   if (state.phase === 'game_over' && state.winner !== null) {
@@ -115,16 +112,20 @@ function strategicActionValue(
   return expected;
 }
 
+function clampStrategicDelta(delta: number): number {
+  return Math.max(-MAX_STRATEGIC_DELTA, Math.min(MAX_STRATEGIC_DELTA, delta));
+}
+
 /**
- * Reranks the normal depth-search output for Lv.9 strategy.
- * Terminal/base tactical search is preserved, then a large second-row-focused
- * delta is added. This keeps obvious tactical wins while fixing the old tendency
- * to over-invest in a row that is already comfortably ahead.
+ * Strategic rerank is deliberately bounded. The depth-2 search now already knows
+ * about the second-row objective at Lv.9+, so this layer only breaks tactically
+ * plausible choices toward the cleaner win plan. It cannot rescue a candidate
+ * that the tactical search considers far worse.
  */
 export function rerankStrategicAIActions(
   state: GameState,
   baseCandidates: readonly AIAdvancedActionCandidate[],
-  _profile: AIProfile,
+  profile: AIProfile,
 ): StrategicAIRanking {
   if (state.currentSide !== 'ai' || state.phase !== 'awaiting_action' || state.turn.currentDie === null) {
     throw new Error('라카루카 전략 재평가는 AI awaiting_action 상태에서만 사용할 수 있습니다.');
@@ -134,21 +135,29 @@ export function rerankStrategicAIActions(
   }
 
   const baseline = evaluateStrategicWinPlan(state);
-  const baseIndex = new Map(baseCandidates.map((candidate, index) => [candidate, index]));
-  const rankedCandidates = baseCandidates.map((candidate) => {
-    const strategicDelta = strategicActionValue(state, candidate.action) - baseline;
+  const bestBaseScore = baseCandidates[0].score;
+  const tacticalGapLimit = profile.difficulty >= 10 ? 24 : 14;
+  const eligible = baseCandidates.filter((candidate) => bestBaseScore - candidate.score <= tacticalGapLimit);
+  const ineligible = baseCandidates.filter((candidate) => bestBaseScore - candidate.score > tacticalGapLimit);
+  const originalIndex = new Map(baseCandidates.map((candidate, index) => [candidate.action, index]));
+
+  const strategic = eligible.map((candidate) => {
+    const strategicDelta = clampStrategicDelta(strategicActionValue(state, candidate.action) - baseline);
     return {
       action: candidate.action,
       score: candidate.score + strategicDelta * STRATEGIC_RERANK_WEIGHT,
     } satisfies AIAdvancedActionCandidate;
   }).sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
-    const aBase = baseCandidates.findIndex((candidate) => candidate.action === a.action);
-    const bBase = baseCandidates.findIndex((candidate) => candidate.action === b.action);
-    if (aBase !== bBase) return aBase - bBase;
-    return 0;
+    return (originalIndex.get(a.action) ?? 0) - (originalIndex.get(b.action) ?? 0);
   });
 
-  void baseIndex;
-  return { rankedCandidates, baseOrder: baseCandidates };
+  // Keep tactically implausible options visible for diagnostics, but never let the
+  // strategic overlay promote them into the shortlist.
+  const demoted = ineligible.map((candidate) => ({
+    action: candidate.action,
+    score: candidate.score - 1_000_000,
+  } satisfies AIAdvancedActionCandidate));
+
+  return { rankedCandidates: [...strategic, ...demoted], baseOrder: baseCandidates };
 }
