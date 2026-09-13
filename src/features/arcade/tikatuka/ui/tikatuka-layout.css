@@ -38,7 +38,7 @@
 
 /* Keep the turn card readable, but remove unnecessary vertical dead space. */
 .rakaruka-game-shell section[class*="bg-[#090d14]"] div[class*="min-h-[150px]"] {
-  min-height: 96px !important;
+  min-height: 108px !important;
   padding: 0.55rem !important;
 }
 
