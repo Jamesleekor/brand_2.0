@@ -24,6 +24,7 @@ import type { AIAdvancedActionCandidate, AIProfile } from './types';
 const DIE_VALUES: readonly DieValue[] = [1, 2, 3, 4, 5, 6];
 const MAX_ROLLOUT_ACTIONS = 180;
 const MAX_SEED = 0x7fff_ffff;
+const STRATEGIC_ROLLOUT_WEIGHT = 3.75;
 
 export interface WinProbabilityCandidate {
   action: AIAdvancedActionCandidate['action'];
@@ -44,7 +45,9 @@ export interface WinProbabilityRanking {
 
 interface RolloutPlan {
   shortlistSize: 2 | 3;
-  samplesPerCandidate: number;
+  initialSamplesPerCandidate: number;
+  maxSamplesPerCandidate: number;
+  extensionGap: number;
 }
 
 interface RolloutOutcome {
@@ -59,13 +62,20 @@ interface ScoredRolloutAction {
 
 function rolloutPlanForState(state: GameState): RolloutPlan {
   const occupied = countBoardDice(state.sides.ai.board) + countBoardDice(state.sides.player.board);
-  if (occupied >= 15) return { shortlistSize: 3, samplesPerCandidate: 20 };
-  if (occupied >= 10) return { shortlistSize: 3, samplesPerCandidate: 14 };
-  return { shortlistSize: 2, samplesPerCandidate: 10 };
+
+  // Early-game futures are highly noisy, so keep them cheap. As the board matures,
+  // root decisions become much more decisive and extra samples are worth the cost.
+  if (occupied >= 14) {
+    return { shortlistSize: 3, initialSamplesPerCandidate: 48, maxSamplesPerCandidate: 96, extensionGap: 0.06 };
+  }
+  if (occupied >= 8) {
+    return { shortlistSize: 3, initialSamplesPerCandidate: 28, maxSamplesPerCandidate: 56, extensionGap: 0.07 };
+  }
+  return { shortlistSize: 2, initialSamplesPerCandidate: 16, maxSamplesPerCandidate: 32, extensionGap: 0.08 };
 }
 
 function stateUtility(state: GameState, profile: AIProfile): number {
-  return evaluateStateForAI(state, profile) + evaluateStrategicWinPlan(state) * 2.5;
+  return evaluateStateForAI(state, profile) + evaluateStrategicWinPlan(state) * STRATEGIC_ROLLOUT_WEIGHT;
 }
 
 function bestImmediatePlacementUtility(state: GameState, profile: AIProfile): number {
@@ -155,7 +165,7 @@ function createRolloutDependencies(seed: number, label: string): EngineDependenc
 
 function unresolvedProbabilityScore(state: GameState): number {
   const strategic = evaluateStrategicWinPlan(state);
-  return 0.5 + Math.tanh(strategic / 55) * 0.45;
+  return 0.5 + Math.tanh(strategic / 50) * 0.46;
 }
 
 function runRollout(
@@ -190,10 +200,71 @@ function collectSeeds(aiRng: RandomSource, count: number): number[] {
   return Array.from({ length: count }, () => aiRng.nextInt(1, MAX_SEED));
 }
 
+function emptyResult(candidate: AIAdvancedActionCandidate): WinProbabilityCandidate {
+  return {
+    action: candidate.action,
+    baseScore: candidate.score,
+    estimatedWinProbability: 0,
+    rawWins: 0,
+    rawDraws: 0,
+    rawLosses: 0,
+    unresolved: 0,
+    samples: 0,
+  };
+}
+
+function addSamples(
+  state: GameState,
+  shortlist: readonly AIAdvancedActionCandidate[],
+  results: WinProbabilityCandidate[],
+  seeds: readonly number[],
+  profile: AIProfile,
+  sampleOffset: number,
+): void {
+  shortlist.forEach((candidate, candidateIndex) => {
+    let probabilityTotal = results[candidateIndex].estimatedWinProbability * results[candidateIndex].samples;
+
+    seeds.forEach((seed, seedIndex) => {
+      const outcome = runRollout(
+        state,
+        candidate.action,
+        seed,
+        profile,
+        `${candidateIndex}-${sampleOffset + seedIndex}`,
+      );
+      probabilityTotal += outcome.probabilityScore;
+      if (outcome.result === 'ai') results[candidateIndex].rawWins += 1;
+      else if (outcome.result === 'player') results[candidateIndex].rawLosses += 1;
+      else if (outcome.result === 'draw') results[candidateIndex].rawDraws += 1;
+      else results[candidateIndex].unresolved += 1;
+    });
+
+    results[candidateIndex].samples += seeds.length;
+    results[candidateIndex].estimatedWinProbability = probabilityTotal / results[candidateIndex].samples;
+  });
+}
+
+function sortProbabilityResults(results: WinProbabilityCandidate[]): void {
+  const originalIndex = new Map(results.map((candidate, index) => [candidate, index]));
+  results.sort((a, b) => {
+    if (b.estimatedWinProbability !== a.estimatedWinProbability) {
+      return b.estimatedWinProbability - a.estimatedWinProbability;
+    }
+    if (b.rawWins !== a.rawWins) return b.rawWins - a.rawWins;
+    if (b.rawDraws !== a.rawDraws) return b.rawDraws - a.rawDraws;
+    if (b.baseScore !== a.baseScore) return b.baseScore - a.baseScore;
+    return (originalIndex.get(a) ?? 0) - (originalIndex.get(b) ?? 0);
+  });
+}
+
 /**
  * Lv.10 root selector. It never reads or consumes the live gameRng. The caller's
  * aiRng is used only to create independent Monte Carlo futures, and the same seed
  * set is replayed for every shortlisted action (common-random-number comparison).
+ *
+ * Sampling is adaptive: clear decisions stop after the first batch; close calls
+ * receive a second common seed batch, up to 96 samples per candidate in the late
+ * game. This spends computation where one move is most likely to decide the match.
  */
 export function rankWinProbabilityAIActions(
   state: GameState,
@@ -210,56 +281,39 @@ export function rankWinProbabilityAIActions(
 
   const plan = rolloutPlanForState(state);
   const shortlist = strategicCandidates.slice(0, Math.min(plan.shortlistSize, strategicCandidates.length));
-  const seeds = collectSeeds(aiRng, plan.samplesPerCandidate);
+  const results = shortlist.map(emptyResult);
 
-  const results = shortlist.map((candidate, candidateIndex): WinProbabilityCandidate => {
-    let scoreTotal = 0;
-    let rawWins = 0;
-    let rawDraws = 0;
-    let rawLosses = 0;
-    let unresolved = 0;
+  const initialSeeds = collectSeeds(aiRng, plan.initialSamplesPerCandidate);
+  addSamples(state, shortlist, results, initialSeeds, profile, 0);
+  sortProbabilityResults(results);
 
-    seeds.forEach((seed, rolloutIndex) => {
-      const outcome = runRollout(
+  if (results.length >= 2) {
+    const gap = results[0].estimatedWinProbability - results[1].estimatedWinProbability;
+    if (gap <= plan.extensionGap && plan.maxSamplesPerCandidate > plan.initialSamplesPerCandidate) {
+      const additionalCount = plan.maxSamplesPerCandidate - plan.initialSamplesPerCandidate;
+      const extraSeeds = collectSeeds(aiRng, additionalCount);
+
+      // Results were sorted after the first batch, so rebuild the candidate order
+      // from those same result objects before accumulating the common extra seeds.
+      const adaptiveShortlist = results.map((result) => ({
+        action: result.action,
+        score: result.baseScore,
+      } satisfies AIAdvancedActionCandidate));
+      addSamples(
         state,
-        candidate.action,
-        seed,
+        adaptiveShortlist,
+        results,
+        extraSeeds,
         profile,
-        `${candidateIndex}-${rolloutIndex}`,
+        plan.initialSamplesPerCandidate,
       );
-      scoreTotal += outcome.probabilityScore;
-      if (outcome.result === 'ai') rawWins += 1;
-      else if (outcome.result === 'player') rawLosses += 1;
-      else if (outcome.result === 'draw') rawDraws += 1;
-      else unresolved += 1;
-    });
-
-    return {
-      action: candidate.action,
-      baseScore: candidate.score,
-      estimatedWinProbability: scoreTotal / seeds.length,
-      rawWins,
-      rawDraws,
-      rawLosses,
-      unresolved,
-      samples: seeds.length,
-    };
-  });
-
-  const originalIndex = new Map(results.map((candidate, index) => [candidate, index]));
-  results.sort((a, b) => {
-    if (b.estimatedWinProbability !== a.estimatedWinProbability) {
-      return b.estimatedWinProbability - a.estimatedWinProbability;
+      sortProbabilityResults(results);
     }
-    if (b.rawWins !== a.rawWins) return b.rawWins - a.rawWins;
-    if (b.rawDraws !== a.rawDraws) return b.rawDraws - a.rawDraws;
-    if (b.baseScore !== a.baseScore) return b.baseScore - a.baseScore;
-    return (originalIndex.get(a) ?? 0) - (originalIndex.get(b) ?? 0);
-  });
+  }
 
   return {
     rankedCandidates: results,
     shortlistSize: shortlist.length,
-    samplesPerCandidate: plan.samplesPerCandidate,
+    samplesPerCandidate: results[0]?.samples ?? plan.initialSamplesPerCandidate,
   };
 }
