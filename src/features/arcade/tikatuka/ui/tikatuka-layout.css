@@ -4,11 +4,14 @@
 .rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div {
   gap: 0.55rem !important;
   margin-top: 0.8rem !important;
+  align-items: center !important;
 }
 
 .rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div > div:nth-child(1),
 .rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div > div:nth-child(3) {
   padding: 0.65rem 0.8rem !important;
+  align-self: center !important;
+  min-height: 0 !important;
 }
 
 .rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > header + div > div:nth-child(1) > div:first-child > span:first-child,
@@ -35,7 +38,7 @@
 
 /* Keep the turn card readable, but remove unnecessary vertical dead space. */
 .rakaruka-game-shell section[class*="bg-[#090d14]"] div[class*="min-h-[150px]"] {
-  min-height: 108px !important;
+  min-height: 96px !important;
   padding: 0.55rem !important;
 }
 
@@ -45,6 +48,92 @@
   min-width: 4rem !important;
   min-height: 4rem !important;
   font-size: 1.55rem !important;
+}
+
+/* While dice are rolling, motion is enough: hide repeated explanatory copy. */
+.rakaruka-game-shell section[class*="bg-[#090d14]"] div[class*="min-h-[150px]"] > div:has(> .animate-spin) > :not(.animate-spin) {
+  display: none !important;
+}
+
+.rakaruka-game-shell section[class*="bg-[#090d14]"] div[class*="min-h-[150px]"] > div:has(> .animate-spin) > .animate-spin {
+  margin-bottom: 0 !important;
+}
+
+/* The dedicated AI roll overlay also stays visual-only while the die is spinning. */
+.rakaruka-game-shell .fixed.inset-0 > div:has(> .animate-spin) > :not(.animate-spin) {
+  display: none !important;
+}
+
+.rakaruka-game-shell .fixed.inset-0 > div:has(> .animate-spin) {
+  max-width: 11rem !important;
+  padding: 1.25rem !important;
+}
+
+.rakaruka-game-shell .fixed.inset-0 > div:has(> .animate-spin) > .animate-spin {
+  margin-top: 0 !important;
+}
+
+/* Show the selected difficulty's shard portrait inside the otherwise empty level tile. */
+.rakaruka-game-shell button.aspect-square.border-gold:not(:disabled) {
+  overflow: hidden;
+  isolation: isolate;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.75);
+}
+
+.rakaruka-game-shell button.aspect-square.border-gold:not(:disabled)::before {
+  content: '';
+  position: absolute;
+  inset: 0.2rem;
+  z-index: -1;
+  border-radius: 0.65rem;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.82;
+  filter: saturate(0.92) brightness(0.68);
+  pointer-events: none;
+}
+
+.rakaruka-game-shell button.aspect-square.border-gold:not(:disabled):nth-child(1)::before {
+  content: '🐱';
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 2.4rem;
+  filter: none;
+}
+
+.rakaruka-game-shell button.aspect-square.border-gold:not(:disabled):nth-child(2)::before {
+  background-image: url('https://jamesleekor.github.io/brand-assets/character/CHAR-004-Selene.webp');
+}
+.rakaruka-game-shell button.aspect-square.border-gold:not(:disabled):nth-child(3)::before {
+  background-image: url('https://jamesleekor.github.io/brand-assets/character/CHAR-015-Rino.webp');
+}
+.rakaruka-game-shell button.aspect-square.border-gold:not(:disabled):nth-child(4)::before {
+  background-image: url('https://jamesleekor.github.io/brand-assets/character/CHAR-043-Coni.webp');
+}
+.rakaruka-game-shell button.aspect-square.border-gold:not(:disabled):nth-child(5)::before {
+  background-image: url('https://jamesleekor.github.io/brand-assets/character/CHAR-047-Jayden.webp');
+}
+.rakaruka-game-shell button.aspect-square.border-gold:not(:disabled):nth-child(6)::before {
+  background-image: url('https://jamesleekor.github.io/brand-assets/character/CHAR-076-Esmeralda.webp');
+}
+.rakaruka-game-shell button.aspect-square.border-gold:not(:disabled):nth-child(7)::before {
+  background-image: url('https://jamesleekor.github.io/brand-assets/character/CHAR-064-Leticia.webp');
+}
+.rakaruka-game-shell button.aspect-square.border-gold:not(:disabled):nth-child(8)::before {
+  background-image: url('https://jamesleekor.github.io/brand-assets/character/CHAR-052-Justia.webp');
+}
+.rakaruka-game-shell button.aspect-square.border-gold:not(:disabled):nth-child(9)::before {
+  background-image: url('https://jamesleekor.github.io/brand-assets/character/CHAR-055-Rafina.webp');
+}
+.rakaruka-game-shell button.aspect-square.border-gold:not(:disabled):nth-child(10)::before {
+  background-image: url('https://jamesleekor.github.io/brand-assets/character/CHAR-022-Astell.webp');
+}
+
+.rakaruka-game-shell button.aspect-square.border-gold:not(:disabled) > span {
+  z-index: 2;
 }
 
 /* The detailed rule guide below already explains this; do not repeat it in live play. */
