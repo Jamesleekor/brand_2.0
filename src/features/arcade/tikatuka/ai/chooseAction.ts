@@ -2,6 +2,7 @@ import type { GameState, RandomSource } from '../engine';
 import { getAIProfile } from './profiles';
 import { rankAIPlacementCandidates } from './evaluatePlacement';
 import { rankAdvancedAIActions, type AdvancedSearchOptions } from './search';
+import { rerankStrategicAIActions } from './strategic';
 import type {
   AIAdvancedActionCandidate,
   AIAdvancedChoice,
@@ -48,7 +49,8 @@ export function chooseBasicAIPlacement(
 
 /**
  * Final Phase-5 AI chooser. Placement, Tazza and HOLD are ranked by the same search value.
- * aiRng is used only for bounded near-best mistakes; search itself is deterministic.
+ * Lv.9 adds a two-row win-plan rerank on top of the unchanged depth-2 tactical search.
+ * Lv.10 remains on the legacy chooser until the isolated win-probability rollout passes validation.
  */
 export function chooseAdvancedAIAction(
   state: GameState,
@@ -57,7 +59,9 @@ export function chooseAdvancedAIAction(
   options?: AdvancedSearchOptions,
 ): AIAdvancedChoice {
   const ranking = rankAdvancedAIActions(state, profile, options);
-  const ranked: readonly AIAdvancedActionCandidate[] = ranking.rankedCandidates;
+  const ranked: readonly AIAdvancedActionCandidate[] = profile.difficulty === 9
+    ? rerankStrategicAIActions(state, ranking.rankedCandidates, profile).rankedCandidates
+    : ranking.rankedCandidates;
   const best = ranked[0];
   const pool = eligibleMistakePool(ranked, profile);
 
