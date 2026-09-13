@@ -23,9 +23,13 @@ const ROW_ORDER = { top: 0, middle: 1, bottom: 2 } as const;
 const TARGET_ORDER = { ai: 0, player: 1 } as const;
 const ACTION_ORDER = { PLACE_DIE: 0, USE_TAZZA: 1, HOLD: 2 } as const;
 
+export type AdvancedStateEvaluator = (state: GameState, profile: AIProfile) => number;
+
 export interface AdvancedSearchOptions {
   limits?: Partial<AISearchLimits>;
   now?: () => number;
+  /** Optional AI-only leaf evaluator. Generic/player balance search keeps the default evaluator. */
+  evaluateState?: AdvancedStateEvaluator;
 }
 
 export interface AdvancedAIRanking {
@@ -59,14 +63,15 @@ function afterCompletedTurnValue(
   futureDepth: number,
   profile: AIProfile,
   context: ReturnType<typeof createAISearchContext>,
+  evaluator: AdvancedStateEvaluator,
 ): number {
   if (turnEndState.phase === 'game_over' || futureDepth <= 0) {
-    return evaluateStateForAI(turnEndState, profile);
+    return evaluator(turnEndState, profile);
   }
 
   let expected = 0;
   for (const branch of enumerateNextTurnStates(turnEndState)) {
-    expected += branch.probability * bestTurnValue(branch.state, futureDepth - 1, profile, context);
+    expected += branch.probability * bestTurnValue(branch.state, futureDepth - 1, profile, context, evaluator);
   }
   return expected;
 }
@@ -77,9 +82,10 @@ function placementActionValue(
   futureDepth: number,
   profile: AIProfile,
   context: ReturnType<typeof createAISearchContext>,
+  evaluator: AdvancedStateEvaluator,
 ): number {
   const outcome = resolvePlacementOutcome(state, action, state.currentSide);
-  return afterCompletedTurnValue(outcome.nextState, futureDepth, profile, context);
+  return afterCompletedTurnValue(outcome.nextState, futureDepth, profile, context, evaluator);
 }
 
 function tazzaActionValue(
@@ -87,11 +93,12 @@ function tazzaActionValue(
   futureDepth: number,
   profile: AIProfile,
   context: ReturnType<typeof createAISearchContext>,
+  evaluator: AdvancedStateEvaluator,
 ): number {
   let total = 0;
   for (const value of DIE_VALUES) {
     const hypothetical = createHypotheticalTazzaState(state, state.currentSide, value);
-    total += bestTurnValue(hypothetical, futureDepth, profile, context) / DIE_VALUES.length;
+    total += bestTurnValue(hypothetical, futureDepth, profile, context, evaluator) / DIE_VALUES.length;
   }
   return total;
 }
@@ -101,9 +108,10 @@ function holdActionValue(
   futureDepth: number,
   profile: AIProfile,
   context: ReturnType<typeof createAISearchContext>,
+  evaluator: AdvancedStateEvaluator,
 ): number {
   const held = createHypotheticalHoldState(state, state.currentSide);
-  return afterCompletedTurnValue(held, futureDepth, profile, context);
+  return afterCompletedTurnValue(held, futureDepth, profile, context, evaluator);
 }
 
 function collectTurnActionValues(
@@ -111,6 +119,7 @@ function collectTurnActionValues(
   futureDepth: number,
   profile: AIProfile,
   context: ReturnType<typeof createAISearchContext>,
+  evaluator: AdvancedStateEvaluator,
 ): AIAdvancedActionCandidate[] {
   const side = state.currentSide;
   const die = state.turn.currentDie;
@@ -119,14 +128,14 @@ function collectTurnActionValues(
   const placements = getLegalPlacements(state, side, die);
   const candidates: AIAdvancedActionCandidate[] = placements.map((placement) => {
     const action = { type: 'PLACE_DIE', targetSide: placement.targetSide, row: placement.row } as const;
-    return { action, score: placementActionValue(state, action, futureDepth, profile, context) };
+    return { action, score: placementActionValue(state, action, futureDepth, profile, context, evaluator) };
   });
 
   if (canUseTazza(state, side)) {
-    candidates.push({ action: { type: 'USE_TAZZA' }, score: tazzaActionValue(state, futureDepth, profile, context) });
+    candidates.push({ action: { type: 'USE_TAZZA' }, score: tazzaActionValue(state, futureDepth, profile, context, evaluator) });
   }
   if (canHold(state, side)) {
-    candidates.push({ action: { type: 'HOLD' }, score: holdActionValue(state, futureDepth, profile, context) });
+    candidates.push({ action: { type: 'HOLD' }, score: holdActionValue(state, futureDepth, profile, context, evaluator) });
   }
   return candidates;
 }
@@ -136,31 +145,30 @@ function bestTurnValue(
   futureDepth: number,
   profile: AIProfile,
   context: ReturnType<typeof createAISearchContext>,
+  evaluator: AdvancedStateEvaluator,
 ): number {
-  if (state.phase === 'game_over') return evaluateStateForAI(state, profile);
+  if (state.phase === 'game_over') return evaluator(state, profile);
 
   const memoKey = `${createAIStateHash(state)}|future:${futureDepth}`;
   const memo = context.memo.get(memoKey);
   if (memo !== undefined) return memo;
 
   const visit = enterAISearchState(context, state);
-  if (!visit.ok) return evaluateStateForAI(state, profile);
+  if (!visit.ok) return evaluator(state, profile);
 
   try {
     const die = state.turn.currentDie;
-    if (state.phase !== 'awaiting_action' || die === null) return evaluateStateForAI(state, profile);
+    if (state.phase !== 'awaiting_action' || die === null) return evaluator(state, profile);
 
-    // Live engine performs Forced Pass automatically before exposing an actionable turn.
-    // Search mirrors that rule before considering optional Tazza/HOLD.
     if (getLegalPlacements(state, state.currentSide, die).length === 0) {
       const passed = createHypotheticalForcedPassState(state);
-      const value = afterCompletedTurnValue(passed, futureDepth, profile, context);
+      const value = afterCompletedTurnValue(passed, futureDepth, profile, context, evaluator);
       context.memo.set(memoKey, value);
       return value;
     }
 
-    const candidates = collectTurnActionValues(state, futureDepth, profile, context);
-    if (candidates.length === 0) return evaluateStateForAI(state, profile);
+    const candidates = collectTurnActionValues(state, futureDepth, profile, context, evaluator);
+    if (candidates.length === 0) return evaluator(state, profile);
 
     const value = state.currentSide === 'ai'
       ? Math.max(...candidates.map((candidate) => candidate.score))
@@ -174,8 +182,8 @@ function bestTurnValue(
 
 /**
  * Symmetric root ranking used by balance simulations. The heuristic remains AI-centric,
- * so AI sorts high-to-low while Player sorts low-to-high. Production AI continues to
- * enter through rankAdvancedAIActions below.
+ * so AI sorts high-to-low while Player sorts low-to-high. Production AI may optionally
+ * inject a stronger leaf evaluator; the generic player proxy deliberately does not.
  */
 export function rankAdvancedTurnActions(
   state: GameState,
@@ -189,9 +197,10 @@ export function rankAdvancedTurnActions(
     throw new Error('라카루카 고급 탐색 root에는 자동 Forced Pass 이전의 상태를 전달할 수 없습니다.');
   }
 
-  const context = createAISearchContext(options);
+  const context = createAISearchContext({ limits: options?.limits, now: options?.now });
+  const evaluator = options?.evaluateState ?? evaluateStateForAI;
   const side = state.currentSide;
-  const candidates = collectTurnActionValues(state, profile.searchDepth, profile, context)
+  const candidates = collectTurnActionValues(state, profile.searchDepth, profile, context, evaluator)
     .sort((a, b) => compareAdvancedCandidatesForSide(side, a, b));
   if (candidates.length === 0) throw new Error('라카루카 고급 탐색에 합법적인 행동 후보가 없습니다.');
 
