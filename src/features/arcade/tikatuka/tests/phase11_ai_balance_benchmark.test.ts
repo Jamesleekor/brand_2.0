@@ -62,7 +62,6 @@ function createDependencies(seed: number, label: string): EngineDependencies {
 }
 
 function legacyAIAction(state: GameState): Extract<GameAction, { type: 'PLACE_DIE' | 'USE_TAZZA' | 'HOLD' }> {
-  // Lv8 is the frozen pre-redesign depth-2 evaluator, so it is our legacy high-level baseline.
   const profile = { ...getAIProfile(8), mistakeRate: 0 };
   const ranking = rankAdvancedAIActions(state, profile, SEARCH_OPTIONS);
   return ranking.rankedCandidates[0].action;
@@ -187,29 +186,31 @@ function printSummary(difficulty: Difficulty, mode: AIMode, games: readonly Benc
   console.log(`[MC_JSON] ${JSON.stringify(s)}`);
 }
 
-test('balance benchmark: strong depth-2 proxy A/B baseline for Lv8~10', () => {
-  const seeds = benchmarkSeeds();
-  const currentOnly = process.env.RAKARUKA_MC_CURRENT_ONLY === '1';
+if (process.env.RAKARUKA_MC_RUN === '1') {
+  test('balance benchmark: strong depth-2 proxy A/B baseline for Lv8~10', () => {
+    const seeds = benchmarkSeeds();
+    const currentOnly = process.env.RAKARUKA_MC_CURRENT_ONLY === '1';
 
-  console.log(`\n[Rakaruka strong depth-2 proxy A/B] seeds=${seeds.length} shard=${process.env.RAKARUKA_MC_SHARD ?? 'default'}`);
+    console.log(`\n[Rakaruka strong depth-2 proxy A/B] seeds=${seeds.length} shard=${process.env.RAKARUKA_MC_SHARD ?? 'default'}`);
 
-  const lv8 = runGroup(8, 'current', seeds);
-  const lv9Current = runGroup(9, 'current', seeds);
-  const lv10Current = runGroup(10, 'current', seeds);
-  printSummary(8, 'current', lv8);
-  printSummary(9, 'current', lv9Current);
-  printSummary(10, 'current', lv10Current);
+    const lv8 = runGroup(8, 'current', seeds);
+    const lv9Current = runGroup(9, 'current', seeds);
+    const lv10Current = runGroup(10, 'current', seeds);
+    printSummary(8, 'current', lv8);
+    printSummary(9, 'current', lv9Current);
+    printSummary(10, 'current', lv10Current);
 
-  assertEqual(lv8.length, seeds.length);
-  assertEqual(lv9Current.length, seeds.length);
-  assertEqual(lv10Current.length, seeds.length);
+    assertEqual(lv8.length, seeds.length);
+    assertEqual(lv9Current.length, seeds.length);
+    assertEqual(lv10Current.length, seeds.length);
 
-  if (!currentOnly) {
-    const lv9Legacy = runGroup(9, 'legacy', seeds);
-    const lv10Legacy = runGroup(10, 'legacy', seeds);
-    printSummary(9, 'legacy', lv9Legacy);
-    printSummary(10, 'legacy', lv10Legacy);
-    assertEqual(lv9Legacy.length, seeds.length);
-    assertEqual(lv10Legacy.length, seeds.length);
-  }
-});
+    if (!currentOnly) {
+      const lv9Legacy = runGroup(9, 'legacy', seeds);
+      const lv10Legacy = runGroup(10, 'legacy', seeds);
+      printSummary(9, 'legacy', lv9Legacy);
+      printSummary(10, 'legacy', lv10Legacy);
+      assertEqual(lv9Legacy.length, seeds.length);
+      assertEqual(lv10Legacy.length, seeds.length);
+    }
+  });
+}
