@@ -32,8 +32,8 @@ function twoRowDecisionState(): GameState {
   };
 
   // Top is already dominant. Middle is the realistic second winning row.
-  // Bottom is deliberately far behind. The old score-maximizer likes completing
-  // the 5-5-5 triple on top; the Lv9 strategy should spend the 5 on middle.
+  // Bottom is deliberately far behind. A raw-score evaluator likes completing
+  // the 5-5-5 triple on top; the Lv9 evaluator should spend the 5 on middle.
   state.sides.ai.board.rows.top.dice = fill('ai-top', 'ai', [5, 5]);
   state.sides.ai.board.rows.middle.dice = fill('ai-mid', 'ai', [4, 3]);
   state.sides.ai.board.rows.bottom.dice = fill('ai-bottom', 'ai', [1, 1]);
@@ -63,18 +63,24 @@ test('Lv9 strategy: second-row progress is worth more than inflating an already 
   );
 });
 
-test('Lv9 strategy: rerank overturns the legacy raw-score triple when it wastes the second-row objective', () => {
+test('Lv9 strategy: high-level search fixes the legacy raw-score triple preference', () => {
   const state = twoRowDecisionState();
-  const profile = { ...getAIProfile(9), mistakeRate: 0 };
-  const base = rankAdvancedAIActions(state, profile, deterministicSearch);
-  const strategic = rerankStrategicAIActions(state, base.rankedCandidates, profile);
+  const legacyProfile = { ...getAIProfile(8), mistakeRate: 0 };
+  const lv9Profile = { ...getAIProfile(9), mistakeRate: 0 };
+  const legacy = rankAdvancedAIActions(state, legacyProfile, deterministicSearch);
+  const lv9Base = rankAdvancedAIActions(state, lv9Profile, deterministicSearch);
+  const strategic = rerankStrategicAIActions(state, lv9Base.rankedCandidates, lv9Profile);
 
-  assertEqual(base.rankedCandidates[0].action.type, 'PLACE_DIE');
-  if (base.rankedCandidates[0].action.type !== 'PLACE_DIE') throw new Error('Expected placement candidate.');
-  assertEqual(base.rankedCandidates[0].action.row, 'top');
+  assertEqual(legacy.rankedCandidates[0].action.type, 'PLACE_DIE');
+  if (legacy.rankedCandidates[0].action.type !== 'PLACE_DIE') throw new Error('Expected legacy placement candidate.');
+  assertEqual(legacy.rankedCandidates[0].action.row, 'top');
+
+  assertEqual(lv9Base.rankedCandidates[0].action.type, 'PLACE_DIE');
+  if (lv9Base.rankedCandidates[0].action.type !== 'PLACE_DIE') throw new Error('Expected Lv9 placement candidate.');
+  assertEqual(lv9Base.rankedCandidates[0].action.row, 'middle');
 
   assertEqual(strategic.rankedCandidates[0].action.type, 'PLACE_DIE');
-  if (strategic.rankedCandidates[0].action.type !== 'PLACE_DIE') throw new Error('Expected placement candidate.');
+  if (strategic.rankedCandidates[0].action.type !== 'PLACE_DIE') throw new Error('Expected strategic placement candidate.');
   assertEqual(strategic.rankedCandidates[0].action.row, 'middle');
 });
 
