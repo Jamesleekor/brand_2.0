@@ -107,10 +107,16 @@ test('advanced AI: decision search never perturbs actual game RNG', () => {
   assertDeepEqual(afterAI, untouched);
 });
 
-test('advanced AI: Lv10 top-1 policy consumes no aiRng for mistake selection', () => {
+test('advanced AI: Lv10 uses probability rollouts without intentional mistake selection', () => {
   const state = constrainedState(10);
-  const aiRng = new SequenceRandomSource([0.2]);
-  const choice = chooseAdvancedAIAction(state, aiRng, getAIProfile(10), deterministicSearch);
+  const choice = chooseAdvancedAIAction(
+    state,
+    new SeededRandomSource(20260913),
+    getAIProfile(10),
+    deterministicSearch,
+  );
+
   assertEqual(choice.usedMistake, false);
-  assertEqual(aiRng.consumedCount(), 0);
+  assert(choice.rankedCandidates.length >= 1 && choice.rankedCandidates.length <= 3);
+  assert(['PLACE_DIE', 'USE_TAZZA', 'HOLD'].includes(choice.action.type));
 });
