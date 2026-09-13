@@ -147,6 +147,32 @@
   z-index: 2;
 }
 
+/* High-level progression uses staged win gates rather than a single win. */
+.rakaruka-game-shell section[class*="bg-gradient-to-br"] div.mt-7 > div.flex > span.rounded-pill {
+  font-size: 0 !important;
+}
+
+.rakaruka-game-shell section[class*="bg-gradient-to-br"] div.mt-7 > div.flex > span.rounded-pill::after {
+  content: '1승 시 다음 단계 해금';
+  font-size: 0.75rem;
+}
+
+.rakaruka-game-shell section[class*="bg-gradient-to-br"]:has(button.aspect-square:nth-child(7).border-gold) div.mt-7 > div.flex > span.rounded-pill::after {
+  content: 'Lv.7 · 2승 시 Lv.8 해금';
+}
+
+.rakaruka-game-shell section[class*="bg-gradient-to-br"]:has(button.aspect-square:nth-child(8).border-gold) div.mt-7 > div.flex > span.rounded-pill::after {
+  content: 'Lv.8 · 2승 시 Lv.9 해금';
+}
+
+.rakaruka-game-shell section[class*="bg-gradient-to-br"]:has(button.aspect-square:nth-child(9).border-gold) div.mt-7 > div.flex > span.rounded-pill::after {
+  content: 'Lv.9 · 3승 시 Lv.10 해금';
+}
+
+.rakaruka-game-shell section[class*="bg-gradient-to-br"]:has(button.aspect-square:nth-child(10).border-gold) div.mt-7 > div.flex > span.rounded-pill::after {
+  content: '최종 단계';
+}
+
 /* The detailed rule guide below already explains this; do not repeat it in live play. */
 .rakaruka-game-shell section[class*="bg-[#090d14]"] > div.relative > div:last-child {
   display: none !important;
