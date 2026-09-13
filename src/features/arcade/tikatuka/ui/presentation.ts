@@ -133,9 +133,9 @@ export function getEventPresentation(event: GameEvent): TikatukaEventPresentatio
       };
     case 'SHIELD_GRANTED':
       return {
-        text: `🛡️ 실드 주사위 등장! 숫자 ${event.die.value} · 알까기 면역 · 양쪽 보드의 빈 줄 어디든 배치 가능`,
+        text: '실드 주사위 등장!',
         tone: 'gold',
-        durationMs: 2_500,
+        durationMs: 1_800,
       };
     case 'TURN_CHANGED':
       return {
