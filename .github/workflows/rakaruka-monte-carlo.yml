@@ -6,6 +6,11 @@ on:
       - feat/tikatuka-rakaruka-ui-admin-polish
     paths:
       - .github/workflows/rakaruka-monte-carlo.yml
+      - src/features/arcade/tikatuka/ai/**
+      - src/features/arcade/tikatuka/engine/**
+      - src/features/arcade/tikatuka/tests/phase9_strategic_ai.test.ts
+      - src/features/arcade/tikatuka/tests/phase10_win_probability_ai.test.ts
+      - src/features/arcade/tikatuka/tests/phase11_ai_balance_benchmark.test.ts
 
 jobs:
   monte-carlo:
@@ -24,6 +29,7 @@ jobs:
       - name: Run Rakaruka Monte Carlo shard
         run: npm run test:tikatuka
         env:
+          RAKARUKA_MC_RUN: '1'
           RAKARUKA_MC_CURRENT_ONLY: '1'
           RAKARUKA_MC_GAMES_PER_LEVEL: '25'
           RAKARUKA_MC_SHARD: ${{ matrix.shard }}
