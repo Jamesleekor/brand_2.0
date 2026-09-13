@@ -11,6 +11,7 @@ import './phase7_persistence.test';
 import './phase8_competition.test';
 import './phase9_strategic_ai.test';
 import './phase10_win_probability_ai.test';
+import './phase11_ai_balance_benchmark.test';
 import { runRegisteredTests } from './testHarness';
 
 void runRegisteredTests().catch((error) => {
