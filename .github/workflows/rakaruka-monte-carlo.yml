@@ -12,6 +12,10 @@ on:
       - src/features/arcade/tikatuka/tests/phase10_win_probability_ai.test.ts
       - src/features/arcade/tikatuka/tests/phase11_ai_balance_benchmark.test.ts
 
+concurrency:
+  group: rakaruka-monte-carlo-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   monte-carlo:
     runs-on: ubuntu-latest
