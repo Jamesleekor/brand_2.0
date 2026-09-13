@@ -22,6 +22,14 @@ export function sideLabel(side: Side): string {
   return side === 'player' ? '당신' : '상대 AI';
 }
 
+function subjectLabel(side: Side): string {
+  return side === 'player' ? '당신이' : '상대 AI가';
+}
+
+function dieValueWithObjectParticle(value: number): string {
+  return `${value}${value === 1 || value === 3 || value === 6 ? '을' : '를'}`;
+}
+
 export function rowLabel(row: RowId): string {
   if (row === 'top') return '상단';
   if (row === 'middle') return '중단';
@@ -43,7 +51,7 @@ export function getAiThinkingDelayRange(difficulty: Difficulty): ThinkingDelayRa
 }
 
 function placementBoardLabel(actor: Side, target: Side): string {
-  if (actor === 'player') return target === 'player' ? '당신 보드' : '상대 보드';
+  if (actor === 'player') return target === 'player' ? '내 보드' : '상대 보드';
   return target === 'ai' ? '자기 보드' : '당신 보드';
 }
 
@@ -89,45 +97,45 @@ export function getEventPresentation(event: GameEvent): TikatukaEventPresentatio
   switch (event.type) {
     case 'DIE_ROLLED':
       return {
-        text: `${sideLabel(event.side)}가 주사위를 굴립니다`,
+        text: `${subjectLabel(event.side)} 주사위를 굴립니다`,
         tone: event.side === 'player' ? 'player' : 'ai',
         durationMs: RAKARUKA_DICE_REVEAL_MS + (event.side === 'ai' ? RAKARUKA_AI_RESULT_HOLD_MS : 0),
       };
     case 'TAZZA_USED':
       return {
-        text: `🃏 타짜! ${sideLabel(event.side)}가 숫자 ${event.previous.value}을(를) 버리고 다시 굴립니다`,
+        text: `🃏 타짜! ${subjectLabel(event.side)} 숫자 ${dieValueWithObjectParticle(event.previous.value)} 버리고 다시 굴립니다`,
         tone: 'gold',
         durationMs: RAKARUKA_TAZZA_REVEAL_MS + (event.side === 'ai' ? RAKARUKA_AI_RESULT_HOLD_MS : 0),
       };
     case 'DIE_HELD':
       return {
-        text: `✋ 홀드! ${sideLabel(event.side)}가 ${event.die.kind === 'shield' ? '실드 주사위' : '일반 주사위'} ${event.die.value}을(를) 다음 자기 턴까지 보관합니다`,
+        text: `✋ 홀드! ${subjectLabel(event.side)} ${event.die.kind === 'shield' ? '실드 주사위' : '일반 주사위'} ${dieValueWithObjectParticle(event.die.value)} 보관합니다`,
         tone: 'gold',
         durationMs: 2_200,
       };
     case 'FORCED_PASS':
       return {
-        text: `↪ 놓을 곳 없음 · ${sideLabel(event.side)}의 주사위 ${event.die.value}은(는) 사라지지 않고 다음 자기 턴까지 보존됩니다`,
+        text: `↪ 놓을 곳 없음 · ${sideLabel(event.side)}의 주사위 ${event.die.value}은(는) 다음 자기 턴까지 보존됩니다`,
         tone: 'neutral',
         durationMs: 1_900,
       };
     case 'DIE_PLACED':
       return {
-        text: `${sideLabel(event.side)}가 ${placementBoardLabel(event.side, event.placement.targetSide)} ${rowLabel(event.placement.row)}에 ${event.die.kind === 'shield' ? `🛡️ 실드 주사위 ${event.die.value}` : `일반 주사위 ${event.die.value}`}을(를) 놓았습니다`,
+        text: `${subjectLabel(event.side)} ${placementBoardLabel(event.side, event.placement.targetSide)} ${rowLabel(event.placement.row)}에 ${event.die.kind === 'shield' ? `🛡️ 실드 주사위 ${dieValueWithObjectParticle(event.die.value)}` : `일반 주사위 ${dieValueWithObjectParticle(event.die.value)}`} 놓았습니다`,
         tone: event.side === 'player' ? 'player' : 'ai',
         durationMs: 1_800,
       };
     case 'DICE_KNOCKED': {
       const value = event.attackingDie?.value ?? event.removedDice[0]?.value ?? '?';
       return {
-        text: `💥 알까기! ${sideLabel(event.attackingSide)}가 숫자 ${value} 주사위를 배치하지 않고 공격에 사용해 ${sideLabel(event.targetSide)} ${rowLabel(event.row)}의 같은 숫자 일반 주사위 ${event.removedDice.length}개를 제거했습니다`,
+        text: `💥 알까기! ${subjectLabel(event.attackingSide)} 숫자 ${value}로 ${sideLabel(event.targetSide)} ${rowLabel(event.row)}의 같은 숫자 일반 주사위 ${event.removedDice.length}개를 제거했습니다`,
         tone: 'danger',
         durationMs: 3_000,
       };
     }
     case 'SHIELD_QUEUED':
       return {
-        text: `🛡️ 알까기 성공 보상! ${sideLabel(event.side)}의 다음 자기 턴에 숫자 ${event.value} 실드 주사위가 등장합니다`,
+        text: `🛡️ 알까기 성공! 다음 자기 턴에 숫자 ${event.value} 실드 주사위가 등장합니다`,
         tone: 'gold',
         durationMs: 2_400,
       };
