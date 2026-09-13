@@ -39,7 +39,7 @@ const PROFILE_PRESETS = {
   7: { searchDepth: 1, mistakeRate: 0.09, candidatePoolSize: 2, maxMistakeScoreGap: 10, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },
   8: { searchDepth: 2, mistakeRate: 0.06, candidatePoolSize: 2, maxMistakeScoreGap: 8, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },
   9: { searchDepth: 2, mistakeRate: 0.03, candidatePoolSize: 2, maxMistakeScoreGap: 5, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },
-  10: { searchDepth: 2, mistakeRate: 0.01, candidatePoolSize: 1, maxMistakeScoreGap: 0, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },
+  10: { searchDepth: 2, mistakeRate: 0, candidatePoolSize: 1, maxMistakeScoreGap: 0, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },
 } as const satisfies Record<Difficulty, ProfilePreset>;
 
 export function getAIProfile(difficulty: Difficulty): AIProfile {
