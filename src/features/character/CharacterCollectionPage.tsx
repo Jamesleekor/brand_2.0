@@ -739,7 +739,9 @@ function CharacterDetailModal({
                   <StateBadge state={getCharacterState(character, recruitment)} />
                 </div>
               </div>
-              {elementProfile && <CharacterElementPanel profile={elementProfile} />}
+              {elementProfile && <CharacterElementPanel profile={elementProfile} />}
+
+              <CharacterRaidAbilityPanel character={character} />
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -851,6 +853,27 @@ function CharacterDetailModal({
   );
 }
 
+function CharacterRaidAbilityPanel({ character }: { character: StudentCharacterCollectionRow }) {
+  const resonancePower = Math.max(0, Number(character.raid_power ?? 0));
+  const critBonusBp = Math.max(0, Number(character.raid_crit_bonus_bp ?? 0));
+
+  return (
+    <div className="flex-none border-t border-line bg-bg-card/95 p-3.5 backdrop-blur-sm">
+      <div className="text-[10px] font-black uppercase tracking-[0.13em] text-text-muted">편린 능력</div>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="rounded-card-md border border-brand-primary/25 bg-brand-primary/10 px-3 py-2.5">
+          <div className="text-[9px] font-black text-text-muted">✦ 공명력</div>
+          <div className="mt-0.5 text-base font-black text-brand-primary">{formatGold(resonancePower)}</div>
+        </div>
+        <div className="rounded-card-md border border-gold/25 bg-gold/10 px-3 py-2.5">
+          <div className="text-[9px] font-black text-text-muted">🎯 치명타율</div>
+          <div className="mt-0.5 text-base font-black text-gold">+{formatCritBonus(critBonusBp)}</div>
+        </div>
+      </div>
+      <div className="mt-1.5 text-[9px] font-bold text-text-muted">보유 시 레이드 능력치에 자동 합산됩니다.</div>
+    </div>
+  );
+}
 function CharacterElementPanel({ profile }: { profile: CharacterElementProfile }) {
   const primary = ELEMENT_META[profile.primary_element];
   const secondary = profile.secondary_element ? ELEMENT_META[profile.secondary_element] : null;
@@ -1086,15 +1109,23 @@ function useCharacterCollection() {
         .filter((id) => Number.isFinite(id) && id > 0);
       const descriptionById = new Map<number, string | null>();
 
+      const raidPowerById = new Map<number, number>();
+
+      const raidCritById = new Map<number, number>();
+
       if (characterIds.length > 0) {
         const { data: masters, error } = await supabase
           .from('characters')
-          .select('id,description')
+          .select('id,description,raid_power,raid_crit_bonus_bp')
           .in('id', characterIds);
 
         if (!error) {
           (masters ?? []).forEach((master) => {
             descriptionById.set(Number(master.id), master.description ?? null);
+
+            raidPowerById.set(Number(master.id), Number(master.raid_power ?? 0));
+
+            raidCritById.set(Number(master.id), Number(master.raid_crit_bonus_bp ?? 0));
           });
         }
       }
@@ -1103,6 +1134,10 @@ function useCharacterCollection() {
         .map((row) => ({
           ...row,
           description: descriptionById.get(Number(row.character_id)) ?? row.description ?? null,
+
+          raid_power: raidPowerById.get(Number(row.character_id)) ?? 0,
+
+          raid_crit_bonus_bp: raidCritById.get(Number(row.character_id)) ?? 0,
         }))
         .sort((a, b) => a.sort_order - b.sort_order || a.character_uid.localeCompare(b.character_uid));
     },
@@ -1181,6 +1216,13 @@ function getTierLabel(budget: number) {
   if (budget >= 10) return '최고급형';
   if (budget === 9) return '상급형';
   return '일반형';
+}
+
+function formatCritBonus(valueBp: number) {
+  return `${(Number(valueBp) / 100).toLocaleString('ko-KR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}%`;
 }
 
 function formatGold(value: number) {

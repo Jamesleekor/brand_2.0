@@ -22,10 +22,6 @@ export interface StudentCharacterCollectionRow {
   is_recruitable: boolean;
   is_eligible: boolean;
   source_condition_text: string | null;
-  /** 레이드 공명력. UI 표시는 “공명력”. */
-  raid_power?: number;
-  /** 편린 자체 치명타율 보너스(bp). 100bp = +1.00%p */
-  raid_crit_bonus_bp?: number;
 }
 
 async function callRpc<T>(

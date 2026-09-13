@@ -31,7 +31,6 @@ const S2_INTEGRATED_EFFECT_CODES = new Set([
   'MARKET_FEE_REDUCTION_PP',
   'P2P_TRANSFER_FEE_REDUCTION_PP',
   'SAVINGS_INTEREST_BONUS_PP',
-  'RAID_CRIT_RATE_BONUS_PP',
 ]);
 
 const DEFERRED_EFFECT_LABELS: Record<string, string> = {};
@@ -63,8 +62,6 @@ function effectConsumerDescription(buff: StudentActiveBuffRow) {
       return `학생 간 송금 수수료를 ${formatNumber(numeric)}%p 감소시킵니다.`;
     case 'SAVINGS_INTEREST_BONUS_PP':
       return `예금 가입 시 기본금리에 +${formatNumber(numeric)}%p가 더해져 계약 금리로 고정됩니다.`;
-    case 'RAID_CRIT_RATE_BONUS_PP':
-      return `레이드 시작 시 치명타율 스냅샷에 +${formatNumber(numeric)}%p로 적용됩니다.`;
     default:
       return isIntegratedEffect(buff.effect_code) ? '서버 경제 계산에 적용됩니다.' : '아직 실제 소비자 로직과 연결되지 않았습니다.';
   }
@@ -247,7 +244,7 @@ function CollectionProgressSummary({
               <span className="text-xs font-black text-bv">완성률 {completion}%</span>
             </div>
             <p className="mt-1 max-w-3xl text-sm font-semibold text-text-secondary">
-              필요한 편린을 모두 영입하면 콜렉션이 자동으로 완성됩니다. 실제 시스템에 연결된 효과는 즉시 적용되며, 향후 연동 효과는 상태를 따로 표시합니다. 장착 여부는 콜렉션에 영향을 주지 않아요.
+              필요한 편린을 모두 영입하면 콜렉션이 자동으로 완성됩니다. 실제 경제 시스템에 연결된 효과는 즉시 적용되며, 향후 연동 효과는 상태를 따로 표시합니다. 장착 여부는 콜렉션에 영향을 주지 않아요.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -279,7 +276,7 @@ function ActiveBuffPanel({ buffs, isLoading }: { buffs: StudentActiveBuffRow[]; 
             <h3 className="text-sm font-black text-white">콜렉션 효과 상태</h3>
           </div>
           <p className="mt-0.5 text-[11px] font-semibold text-text-muted">
-            완성 효과는 자동 합산됩니다. 실제 시스템에 연결된 효과와 향후 단계에서 연동될 효과를 구분해 표시합니다.
+            완성 효과는 자동 합산됩니다. 실제 경제 계산에 연결된 효과와 향후 단계에서 연동될 효과를 구분해 표시합니다.
           </p>
         </div>
         {isLoading && <div className="text-[10px] font-black text-text-muted">갱신 중…</div>}
