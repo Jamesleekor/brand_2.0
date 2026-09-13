@@ -7,12 +7,17 @@ import {
 } from '../engine';
 import type { DieValue, GameAction, GameState } from '../engine';
 import { createHypotheticalTazzaState } from './evaluateTazza';
-import { createHypotheticalHoldState } from './turnSimulation';
+import {
+  createHypotheticalHoldState,
+  enumerateNextTurnStates,
+} from './turnSimulation';
 import type { AIAdvancedActionCandidate, AIProfile } from './types';
 
 const DIE_VALUES: readonly DieValue[] = [1, 2, 3, 4, 5, 6];
-const STRATEGIC_RERANK_WEIGHT = 2.25;
-const MAX_STRATEGIC_DELTA = 7;
+const STRATEGIC_RERANK_WEIGHT = 3.0;
+const MAX_STRATEGIC_DELTA = 10;
+const IMMEDIATE_PLAN_WEIGHT = 0.3;
+const NEXT_REPLY_WEIGHT = 0.7;
 
 export interface StrategicAIRanking {
   rankedCandidates: readonly AIAdvancedActionCandidate[];
@@ -26,20 +31,21 @@ function rowStrategicValue(state: GameState, row: (typeof TIKATUKA_ROW_IDS)[numb
   const playerScore = calculateBoardScores(playerBoard)[row];
 
   if (isRowFull(aiBoard, row) && isRowFull(playerBoard, row)) {
-    if (aiScore > playerScore) return 2.5;
-    if (playerScore > aiScore) return -2.5;
+    if (aiScore > playerScore) return 2.75;
+    if (playerScore > aiScore) return -2.75;
     return 0;
   }
 
   const aiOpen = 3 - aiBoard.rows[row].dice.length;
   const playerOpen = 3 - playerBoard.rows[row].dice.length;
-  const uncertaintyScale = 6 + (aiOpen + playerOpen) * 1.5;
+  const uncertaintyScale = 5.5 + (aiOpen + playerOpen) * 1.35;
   return Math.tanh((aiScore - playerScore) / uncertaintyScale);
 }
 
 /**
  * Strategic, win-condition-aware state value from the AI perspective.
- * The second-best row carries the most weight because two row wins decide the match.
+ * The second-best row is deliberately dominant: two row wins decide the match,
+ * while inflating an already-safe first row is mostly wasted value.
  */
 export function evaluateStrategicWinPlan(state: GameState): number {
   if (state.phase === 'game_over' && state.winner !== null) {
@@ -48,33 +54,25 @@ export function evaluateStrategicWinPlan(state: GameState): number {
     return 0;
   }
 
+  const aiBoard = state.sides.ai.board;
+  const playerBoard = state.sides.player.board;
+  const aiScores = calculateBoardScores(aiBoard);
+  const playerScores = calculateBoardScores(playerBoard);
   const values = TIKATUKA_ROW_IDS.map((row) => rowStrategicValue(state, row)).sort((a, b) => b - a);
-  const securedWins = TIKATUKA_ROW_IDS.filter((row) => {
-    const aiBoard = state.sides.ai.board;
-    const playerBoard = state.sides.player.board;
-    if (!isRowFull(aiBoard, row) || !isRowFull(playerBoard, row)) return false;
-    const scores = {
-      ai: calculateBoardScores(aiBoard)[row],
-      player: calculateBoardScores(playerBoard)[row],
-    };
-    return scores.ai > scores.player;
-  }).length;
-  const securedLosses = TIKATUKA_ROW_IDS.filter((row) => {
-    const aiBoard = state.sides.ai.board;
-    const playerBoard = state.sides.player.board;
-    if (!isRowFull(aiBoard, row) || !isRowFull(playerBoard, row)) return false;
-    const scores = {
-      ai: calculateBoardScores(aiBoard)[row],
-      player: calculateBoardScores(playerBoard)[row],
-    };
-    return scores.player > scores.ai;
-  }).length;
 
-  let score = values[0] * 7 + values[1] * 24 + values[2] * 2;
-  score += securedWins * 12;
-  score -= securedLosses * 12;
-  if (securedWins >= 2) score += 80;
-  if (securedLosses >= 2) score -= 80;
+  let securedWins = 0;
+  let securedLosses = 0;
+  for (const row of TIKATUKA_ROW_IDS) {
+    if (!isRowFull(aiBoard, row) || !isRowFull(playerBoard, row)) continue;
+    if (aiScores[row] > playerScores[row]) securedWins += 1;
+    else if (playerScores[row] > aiScores[row]) securedLosses += 1;
+  }
+
+  let score = values[0] * 8 + values[1] * 30 + values[2] * 2;
+  score += securedWins * 18;
+  score -= securedLosses * 18;
+  if (securedWins >= 2) score += 140;
+  if (securedLosses >= 2) score -= 140;
   return score;
 }
 
@@ -92,22 +90,62 @@ function bestImmediateStrategicPlacementValue(state: GameState): number {
   return state.currentSide === 'ai' ? Math.max(...values) : Math.min(...values);
 }
 
+/**
+ * Cheap opponent-threat pass used only by Lv9/Lv10 root strategy.
+ * It asks: after this turn ends, across every possible next die, how well can the
+ * opponent immediately answer? This is intentionally separate from the generic
+ * depth-2 evaluator so Lv8 remains frozen and the high-level opponents gain a
+ * recognisable "protect the second row" identity.
+ */
+function expectedNextReplyStrategicValue(turnEndState: GameState): number {
+  if (turnEndState.phase === 'game_over') return evaluateStrategicWinPlan(turnEndState);
+
+  const branches = enumerateNextTurnStates(turnEndState);
+  if (branches.length === 0) return evaluateStrategicWinPlan(turnEndState);
+
+  let expected = 0;
+  for (const branch of branches) {
+    expected += branch.probability * bestImmediateStrategicPlacementValue(branch.state);
+  }
+  return expected;
+}
+
+function threatAwareTurnEndValue(turnEndState: GameState): number {
+  const immediate = evaluateStrategicWinPlan(turnEndState);
+  if (turnEndState.phase === 'game_over') return immediate;
+  const reply = expectedNextReplyStrategicValue(turnEndState);
+  return immediate * IMMEDIATE_PLAN_WEIGHT + reply * NEXT_REPLY_WEIGHT;
+}
+
+function bestAITurnCompletionValue(state: GameState): number {
+  const die = state.turn.currentDie;
+  if (state.phase !== 'awaiting_action' || die === null) return evaluateStrategicWinPlan(state);
+  const placements = getLegalPlacements(state, 'ai', die);
+  if (placements.length === 0) return evaluateStrategicWinPlan(state);
+
+  return Math.max(...placements.map((placement) => {
+    const action = { type: 'PLACE_DIE', targetSide: placement.targetSide, row: placement.row } as const;
+    const outcome = resolvePlacementOutcome(state, action, 'ai');
+    return threatAwareTurnEndValue(outcome.nextState);
+  }));
+}
+
 function strategicActionValue(
   state: GameState,
   action: Extract<GameAction, { type: 'PLACE_DIE' | 'USE_TAZZA' | 'HOLD' }>,
 ): number {
   if (action.type === 'PLACE_DIE') {
-    return evaluateStrategicWinPlan(resolvePlacementOutcome(state, action, 'ai').nextState);
+    return threatAwareTurnEndValue(resolvePlacementOutcome(state, action, 'ai').nextState);
   }
 
   if (action.type === 'HOLD') {
-    return evaluateStrategicWinPlan(createHypotheticalHoldState(state, 'ai'));
+    return threatAwareTurnEndValue(createHypotheticalHoldState(state, 'ai'));
   }
 
   let expected = 0;
   for (const value of DIE_VALUES) {
     const rerolled = createHypotheticalTazzaState(state, 'ai', value);
-    expected += bestImmediateStrategicPlacementValue(rerolled) / DIE_VALUES.length;
+    expected += bestAITurnCompletionValue(rerolled) / DIE_VALUES.length;
   }
   return expected;
 }
@@ -117,10 +155,9 @@ function clampStrategicDelta(delta: number): number {
 }
 
 /**
- * Strategic rerank is deliberately bounded. The depth-2 search now already knows
- * about the second-row objective at Lv.9+, so this layer only breaks tactically
- * plausible choices toward the cleaner win plan. It cannot rescue a candidate
- * that the tactical search considers far worse.
+ * Strategic rerank remains bounded by the depth-2 tactical score. The strategic
+ * layer can choose among credible tactical actions, but it cannot promote a move
+ * that the base search considers clearly unsound.
  */
 export function rerankStrategicAIActions(
   state: GameState,
@@ -136,7 +173,7 @@ export function rerankStrategicAIActions(
 
   const baseline = evaluateStrategicWinPlan(state);
   const bestBaseScore = baseCandidates[0].score;
-  const tacticalGapLimit = profile.difficulty >= 10 ? 24 : 14;
+  const tacticalGapLimit = profile.difficulty >= 10 ? 20 : 12;
   const eligible = baseCandidates.filter((candidate) => bestBaseScore - candidate.score <= tacticalGapLimit);
   const ineligible = baseCandidates.filter((candidate) => bestBaseScore - candidate.score > tacticalGapLimit);
   const originalIndex = new Map(baseCandidates.map((candidate, index) => [candidate.action, index]));
@@ -152,8 +189,6 @@ export function rerankStrategicAIActions(
     return (originalIndex.get(a.action) ?? 0) - (originalIndex.get(b.action) ?? 0);
   });
 
-  // Keep tactically implausible options visible for diagnostics, but never let the
-  // strategic overlay promote them into the shortlist.
   const demoted = ineligible.map((candidate) => ({
     action: candidate.action,
     score: candidate.score - 1_000_000,
