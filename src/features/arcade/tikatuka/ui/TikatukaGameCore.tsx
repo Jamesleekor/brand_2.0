@@ -449,6 +449,9 @@ function SetupScreen({ difficulty, progress, progressLoading, progressError, isS
         <div className="text-sm font-black tracking-[0.18em] text-gold">GAME #03 · STRATEGY</div>
         <h2 className="mt-2 font-display text-4xl text-white">🎲 라카루카</h2>
         <p className="mt-3 text-lg font-semibold leading-8 text-slate-200">같은 눈을 모아 더블·트리플로 점수를 키우고, 상대의 같은 눈은 알까기로 제거하세요. 알까기에 성공하면 다음 자기 턴에 같은 눈의 실드 주사위를 얻습니다.</p>
+        <div className="mt-3 rounded-card-md border border-gold/25 bg-gold/[0.06] px-4 py-3 text-sm font-bold leading-6 text-yellow-100">
+          🏁 <b className="text-yellow-300">승리 조건</b> · 상단·중단·하단 중 더 많은 줄을 이기면 승리합니다. 줄 수가 같으면 주사위 원점수 합으로 판정합니다.
+        </div>
       </div>
       <button className="btn-secondary text-sm" disabled={isStarting} onClick={onExit}>아케이드로 돌아가기</button>
     </div>
@@ -488,26 +491,9 @@ function SetupScreen({ difficulty, progress, progressLoading, progressError, isS
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-card-md border border-success/35 bg-success/5 p-5">
-          <div className="text-base font-black text-emerald-300">플레이어 지원</div>
-          <div className="mt-3 grid grid-cols-2 gap-3"><SetupStat label="타짜" value={`${PLAYER_TAZZA_CHARGES[difficulty]}회`} /><SetupStat label="홀드" value={`${PLAYER_HOLD_CHARGES[difficulty]}회`} /></div>
-          <div className="mt-4 space-y-2 text-sm font-semibold leading-6 text-slate-200">
-            <p><b className="text-yellow-300">타짜</b> — 현재 일반 주사위를 버리고 새 일반 주사위를 1회 다시 굴립니다. 같은 눈이 다시 나올 수도 있으며 한 턴에 한 번만 사용할 수 있습니다.</p>
-            <p><b className="text-cyan-200">홀드</b> — 현재 주사위를 그대로 보관하고 이번 턴을 넘깁니다. 다음 자기 턴에는 새로 굴리지 않고 보관한 주사위를 먼저 사용합니다.</p>
-          </div>
-        </div>
-        <div className="rounded-card-md border border-danger/35 bg-danger/5 p-5">
-          <div className="text-base font-black text-rose-300">상대 AI 능력</div>
-          <div className="mt-3 grid grid-cols-2 gap-3"><SetupStat label="AI 타짜" value={`${aiSkill.tazzaCharges}회`} /><SetupStat label="AI 홀드" value={`${aiSkill.holdCharges}회`} /></div>
-          <p className="mt-4 text-sm font-semibold leading-6 text-slate-200">난이도가 올라갈수록 상대도 타짜와 홀드를 활용하고 더 먼 수를 읽습니다. 낮은 난이도에서는 일부 기능을 사용하지 않습니다.</p>
-        </div>
-      </div>
-
-      <div className="mt-6 grid gap-3 md:grid-cols-3">
-        <RuleChip title="더블" body="한 줄에 같은 눈 2개가 있으면 그 눈은 합계 3배로 계산됩니다." />
-        <RuleChip title="트리플" body="한 줄에 같은 눈 3개가 모이면 그 눈은 합계 5배로 계산됩니다." />
-        <RuleChip title="승리" body="상단·중단·하단 중 더 많은 줄을 이기면 승리합니다. 줄 승수가 같으면 주사위 눈의 원점수 합으로 판정합니다." />
+      <div className="mt-5 overflow-hidden rounded-card-md border border-white/15 bg-black/20">
+        <SkillComparison label="🃏 타짜" player={PLAYER_TAZZA_CHARGES[difficulty]} ai={aiSkill.tazzaCharges} />
+        <SkillComparison label="✋ 홀드" player={PLAYER_HOLD_CHARGES[difficulty]} ai={aiSkill.holdCharges} divided />
       </div>
 
       <button className="btn-primary mt-7 w-full py-4 text-base" disabled={!selectedUnlocked || isStarting || Boolean(progressError)} onClick={onStart}>
@@ -521,8 +507,12 @@ function SetupStat({ label, value }: { label: string; value: string }) {
   return <div className="rounded-card-md border border-white/10 bg-bg-deep/90 p-4"><div className="text-sm font-black text-slate-300">{label}</div><div className="mt-1 font-display text-2xl text-white">{value}</div></div>;
 }
 
-function RuleChip({ title, body }: { title: string; body: string }) {
-  return <div className="rounded-card-md border border-white/15 bg-bg-deep/70 p-4"><b className="text-base text-white">{title}</b><div className="mt-2 text-sm font-semibold leading-6 text-slate-200">{body}</div></div>;
+function SkillComparison({ label, player, ai, divided = false }: { label: string; player: number; ai: number; divided?: boolean }) {
+  return <div className={`grid grid-cols-[92px_1fr_1fr] items-center gap-2 px-4 py-3 text-sm font-bold ${divided ? 'border-t border-white/10' : ''}`}>
+    <span className="text-base font-black text-white">{label}</span>
+    <span className="text-emerald-200">플레이어 <b className="ml-1 font-display text-xl text-white">{player}회</b></span>
+    <span className="text-rose-200">상대 <b className="ml-1 font-display text-xl text-white">{ai}회</b></span>
+  </div>;
 }
 
 function StatusCard({ title, accent, score, sideState }: {
@@ -533,14 +523,18 @@ function StatusCard({ title, accent, score, sideState }: {
 }) {
   const accentClass = accent === 'player' ? 'border-success/35 bg-success/5' : 'border-danger/35 bg-danger/5';
   const titleClass = accent === 'player' ? 'text-emerald-300' : 'text-rose-300';
-  return <div className={`rounded-card-md border p-4 ${accentClass}`}>
-    <div className="flex items-center justify-between gap-2"><span className={`text-base font-black ${titleClass}`}>{title}</span><span className="font-display text-2xl text-white">{score}점</span></div>
-    <div className="mt-3 flex flex-wrap gap-2 text-sm font-bold text-slate-200">
-      <span className="rounded-pill bg-black/30 px-3 py-1.5">타짜 <b className="text-white">{sideState.skills.tazzaRemaining}</b></span>
-      <span className="rounded-pill bg-black/30 px-3 py-1.5">홀드 <b className="text-white">{sideState.skills.holdRemaining}</b></span>
-      {sideState.pendingShieldValue !== null && <span className="rounded-pill bg-gold/15 px-3 py-1.5 text-yellow-300">다음 🛡️{sideState.pendingShieldValue}</span>}
-      {sideState.heldDie && <span className="rounded-pill bg-brand-primary/15 px-3 py-1.5 text-cyan-200">보관 {sideState.heldDie.kind === 'shield' ? '🛡️' : ''}{sideState.heldDie.value}</span>}
+  const extraStatus = [
+    sideState.pendingShieldValue !== null ? `다음 🛡️ ${sideState.pendingShieldValue}` : null,
+    sideState.heldDie ? `보관 ${sideState.heldDie.kind === 'shield' ? '🛡️ ' : ''}${sideState.heldDie.value}` : null,
+  ].filter((value): value is string => value !== null).join(' · ');
+
+  return <div className={`rakaruka-status-card flex h-[132px] max-h-[132px] min-h-[132px] flex-col justify-between overflow-hidden rounded-card-md border px-4 py-3 ${accentClass}`}>
+    <div className="flex items-center justify-between gap-3"><span className={`text-sm font-black ${titleClass}`}>{title}</span><span className="font-display text-3xl text-white">{score}점</span></div>
+    <div className="grid grid-cols-2 gap-2">
+      <span className="flex items-center justify-between rounded-card-md bg-black/30 px-3 py-2 text-sm font-bold text-slate-200">타짜 <b className="font-display text-xl text-white">{sideState.skills.tazzaRemaining}</b></span>
+      <span className="flex items-center justify-between rounded-card-md bg-black/30 px-3 py-2 text-sm font-bold text-slate-200">홀드 <b className="font-display text-xl text-white">{sideState.skills.holdRemaining}</b></span>
     </div>
+    <div className={`min-h-[18px] truncate text-center text-xs font-black ${extraStatus ? 'text-yellow-200' : 'text-transparent'}`}>{extraStatus || '상태 없음'}</div>
   </div>;
 }
 
@@ -551,14 +545,14 @@ function TurnCenter({ state, currentDie, aiThinking, animation }: {
   animation: ActiveAnimation | null;
 }) {
   const playerTurn = state.currentSide === 'player';
-  return <div className="flex min-h-[150px] flex-col items-center justify-center rounded-card-md border border-white/15 bg-white/[0.04] p-4 text-center">
+  return <div className="rakaruka-turn-card flex h-[132px] max-h-[132px] min-h-[132px] flex-col items-center justify-center overflow-hidden rounded-card-md border border-white/15 bg-white/[0.04] p-3 text-center">
     {animation ? <EventBanner animation={animation} /> : aiThinking ? <>
       <div className="flex gap-1.5"><span className="h-2.5 w-2.5 animate-bounce rounded-full bg-danger" /><span className="h-2.5 w-2.5 animate-bounce rounded-full bg-danger [animation-delay:120ms]" /><span className="h-2.5 w-2.5 animate-bounce rounded-full bg-danger [animation-delay:240ms]" /></div>
       <div className="mt-3 text-base font-black text-rose-300">상대가 생각 중...</div>
     </> : currentDie ? <>
-      <div className={`text-base font-black tracking-[0.12em] ${playerTurn ? 'text-emerald-300' : 'text-rose-300'}`}>{playerTurn ? '당신의 턴' : '상대의 턴'}</div>
-      <div className="mt-3"><DieView die={currentDie} large /></div>
-      <div className="mt-2 text-sm font-semibold text-slate-300">{state.turn.source === 'held' ? '홀드에서 돌아온 주사위' : state.turn.source === 'shield' ? '알까기 보상 실드' : '굴림 결과'}</div>
+      <div className={`text-sm font-black tracking-[0.12em] ${playerTurn ? 'text-emerald-300' : 'text-rose-300'}`}>{playerTurn ? '당신의 턴' : '상대의 턴'}</div>
+      <div className="mt-2"><DieView die={currentDie} large /></div>
+      <div className="mt-1 text-xs font-semibold text-slate-300">{state.turn.source === 'held' ? '홀드에서 돌아온 주사위' : state.turn.source === 'shield' ? '알까기 보상 실드' : '굴림 결과'}</div>
     </> : <div className="text-base font-black text-slate-300">처리 중...</div>}
   </div>;
 }
@@ -573,10 +567,10 @@ function EventBanner({ animation }: { animation: ActiveAnimation }) {
     success: 'text-emerald-300',
   };
   const rolling = animation.event.type === 'DIE_ROLLED' || animation.event.type === 'TAZZA_USED';
-  return <div className="flex flex-col items-center justify-center">
-    {rolling && <div className="mb-3 flex h-16 w-16 animate-spin items-center justify-center rounded-2xl border border-gold/50 bg-gold/10 text-4xl shadow-[0_0_24px_rgba(250,204,21,0.15)] [animation-duration:450ms]">🎲</div>}
-    <div className={`font-display text-base font-black ${toneClass[animation.presentation.tone]} ${rolling ? '' : 'animate-pulse'}`}>{animation.presentation.text}</div>
-    {rolling && <div className="mt-1 text-sm font-semibold text-slate-300">2초 후 결과 공개</div>}
+  return <div className="flex h-full w-full flex-col items-center justify-center overflow-hidden px-2">
+    {rolling && <div className="mb-2 flex h-16 w-16 shrink-0 animate-spin items-center justify-center rounded-2xl border border-gold/50 bg-gold/10 text-4xl shadow-[0_0_24px_rgba(250,204,21,0.15)] [animation-duration:450ms]">🎲</div>}
+    <div className={`max-h-10 max-w-full overflow-hidden font-display text-sm font-black leading-5 ${toneClass[animation.presentation.tone]} ${rolling ? '' : 'animate-pulse'}`}>{animation.presentation.text}</div>
+    {rolling && <div className="mt-1 text-xs font-semibold text-slate-300">2초 후 결과 공개</div>}
   </div>;
 }
 
