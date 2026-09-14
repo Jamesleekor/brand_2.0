@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { EmptyState, LoadingSpinner, Modal } from '@/components/shared/components';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
+import { GuildPeerReviewStudentJudgement } from './GuildPeerReviewStudentJudgement';
 import { supabase } from '@/lib/supabase/client';
 import {
   guild4RpcError,
@@ -129,6 +130,11 @@ function RoundDetailPanel({ detail, busy, run, refresh }: { detail: Guild4Teache
   const [deadlineOpen, setDeadlineOpen] = useState(false);
   const [obligationModal, setObligationModal] = useState<{ kind: 'exception' | 'review'; obligation: Guild4TeacherRoundDetail['obligations'][number] } | null>(null);
   const [waivePenalty, setWaivePenalty] = useState<Record<string, any> | null>(null);
+  const [viewMode, setViewMode] = useState<'submissions' | 'students'>(state === 'OPEN' ? 'submissions' : 'students');
+
+  useEffect(() => {
+    setViewMode(state === 'OPEN' ? 'submissions' : 'students');
+  }, [round.id, state]);
   const participantsByStudent = useMemo(() => new Map(detail.participants.map((p) => [Number(p.student_id), p.student_name])), [detail.participants]);
   const required = detail.obligations.filter((o) => o.obligation_status === 'REQUIRED');
   const submitted = required.filter((o) => o.latest_review);
@@ -154,7 +160,16 @@ function RoundDetailPanel({ detail, busy, run, refresh }: { detail: Guild4Teache
 
     <div className="grid grid-cols-2 md:grid-cols-4 gap-2"><Metric label="참가자" value={`${detail.participants.length}명`}/><Metric label="필수 평가" value={`${submitted.length}/${required.length}`}/><Metric label="미제출" value={`${missing.length}건`}/><Metric label="EXCUSED" value={`${excused.length}건`}/></div>
 
-    <section className="space-y-3"><div className="flex items-center justify-between"><div><h3 className="font-display text-lg">평가 제출 현황</h3><p className="text-xs text-text-secondary mt-1">교사는 reviewer·target·raw score·comment를 모두 확인할 수 있습니다.</p></div></div><div className="overflow-x-auto rounded-card-md border border-line"><table className="min-w-[820px] w-full text-xs"><thead className="bg-bg-deep text-text-muted"><tr><Th>평가자</Th><Th>대상</Th><Th>상태</Th><Th>점수</Th><Th>의견</Th><Th>Revision</Th><Th>관리</Th></tr></thead><tbody>{detail.obligations.map((o) => <tr key={o.obligation_id} className="border-t border-line align-top"><Td><b>{o.reviewer_name}</b></Td><Td>{o.target_name}</Td><Td>{o.obligation_status === 'EXCUSED' ? <span className="text-text-muted font-black">EXCUSED</span> : o.latest_review ? <span className="text-success font-black">제출 ✓</span> : <span className="text-warning font-black">미제출</span>}</Td><Td>{o.latest_review?.score ?? '-'}</Td><Td><div className="max-w-[250px] whitespace-pre-wrap">{o.latest_review?.comment ?? (o.current_exception_reason ? `면제: ${o.current_exception_reason}` : '-')}</div></Td><Td>{o.latest_revision_number ? `${o.latest_revision_number}차` : '-'}</Td><Td><div className="flex flex-wrap gap-1">{state !== 'FINALIZED' && <button className="btn-secondary !px-2 !py-1 text-2xs" disabled={busy} onClick={() => setObligationModal({ kind: 'exception', obligation: o })}>{o.obligation_status === 'EXCUSED' ? '면제 해제' : 'EXCUSED'}</button>}{state === 'FINALIZED' && round.monthly_eligible !== false && <><button className="btn-secondary !px-2 !py-1 text-2xs" disabled={busy} onClick={() => setObligationModal({ kind: 'exception', obligation: o })}>예외 정정</button>{o.latest_review && <button className="btn-secondary !px-2 !py-1 text-2xs" disabled={busy} onClick={() => setObligationModal({ kind: 'review', obligation: o })}>리뷰 정정</button>}</>}</div></Td></tr>)}</tbody></table></div></section>
+    <div className="flex flex-wrap items-center gap-2 rounded-card-md border border-line bg-bg-deep p-1.5">
+      <button type="button" className={`rounded-card-sm px-4 py-2 text-sm font-black transition ${viewMode === 'submissions' ? 'bg-bv text-white' : 'text-text-secondary hover:bg-bg-card'}`} onClick={() => setViewMode('submissions')}>제출 현황</button>
+      <button type="button" className={`rounded-card-sm px-4 py-2 text-sm font-black transition ${viewMode === 'students' ? 'bg-bv text-white' : 'text-text-secondary hover:bg-bg-card'}`} onClick={() => setViewMode('students')}>학생별 판정</button>
+    </div>
+
+    {viewMode === 'submissions' ? (
+      <section className="space-y-3"><div className="flex items-center justify-between"><div><h3 className="font-display text-lg">평가 제출 현황</h3><p className="text-xs text-text-secondary mt-1">교사는 reviewer·target·raw score·comment를 모두 확인할 수 있습니다.</p></div></div><div className="overflow-x-auto rounded-card-md border border-line"><table className="min-w-[820px] w-full text-xs"><thead className="bg-bg-deep text-text-muted"><tr><Th>평가자</Th><Th>대상</Th><Th>상태</Th><Th>점수</Th><Th>의견</Th><Th>Revision</Th><Th>관리</Th></tr></thead><tbody>{detail.obligations.map((o) => <tr key={o.obligation_id} className="border-t border-line align-top"><Td><b>{o.reviewer_name}</b></Td><Td>{o.target_name}</Td><Td>{o.obligation_status === 'EXCUSED' ? <span className="text-text-muted font-black">EXCUSED</span> : o.latest_review ? <span className="text-success font-black">제출 ✓</span> : <span className="text-warning font-black">미제출</span>}</Td><Td>{o.latest_review?.score ?? '-'}</Td><Td><div className="max-w-[250px] whitespace-pre-wrap">{o.latest_review?.comment ?? (o.current_exception_reason ? `면제: ${o.current_exception_reason}` : '-')}</div></Td><Td>{o.latest_revision_number ? `${o.latest_revision_number}차` : '-'}</Td><Td><div className="flex flex-wrap gap-1">{state !== 'FINALIZED' && <button className="btn-secondary !px-2 !py-1 text-2xs" disabled={busy} onClick={() => setObligationModal({ kind: 'exception', obligation: o })}>{o.obligation_status === 'EXCUSED' ? '면제 해제' : 'EXCUSED'}</button>}{state === 'FINALIZED' && round.monthly_eligible !== false && <><button className="btn-secondary !px-2 !py-1 text-2xs" disabled={busy} onClick={() => setObligationModal({ kind: 'exception', obligation: o })}>예외 정정</button>{o.latest_review && <button className="btn-secondary !px-2 !py-1 text-2xs" disabled={busy} onClick={() => setObligationModal({ kind: 'review', obligation: o })}>리뷰 정정</button>}</>}</div></Td></tr>)}</tbody></table></div></section>
+    ) : (
+      <GuildPeerReviewStudentJudgement detail={detail} busy={busy}/>
+    )}
 
     {state === 'FINALIZED' && <>
       <ScoreAudit detail={detail} participantsByStudent={participantsByStudent}/>
