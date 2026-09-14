@@ -15,6 +15,34 @@ function formatKst(value: string | null) {
   return new Date(value).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
 }
 
+function resultLabel(result: string) {
+  if (result === 'player') return '승';
+  if (result === 'ai') return '패';
+  return '무';
+}
+
+function resultTone(result: string) {
+  if (result === 'player') return 'border-success/35 bg-success/10 text-success';
+  if (result === 'ai') return 'border-danger/35 bg-danger/10 text-danger';
+  return 'border-line bg-bg-deep text-text-secondary';
+}
+
+function ResultSequence({ results, padTo = 0 }: { results: string[]; padTo?: number }) {
+  if (!results.length && padTo === 0) return <span className="text-xs font-bold text-text-muted">-</span>;
+  const slots = [...results, ...Array.from({ length: Math.max(0, padTo - results.length) }, () => '')];
+  return (
+    <div className="flex flex-nowrap gap-1" aria-label={results.map(resultLabel).join('')}>
+      {slots.map((result, index) => result ? (
+        <span key={`${result}-${index}`} className={`inline-flex h-6 min-w-6 items-center justify-center rounded-card-sm border px-1 text-[11px] font-black ${resultTone(result)}`}>
+          {resultLabel(result)}
+        </span>
+      ) : (
+        <span key={`empty-${index}`} className="inline-flex h-6 min-w-6 items-center justify-center rounded-card-sm border border-line/60 bg-bg-deep/50 px-1 text-[11px] font-black text-text-muted">-</span>
+      ))}
+    </div>
+  );
+}
+
 export default function TeacherTikatukaAdminPage() {
   const client = useQueryClient();
   const [drafts, setDrafts] = useState<Record<number, TikatukaDifficulty>>({});
@@ -48,16 +76,13 @@ export default function TeacherTikatukaAdminPage() {
       return;
     }
 
-    client.setQueryData(['teacher-tikatuka-progress'], (old: typeof query.data) => old ? {
-      ...old,
-      items: old.items.map((item) => item.student_id === studentId ? result.data : item),
-    } : old);
     setDrafts((currentDrafts) => {
       const next = { ...currentDrafts };
       delete next[studentId];
       return next;
     });
     setSavedStudentId(studentId);
+    await client.invalidateQueries({ queryKey: ['teacher-tikatuka-progress'] });
   };
 
   return (
@@ -102,7 +127,7 @@ export default function TeacherTikatukaAdminPage() {
               <div className="flex flex-wrap items-end justify-between gap-2">
                 <div>
                   <h2 className="font-display text-lg text-white">학생 진행도</h2>
-                  <p className="mt-1 text-xs text-text-secondary">총 {query.data.items.length}명 · 해금 상태와 실제 경기 이력을 함께 확인합니다.</p>
+                  <p className="mt-1 text-xs text-text-secondary">총 {query.data.items.length}명 · 해금 상태, 최근 5게임, 공인 도전 기록을 함께 확인합니다.</p>
                 </div>
                 <button className="btn-secondary text-xs" onClick={() => void query.refetch()}>새로고침</button>
               </div>
@@ -112,12 +137,14 @@ export default function TeacherTikatukaAdminPage() {
               <p className="p-10 text-center text-sm text-text-secondary">관리할 학생이 없습니다.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-[980px] w-full text-left">
+                <table className="min-w-[1320px] w-full text-left">
                   <thead className="bg-bg-deep text-xs font-black text-text-muted">
                     <tr>
                       <th className="px-4 py-3">학생</th>
                       <th className="px-4 py-3">실제 클리어</th>
                       <th className="px-4 py-3 text-center">전적</th>
+                      <th className="px-4 py-3">최근 5게임</th>
+                      <th className="px-4 py-3">공인 도전 5판</th>
                       <th className="px-4 py-3">최근 플레이</th>
                       <th className="px-4 py-3">최고 해금 난이도</th>
                       <th className="px-4 py-3 text-right">적용</th>
@@ -128,6 +155,7 @@ export default function TeacherTikatukaAdminPage() {
                       const selected = drafts[item.student_id] ?? item.highest_unlocked_difficulty;
                       const changed = selected !== item.highest_unlocked_difficulty;
                       const saving = savingStudentId === item.student_id;
+                      const official = item.official_challenge;
                       return (
                         <tr key={item.student_id} className="bg-bg-card/30 align-middle">
                           <td className="px-4 py-4">
@@ -144,6 +172,25 @@ export default function TeacherTikatukaAdminPage() {
                           <td className="px-4 py-4 text-center">
                             <div className="font-black text-white">{item.games_played}전</div>
                             <div className="mt-1 text-[11px] font-bold text-text-secondary">{item.wins}승 · {item.losses}패 · {item.draws}무</div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <ResultSequence results={item.recent_results} />
+                            <div className="mt-1 text-[10px] font-bold text-text-muted">일반 경기 · 오래된 순 → 최신</div>
+                          </td>
+                          <td className="px-4 py-4">
+                            {official ? (
+                              <div className="min-w-[170px]">
+                                <div className="mb-1.5 flex items-center gap-2 text-[11px] font-black">
+                                  <span className="text-white">Lv.{official.difficulty}</span>
+                                  <span className="text-gold">{official.points}점</span>
+                                  <span className="text-text-muted">{official.games_played}/5</span>
+                                </div>
+                                <ResultSequence results={official.results} padTo={5} />
+                                <div className="mt-1 text-[10px] font-bold text-text-muted">
+                                  {official.status === 'COMPLETED' ? `${official.wins}승 · ${official.losses}패 · ${official.draws}무` : '진행 중'}
+                                </div>
+                              </div>
+                            ) : <span className="text-xs font-bold text-text-muted">-</span>}
                           </td>
                           <td className="px-4 py-4 text-xs font-bold text-text-secondary">{formatKst(item.last_played_at)}</td>
                           <td className="px-4 py-4">
