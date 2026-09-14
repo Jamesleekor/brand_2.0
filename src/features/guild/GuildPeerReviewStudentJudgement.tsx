@@ -87,12 +87,15 @@ export function GuildPeerReviewStudentJudgement({
     },
   });
 
-  const sourceParticipantById = useMemo(() => {
+  // Guild4 participant_id is the Guild4 snapshot row id, not the original Guild3 participant id.
+  // Match the source Guild3 participant by student_id so current grades and corrections always use
+  // the real Guild3 participant row.
+  const sourceParticipantByStudentId = useMemo(() => {
     const map = new Map<number, any>();
     for (const instance of sourceMissionQ.data?.instances ?? []) {
       for (const item of instance.participants ?? []) {
-        const participantId = Number(item.participant?.id);
-        if (Number.isFinite(participantId)) map.set(participantId, item);
+        const studentId = Number(item.participant?.student_id);
+        if (Number.isFinite(studentId)) map.set(studentId, item);
       }
     }
     return map;
@@ -105,7 +108,7 @@ export function GuildPeerReviewStudentJudgement({
     selectedIndex >= 0 ? detail.participants[selectedIndex] : detail.participants[0] ?? null;
 
   const selectedStudent = selectedParticipant
-    ? sourceParticipantById.get(Number(selectedParticipant.participant_id)) ?? null
+    ? sourceParticipantByStudentId.get(Number(selectedParticipant.student_id)) ?? null
     : null;
   const currentGradeRaw = selectedStudent?.latest_grade_event?.grade;
   const currentGrade: Grade | '' = isGrade(currentGradeRaw) ? currentGradeRaw : '';
@@ -139,8 +142,13 @@ export function GuildPeerReviewStudentJudgement({
         throw new Error('활동 기록 없이 F보다 높은 등급을 주는 예외 사유가 필요합니다.');
       }
 
+      const sourceParticipantId = Number(selectedStudent.participant?.id);
+      if (!Number.isFinite(sourceParticipantId) || sourceParticipantId <= 0) {
+        throw new Error('원본 Guild3 참가자 ID를 찾지 못했습니다.');
+      }
+
       const r = await guild3TeacherRpc.correctGrade(supabase, {
-        p_participant_id: Number(selectedParticipant.participant_id),
+        p_participant_id: sourceParticipantId,
         p_grade: draftGrade,
         p_override_reason: needsOverride ? override : null,
         p_correction_reason: reason,
@@ -156,8 +164,9 @@ export function GuildPeerReviewStudentJudgement({
       setCorrectionReason('');
       setOverrideReason('');
       await Promise.all([
-        qc.invalidateQueries({ queryKey: ['guild3-teacher-detail', missionId] }),
+        qc.refetchQueries({ queryKey: ['guild3-teacher-detail', missionId] }),
         qc.invalidateQueries({ queryKey: ['guild3-teacher-list'] }),
+        qc.invalidateQueries({ queryKey: ['guild2-admin'] }),
       ]);
     },
     onError: (error) => {
@@ -211,7 +220,7 @@ export function GuildPeerReviewStudentJudgement({
             {detail.participants.map((participant) => {
               const studentId = Number(participant.student_id);
               const stats = reviewStats(detail.obligations, studentId, 'received');
-              const source = sourceParticipantById.get(Number(participant.participant_id));
+              const source = sourceParticipantByStudentId.get(studentId);
               const grade = isGrade(source?.latest_grade_event?.grade)
                 ? (source.latest_grade_event.grade as Grade)
                 : '';
