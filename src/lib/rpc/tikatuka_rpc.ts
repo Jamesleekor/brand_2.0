@@ -126,7 +126,7 @@ export const tikatukaStudentRpc = {
 
 export const tikatukaTeacherRpc = {
   async listProgress(client: SupabaseClient): Promise<TikatukaRpcResult<TeacherTikatukaProgressList>> {
-    return callTikatukaRpc(client, 'teacher_get_tikatuka_progress_v1', TeacherTikatukaProgressListSchema);
+    return callTikatukaRpc(client, 'teacher_get_tikatuka_progress_v2', TeacherTikatukaProgressListSchema);
   },
 
   async setProgress(
@@ -173,6 +173,7 @@ export function tikatukaRpcErrorMessage(result: TikatukaRpcResult<unknown>): str
     case 'PTK14':
     case 'PTK15':
       return '게임 결과 검증에 실패했습니다. 이 결과로 난이도를 해금하지 않았습니다.';
+    case 'PTK16': return '오늘의 일반 라카루카 10판을 모두 사용했습니다. 내일 다시 도전해주세요.';
     case 'PTK30': return '라카루카 교사 관리 기능에 필요한 서버 구성이 아직 적용되지 않았습니다.';
     case 'PTK31': return '교사 로그인 또는 담당 학급 정보를 확인할 수 없습니다.';
     case 'PTK32': return '현재 학급에서 관리할 수 있는 학생을 찾을 수 없습니다.';
