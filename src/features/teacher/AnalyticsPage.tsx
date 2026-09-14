@@ -729,6 +729,7 @@ function ArcadeTab({ classroomId, yearMonth, includeTest }: CommonMonthProps) {
     if (sortKey === 'name') return view === 'games' ? row.game_name : row.student_name;
     if (sortKey === 'plays') return row.play_count;
     if (sortKey === 'pb') return row.all_time_pb;
+    if (sortKey === 'clear') return row.clear_level;
     if (sortKey === 'wins') return row.monthly_win_count;
     if (sortKey === 'top10') return row.monthly_top10_count;
     return view === 'games' ? row.verified_count : row.current_period_rank;
@@ -748,6 +749,7 @@ function ArcadeTab({ classroomId, yearMonth, includeTest }: CommonMonthProps) {
       { key: 'game', label: '게임', render: (row) => row.game_name },
       { key: 'plays', label: '플레이', align: 'right', render: (row) => numberText(row.play_count) },
       { key: 'pb', label: 'PB', align: 'right', render: (row) => <GoldText>{numberText(row.all_time_pb)}</GoldText> },
+      { key: 'clear', label: '클리어레벨', align: 'right', render: (row) => numberText(row.clear_level) },
       { key: 'rank', label: '현재 순위', align: 'right', render: (row) => numberText(row.current_period_rank) },
       { key: 'wins', label: '월간 1위', align: 'right', render: (row) => numberText(row.monthly_win_count) },
       { key: 'top3', label: 'TOP3', align: 'right', render: (row) => numberText(row.monthly_top3_count) },
@@ -758,7 +760,7 @@ function ArcadeTab({ classroomId, yearMonth, includeTest }: CommonMonthProps) {
 
   return (
     <div className="space-y-3">
-      <InfoStrip>현재 기간 <b className="text-white">{String(query.data.scope?.monthly_period_status ?? '없음')}</b> · 공식 월간 기록은 FINALIZED snapshot만 집계합니다.</InfoStrip>
+      <InfoStrip>현재 기간 <b className="text-white">{String(query.data.scope?.monthly_period_status ?? '없음')}</b> · 라카루카 PB는 공인 도전 점수, 클리어레벨은 실제 승리한 최고 난이도입니다.</InfoStrip>
       <DenseSection
         title="아케이드 분석"
         right={(
@@ -769,6 +771,7 @@ function ArcadeTab({ classroomId, yearMonth, includeTest }: CommonMonthProps) {
               { value: 'rank', label: '현재 순위/검증' },
               { value: 'plays', label: '플레이 수' },
               { value: 'pb', label: 'PB' },
+              { value: 'clear', label: '클리어레벨' },
               { value: 'wins', label: '월간 1위' },
               { value: 'top10', label: 'TOP10' },
             ]} />
