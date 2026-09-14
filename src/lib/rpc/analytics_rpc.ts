@@ -90,7 +90,7 @@ export function getArcadeStatistics(
   yearMonth: string,
   includeTest = false,
 ) {
-  return rpcJson(supabase, 'teacher_get_arcade_statistics', {
+  return rpcJson(supabase, 'teacher_get_arcade_statistics_v2', {
     p_classroom_id: classroomId,
     p_guild_season_id: null,
     p_year_month: yearMonth,
