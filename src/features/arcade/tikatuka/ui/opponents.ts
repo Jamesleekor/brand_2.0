@@ -79,6 +79,20 @@ export const RAKARUKA_OPPONENTS: Record<Difficulty, RakarukaOpponentProfile> = {
     epithet: '은하수의 마법사',
     quote: '별의 궤적은 이미 답을 알고 있어. 그래도 네가 어떤 수를 두는지는 보고 싶네.',
   },
+  11: {
+    difficulty: 11,
+    characterUid: 'CHAR-022',
+    name: '아스텔',
+    epithet: '은하수의 마법사 · EXTREME',
+    quote: '여기부터는 한 수의 차이가 전부를 바꿔.',
+  },
+  12: {
+    difficulty: 12,
+    characterUid: 'CHAR-022',
+    name: '아스텔',
+    epithet: '은하수의 마법사 · 최종 관문',
+    quote: '확률 너머의 한 수를 보여줘.',
+  },
 };
 
 export function getRakarukaOpponent(difficulty: Difficulty): RakarukaOpponentProfile {
