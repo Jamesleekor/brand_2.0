@@ -7,7 +7,15 @@ import { ToastContainer } from '@/stores/ui_store'
 import '@/styles/globals.css'
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 1000 * 60 * 5, retry: 1 } },
+  defaultOptions: {
+    queries: {
+      staleTime: 0,
+      retry: 1,
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: 'always',
+    },
+  },
 })
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
