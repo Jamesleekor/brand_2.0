@@ -6,7 +6,7 @@ export const TikatukaGeneralRankingRowSchema = z.object({
   student_id: z.number().int().positive(),
   student_name: z.string().min(1),
   brand_name: z.string().nullable(),
-  cleared_level: z.number().int().min(0).max(10),
+  cleared_level: z.number().int().min(0).max(12),
 }).strict();
 export type TikatukaGeneralRankingRow = z.infer<typeof TikatukaGeneralRankingRowSchema>;
 
@@ -27,7 +27,7 @@ export type TikatukaOfficialRankingRow = z.infer<typeof TikatukaOfficialRankingR
 
 export const TikatukaMyGeneralRankSchema = z.object({
   rank: z.number().int().positive(),
-  cleared_level: z.number().int().min(0).max(10),
+  cleared_level: z.number().int().min(0).max(12),
 }).strict();
 export type TikatukaMyGeneralRank = z.infer<typeof TikatukaMyGeneralRankSchema>;
 
