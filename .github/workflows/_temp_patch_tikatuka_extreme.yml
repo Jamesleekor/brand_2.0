@@ -1,0 +1,300 @@
+name: Temp Patch Tikatuka Extreme
+
+on:
+  push:
+    branches:
+      - feat/tikatuka-extreme-lv11-lv12
+    paths:
+      - .github/workflows/_temp_patch_tikatuka_extreme.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/tikatuka-extreme-lv11-lv12
+      - name: Apply Lv11-Lv12 implementation patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new, count=1):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              actual = text.count(old)
+              if actual < count:
+                  raise SystemExit(f'{path}: expected at least {count} occurrence(s), found {actual}: {old[:120]!r}')
+              text = text.replace(old, new, count)
+              p.write_text(text, encoding='utf-8')
+
+          # Core difficulty type and skill resources. Lv1-10 remain byte-for-byte equivalent.
+          replace('src/features/arcade/tikatuka/engine/types.ts',
+                  "export type Difficulty = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;",
+                  "export type Difficulty = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;")
+
+          cfg='src/features/arcade/tikatuka/engine/config.ts'
+          replace(cfg, "  10: 0,\n} as const satisfies Record<Difficulty, number>;", "  10: 0,\n  11: 0,\n  12: 0,\n} as const satisfies Record<Difficulty, number>;")
+          replace(cfg, "  10: 1,\n} as const satisfies Record<Difficulty, number>;", "  10: 1,\n  11: 1,\n  12: 1,\n} as const satisfies Record<Difficulty, number>;")
+          replace(cfg, "  10: { tazzaCharges: 2, holdCharges: 1 },\n} as const satisfies Record<Difficulty, AISkillProfile>;", "  10: { tazzaCharges: 2, holdCharges: 1 },\n  11: { tazzaCharges: 2, holdCharges: 1 },\n  12: { tazzaCharges: 2, holdCharges: 1 },\n} as const satisfies Record<Difficulty, AISkillProfile>;")
+          replace(cfg, "Number(value) <= 10", "Number(value) <= 12")
+
+          # Extreme AI profiles: no mistake injection, no extra skill resources.
+          replace('src/features/arcade/tikatuka/ai/types.ts', "export type AISearchDepth = 0 | 1 | 2;", "export type AISearchDepth = 0 | 1 | 2 | 3 | 4;")
+          profiles='src/features/arcade/tikatuka/ai/profiles.ts'
+          replace(profiles, "  searchDepth: 0 | 1 | 2;", "  searchDepth: 0 | 1 | 2 | 3 | 4;")
+          replace(profiles,
+                  "  10: { searchDepth: 2, mistakeRate: 0, candidatePoolSize: 1, maxMistakeScoreGap: 0, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },\n} as const satisfies Record<Difficulty, ProfilePreset>;",
+                  "  10: { searchDepth: 2, mistakeRate: 0, candidatePoolSize: 1, maxMistakeScoreGap: 0, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },\n  11: { searchDepth: 3, mistakeRate: 0, candidatePoolSize: 1, maxMistakeScoreGap: 0, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },\n  12: { searchDepth: 4, mistakeRate: 0, candidatePoolSize: 1, maxMistakeScoreGap: 0, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },\n} as const satisfies Record<Difficulty, ProfilePreset>;")
+
+          # Stronger win-condition evaluation only for new levels.
+          strategic='src/features/arcade/tikatuka/ai/strategic.ts'
+          replace(strategic,
+                  "  const strategicWeight = profile.difficulty >= 10 ? 1.15 : 0.9;",
+                  "  const strategicWeight = profile.difficulty >= 12 ? 2.1 : profile.difficulty >= 11 ? 1.6 : profile.difficulty >= 10 ? 1.15 : 0.9;")
+          replace(strategic,
+                  "  const tacticalGapLimit = profile.difficulty >= 10 ? 20 : 12;",
+                  "  const tacticalGapLimit = profile.difficulty >= 12 ? 30 : profile.difficulty >= 11 ? 24 : profile.difficulty >= 10 ? 20 : 12;")
+          replace(strategic,
+                  "      score: candidate.score + strategicDelta * STRATEGIC_RERANK_WEIGHT,",
+                  "      score: candidate.score + strategicDelta * (profile.difficulty >= 12 ? 5.5 : profile.difficulty >= 11 ? 4.25 : STRATEGIC_RERANK_WEIGHT),")
+
+          # Difficulty-aware independent Monte Carlo. Lv10 plan remains unchanged.
+          wp='src/features/arcade/tikatuka/ai/winProbability.ts'
+          replace(wp, "  shortlistSize: 2 | 3;", "  shortlistSize: number;")
+          replace(wp, "function rolloutPlanForState(state: GameState): RolloutPlan {", "function rolloutPlanForState(state: GameState, profile: AIProfile): RolloutPlan {")
+          replace(wp,
+                  "  // Early-game futures are highly noisy, so keep them cheap. As the board matures,\n  // root decisions become much more decisive and extra samples are worth the cost.\n  if (occupied >= 14) {\n    return { shortlistSize: 3, initialSamplesPerCandidate: 48, maxSamplesPerCandidate: 96, extensionGap: 0.06 };\n  }\n  if (occupied >= 8) {\n    return { shortlistSize: 3, initialSamplesPerCandidate: 28, maxSamplesPerCandidate: 56, extensionGap: 0.07 };\n  }\n  return { shortlistSize: 2, initialSamplesPerCandidate: 16, maxSamplesPerCandidate: 32, extensionGap: 0.08 };",
+                  "  // Lv10 is frozen. Extreme levels spend more independent futures without\n  // ever consuming or inspecting the live gameRng.\n  if (profile.difficulty >= 12) {\n    if (occupied >= 14) return { shortlistSize: 5, initialSamplesPerCandidate: 64, maxSamplesPerCandidate: 128, extensionGap: 0.035 };\n    if (occupied >= 8) return { shortlistSize: 5, initialSamplesPerCandidate: 44, maxSamplesPerCandidate: 88, extensionGap: 0.045 };\n    return { shortlistSize: 4, initialSamplesPerCandidate: 28, maxSamplesPerCandidate: 56, extensionGap: 0.055 };\n  }\n  if (profile.difficulty >= 11) {\n    if (occupied >= 14) return { shortlistSize: 4, initialSamplesPerCandidate: 48, maxSamplesPerCandidate: 96, extensionGap: 0.045 };\n    if (occupied >= 8) return { shortlistSize: 4, initialSamplesPerCandidate: 34, maxSamplesPerCandidate: 68, extensionGap: 0.055 };\n    return { shortlistSize: 3, initialSamplesPerCandidate: 22, maxSamplesPerCandidate: 44, extensionGap: 0.065 };\n  }\n  // Existing Lv10 sampling plan.\n  if (occupied >= 14) {\n    return { shortlistSize: 3, initialSamplesPerCandidate: 48, maxSamplesPerCandidate: 96, extensionGap: 0.06 };\n  }\n  if (occupied >= 8) {\n    return { shortlistSize: 3, initialSamplesPerCandidate: 28, maxSamplesPerCandidate: 56, extensionGap: 0.07 };\n  }\n  return { shortlistSize: 2, initialSamplesPerCandidate: 16, maxSamplesPerCandidate: 32, extensionGap: 0.08 };")
+          replace(wp,
+                  "  return evaluateStateForAI(state, profile) + evaluateStrategicWinPlan(state) * STRATEGIC_ROLLOUT_WEIGHT;",
+                  "  const strategicWeight = profile.difficulty >= 12 ? 6.5 : profile.difficulty >= 11 ? 5.0 : STRATEGIC_ROLLOUT_WEIGHT;\n  return evaluateStateForAI(state, profile) + evaluateStrategicWinPlan(state) * strategicWeight;")
+          replace(wp, "  const plan = rolloutPlanForState(state);", "  const plan = rolloutPlanForState(state, profile);")
+          replace(wp, " * Lv.10 root selector.", " * Lv.10+ root selector. Lv11/Lv12 use larger independent sample plans.")
+
+          choose='src/features/arcade/tikatuka/ai/chooseAction.ts'
+          replace(choose,
+                  "  const highLevelOptions: AdvancedSearchOptions | undefined = profile.difficulty >= 9\n    ? { ...options, evaluateState: evaluateHighLevelSearchState }\n    : options;\n  const ranking = rankAdvancedAIActions(state, profile, highLevelOptions);",
+                  "  const extremeLimits = profile.difficulty >= 12\n    ? { maxNodes: 120_000, hardTimeBudgetMs: 800 }\n    : profile.difficulty >= 11\n      ? { maxNodes: 40_000, hardTimeBudgetMs: 400 }\n      : undefined;\n  const highLevelOptions: AdvancedSearchOptions | undefined = profile.difficulty >= 9\n    ? {\n        ...options,\n        limits: extremeLimits ? { ...extremeLimits, ...options?.limits } : options?.limits,\n        evaluateState: evaluateHighLevelSearchState,\n      }\n    : options;\n  const ranking = rankAdvancedAIActions(state, profile, highLevelOptions);")
+          replace(choose, "  if (profile.difficulty === 10) {", "  if (profile.difficulty >= 10) {")
+          replace(choose,
+                  " * - Lv.10: the same strategic search/shortlist is re-evaluated by independent\n *   adaptive Monte Carlo futures and the highest estimated win probability wins.",
+                  " * - Lv.10: existing strategic + Monte Carlo selector (frozen).\n * - Lv.11: depth-3 strategic search plus expanded independent Monte Carlo futures.\n * - Lv.12: depth-4 strategic search plus the strongest independent Monte Carlo plan.\n * No level reads or manipulates the live future gameRng.")
+
+          # Schemas and front-end difficulty ranges.
+          replace('src/lib/zod_schemas/tikatuka_schemas.ts',
+                  "  z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10),\n]);",
+                  "  z.literal(6), z.literal(7), z.literal(8), z.literal(9), z.literal(10),\n  z.literal(11), z.literal(12),\n]);")
+          replace('src/lib/zod_schemas/tikatuka_competition_schemas.ts', ".max(10)", ".max(12)")
+
+          # Opponents reuse the existing Astell asset so no unverified character UID is invented.
+          opp='src/features/arcade/tikatuka/ui/opponents.ts'
+          replace(opp,
+                  "  10: { difficulty: 10, characterUid: 'CHAR-022', displayName: '아스텔', epithet: '은하수의 마법사', quote: '별빛은 이미 답을 알고 있지.' },\n};",
+                  "  10: { difficulty: 10, characterUid: 'CHAR-022', displayName: '아스텔', epithet: '은하수의 마법사', quote: '별빛은 이미 답을 알고 있지.' },\n  11: { difficulty: 11, characterUid: 'CHAR-022', displayName: '아스텔', epithet: '은하수의 마법사 · 극한', quote: '여기부터는 한 수의 차이가 전부를 바꿔.' },\n  12: { difficulty: 12, characterUid: 'CHAR-022', displayName: '아스텔', epithet: '은하수의 마법사 · 최종 관문', quote: '확률 너머의 한 수를 보여줘.' },\n};")
+
+          presentation='src/features/arcade/tikatuka/ui/presentation.ts'
+          replace(presentation, "  10: '최종 보스',\n};", "  10: '최종 보스',\n  11: 'EXTREME',\n  12: 'EXTREME · 최종 관문',\n};")
+
+          core='src/features/arcade/tikatuka/ui/TikatukaGameCore.tsx'
+          replace(core,
+                  "const DIFFICULTIES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const satisfies readonly Difficulty[];",
+                  "const STANDARD_DIFFICULTIES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const satisfies readonly Difficulty[];\nconst EXTREME_DIFFICULTIES = [11, 12] as const satisfies readonly Difficulty[];\nconst DIFFICULTIES = [...STANDARD_DIFFICULTIES, ...EXTREME_DIFFICULTIES] as const satisfies readonly Difficulty[];")
+          replace(core, "`${progress.cleared_difficulties.length}/10`", "`${progress.cleared_difficulties.length}/12`")
+          old_grid = '''        <div className="mt-4 grid grid-cols-5 gap-2 sm:grid-cols-10">
+          {DIFFICULTIES.map((level) => {
+            const unlocked = isTikatukaDifficultyUnlocked(progress, level);
+            const cleared = isTikatukaDifficultyCleared(progress, level);
+            return <button
+              key={level}
+              type="button"
+              disabled={!unlocked || isStarting}
+              onClick={() => onDifficulty(level)}
+              className={`relative aspect-square rounded-card-md border text-lg font-black transition ${difficulty === level && unlocked ? 'border-gold bg-gold/15 text-yellow-300 shadow-[0_0_20px_rgba(250,204,21,0.15)]' : unlocked ? 'border-white/15 bg-bg-deep text-white hover:border-white/35' : 'cursor-not-allowed border-white/10 bg-black/25 text-slate-600'}`}
+            >
+              {cleared && <span className="absolute right-1.5 top-1 text-sm text-emerald-300">✓</span>}
+              {unlocked ? level : '🔒'}
+            </button>;
+          })}
+        </div>'''
+          new_grid = '''        <div className="mt-4 grid grid-cols-5 gap-2 sm:grid-cols-10">
+          {STANDARD_DIFFICULTIES.map((level) => {
+            const unlocked = isTikatukaDifficultyUnlocked(progress, level);
+            const cleared = isTikatukaDifficultyCleared(progress, level);
+            return <button
+              key={level}
+              type="button"
+              disabled={!unlocked || isStarting}
+              onClick={() => onDifficulty(level)}
+              className={`relative aspect-square rounded-card-md border text-lg font-black transition ${difficulty === level && unlocked ? 'border-gold bg-gold/15 text-yellow-300 shadow-[0_0_20px_rgba(250,204,21,0.15)]' : unlocked ? 'border-white/15 bg-bg-deep text-white hover:border-white/35' : 'cursor-not-allowed border-white/10 bg-black/25 text-slate-600'}`}
+            >
+              {cleared && <span className="absolute right-1.5 top-1 text-sm text-emerald-300">✓</span>}
+              {unlocked ? level : '🔒'}
+            </button>;
+          })}
+        </div>
+        <div className="mt-5 rounded-card-md border border-danger/35 bg-danger/[0.06] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div><span className="text-xs font-black tracking-[0.18em] text-rose-300">EXTREME AREA</span><p className="mt-1 text-xs font-bold text-slate-300">Lv.10 이후의 상징적 도전 구간 · 각 단계 1승 시 다음 단계 해금</p></div>
+            <span className="rounded-pill border border-danger/30 bg-danger/10 px-3 py-1 text-[11px] font-black text-rose-200">주사위 보정 없음</span>
+          </div>
+          <div className="mt-3 grid max-w-[220px] grid-cols-2 gap-2">
+            {EXTREME_DIFFICULTIES.map((level) => {
+              const unlocked = isTikatukaDifficultyUnlocked(progress, level);
+              const cleared = isTikatukaDifficultyCleared(progress, level);
+              return <button
+                key={level}
+                type="button"
+                disabled={!unlocked || isStarting}
+                onClick={() => onDifficulty(level)}
+                className={`relative aspect-square rounded-card-md border text-xl font-black transition ${difficulty === level && unlocked ? 'border-danger bg-danger/15 text-rose-200 shadow-[0_0_24px_rgba(244,63,94,0.18)]' : unlocked ? 'border-danger/35 bg-bg-deep text-rose-100 hover:border-danger/70' : 'cursor-not-allowed border-white/10 bg-black/25 text-slate-600'}`}
+              >
+                {cleared && <span className="absolute right-1.5 top-1 text-sm text-emerald-300">✓</span>}
+                {unlocked ? `Lv.${level}` : '🔒'}
+              </button>;
+            })}
+          </div>
+        </div>'''
+          replace(core, old_grid, new_grid)
+
+          game='src/features/arcade/tikatuka/ui/TikatukaGame.tsx'
+          replace(game, "/Lv\\.(10|[1-9])\\s*·/", "/Lv\\.(12|11|10|[1-9])\\s*·/")
+
+          teacher='src/features/arcade/TeacherTikatukaAdminPage.tsx'
+          replace(teacher, "const DIFFICULTIES = [1,2,3,4,5,6,7,8,9,10]", "const DIFFICULTIES = [1,2,3,4,5,6,7,8,9,10,11,12]")
+          replace(teacher, "Lv.1~10", "Lv.1~12")
+
+          panel='src/features/arcade/tikatuka/ui/RakarukaCompetitionPanel.tsx'
+          replace(panel, "const DIFFICULTIES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]", "const DIFFICULTIES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]")
+          # Copy may differ slightly across releases; patch only when present.
+          p=Path(panel); text=p.read_text(encoding='utf-8')
+          text=text.replace('Lv.10 기록은 Lv.9 기록보다 항상 상위', 'Lv.12 기록은 Lv.11 기록보다 항상 상위')
+          text=text.replace('선생님이 공인데이를 열면 시작할 수 있습니다.', '선생님이 공인 기록 도전을 열면 시작할 수 있습니다.')
+          p.write_text(text, encoding='utf-8')
+
+          # Keep benchmark able to exercise the two new profiles. Heavy counts are set by workflow env.
+          bench='src/features/arcade/tikatuka/tests/phase11_ai_balance_benchmark.test.ts'
+          p=Path(bench); text=p.read_text(encoding='utf-8')
+          text=text.replace("const LEVELS: readonly Difficulty[] = [8, 9, 10];", "const LEVELS: readonly Difficulty[] = [8, 9, 10, 11, 12];")
+          text=text.replace("const SEARCH_OPTIONS = { maxNodes: 5_000, hardTimeBudgetMs: 10_000, now: () => 0 } as const;", "const SEARCH_OPTIONS = { maxNodes: 120_000, hardTimeBudgetMs: 10_000, now: () => 0 } as const;")
+          p.write_text(text, encoding='utf-8')
+
+          # Focused regression test for configuration/profile integrity.
+          test_path=Path('src/features/arcade/tikatuka/tests/phase12_extreme_levels.test.ts')
+          test_path.write_text("""import { AI_SKILL_PROFILE, PLAYER_HOLD_CHARGES, PLAYER_TAZZA_CHARGES, isTikatukaDifficulty } from '../engine';\nimport { getAIProfile } from '../ai/profiles';\nimport { expectEqual, test } from './testHarness';\n\ntest('Phase 12: Lv11/Lv12 are valid without extra skill resources', () => {\n  expectEqual(isTikatukaDifficulty(11), true, 'Lv11 valid');\n  expectEqual(isTikatukaDifficulty(12), true, 'Lv12 valid');\n  expectEqual(PLAYER_TAZZA_CHARGES[11], PLAYER_TAZZA_CHARGES[10], 'Lv11 player tazza unchanged');\n  expectEqual(PLAYER_TAZZA_CHARGES[12], PLAYER_TAZZA_CHARGES[10], 'Lv12 player tazza unchanged');\n  expectEqual(PLAYER_HOLD_CHARGES[11], PLAYER_HOLD_CHARGES[10], 'Lv11 player hold unchanged');\n  expectEqual(PLAYER_HOLD_CHARGES[12], PLAYER_HOLD_CHARGES[10], 'Lv12 player hold unchanged');\n  expectEqual(AI_SKILL_PROFILE[11].tazzaCharges, AI_SKILL_PROFILE[10].tazzaCharges, 'Lv11 AI tazza unchanged');\n  expectEqual(AI_SKILL_PROFILE[12].tazzaCharges, AI_SKILL_PROFILE[10].tazzaCharges, 'Lv12 AI tazza unchanged');\n  expectEqual(AI_SKILL_PROFILE[11].holdCharges, AI_SKILL_PROFILE[10].holdCharges, 'Lv11 AI hold unchanged');\n  expectEqual(AI_SKILL_PROFILE[12].holdCharges, AI_SKILL_PROFILE[10].holdCharges, 'Lv12 AI hold unchanged');\n  expectEqual(getAIProfile(11).searchDepth, 3, 'Lv11 depth');\n  expectEqual(getAIProfile(12).searchDepth, 4, 'Lv12 depth');\n  expectEqual(getAIProfile(11).mistakeRate, 0, 'Lv11 no intentional mistake');\n  expectEqual(getAIProfile(12).mistakeRate, 0, 'Lv12 no intentional mistake');\n});\n""", encoding='utf-8')
+          replace('src/features/arcade/tikatuka/tests/run-tests.ts', "import './phase11_ai_balance_benchmark.test';", "import './phase11_ai_balance_benchmark.test';\nimport './phase12_extreme_levels.test';")
+
+          # Database migration: expand 1..10 -> 1..12 while preserving current production logic.
+          migration=Path('supabase/migrations/20260914_04_tikatuka_extreme_lv11_lv12.sql')
+          migration.write_text(r'''-- B.R.A.N.D 2.0 - Rakaruka Lv11/Lv12 EXTREME
+-- Existing Lv1-Lv10 rules stay unchanged. New levels use the same skill resources
+-- as Lv10; difficulty comes only from stronger client AI judgement.
+BEGIN;
+
+ALTER TABLE public.tikatuka_games DROP CONSTRAINT IF EXISTS tikatuka_games_difficulty_check;
+ALTER TABLE public.tikatuka_games ADD CONSTRAINT tikatuka_games_difficulty_check CHECK (difficulty BETWEEN 1 AND 12);
+ALTER TABLE public.tikatuka_progress DROP CONSTRAINT IF EXISTS tikatuka_progress_highest_unlocked_difficulty_check;
+ALTER TABLE public.tikatuka_progress ADD CONSTRAINT tikatuka_progress_highest_unlocked_difficulty_check CHECK (highest_unlocked_difficulty BETWEEN 1 AND 12);
+ALTER TABLE public.tikatuka_official_sessions DROP CONSTRAINT IF EXISTS tikatuka_official_sessions_difficulty_check;
+ALTER TABLE public.tikatuka_official_sessions ADD CONSTRAINT tikatuka_official_sessions_difficulty_check CHECK (difficulty BETWEEN 1 AND 12);
+
+CREATE OR REPLACE FUNCTION public.tikatuka_required_wins_for_unlock(p_difficulty integer)
+RETURNS integer
+LANGUAGE sql
+IMMUTABLE
+SET search_path TO 'public', 'pg_temp'
+AS $function$
+  SELECT CASE
+    WHEN p_difficulty BETWEEN 1 AND 6 THEN 1
+    WHEN p_difficulty IN (7, 8) THEN 2
+    WHEN p_difficulty = 9 THEN 3
+    WHEN p_difficulty IN (10, 11) THEN 1
+    WHEN p_difficulty = 12 THEN 0
+    ELSE NULL
+  END;
+$function$;
+
+DO $patch$
+DECLARE v_def text; v_new text;
+BEGIN
+  SELECT pg_get_functiondef('public.student_create_tikatuka_game(integer)'::regprocedure) INTO v_def;
+  v_new := replace(replace(v_def,
+    'p_difficulty NOT BETWEEN 1 AND 10', 'p_difficulty NOT BETWEEN 1 AND 12'),
+    'difficulty must be 1..10.', 'difficulty must be 1..12.');
+  IF v_new = v_def THEN RAISE EXCEPTION 'student_create_tikatuka_game patch anchor missing'; END IF;
+  EXECUTE v_new;
+
+  SELECT pg_get_functiondef(p.oid) INTO v_def
+  FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+  WHERE n.nspname='public' AND p.proname='student_submit_tikatuka_result';
+  v_new := replace(v_def, 'p_difficulty NOT BETWEEN 1 AND 10', 'p_difficulty NOT BETWEEN 1 AND 12');
+  v_new := replace(v_new,
+    'WHEN 6 THEN 3 WHEN 7 THEN 2 WHEN 8 THEN 2 WHEN 9 THEN 1 WHEN 10 THEN 0 END;',
+    'WHEN 6 THEN 3 WHEN 7 THEN 2 WHEN 8 THEN 2 WHEN 9 THEN 1 WHEN 10 THEN 0 WHEN 11 THEN 0 WHEN 12 THEN 0 END;');
+  v_new := replace(v_new,
+    'WHEN 8 THEN 2 WHEN 9 THEN 2 WHEN 10 THEN 2 END;',
+    'WHEN 8 THEN 2 WHEN 9 THEN 2 WHEN 10 THEN 2 WHEN 11 THEN 2 WHEN 12 THEN 2 END;');
+  v_new := replace(v_new, 'p_difficulty BETWEEN 7 AND 10', 'p_difficulty BETWEEN 7 AND 12');
+  v_new := replace(v_new, 'least(10, v_game.difficulty + 1)', 'least(12, v_game.difficulty + 1)');
+  IF v_new = v_def THEN RAISE EXCEPTION 'student_submit_tikatuka_result patch anchor missing'; END IF;
+  EXECUTE v_new;
+
+  SELECT pg_get_functiondef('public.teacher_set_tikatuka_progress_v1(integer,integer)'::regprocedure) INTO v_def;
+  v_new := replace(replace(v_def,
+    'p_highest_unlocked_difficulty NOT BETWEEN 1 AND 10', 'p_highest_unlocked_difficulty NOT BETWEEN 1 AND 12'),
+    '해금 난이도는 1~10이어야 합니다.', '해금 난이도는 1~12이어야 합니다.');
+  IF v_new = v_def THEN RAISE EXCEPTION 'teacher_set_tikatuka_progress_v1 patch anchor missing'; END IF;
+  EXECUTE v_new;
+
+  SELECT pg_get_functiondef('public.student_start_tikatuka_official_challenge_v1(integer)'::regprocedure) INTO v_def;
+  v_new := replace(replace(v_def,
+    'p_difficulty NOT BETWEEN 1 AND 10', 'p_difficulty NOT BETWEEN 1 AND 12'),
+    'official challenge difficulty must be 1..10.', 'official challenge difficulty must be 1..12.');
+  IF v_new = v_def THEN RAISE EXCEPTION 'official v1 patch anchor missing'; END IF;
+  EXECUTE v_new;
+
+  SELECT pg_get_functiondef('public.student_start_tikatuka_official_challenge_v2(bigint,integer)'::regprocedure) INTO v_def;
+  v_new := replace(replace(v_def,
+    'p_difficulty NOT BETWEEN 1 AND 10', 'p_difficulty NOT BETWEEN 1 AND 12'),
+    'official challenge difficulty must be 1..10.', 'official challenge difficulty must be 1..12.');
+  IF v_new = v_def THEN RAISE EXCEPTION 'official v2 patch anchor missing'; END IF;
+  EXECUTE v_new;
+END;
+$patch$;
+
+-- Existing real Lv10 wins legitimately satisfy the new one-win gate.
+UPDATE public.tikatuka_progress p
+SET highest_unlocked_difficulty = 11,
+    updated_at = now()
+WHERE p.highest_unlocked_difficulty = 10
+  AND EXISTS (
+    SELECT 1 FROM public.tikatuka_games g
+    WHERE g.classroom_id=p.classroom_id
+      AND g.student_id=p.student_id
+      AND g.difficulty=10
+      AND g.status='COMPLETED'
+      AND g.server_winner='player'
+  );
+
+COMMIT;
+''', encoding='utf-8')
+
+          # Monte Carlo workflow can be manually switched to the extreme branch and supports per-level counts.
+          mc='.github/workflows/rakaruka-monte-carlo.yml'
+          p=Path(mc); text=p.read_text(encoding='utf-8')
+          text=text.replace('      - feat/tikatuka-rakaruka-ui-admin-polish', '      - feat/tikatuka-rakaruka-ui-admin-polish\n      - feat/tikatuka-extreme-lv11-lv12')
+          p.write_text(text, encoding='utf-8')
+
+          print('Lv11/Lv12 patch applied')
+          PY
+      - name: Commit implementation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src supabase/migrations .github/workflows/rakaruka-monte-carlo.yml
+          git commit -m "feat(rakaruka): add Lv11-Lv12 extreme challenge"
+          git push origin HEAD:feat/tikatuka-extreme-lv11-lv12
