@@ -1,8 +1,11 @@
 -- =============================================================================
--- B.R.A.N.D 2.0 — Rakaruka teacher progress detail
+-- B.R.A.N.D 2.0 — Rakaruka teacher progress detail v2
 -- 2026-09-14
 --
--- Adds read-only derived fields to the teacher progress list:
+-- Adds a NEW v2 read RPC so the currently deployed v1 frontend remains compatible
+-- until this feature branch is deployed.
+--
+-- v2 derived fields:
 --   * recent_results: latest five completed ORDINARY games, oldest -> newest.
 --   * official_challenge: latest official five-match session and per-match results.
 -- No history is mutated and teacher unlock override semantics remain unchanged.
@@ -20,7 +23,7 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.teacher_get_tikatuka_progress_v1()
+CREATE OR REPLACE FUNCTION public.teacher_get_tikatuka_progress_v2()
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -109,7 +112,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.teacher_get_tikatuka_progress_v1() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.teacher_get_tikatuka_progress_v1() TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.teacher_get_tikatuka_progress_v2() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.teacher_get_tikatuka_progress_v2() TO authenticated, service_role;
 
 COMMIT;
