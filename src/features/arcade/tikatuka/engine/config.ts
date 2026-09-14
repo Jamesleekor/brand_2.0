@@ -18,6 +18,8 @@ export const PLAYER_TAZZA_CHARGES = {
   8: 2,
   9: 1,
   10: 0,
+  11: 0,
+  12: 0,
 } as const satisfies Record<Difficulty, number>;
 
 export const PLAYER_HOLD_CHARGES = {
@@ -31,6 +33,8 @@ export const PLAYER_HOLD_CHARGES = {
   8: 1,
   9: 1,
   10: 1,
+  11: 1,
+  12: 1,
 } as const satisfies Record<Difficulty, number>;
 
 export interface AISkillProfile {
@@ -49,6 +53,8 @@ export const AI_SKILL_PROFILE = {
   8: { tazzaCharges: 2, holdCharges: 1 },
   9: { tazzaCharges: 2, holdCharges: 1 },
   10: { tazzaCharges: 2, holdCharges: 1 },
+  11: { tazzaCharges: 2, holdCharges: 1 },
+  12: { tazzaCharges: 2, holdCharges: 1 },
 } as const satisfies Record<Difficulty, AISkillProfile>;
 
 export const AI_SEARCH_LIMITS = {
@@ -58,7 +64,7 @@ export const AI_SEARCH_LIMITS = {
 } as const;
 
 export function isTikatukaDifficulty(value: unknown): value is Difficulty {
-  return Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 10;
+  return Number.isInteger(value) && Number(value) >= 1 && Number(value) <= 12;
 }
 
 export function getInitialSkillState(side: Side, difficulty: Difficulty): SkillState {
