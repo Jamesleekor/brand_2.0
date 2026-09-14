@@ -1,6 +1,6 @@
 export type Side = 'player' | 'ai';
 export type RowId = 'top' | 'middle' | 'bottom';
-export type Difficulty = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+export type Difficulty = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 export type DieValue = 1 | 2 | 3 | 4 | 5 | 6;
 export type DieKind = 'normal' | 'shield';
 
