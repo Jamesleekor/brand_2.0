@@ -1,0 +1,57 @@
+name: Temp Patch Rakaruka Analytics UI
+
+on:
+  push:
+    branches:
+      - feat/rakaruka-daily-limit-admin-analytics
+    paths:
+      - .github/workflows/_temp_patch_rakaruka_analytics.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/rakaruka-daily-limit-admin-analytics
+          fetch-depth: 0
+      - name: Patch AnalyticsPage
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('src/features/teacher/AnalyticsPage.tsx')
+          text = path.read_text(encoding='utf-8')
+          replacements = [
+              (
+                  "    if (sortKey === 'pb') return row.all_time_pb;\n    if (sortKey === 'wins') return row.monthly_win_count;",
+                  "    if (sortKey === 'pb') return row.all_time_pb;\n    if (sortKey === 'clear') return row.clear_level;\n    if (sortKey === 'wins') return row.monthly_win_count;",
+              ),
+              (
+                  "      { key: 'pb', label: 'PB', align: 'right', render: (row) => <GoldText>{numberText(row.all_time_pb)}</GoldText> },\n      { key: 'rank', label: '현재 순위', align: 'right', render: (row) => numberText(row.current_period_rank) },",
+                  "      { key: 'pb', label: 'PB', align: 'right', render: (row) => <GoldText>{numberText(row.all_time_pb)}</GoldText> },\n      { key: 'clear', label: '클리어레벨', align: 'right', render: (row) => numberText(row.clear_level) },\n      { key: 'rank', label: '현재 순위', align: 'right', render: (row) => numberText(row.current_period_rank) },",
+              ),
+              (
+                  "              { value: 'pb', label: 'PB' },\n              { value: 'wins', label: '월간 1위' },",
+                  "              { value: 'pb', label: 'PB' },\n              { value: 'clear', label: '클리어레벨' },\n              { value: 'wins', label: '월간 1위' },",
+              ),
+              (
+                  "      <InfoStrip>현재 기간 <b className=\"text-white\">{String(query.data.scope?.monthly_period_status ?? '없음')}</b> · 공식 월간 기록은 FINALIZED snapshot만 집계합니다.</InfoStrip>",
+                  "      <InfoStrip>현재 기간 <b className=\"text-white\">{String(query.data.scope?.monthly_period_status ?? '없음')}</b> · 라카루카 PB는 공인 도전 점수, 클리어레벨은 실제 승리한 최고 난이도입니다.</InfoStrip>",
+              ),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'Expected AnalyticsPage anchor not found: {old[:80]}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/features/teacher/AnalyticsPage.tsx
+          git diff --cached --check
+          git commit -m "feat(analytics): show Arcade clear level"
+          git push origin HEAD:feat/rakaruka-daily-limit-admin-analytics
