@@ -38,6 +38,7 @@ import ReviewQueue from '@/features/teacher/ReviewQueue';
 import AchievementMasterAdmin from '@/features/teacher/AchievementMasterAdmin';
 import AchievementStatisticsAdmin from '@/features/teacher/AchievementStatisticsAdmin';
 import CharacterAdmin from '@/features/teacher/CharacterAdmin';
+import CharacterRaidStatsAdmin from '@/features/teacher/CharacterRaidStatsAdmin';
 import MarketInventoryAdmin from '@/features/teacher/MarketInventoryAdmin';
 import SecondaryJobAdmin from '@/features/teacher/SecondaryJobAdmin';
 import PrimaryJobAdmin from '@/features/teacher/PrimaryJobAdmin';
@@ -218,7 +219,8 @@ export default function App() {
         />
         <Route path="/teacher/achievements" element={<AchievementMasterAdmin />} />
         <Route path="/teacher/achievement-statistics" element={<AchievementStatisticsAdmin />} />
-        <Route path="/teacher/characters" element={<CharacterAdmin />} />
+        <Route path="/teacher/characters" element={<CharacterAdmin />} />
+        <Route path="/teacher/character-stats" element={<CharacterRaidStatsAdmin />} />
         <Route path="/teacher/market" element={<MarketInventoryAdmin />} />
         <Route path="/teacher/bank" element={<SavingsBankAdmin />} />
         <Route path="/teacher/primary-jobs" element={<PrimaryJobAdmin />} />

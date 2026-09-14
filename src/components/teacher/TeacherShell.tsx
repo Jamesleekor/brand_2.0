@@ -34,7 +34,9 @@ const NAV_GROUPS: readonly TeacherNavGroup[] = [
     items: [
       { to: '/teacher/achievements', icon: '🏆', label: '업적 관리' },
       { to: '/teacher/achievement-statistics', icon: '📈', label: '업적 통계' },
-      { to: '/teacher/characters', icon: '✦', label: '편린 운영' },
+      { to: '/teacher/characters', icon: '✦', label: '편린 운영' },
+
+      { to: '/teacher/character-stats', icon: '⚡', label: '편린 능력치' },
       { to: '/teacher/daily-quests', icon: '✅', label: '일일퀘스트' },
       { to: '/teacher/newbie-support', icon: '🌱', label: '뉴비 정착 지원' },
     ],
