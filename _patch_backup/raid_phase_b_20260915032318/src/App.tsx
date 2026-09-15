@@ -32,8 +32,6 @@ import GuildConquestPage from '@/features/guild/GuildConquestPage';
 import GuildMonthlyAdmin from '@/features/guild/GuildMonthlyAdmin';
 import ArcadePage from '@/features/arcade/ArcadePage';
 import TeacherArcadePage from '@/features/arcade/TeacherArcadePage';
-import RaidControlPage from '@/features/teacher/raid/RaidControlPage';
-import RaidBalanceLabPage from '@/features/teacher/raid/RaidBalanceLabPage';
 import { FriendsPage, RankingsPage, SettingsPage } from '@/features/social/social_pages';
 import TeacherDashboard from '@/features/teacher/TeacherDashboard';
 import ReviewQueue from '@/features/teacher/ReviewQueue';
@@ -252,8 +250,6 @@ export default function App() {
         <Route path="/teacher/guild/peer-review" element={<GuildPeerReviewAdmin />} />
         <Route path="/teacher/guild/monthly-close" element={<GuildMonthlyAdmin />} />
         <Route path="/teacher/arcade" element={<TeacherArcadePage />} />
-        <Route path="/teacher/raid" element={<RaidControlPage />} />
-        <Route path="/teacher/raid/analytics" element={<RaidBalanceLabPage />} />
         <Route path="/teacher/analytics" element={<AnalyticsPage />} />
         <Route path="/teacher/mvp-foundation" element={<MvpFoundationAdmin />} />
         <Route path="/teacher/login-history" element={<LoginHistoryAdmin />} />

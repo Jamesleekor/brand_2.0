@@ -57,7 +57,6 @@ const NAV_GROUPS: readonly TeacherNavGroup[] = [
     items: [
       { to: '/teacher/guild', icon: '⚔️', label: '길드' },
       { to: '/teacher/arcade', icon: '🕹️', label: 'Arcade' },
-      { to: '/teacher/raid', icon: '👾', label: '레이드' },
       { to: '/teacher/operations', icon: '🚨', label: '이벤트' },
     ],
   },
