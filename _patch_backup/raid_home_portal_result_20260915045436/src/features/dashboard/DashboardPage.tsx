@@ -42,6 +42,7 @@ import { BrandWorldPanel, BrandWorldSummaryButton } from '@/features/dashboard/B
 import { HomeServiceAdStrip } from '@/features/dashboard/HomeServiceAdStrip';
 import { EmergencyQuestDetailModal, type EmergencyQuestDetail } from '@/features/dashboard/EmergencyQuestDetailModal';
 import { newbieSupportRpc, type NewbieSummary } from '@/lib/rpc/newbie_support_rpc';
+import { RaidHomeBanner } from '@/features/dashboard/RaidHomeBanner';
 
 // =====================================================================
 // 메인 컴포넌트
@@ -259,6 +260,9 @@ export default function DashboardPage() {
       <div className="relative z-10 lg:grid lg:grid-cols-[minmax(0,1fr)_164px] lg:gap-4 lg:items-start">
         <div className="min-w-0">
           <NewbieSupportHomeBanner summary={newbieSupportSummaryQuery.data ?? null} onClick={() => navigate('/newbie-support')} />
+
+          <RaidHomeBanner />
+
           {/* 비상사태는 시스템 오류가 아니라 세계 안의 사건으로 명시적으로 표시 */}
           <EmergencyStatusBanner emergencies={emergencies} />
 
@@ -389,66 +393,33 @@ export default function DashboardPage() {
 // =====================================================================
 
 function FutureHomeShortcuts() {
-  const navigate = useNavigate();
   const shortcuts = [
-    {
-      emoji: '🔮',
-      label: '차원관문',
-      caption: 'COMING SOON',
-      enabled: false,
-    },
-    {
-      emoji: '⚔️',
-      label: '레이드 관문',
-      caption: '입장',
-      enabled: true,
-    },
-    {
-      emoji: '🧭',
-      label: '편린 원정대',
-      caption: 'COMING SOON',
-      enabled: false,
-    },
+    { emoji: '🔮', label: '차원관문' },
+    { emoji: '🌌', label: '성좌맵' },
   ] as const;
 
   return (
     <div
-      aria-label="B.R.A.N.D 콘텐츠 관문"
-      className="relative z-10 mx-4 mb-1 grid grid-cols-3 gap-2 lg:mx-0"
+      aria-label="향후 홈 기능"
+      className="relative z-10 mx-4 mb-1 grid grid-cols-2 gap-2 lg:mx-0"
     >
-      {shortcuts.map((shortcut) => {
-        const isRaid = shortcut.label === '레이드 관문';
-
-        return (
-          <button
-            key={shortcut.label}
-            type="button"
-            disabled={!shortcut.enabled}
-            aria-disabled={!shortcut.enabled}
-            onClick={isRaid ? () => navigate('/raid') : undefined}
-            className={
-              shortcut.enabled
-                ? 'flex h-10 items-center justify-center gap-1.5 rounded-pill border border-yellow-300/45 bg-yellow-400/10 px-3 text-2xs font-black text-yellow-100 backdrop-blur-card transition hover:border-yellow-200/75 hover:bg-yellow-400/20'
-                : 'flex h-10 cursor-not-allowed items-center justify-center gap-1.5 rounded-pill border border-cyan-300/20 bg-bg-card/65 px-3 text-2xs font-black text-cyan-100/55 backdrop-blur-card'
-            }
-          >
-            <span aria-hidden="true">{shortcut.emoji}</span>
-            <span>{shortcut.label}</span>
-            <span
-              className={
-                shortcut.enabled
-                  ? 'text-[9px] font-extrabold tracking-wide text-yellow-100'
-                  : 'text-[9px] font-extrabold tracking-wide text-cyan-100/45'
-              }
-            >
-              {shortcut.caption}
-            </span>
-          </button>
-        );
-      })}
+      {shortcuts.map((shortcut) => (
+        <button
+          key={shortcut.label}
+          type="button"
+          disabled
+          aria-disabled="true"
+          className="flex h-9 cursor-not-allowed items-center justify-center gap-1.5 rounded-pill border border-line bg-bg-card/65 px-3 text-2xs font-black text-text-muted backdrop-blur-card"
+        >
+          <span aria-hidden="true">{shortcut.emoji}</span>
+          <span>{shortcut.label}</span>
+          <span className="text-[9px] font-extrabold tracking-wide text-text-muted/80">COMING SOON</span>
+        </button>
+      ))}
     </div>
   );
 }
+
 // =====================================================================
 // Home Personalization Stage — fixed 3-slot Fragment Showcase Lite
 // =====================================================================

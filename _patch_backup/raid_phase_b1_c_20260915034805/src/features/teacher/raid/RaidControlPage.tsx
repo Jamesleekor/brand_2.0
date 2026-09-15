@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
@@ -345,45 +345,6 @@ export default function RaidControlPage() {
     }
   };
 
-  const handleClone = async () => {
-    if (selectedRaidId === null || !detail) return;
-
-    const defaultTitle = `${detail.raid.title} · 재도전`;
-    const requestedTitle = window.prompt(
-      '복제해서 만들 새 레이드의 제목을 입력해주세요.\n보스 설정·전투 규칙·보상·페이즈·미디어·약점부위 구조가 그대로 복제됩니다.',
-      defaultTitle,
-    );
-    if (requestedTitle === null) return;
-
-    const newTitle = requestedTitle.trim() || defaultTitle;
-
-    if (!window.confirm(
-      `「${detail.raid.title}」을 새 레이드 초안으로 재생성할까요?\n\n` +
-      '복제되는 항목: 보스/속성/HP/전투 규칙/보상/페이즈/이미지·영상/Hit Zone\n' +
-      '복제되지 않는 항목: 참가자/공격기록/채팅/결과/기존 일정\n\n' +
-      '새 레이드는 DRAFT 상태로 만들어지며 바로 수정할 수 있습니다.',
-    )) return;
-
-    setBusyAction('CLONE');
-    try {
-      const newRaidId = await call(
-        () => raidAdminRpc.clone(supabase, selectedRaidId, newTitle),
-        {
-          successTitle: '레이드 재생성 완료',
-          successDescription: '기존 보스 설정을 복제한 새 초안을 만들었습니다.',
-        },
-      );
-
-      const clonedRaidId = Number(newRaidId);
-      if (newRaidId !== null && Number.isFinite(clonedRaidId)) {
-        setIsCreating(false);
-        await refreshAll(clonedRaidId);
-      }
-    } finally {
-      setBusyAction(null);
-    }
-  };
-
   const handleChatToggle = async () => {
     if (selectedRaidId === null || !detail) return;
     setBusyAction('CHAT');
@@ -512,7 +473,6 @@ export default function RaidControlPage() {
                       () => raidAdminRpc.resume(supabase, detail.raid.id),
                     )}
                     onEnd={handleEnd}
-                    onClone={handleClone}
                     onChatToggle={handleChatToggle}
                   />
 
@@ -836,163 +796,23 @@ function RaidEditor({
   );
 }
 
-function BossMediaPreview({
-  imageUrl,
-  videoUrl,
-}: {
-  imageUrl: string;
-  videoUrl: string;
-}) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>(
-    videoUrl ? 'loading' : 'idle',
-  );
-  const [diagnostic, setDiagnostic] = useState<string | null>(null);
-
-  const animatedImage =
-    Boolean(videoUrl) &&
-    /\.(?:webp|gif|apng)(?:$|[?#])/i.test(videoUrl);
-
-  useEffect(() => {
-    setState(videoUrl && !animatedImage ? 'loading' : 'idle');
-    setDiagnostic(null);
-
-    if (!videoUrl || animatedImage) return;
-
-    const timer = window.setTimeout(() => {
-      setState((current) => {
-        if (current === 'ready' || current === 'error') return current;
-        setDiagnostic(
-          '영상 데이터를 불러오지 못했습니다. URL이 직접 MP4/WebM 파일을 가리키는지, 서버가 브라우저 재생을 허용하는지 확인해주세요.',
-        );
-        return 'error';
-      });
-    }, 8000);
-
-    return () => window.clearTimeout(timer);
-  }, [animatedImage, videoUrl]);
-
-  const retry = async () => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    setState('loading');
-    setDiagnostic(null);
-    try {
-      video.load();
-      await video.play();
-    } catch {
-      setState('error');
-      setDiagnostic(
-        '자동 재생에 실패했습니다. 아래 재생 컨트롤을 이용하거나 영상 파일 형식/코덱을 확인해주세요.',
-      );
-    }
-  };
-
-  const onVideoError = () => {
-    const error = videoRef.current?.error;
-    const message =
-      error?.code === 4
-        ? '이 브라우저가 영상 형식 또는 코덱을 지원하지 않습니다.'
-        : error?.code === 2
-          ? '영상 파일을 네트워크에서 불러오지 못했습니다.'
-          : '영상 미리보기를 재생하지 못했습니다.';
-
-    setState('error');
-    setDiagnostic(
-      `${message} 직접 MP4(H.264) 또는 WebM 주소인지 확인해주세요.`,
-    );
-  };
-
+function BossMediaPreview({ imageUrl, videoUrl }: { imageUrl: string; videoUrl: string }) {
   return (
-    <div className="mt-4 overflow-hidden rounded-card-lg border border-cyan-400/30 bg-black/55">
-      <div className="relative aspect-video w-full overflow-hidden">
+    <div className="mt-4 overflow-hidden rounded-card-lg border border-cyan-400/30 bg-black/50">
+      <div className="aspect-video w-full">
         {videoUrl ? (
-          animatedImage ? (
-            <img
-              src={videoUrl}
-              alt="레이드 보스 애니메이션 미리보기"
-              className="h-full w-full object-contain"
-              onError={() => {
-                setState('error');
-                setDiagnostic('이미지 형식 미디어를 불러오지 못했습니다.');
-              }}
-            />
-          ) : (
-            <>
-              <video
-                ref={videoRef}
-                key={videoUrl}
-                src={videoUrl}
-                poster={imageUrl || undefined}
-                muted
-                loop
-                autoPlay
-                playsInline
-                controls
-                preload="metadata"
-                className="h-full w-full bg-black object-contain"
-                onLoadStart={() => setState('loading')}
-                onLoadedData={() => {
-                  setState('ready');
-                  setDiagnostic(null);
-                }}
-                onCanPlay={() => {
-                  setState('ready');
-                  setDiagnostic(null);
-                }}
-                onError={onVideoError}
-              />
-
-              {state === 'loading' && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45">
-                  <div className="rounded-card-md border border-cyan-300/35 bg-[#07111f]/90 px-4 py-2 text-xs font-black text-cyan-100">
-                    영상 미리보기 불러오는 중...
-                  </div>
-                </div>
-              )}
-
-              {state === 'error' && imageUrl && (
-                <img
-                  src={imageUrl}
-                  alt="영상 재생 실패 시 보스 이미지"
-                  className="pointer-events-none absolute inset-0 h-full w-full object-contain opacity-70"
-                />
-              )}
-            </>
-          )
-        ) : (
-          <img
-            src={imageUrl}
-            alt="레이드 보스 미리보기"
-            className="h-full w-full object-contain"
+          <video
+            key={videoUrl}
+            src={videoUrl}
+            poster={imageUrl || undefined}
+            muted
+            loop
+            autoPlay
+            playsInline
+            className="h-full w-full object-cover"
           />
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2 border-t border-cyan-400/20 bg-[#07111f]/95 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="text-[10px] font-black uppercase tracking-[0.15em] text-cyan-100">
-            MEDIA PREVIEW
-          </div>
-          <div className="mt-0.5 break-all text-[11px] font-bold text-yellow-100">
-            {animatedImage
-              ? 'Animated WebP/GIF는 이미지 방식으로 미리봅니다.'
-              : state === 'ready'
-                ? '영상 재생 가능 · 실제 전투 화면에서도 같은 브라우저 재생 방식을 사용합니다.'
-                : diagnostic ??
-                  'MP4(H.264) 또는 WebM 직접 파일 URL을 권장합니다.'}
-          </div>
-        </div>
-
-        {videoUrl && !animatedImage && (
-          <button
-            type="button"
-            onClick={() => void retry()}
-            className="flex-none rounded-card-md border border-cyan-300/40 bg-cyan-500/10 px-3 py-2 text-[11px] font-black text-cyan-100 hover:bg-cyan-500/20"
-          >
-            ▶ 다시 재생
-          </button>
+        ) : (
+          <img src={imageUrl} alt="레이드 보스 미리보기" className="h-full w-full object-cover" />
         )}
       </div>
     </div>
@@ -1007,7 +827,6 @@ function RaidStateControl({
   onPause,
   onResume,
   onEnd,
-  onClone,
   onChatToggle,
 }: {
   detail: TeacherRaidDetail;
@@ -1017,7 +836,6 @@ function RaidStateControl({
   onPause: () => void;
   onResume: () => void;
   onEnd: () => void;
-  onClone: () => void;
   onChatToggle: () => void;
 }) {
   const status = detail.raid.status;
@@ -1036,9 +854,6 @@ function RaidStateControl({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <ActionButton onClick={onClone} disabled={busyAction !== null} tone="gold">
-            ♻️ 이 레이드 재생성
-          </ActionButton>
           {status === 'DRAFT' && (
             <ActionButton onClick={onOpenLobby} disabled={busyAction !== null} tone="cyan">
               🚪 로비 개방

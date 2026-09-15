@@ -32,8 +32,6 @@ import GuildConquestPage from '@/features/guild/GuildConquestPage';
 import GuildMonthlyAdmin from '@/features/guild/GuildMonthlyAdmin';
 import ArcadePage from '@/features/arcade/ArcadePage';
 import RaidLobbyPage from '@/features/raid/RaidLobbyPage';
-import RaidPortalPage from '@/features/raid/RaidPortalPage';
-import RaidBattlePage from '@/features/raid/RaidBattlePage';
 import TeacherArcadePage from '@/features/arcade/TeacherArcadePage';
 import RaidControlPage from '@/features/teacher/raid/RaidControlPage';
 import RaidBalanceLabPage from '@/features/teacher/raid/RaidBalanceLabPage';
@@ -193,8 +191,6 @@ export default function App() {
           element={<AppShell><ArcadePage /></AppShell>}
         />
         <Route path="/raid/:raidId/lobby" element={<RaidLobbyPage />} />
-        <Route path="/raid" element={<RaidPortalPage />} />
-        <Route path="/raid/:raidId/battle" element={<RaidBattlePage />} />
         <Route 
           path="/friends" 
           element={<AppShell><FriendsPage /></AppShell>} 

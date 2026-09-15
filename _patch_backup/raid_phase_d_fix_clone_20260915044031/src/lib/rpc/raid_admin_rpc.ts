@@ -202,16 +202,6 @@ export const raidAdminRpc = {
       p_payload: payload,
     }),
 
-  clone: (
-    supabase: SupabaseClient,
-    sourceRaidId: number,
-    newTitle: string | null,
-  ) =>
-    callRpc<number>(supabase, 'teacher_clone_raid', {
-      p_source_raid_id: sourceRaidId,
-      p_new_title: newTitle,
-    }),
-
   savePhase: (
     supabase: SupabaseClient,
     raidId: number,

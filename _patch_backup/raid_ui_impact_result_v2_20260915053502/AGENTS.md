@@ -442,7 +442,3 @@ Guild 2처럼 사용자가 새로 명시한 시즌2 규칙은 최신 SPEC이 우
 최종 성공 기준은 단순히 “버튼이 동작함”이 아니다.
 
 **학생들이 “그해 우리 반은 특별했다”고 기억할 수 있는 안정적인 세계를 만드는 것**이 목적이다.
-
-## B.R.A.N.D world terminology
-- In student-facing / in-world copy, never use `선생님` or `TEACHER` as the in-world actor.
-- Use `운영국` instead. Teacher/admin implementation names may remain internal-only.
