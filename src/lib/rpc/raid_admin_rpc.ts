@@ -133,6 +133,60 @@ export interface TeacherRaidLiveDashboard {
   students: TeacherRaidLiveStudent[];
 }
 
+export interface TeacherRaidE3TestPresetResult {
+  raid_id: number;
+  status: RaidStatus;
+  pattern_count: number;
+  first_trigger_seconds: number;
+  last_trigger_seconds: number;
+  preset_version: number;
+}
+
+// RAID_V15_E4A_BROADCAST_RPC
+// RAID_V15_E4B_BROADCAST_PARTICIPANTS
+export interface TeacherRaidBroadcastParticipant {
+  participant_id: number;
+  student_id: number;
+  name: string;
+  brand_name: string | null;
+  guild_id: number | null;
+  guild_name: string | null;
+  guild_logo_url: string | null;
+  character_id: number | null;
+  character_name: string | null;
+  character_image_url: string | null;
+  raid_power: number;
+  final_crit_bp: number;
+  total_damage: number;
+  accepted_taps: number;
+  crit_count: number;
+  last_attack_at: string | null;
+  attack_blocked: boolean;
+  barrier_contributor: boolean;
+  latest_batch: { id: number; created_at: string; accepted_taps: number; total_damage: number; crit_count: number } | null;
+}
+
+export interface TeacherRaidBroadcastState {
+  server_now: string;
+  raid: {
+    id: number; title: string; boss_name: string; boss_element: RaidElement; status: RaidStatus;
+    max_hp: number; current_hp: number; hp_ratio: number; damage_coefficient: number;
+    lobby_open_at: string | null; starts_at: string | null; ends_at: string | null; completed_at: string | null; end_reason: string | null;
+    phase: { id: number; phase_no: number; image_url: string | null; loop_video_url: string | null } | null;
+  };
+  combat: {
+    barrier_enabled: boolean; barrier_max_hp: number; barrier_current_hp: number; barrier_ratio: number;
+    barrier_state: 'DISABLED' | 'STABLE' | 'CRACKED' | 'DANGER' | 'CRITICAL' | 'COLLAPSED';
+    barrier_contributor_count: number; barrier_resonance_sum: number; enrage_active: boolean;
+    groggy_until: string | null; groggy_active: boolean; groggy_damage_multiplier: number; active_pattern_run_id: number | null;
+    active_pattern: { run_id: number; pattern_id: number; seq: number; name: string; pattern_type: string; started_at: string; ends_at: string; seconds_remaining: number; config: Record<string, unknown>; state: Record<string, unknown> } | null;
+    boss_attack: { name: string; seq: number; telegraph_seconds: number; next_attack_at: string | null; seconds_until_next_attack: number | null; last_attack_at: string | null; last_damage: number } | null;
+    updated_at: string | null;
+  };
+  summary: { participant_count: number; active_attacker_count: number; total_damage: number; accepted_taps: number; crit_count: number };
+  participants: TeacherRaidBroadcastParticipant[];
+}
+
 export interface RaidEditorPayload {
   title: string;
   boss_name: string;
@@ -222,6 +276,16 @@ export const raidAdminRpc = {
       p_raid_id: raidId,
       p_phase_no: phaseNo,
       p_payload: payload,
+    }),
+
+  broadcastState: (supabase: SupabaseClient, raidId: number) =>
+    callRpc<TeacherRaidBroadcastState>(supabase, 'teacher_get_raid_broadcast_state', {
+      p_raid_id: raidId,
+    }),
+
+  applyE3TestPreset: (supabase: SupabaseClient, raidId: number) =>
+    callRpc<TeacherRaidE3TestPresetResult>(supabase, 'teacher_apply_raid_e3_test_preset', {
+      p_raid_id: raidId,
     }),
 
   openLobby: (supabase: SupabaseClient, raidId: number) =>

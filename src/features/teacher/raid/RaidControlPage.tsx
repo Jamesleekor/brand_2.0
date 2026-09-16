@@ -9,6 +9,8 @@ import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
 
+// RAID_V15_E3C_TEACHER_TEST_PRESET
+
 type RaidForm = {
   title: string;
   bossName: string;
@@ -384,6 +386,33 @@ export default function RaidControlPage() {
     }
   };
 
+  const handleE3TestPreset = async () => {
+    if (selectedRaidId === null || !detail) return;
+    if (detail.raid.status !== 'DRAFT') {
+      window.alert('E3 테스트 프리셋은 DRAFT 상태에서만 적용할 수 있습니다.');
+      return;
+    }
+    if (!window.confirm(
+      '이 Raid의 패턴 목록을 E3 특수기믹 10종 테스트 순서로 교체할까요?\n\n' +
+      '12초부터 약 3분 동안 ABSORB → REFLECT → ULTIMATE → DOT → SHIELD → MULTI_CORE → SPLIT_TARGET → REGEN → SEAL → DAMAGE_CHECK가 순서대로 발동합니다.\n\n' +
+      '테스트용 DRAFT Raid에서만 사용하세요.',
+    )) return;
+
+    setBusyAction('E3_PRESET');
+    try {
+      const result = await call(
+        () => raidAdminRpc.applyE3TestPreset(supabase, selectedRaidId),
+        {
+          successTitle: 'E3 테스트 프리셋 적용 완료',
+          successDescription: '특수기믹 10종을 시간순으로 배치했습니다.',
+        },
+      );
+      if (result !== null) await refreshAll(selectedRaidId);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   const handleChatToggle = async () => {
     if (selectedRaidId === null || !detail) return;
     setBusyAction('CHAT');
@@ -513,6 +542,7 @@ export default function RaidControlPage() {
                     )}
                     onEnd={handleEnd}
                     onClone={handleClone}
+                    onE3TestPreset={handleE3TestPreset}
                     onChatToggle={handleChatToggle}
                   />
 
@@ -1008,6 +1038,7 @@ function RaidStateControl({
   onResume,
   onEnd,
   onClone,
+  onE3TestPreset,
   onChatToggle,
 }: {
   detail: TeacherRaidDetail;
@@ -1018,6 +1049,7 @@ function RaidStateControl({
   onResume: () => void;
   onEnd: () => void;
   onClone: () => void;
+  onE3TestPreset: () => void;
   onChatToggle: () => void;
 }) {
   const status = detail.raid.status;
@@ -1036,9 +1068,23 @@ function RaidStateControl({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {/* RAID_V15_E4A_BROADCAST_BUTTON */}
+          <Link
+            to={`/teacher/raid/${detail.raid.id}/broadcast`}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-card-md border border-fuchsia-300/45 bg-fuchsia-500/10 px-3 py-2 text-xs font-black text-fuchsia-100 hover:bg-fuchsia-500/20"
+          >
+            📺 레이드 화면 중계
+          </Link>
           <ActionButton onClick={onClone} disabled={busyAction !== null} tone="gold">
             ♻️ 이 레이드 재생성
           </ActionButton>
+          {status === 'DRAFT' && (
+            <ActionButton onClick={onE3TestPreset} disabled={busyAction !== null} tone="cyan">
+              🧪 E3 기믹 테스트
+            </ActionButton>
+          )}
           {status === 'DRAFT' && (
             <ActionButton onClick={onOpenLobby} disabled={busyAction !== null} tone="cyan">
               🚪 로비 개방

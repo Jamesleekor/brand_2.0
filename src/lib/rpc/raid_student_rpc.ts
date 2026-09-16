@@ -82,6 +82,82 @@ export interface RaidLobbySnapshot {
   recent_messages: RaidLobbyMessage[];
 }
 
+export type RaidBarrierState =
+  | 'DISABLED'
+  | 'STABLE'
+  | 'CRACKED'
+  | 'DANGER'
+  | 'CRITICAL'
+  | 'COLLAPSED';
+
+export interface RaidBossAttackState {
+  name: string;
+  interval_seconds: number;
+  telegraph_seconds: number;
+  fixed_damage: number;
+  barrier_ratio: number;
+  seq: number;
+  next_attack_at: string | null;
+  seconds_until_next_attack: number | null;
+  last_attack_at: string | null;
+  last_damage: number;
+  damage_multiplier: number;
+}
+
+export type RaidPatternType =
+  | 'WEAK_POINT'
+  | 'BREAK'
+  | 'ENRAGE'
+  | 'ABSORB'
+  | 'REFLECT'
+  | 'BOSS_STRIKE'
+  | 'ULTIMATE'
+  | 'DOT'
+  | 'SHIELD'
+  | 'MULTI_CORE'
+  | 'SPLIT_TARGET'
+  | 'REGEN'
+  | 'SEAL'
+  | 'DAMAGE_CHECK';
+
+// Backward-compatible alias for the E2 interfaces already used by the battle screen.
+export type RaidE2PatternType = RaidPatternType;
+
+export interface RaidActivePatternState {
+  run_id: number;
+  pattern_id: number;
+  seq: number;
+  name: string;
+  pattern_type: RaidE2PatternType;
+  started_at: string;
+  ends_at: string;
+  seconds_remaining: number;
+  config: Record<string, unknown>;
+  state: Record<string, unknown>;
+}
+
+export interface RaidCombatState {
+  barrier_enabled: boolean;
+  barrier_max_hp: number;
+  barrier_current_hp: number;
+  barrier_ratio: number;
+  barrier_state: RaidBarrierState;
+  barrier_contributor_count: number;
+  barrier_resonance_sum: number;
+  enrage_active: boolean;
+  enrage_boss_damage_multiplier: number;
+  enrage_player_damage_multiplier: number;
+  groggy_until: string | null;
+  groggy_active: boolean;
+  groggy_damage_multiplier: number;
+  groggy_seconds_remaining: number;
+  active_pattern_run_id: number | null;
+  active_pattern: RaidActivePatternState | null;
+  server_now: string;
+  boss_attack: RaidBossAttackState | null;
+  updated_at: string | null;
+}
+
 export interface RaidBattleState {
   raid: {
     id: number;
@@ -94,6 +170,7 @@ export interface RaidBattleState {
     hp_ratio: number;
     damage_coefficient: number;
     crit_multiplier: number;
+    end_reason: string | null;
     phase: {
       id: number;
       phase_no: number;
@@ -101,6 +178,7 @@ export interface RaidBattleState {
       loop_video_url: string | null;
     } | null;
   };
+  combat: RaidCombatState;
   me: {
     participant_id: number;
     raid_power: number;
@@ -112,7 +190,37 @@ export interface RaidBattleState {
     accepted_tap_count: number;
     crit_count: number;
     attack_blocked: boolean;
+    barrier_contributor: boolean;
+    barrier_contribution: number;
   };
+}
+
+export interface RaidCombatTickPatternResult {
+  changed?: boolean;
+  event?: string;
+  pattern_type?: RaidE2PatternType;
+  pattern_run_id?: number;
+  pattern_name?: string;
+  collapsed?: boolean;
+  reason?: string;
+}
+
+export interface RaidCombatTickResult {
+  raid_id: number;
+  attack_applied: boolean;
+  reason?: string;
+  attack_seq?: number;
+  attack_name?: string;
+  damage?: number;
+  barrier_hp_after?: number;
+  barrier_ratio_after?: number;
+  collapsed?: boolean;
+  raid_status?: RaidStatus;
+  next_boss_attack_at?: string | null;
+  boss_attack_seq?: number;
+  pattern?: RaidCombatTickPatternResult | null;
+  pattern_event?: string;
+  server_now: string;
 }
 
 export interface RaidTapInput {
@@ -125,10 +233,38 @@ export interface RaidTapResultItem {
   accepted: boolean;
   reason?: string;
   damage?: number;
+  raw_damage?: number;
   crit?: boolean;
   x?: number;
   y?: number;
   zone_key?: string;
+  pattern_type?: RaidPatternType | null;
+  pattern_effect?: string | null;
+  pattern_multiplier?: number;
+  groggy_multiplier?: number;
+  enrage_multiplier?: number;
+  efficiency_multiplier?: number;
+  objective_damage?: number;
+  reflected_damage?: number;
+  boss_heal?: number;
+  target_key?: string | null;
+  target_label?: string | null;
+  target_destroyed?: boolean;
+}
+
+export interface RaidTapBatchPatternResult {
+  pattern_type: RaidPatternType;
+  pattern_run_id: number;
+  break_damage?: number;
+  break_current_hp?: number | null;
+  break_max_hp?: number | null;
+  break_success?: boolean;
+  pattern_success?: boolean;
+  objective_damage?: number;
+  objective_current_hp?: number | null;
+  objective_max_hp?: number | null;
+  reflected_damage?: number;
+  boss_healed?: number;
 }
 
 export interface RaidTapBatchResult {
@@ -142,6 +278,8 @@ export interface RaidTapBatchResult {
   raid_hp_ratio: number;
   my_total_damage: number;
   raid_status: RaidStatus;
+  barrier_collapsed?: boolean;
+  pattern?: RaidTapBatchPatternResult | null;
 }
 
 export interface RaidRankingRow {
@@ -231,6 +369,11 @@ export const raidStudentRpc = {
 
   battleState: (supabase: SupabaseClient, raidId: number) =>
     callRpc<RaidBattleState>(supabase, 'get_raid_battle_state', {
+      p_raid_id: raidId,
+    }),
+
+  combatTick: (supabase: SupabaseClient, raidId: number) =>
+    callRpc<RaidCombatTickResult>(supabase, 'raid_combat_tick', {
       p_raid_id: raidId,
     }),
 
