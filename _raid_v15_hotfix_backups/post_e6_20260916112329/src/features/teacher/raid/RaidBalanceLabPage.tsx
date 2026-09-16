@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import { LoadingSpinner } from '@/components/shared/components';
@@ -15,12 +15,9 @@ import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 
 // RAID_V15_E6_BALANCE_LAB
-// RAID_V15_RECORD_DELETE_UI_20260916
 export default function RaidBalanceLabPage() {
   const classroomId = useClassroomId();
-  const queryClient = useQueryClient();
   const [selectedRaidId, setSelectedRaidId] = useState<number | null>(null);
-  const [deletingRaidId, setDeletingRaidId] = useState<number | null>(null);
 
   const labQuery = useQuery({
     queryKey: ['raid-balance-lab-v15', classroomId],
@@ -52,34 +49,6 @@ export default function RaidBalanceLabPage() {
     },
     enabled: selectedRaidId !== null,
   });
-
-  useEffect(() => {
-    if (!analysisQuery.data || !classroomId) return;
-    void queryClient.invalidateQueries({ queryKey: ['raid-balance-lab-v15', classroomId] });
-  }, [analysisQuery.data?.report.generated_at, classroomId, queryClient]);
-
-  const deleteRaidRecord = async (raid: RaidBalanceLabRowV15) => {
-    const confirmed = window.confirm(
-      `"${raid.title}" 기록을 영구 삭제합니다.\n\n` +
-      '레이드 전투 기록, 참가자 스냅샷, 분석 보고서가 삭제되며 학생 화면에서도 더 이상 보이지 않습니다.\n' +
-      '이미 지급된 골드/보상은 자동으로 회수되지 않습니다.\n\n계속하시겠습니까?',
-    );
-    if (!confirmed) return;
-    setDeletingRaidId(raid.id);
-    try {
-      const result = await raidBalanceV15Rpc.deleteRecord(supabase, raid.id);
-      if (result.success === false) return window.alert(result.error);
-      if (selectedRaidId === raid.id) setSelectedRaidId(null);
-      queryClient.removeQueries({ queryKey: ['raid-balance-analysis-v15', raid.id] });
-      await queryClient.invalidateQueries({ queryKey: ['raid-balance-lab-v15', classroomId] });
-      const rewardNote = Number(result.data.reward_settlement_count ?? 0) > 0
-        ? `\n※ 기존 보상 정산 ${result.data.reward_settlement_count}건은 회수하지 않았습니다.`
-        : '';
-      window.alert(`레이드 기록을 삭제했습니다.${rewardNote}`);
-    } finally {
-      setDeletingRaidId(null);
-    }
-  };
 
   const completedCount = raids.filter((raid) => raid.status === 'COMPLETED').length;
   const v15Count = raids.filter((raid) => raid.report_available).length;
@@ -116,7 +85,7 @@ export default function RaidBalanceLabPage() {
             </section>
 
             <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-              <RaidHistory raids={raids} selectedRaidId={selectedRaidId} onSelect={setSelectedRaidId} onDelete={deleteRaidRecord} deletingRaidId={deletingRaidId} />
+              <RaidHistory raids={raids} selectedRaidId={selectedRaidId} onSelect={setSelectedRaidId} />
 
               <div className="min-w-0">
                 {selectedRaidId === null ? (
@@ -141,14 +110,10 @@ function RaidHistory({
   raids,
   selectedRaidId,
   onSelect,
-  onDelete,
-  deletingRaidId,
 }: {
   raids: RaidBalanceLabRowV15[];
   selectedRaidId: number | null;
   onSelect: (id: number) => void;
-  onDelete: (raid: RaidBalanceLabRowV15) => void;
-  deletingRaidId: number | null;
 }) {
   return (
     <aside className="self-start rounded-card-lg border border-line bg-bg-card p-3 xl:sticky xl:top-[76px]">
@@ -167,38 +132,28 @@ function RaidHistory({
           const selected = raid.id === selectedRaidId;
           const hpLeft = raid.max_hp > 0 ? raid.current_hp / raid.max_hp : 0;
           return (
-            <div
+            <button
               key={raid.id}
-              className={`rounded-card-md border p-2 transition ${
+              type="button"
+              onClick={() => onSelect(raid.id)}
+              className={`w-full rounded-card-md border p-3 text-left transition ${
                 selected ? 'border-gold/70 bg-gold/10' : 'border-line bg-bg-deep hover:border-cyan-400/40'
               }`}
             >
-              <button type="button" onClick={() => onSelect(raid.id)} className="w-full p-1 text-left">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-black text-white">{raid.title}</div>
-                    <div className="mt-0.5 truncate text-xs font-bold text-amber-100">{raid.boss_name}</div>
-                  </div>
-                  <span className={`rounded-pill border px-2 py-1 text-[10px] font-black ${raid.status === 'COMPLETED' ? 'border-cyan-400/40 text-cyan-100' : 'border-red-400/40 text-red-100'}`}>
-                    {raid.status === 'COMPLETED' ? '토벌' : '실패'}
-                  </span>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-black text-white">{raid.title}</div>
+                  <div className="mt-0.5 truncate text-xs font-bold text-amber-100">{raid.boss_name}</div>
                 </div>
-                <div className="mt-2 flex justify-between text-[10px] font-black text-cyan-100">
-                  <span>Boss 잔여 {formatPercent(hpLeft * 100)}</span>
-                  <span>참여 {raid.participant_count}</span>
-                </div>
-              </button>
-              <div className="mt-1 flex justify-end border-t border-white/10 pt-2">
-                <button
-                  type="button"
-                  onClick={() => onDelete(raid)}
-                  disabled={deletingRaidId !== null}
-                  className="rounded-card-md border border-red-300/35 bg-red-500/10 px-3 py-1.5 text-xs font-black text-red-100 hover:bg-red-500/20 disabled:opacity-40"
-                >
-                  {deletingRaidId === raid.id ? '삭제 중…' : '🗑 기록 삭제'}
-                </button>
+                <span className={`rounded-pill border px-2 py-1 text-[10px] font-black ${raid.status === 'COMPLETED' ? 'border-cyan-400/40 text-cyan-100' : 'border-red-400/40 text-red-100'}`}>
+                  {raid.status === 'COMPLETED' ? '토벌' : '실패'}
+                </span>
               </div>
-            </div>
+              <div className="mt-2 flex justify-between text-[10px] font-black text-cyan-100">
+                <span>Boss 잔여 {formatPercent(hpLeft * 100)}</span>
+                <span>참여 {raid.participant_count}</span>
+              </div>
+            </button>
           );
         })}
       </div>

@@ -187,6 +187,30 @@ export interface TeacherRaidBroadcastState {
   participants: TeacherRaidBroadcastParticipant[];
 }
 
+// RAID_V15_E4D_AUDIO_PROFILE_RPC
+export interface TeacherRaidAudioProfile {
+  raid_id: number;
+  lobby_bgm_url: string | null;
+  battle_bgm_url: string | null;
+  enrage_bgm_url: string | null;
+  raid_start_sfx_url: string | null;
+  raid_success_bgm_url: string | null;
+  raid_failure_bgm_url: string | null;
+  normal_hit_sfx_url: string | null;
+  crit_hit_sfx_url: string | null;
+  powerful_hit_sfx_url: string | null;
+  devastating_hit_sfx_url: string | null;
+  break_start_sfx_url: string | null;
+  break_success_sfx_url: string | null;
+  break_fail_sfx_url: string | null;
+  barrier_hit_sfx_url: string | null;
+  barrier_critical_sfx_url: string | null;
+  master_volume: number;
+  bgm_volume: number;
+  sfx_volume: number;
+  configured: boolean;
+}
+
 export interface RaidEditorPayload {
   title: string;
   boss_name: string;
@@ -276,6 +300,11 @@ export const raidAdminRpc = {
       p_raid_id: raidId,
       p_phase_no: phaseNo,
       p_payload: payload,
+    }),
+
+  audioProfile: (supabase: SupabaseClient, raidId: number) =>
+    callRpc<TeacherRaidAudioProfile>(supabase, 'teacher_get_raid_audio_profile', {
+      p_raid_id: raidId,
     }),
 
   broadcastState: (supabase: SupabaseClient, raidId: number) =>

@@ -2,7 +2,6 @@
 // RAID_V15_E4B_PARTICIPANT_MECHANICS
 // RAID_V15_E4C_REALTIME_FEEDBACK
 // RAID_V15_E4D_AUDIO_MIXER
-// RAID_V15_BROADCAST_CLEANUP_20260916
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
@@ -10,6 +9,7 @@ import { Link, useParams } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/shared/components';
 import {
   raidAdminRpc,
+  type RaidElement,
   type RaidStatus,
   type TeacherRaidBroadcastState,
 } from '@/lib/rpc/raid_admin_rpc';
@@ -78,7 +78,6 @@ export default function RaidBroadcastPage() {
   const [fullscreen, setFullscreen] = useState(false);
   const previousBarrierHp = useRef<number | null>(null);
   const [barrierImpactUntil, setBarrierImpactUntil] = useState(0);
-  const [barrierDamageToast, setBarrierDamageToast] = useState<{ amount: number; until: number } | null>(null);
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('CONNECTING');
   const [participantReactions, setParticipantReactions] = useState<Record<number, ParticipantReaction>>({});
   const [impactBursts, setImpactBursts] = useState<ImpactBurst[]>([]);
@@ -166,10 +165,6 @@ export default function RaidBroadcastPage() {
     if (event === 'BARRIER_DAMAGED' || event === 'BOSS_ATTACK_RESOLVED') {
       setBarrierImpactUntil(now + 760);
     }
-    if (event === 'BARRIER_DAMAGED') {
-      const barrierDamage = Math.max(0, Number(row.amount ?? 0));
-      if (barrierDamage > 0) setBarrierDamageToast({ amount: barrierDamage, until: now + 1150 });
-    }
     if (event === 'BREAK_SUCCESS' || event.endsWith('_SUCCESS') || event === 'GROGGY_STARTED') {
       setTeamPulseUntil(now + 1500);
     }
@@ -256,9 +251,7 @@ export default function RaidBroadcastPage() {
     return () => document.removeEventListener('fullscreenchange', onFullscreen);
   }, []);
 
-  const correctedNow = state?.raid.status === 'PAUSED' && state.server_now
-    ? Date.parse(state.server_now)
-    : clockNow + serverOffsetMs;
+  const correctedNow = clockNow + serverOffsetMs;
   const timer = useMemo(
     () => getTimerDisplay(state, correctedNow),
     [state, correctedNow],
@@ -347,7 +340,9 @@ export default function RaidBroadcastPage() {
   const teamPulse = clockNow < teamPulseUntil;
   const bossImpact = clockNow < bossImpactUntil;
   const participantNames = new Map(state.participants.map((participant) => [participant.student_id, participant.brand_name || participant.name]));
-  const activeBarrierDamage = barrierDamageToast && barrierDamageToast.until > clockNow ? barrierDamageToast : null;
+  const bossAttackSeconds = Number(combat.boss_attack?.seconds_until_next_attack ?? 999);
+  const bossTelegraphSeconds = Number(combat.boss_attack?.telegraph_seconds ?? 3);
+  const bossTelegraph = raid.status === 'ACTIVE' && bossAttackSeconds > 0 && bossAttackSeconds <= bossTelegraphSeconds;
 
   return (
     <div ref={screenRef} className="min-h-screen bg-black text-white">
@@ -386,34 +381,35 @@ export default function RaidBroadcastPage() {
         )}
         <RealtimeImpactLayer items={activeBursts} names={participantNames} />
         <CombatAnnouncementLayer items={activeAnnouncements} />
+        {bossTelegraph && combat.boss_attack && <BossAttackTelegraph attack={combat.boss_attack} />}
         {activePattern && <BroadcastMechanicOverlay pattern={activePattern} />}
 
-        <header className="pointer-events-none absolute inset-x-0 top-0 z-30 p-5 lg:p-7">
-          <div className={cn(
-            'absolute left-5 top-5 rounded-card-md border px-5 py-3 text-base font-black tracking-[0.08em] backdrop-blur-md lg:left-7 lg:top-7',
-            realtimeStatus === 'SUBSCRIBED'
-              ? 'border-emerald-300/50 bg-emerald-950/78 text-emerald-100 shadow-[0_0_24px_rgba(16,185,129,0.18)]'
-              : realtimeStatus === 'CONNECTING'
-                ? 'border-cyan-300/45 bg-cyan-950/78 text-cyan-100'
-                : 'border-amber-300/50 bg-amber-950/82 text-amber-100',
-          )}>
-            {realtimeStatus === 'SUBSCRIBED' ? '● LIVE · REALTIME' : realtimeStatus === 'CONNECTING' ? '◌ 실시간 연결 중' : '● POLLING FALLBACK'}
+        <header className="pointer-events-none absolute inset-x-0 top-0 z-30 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-5 p-5 lg:p-7">
+          <div className="min-w-0 rounded-card-lg border border-white/15 bg-black/58 px-5 py-4 backdrop-blur-md">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-cyan-100">
+              <span>RAID BROADCAST</span>
+              <StatusPill status={raid.status} />
+            </div>
+            <div className="mt-1 truncate font-display text-xl text-white lg:text-2xl">{raid.title}</div>
+            <div className="mt-1 flex min-w-0 items-center gap-2 text-sm font-black text-yellow-100">
+              <span className="truncate">{raid.boss_name}</span>
+              <span className="flex-none rounded-full border border-yellow-300/30 bg-yellow-400/10 px-2 py-0.5 text-xs">
+                {elementLabel(raid.boss_element)}
+              </span>
+            </div>
           </div>
 
-          <div className="mx-auto w-[160px] rounded-card-lg border border-cyan-300/25 bg-[#06111e]/82 px-5 py-4 text-center shadow-[0_0_30px_rgba(34,211,238,0.08)] backdrop-blur-md">
+          <div className="min-w-[160px] rounded-card-lg border border-cyan-300/25 bg-[#06111e]/82 px-5 py-4 text-center shadow-[0_0_30px_rgba(34,211,238,0.08)] backdrop-blur-md">
             <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-100">{timer.label}</div>
             <div className="mt-1 font-mono text-3xl font-black tabular-nums text-white lg:text-4xl">{timer.value}</div>
+            {combat.boss_attack?.seconds_until_next_attack != null && raid.status === 'ACTIVE' && (
+              <div className="mt-1 text-[10px] font-black text-amber-100">
+                {combat.boss_attack.name || '보스 공격'} {formatSeconds(Number(combat.boss_attack.seconds_until_next_attack))}
+              </div>
+            )}
           </div>
 
-          <div className="absolute right-5 top-5 lg:right-7 lg:top-7">
-            <BarrierBroadcastHud state={state} percent={barrierPercent} />
-          </div>
-
-          {activeBarrierDamage && (
-            <div className="absolute right-7 top-[146px] rounded-full border border-red-200/55 bg-red-950/84 px-4 py-2 font-mono text-sm font-black text-red-100 shadow-[0_0_30px_rgba(239,68,68,0.28)] backdrop-blur-md lg:right-9">
-              공명방벽 -{formatNumber(activeBarrierDamage.amount)}
-            </div>
-          )}
+          <BarrierBroadcastHud state={state} percent={barrierPercent} />
         </header>
 
         <div className="pointer-events-none absolute left-1/2 top-[24%] z-30 flex -translate-x-1/2 flex-col items-center gap-2">
@@ -462,11 +458,21 @@ export default function RaidBroadcastPage() {
         </section>
 
         <div className="absolute bottom-4 left-4 z-50 flex flex-col gap-2 lg:left-5">
+          <div className={cn(
+            'rounded-card-md border px-3 py-1.5 text-[10px] font-black tracking-[0.12em] backdrop-blur',
+            realtimeStatus === 'SUBSCRIBED'
+              ? 'border-emerald-300/40 bg-emerald-950/70 text-emerald-100'
+              : realtimeStatus === 'CONNECTING'
+                ? 'border-cyan-300/35 bg-cyan-950/70 text-cyan-100'
+                : 'border-amber-300/40 bg-amber-950/75 text-amber-100',
+          )}>
+            {realtimeStatus === 'SUBSCRIBED' ? '● LIVE REALTIME' : realtimeStatus === 'CONNECTING' ? '◌ REALTIME 연결 중' : '● POLLING FALLBACK'}
+          </div>
           {!audioEnabled ? (
             <button
               type="button"
               onClick={() => void enableAudio()}
-              className="rounded-card-md border border-fuchsia-300/45 bg-fuchsia-950/72 px-3 py-2 text-xs font-black text-fuchsia-100 backdrop-blur hover:bg-fuchsia-900/78"
+              className="rounded-card-md border border-fuchsia-300/45 bg-fuchsia-950/70 px-3 py-2 text-xs font-black text-fuchsia-100 backdrop-blur hover:bg-fuchsia-900/75"
             >
               🔊 사운드 활성화
             </button>
@@ -475,15 +481,15 @@ export default function RaidBroadcastPage() {
               type="button"
               onClick={toggleAudioMute}
               className={cn(
-                'rounded-card-md border px-3 py-2 text-left text-xs font-black backdrop-blur',
+                'rounded-card-md border px-3 py-2 text-left text-[10px] font-black backdrop-blur',
                 audioMuted
                   ? 'border-amber-300/40 bg-amber-950/75 text-amber-100'
-                  : 'border-fuchsia-300/45 bg-fuchsia-950/72 text-fuchsia-100',
+                  : 'border-fuchsia-300/45 bg-fuchsia-950/70 text-fuchsia-100',
               )}
             >
-              <div>{audioMuted ? '🔇 사운드 음소거' : '🔊 사운드 켜짐'}</div>
-              <div className="mt-0.5 text-[9px] tracking-[0.08em] text-white">
-                {audioProfile?.configured ? '오디오 프로필' : '합성음 대체'} · 전체 {Math.round(Number(audioProfile?.master_volume ?? 0.85) * 100)}%
+              <div>{audioMuted ? '🔇 SOUND MUTED' : '🔊 SOUND ON'}</div>
+              <div className="mt-0.5 text-[8px] tracking-[0.1em] text-white">
+                {audioProfile?.configured ? 'AUDIO PROFILE' : 'SYNTH FALLBACK'} · MASTER {Math.round(Number(audioProfile?.master_volume ?? 0.85) * 100)}%
               </div>
             </button>
           )}
@@ -492,19 +498,16 @@ export default function RaidBroadcastPage() {
               {audioError}
             </div>
           )}
-        </div>
-
-        <div className="absolute bottom-4 right-4 z-50 flex flex-col items-stretch gap-2 lg:right-5">
           <Link
             to="/teacher/raid"
-            className="rounded-card-md border border-white/20 bg-black/68 px-4 py-2 text-xs font-black text-white backdrop-blur hover:bg-black/82"
+            className="rounded-card-md border border-white/20 bg-black/65 px-3 py-2 text-xs font-black text-white backdrop-blur hover:bg-black/80"
           >
             ← 통제실
           </Link>
           <button
             type="button"
             onClick={() => void toggleFullscreen()}
-            className="rounded-card-md border border-cyan-300/30 bg-cyan-950/68 px-4 py-2 text-xs font-black text-cyan-100 backdrop-blur hover:bg-cyan-900/72"
+            className="rounded-card-md border border-cyan-300/30 bg-cyan-950/65 px-3 py-2 text-xs font-black text-cyan-100 backdrop-blur hover:bg-cyan-900/70"
           >
             {fullscreen ? '▣ 전체화면 종료' : '⛶ 전체화면'}
           </button>
@@ -589,7 +592,7 @@ function ParticipantRail({
   return (
     <aside
       className={cn(
-        'pointer-events-none absolute top-[18%] bottom-[22%] z-30 flex w-[8%] min-w-[120px] max-w-[150px] flex-col justify-center gap-1',
+        'pointer-events-none absolute top-[22%] bottom-[18%] z-30 flex w-[13.5%] min-w-[178px] flex-col justify-center gap-1.5',
         side === 'left' ? 'left-3 lg:left-5' : 'right-3 lg:right-5',
       )}
       style={teamPulse ? { animation: 'raidBroadcastTeamPulse 740ms ease-in-out 2' } : undefined}
@@ -628,7 +631,7 @@ function ParticipantCard({
   const name = participant.brand_name || participant.name;
   return (
     <div className={cn(
-      'relative flex h-[39px] items-center gap-1.5 overflow-hidden rounded-card-md border bg-black/68 px-1.5 py-1 backdrop-blur-sm transition-all duration-200',
+      'relative flex h-[46px] items-center gap-2 overflow-hidden rounded-card-md border bg-black/68 px-2 py-1.5 backdrop-blur-sm transition-all duration-200',
       side === 'right' && 'flex-row-reverse text-right',
       participant.attack_blocked
         ? 'border-red-400/45 opacity-55'
@@ -644,11 +647,11 @@ function ParticipantCard({
                   ? 'border-cyan-300/24'
                   : 'border-white/12 opacity-72',
     )}>
-      <div className="h-8 w-8 flex-none overflow-hidden rounded-lg border border-white/15 bg-[#07111f]">
+      <div className="h-9 w-9 flex-none overflow-hidden rounded-lg border border-white/15 bg-[#07111f]">
         {participant.character_image_url ? (
           <img src={participant.character_image_url} alt="" className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-base">⚔️</div>
+          <div className="flex h-full w-full items-center justify-center text-lg">⚔️</div>
         )}
       </div>
       <div className="min-w-0 flex-1">
@@ -722,6 +725,9 @@ function CombatAnnouncementLayer({ items }: { items: CombatAnnouncement[] }) {
 
 function combatAnnouncementFor(row: BroadcastFeedbackRow, now: number): CombatAnnouncement | null {
   const event = String(row.event_type || '');
+  const payload = row.payload ?? {};
+  const patternName = String(payload.pattern_name ?? payload.attack_name ?? '');
+  const amount = Math.max(0, Number(row.amount ?? 0));
   const make = (title: string, detail: string, tone: CombatAnnouncement['tone'], ms = 1700): CombatAnnouncement => ({
     id: `${row.id}-${event}`,
     title,
@@ -731,13 +737,16 @@ function combatAnnouncementFor(row: BroadcastFeedbackRow, now: number): CombatAn
   });
 
   if (event === 'BARRIER_COLLAPSED') return make('💥 공명방벽 붕괴', '공명방벽이 완전히 파괴되었습니다.', 'danger', 2600);
+  if (event === 'BOSS_ATTACK_RESOLVED') return make(`⚡ ${patternName || '보스 공격'}`, amount > 0 ? `공명방벽 -${formatNumber(amount)}` : '보스 공격이 적중했습니다.', 'danger', 1150);
   if (event === 'BREAK_SUCCESS') return make('✦ BREAK SUCCESS', '보스의 자세가 무너졌습니다. 극딜 시간!', 'success', 2100);
   if (event === 'BREAK_FAILED') return make('⚠ BREAK FAILED', '브레이크 저지 실패 — 공명방벽 피해!', 'danger', 2100);
   if (event === 'GROGGY_STARTED') return make('✦ GROGGY', '보스가 무방비 상태에 빠졌습니다.', 'warning', 1600);
   if (event === 'ENRAGE_STARTED') return make('🔥 ENRAGE', '보스가 광폭화했습니다!', 'danger', 2200);
+  if (event === 'PATTERN_STARTED') return make(`⚠ ${patternName || '특수 패턴'}`, '특수 기믹이 시작됩니다.', 'violet', 1100);
   if (event === 'PATTERN_ENDED') return null;
   if (event.endsWith('_SUCCESS')) return make('✓ 기믹 성공', `${patternEventLabel(event)} 돌파`, 'success', 1650);
   if (event.endsWith('_FAILED')) return make('✕ 기믹 실패', `${patternEventLabel(event)} 실패`, 'danger', 1850);
+  if (event === 'BARRIER_INITIALIZED') return make('🛡 공명방벽 전개', '출전 모험가의 공명이 하나로 연결됩니다.', 'cyan', 1800);
   return null;
 }
 
@@ -755,6 +764,16 @@ function patternEventLabel(event: string) {
     BREAK: 'BREAK',
   };
   return labels[key] ?? key;
+}
+
+function BossAttackTelegraph({ attack }: { attack: NonNullable<TeacherRaidBroadcastState['combat']['boss_attack']> }) {
+  return (
+    <div className="pointer-events-none absolute left-1/2 top-[18%] z-40 w-[min(560px,52vw)] -translate-x-1/2 rounded-card-lg border-2 border-red-300/70 bg-red-950/90 px-6 py-3 text-center shadow-[0_0_55px_rgba(239,68,68,0.35)] backdrop-blur-md animate-pulse" style={{ animationDuration: '1.4s' }}>
+      <div className="text-[10px] font-black tracking-[0.22em] text-red-100">BOSS ATTACK</div>
+      <div className="mt-1 font-display text-2xl text-white">⚠ {attack.name || '보스 공격'} 준비</div>
+      <div className="mt-1 font-mono text-xl font-black text-yellow-100">{Number(attack.seconds_until_next_attack ?? 0).toFixed(1)}초</div>
+    </div>
+  );
 }
 
 function BroadcastMechanicOverlay({ pattern }: { pattern: NonNullable<TeacherRaidBroadcastState['combat']['active_pattern']> }) {
@@ -902,6 +921,24 @@ function BroadcastError({ title, detail }: { title: string; detail?: string }) {
   );
 }
 
+function StatusPill({ status }: { status: RaidStatus }) {
+  const labels: Record<RaidStatus, string> = {
+    DRAFT: 'DRAFT',
+    LOBBY_OPEN: 'LOBBY',
+    ACTIVE: 'LIVE',
+    PAUSED: 'PAUSED',
+    COMPLETED: 'CLEAR',
+    FAILED: 'FAILED',
+    ARCHIVED: 'ARCHIVED',
+  };
+  return (
+    <span className={cn(
+      'rounded-full border px-2 py-0.5 text-[9px] tracking-[0.12em]',
+      status === 'ACTIVE' ? 'border-emerald-300/45 bg-emerald-500/15 text-emerald-100' : 'border-white/20 bg-white/5 text-white',
+    )}>{labels[status]}</span>
+  );
+}
+
 function getTimerDisplay(state: TeacherRaidBroadcastState | undefined, nowMs: number) {
   if (!state) return { label: 'TIME', value: '--:--' };
   const { raid } = state;
@@ -932,6 +969,10 @@ function barrierLabel(state: TeacherRaidBroadcastState['combat']['barrier_state'
   return ({ DISABLED: '대기', STABLE: '안정', CRACKED: '균열', DANGER: '위험', CRITICAL: '붕괴 직전', COLLAPSED: '붕괴' } as const)[state];
 }
 
+function elementLabel(element: RaidElement) {
+  return ({ FIRE: '🔥 화', WATER: '💧 수', WIND: '💫 풍', EARTH: '🪨 토', LIGHT: '✦ 빛', DARK: '☾ 암' } as const)[element];
+}
+
 function patternIcon(type: string) {
   return ({ WEAK_POINT: '🎯', BREAK: '💥', ENRAGE: '🔥', ABSORB: '🌀', REFLECT: '↩', ULTIMATE: '☄️', DOT: '☣️', SHIELD: '🛡', MULTI_CORE: '🔷', SPLIT_TARGET: '⚖️', REGEN: '💚', SEAL: '🔒', DAMAGE_CHECK: '⏱' } as Record<string, string>)[type] ?? '⚔️';
 }
@@ -947,6 +988,11 @@ function formatDuration(ms: number) {
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
   return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`;
+}
+
+function formatSeconds(value: number) {
+  if (!Number.isFinite(value)) return '—';
+  return `${Math.max(0, value).toFixed(value < 10 ? 1 : 0)}s`;
 }
 
 function formatNumber(value: number) {

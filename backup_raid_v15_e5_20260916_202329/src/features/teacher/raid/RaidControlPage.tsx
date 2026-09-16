@@ -8,8 +8,6 @@ import { raidAdminRpc, type RaidEditorPayload, type RaidElement, type RaidStatus
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
-import RaidV15ConfigPanel from '@/features/teacher/raid/RaidV15ConfigPanel';
-// RAID_V15_E5_CONFIGURATION_UI
 
 // RAID_V15_E3C_TEACHER_TEST_PRESET
 
@@ -354,7 +352,7 @@ export default function RaidControlPage() {
 
     const defaultTitle = `${detail.raid.title} · 재도전`;
     const requestedTitle = window.prompt(
-      '복제해서 만들 새 레이드의 제목을 입력해주세요.\n보스·전투 규칙·V1.5 기믹·패턴·오디오·보상·페이즈·미디어가 그대로 복제됩니다.',
+      '복제해서 만들 새 레이드의 제목을 입력해주세요.\n보스 설정·전투 규칙·보상·페이즈·미디어·약점부위 구조가 그대로 복제됩니다.',
       defaultTitle,
     );
     if (requestedTitle === null) return;
@@ -363,7 +361,7 @@ export default function RaidControlPage() {
 
     if (!window.confirm(
       `「${detail.raid.title}」을 새 레이드 초안으로 재생성할까요?\n\n` +
-      '복제되는 항목: 보스/속성/HP/전투 규칙/V1.5 기믹·패턴/오디오/보상/페이즈/이미지·영상/Hit Zone\n' +
+      '복제되는 항목: 보스/속성/HP/전투 규칙/보상/페이즈/이미지·영상/Hit Zone\n' +
       '복제되지 않는 항목: 참가자/공격기록/채팅/결과/기존 일정\n\n' +
       '새 레이드는 DRAFT 상태로 만들어지며 바로 수정할 수 있습니다.',
     )) return;
@@ -522,8 +520,6 @@ export default function RaidControlPage() {
                     saving={busyAction === 'SAVE' || rpcLoading}
                     onSave={save}
                   />
-
-                  <RaidV15ConfigPanel raidId={detail.raid.id} raidStatus={detail.raid.status} />
 
                   <RaidStateControl
                     detail={detail}
