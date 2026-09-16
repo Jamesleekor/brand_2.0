@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useSearchParams } from 'react-router-dom';
 
 import { PageHeader, LoadingSpinner, EmptyState, useRpcCall } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
@@ -131,18 +130,7 @@ const PAGE_TABS: Array<{ key: CharacterPageTab; label: string; icon: string; des
 ];
 
 export default function CharacterCollectionPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [tab, setTab] = useState<CharacterPageTab>(() =>
-    searchParams.get('tab') === 'dimensional-gate' ? 'DIMENSIONAL_GATE' : 'LIBRARY'
-  );
-
-  const changeTab = (nextTab: CharacterPageTab) => {
-    setTab(nextTab);
-    const nextParams = new URLSearchParams(searchParams);
-    if (nextTab === 'DIMENSIONAL_GATE') nextParams.set('tab', 'dimensional-gate');
-    else nextParams.delete('tab');
-    setSearchParams(nextParams, { replace: true });
-  };
+  const [tab, setTab] = useState<CharacterPageTab>('LIBRARY');
   const [filter, setFilter] = useState<FilterKey>('ALL');
   const [elementFilter, setElementFilter] = useState<ElementFilterKey>('ALL');
   const [tendencyFilter, setTendencyFilter] = useState<TendencyFilterKey>('ALL');
@@ -224,7 +212,7 @@ export default function CharacterCollectionPage() {
       <PageHeader title="편린" emoji="✦" />
 
       <main className="px-4 pt-4 lg:px-5 lg:pt-5">
-        <CharacterPageTabs tab={tab} onChange={changeTab} />
+        <CharacterPageTabs tab={tab} onChange={setTab} />
 
         {tab === 'LIBRARY' ? (
           <>

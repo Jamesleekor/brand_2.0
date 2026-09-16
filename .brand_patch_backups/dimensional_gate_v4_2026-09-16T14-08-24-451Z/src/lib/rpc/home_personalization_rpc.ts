@@ -30,12 +30,6 @@ export interface HomePersonalization {
   showcase_slots: HomeShowcaseSlot[];
 }
 
-export interface HomeVisualEntitlement {
-  character_id: number;
-  gated_visual_variant_no: 2 | 3 | null;
-  unlocked_visual_variants: Array<1 | 2 | 3>;
-}
-
 async function callRpc<T>(
   supabase: SupabaseClient,
   fn: string,
@@ -61,7 +55,4 @@ export const homePersonalizationRpc = {
     },
   ) =>
     callRpc<HomePersonalization>(supabase, 'student_set_home_showcase_slot_visual', input),
-
-  visualEntitlements: (supabase: SupabaseClient) =>
-    callRpc<HomeVisualEntitlement[]>(supabase, 'student_get_dimensional_gate_visual_entitlements'),
 };

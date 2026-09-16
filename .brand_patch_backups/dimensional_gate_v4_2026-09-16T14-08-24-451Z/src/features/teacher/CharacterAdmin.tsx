@@ -11,15 +11,13 @@ import { formatRelativeTime } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { CharacterCollectionAdminPanel } from './CharacterCollectionAdminPanel';
 import { CharacterRecruitmentAdminPanel } from './CharacterRecruitmentAdminPanel';
-import { DimensionalGateAdminPanel } from './DimensionalGateAdminPanel';
-import { DimensionalGateContentAdminPanel } from './DimensionalGateContentAdminPanel';
 
 // =====================================================================
 // B.R.A.N.D 2.0 — Character Core C3 Teacher Operations UI
 // 편린 Master / 영입 조건 / 학생 보유 / 영입 이력
 // =====================================================================
 
-type TabKey = 'MASTER' | 'RECRUITMENT' | 'COLLECTIONS' | 'GATE_CONTENT' | 'GATE' | 'STUDENTS' | 'EVENTS';
+type TabKey = 'MASTER' | 'RECRUITMENT' | 'COLLECTIONS' | 'STUDENTS' | 'EVENTS';
 type MasterFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'DRAFT';
 
 type MasterForm = {
@@ -56,19 +54,15 @@ const TIER_NAMES = [
 
 const GRADES = ['희귀','유니크','에픽','히든','유일','초월'] as const;
 
-export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?: TabKey } = {}) {
+export default function CharacterAdmin() {
   const classroomId = useClassroomId();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<TabKey>(initialTab);
+  const [tab, setTab] = useState<TabKey>('MASTER');
   const [search, setSearch] = useState('');
   const [masterFilter, setMasterFilter] = useState<MasterFilter>('ALL');
   const [masterEditing, setMasterEditing] = useState<TeacherCharacterRow | 'NEW' | null>(null);
   const [policyEditing, setPolicyEditing] = useState<TeacherCharacterRow | null>(null);
   const [studentId, setStudentId] = useState<number | null>(null);
-
-  useEffect(() => {
-    setTab(initialTab);
-  }, [initialTab]);
 
   const boardQuery = useQuery<TeacherCharacterAdminBoard>({
     queryKey: ['character-c3-admin-board', classroomId],
@@ -182,8 +176,6 @@ export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?:
               <TabButton active={tab === 'MASTER'} onClick={() => setTab('MASTER')} label="편린 Master" icon="✦" />
               <TabButton active={tab === 'RECRUITMENT'} onClick={() => setTab('RECRUITMENT')} label="영입 설정" icon="🪙" />
               <TabButton active={tab === 'COLLECTIONS'} onClick={() => setTab('COLLECTIONS')} label="콜렉션 관리" icon="🧩" />
-              <TabButton active={tab === 'GATE_CONTENT'} onClick={() => setTab('GATE_CONTENT')} label="관문 콘텐츠" icon="📖" />
-              <TabButton active={tab === 'GATE'} onClick={() => setTab('GATE')} label="관문 운영" icon="🌀" />
               <TabButton active={tab === 'STUDENTS'} onClick={() => setTab('STUDENTS')} label="학생 보유" icon="🎒" />
               <TabButton active={tab === 'EVENTS'} onClick={() => setTab('EVENTS')} label="영입 기록" icon="🧾" />
             </nav>
@@ -212,14 +204,6 @@ export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?:
                 characters={board.characters}
                 students={board.students}
               />
-            )}
-
-            {tab === 'GATE_CONTENT' && (
-              <DimensionalGateContentAdminPanel characters={board.characters} />
-            )}
-
-            {tab === 'GATE' && classroomId !== null && (
-              <DimensionalGateAdminPanel classroomId={classroomId} />
             )}
 
             {tab === 'STUDENTS' && (

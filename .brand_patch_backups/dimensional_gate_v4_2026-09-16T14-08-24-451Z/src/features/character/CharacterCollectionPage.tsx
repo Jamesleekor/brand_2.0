@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useSearchParams } from 'react-router-dom';
 
 import { PageHeader, LoadingSpinner, EmptyState, useRpcCall } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
@@ -11,7 +10,6 @@ import {
   type StudentCharacterCollectionRow,
 } from '@/lib/rpc/character_c2_rpc';
 import { StudentCharacterCollectionsPanel } from './StudentCharacterCollectionsPanel';
-import DimensionalGatePanel from '@/features/character/DimensionalGatePanel';
 import { characterS1Rpc, type StudentCharacterRecruitmentRow } from '@/lib/rpc/character_s1_rpc';
 import { useWallet } from '@/hooks/useWallet';
 import { cn } from '@/lib/utils/cn';
@@ -122,27 +120,15 @@ const TIER_FILTERS: Array<{ key: TierFilterKey; label: string }> = [
   { key: '10', label: '최고급형' },
 ];
 
-type CharacterPageTab = 'LIBRARY' | 'COLLECTIONS' | 'DIMENSIONAL_GATE';
+type CharacterPageTab = 'LIBRARY' | 'COLLECTIONS';
 
 const PAGE_TABS: Array<{ key: CharacterPageTab; label: string; icon: string; description: string }> = [
   { key: 'LIBRARY', label: '편린 도감', icon: '✦', description: '편린 보유·직접 영입·장착' },
   { key: 'COLLECTIONS', label: '콜렉션', icon: '🧩', description: '조합 진행도·완성 효과·활성 버프' },
-  { key: 'DIMENSIONAL_GATE', label: '차원관문', icon: '🌀', description: '편린 관계·기억·만남 이벤트' },
 ];
 
 export default function CharacterCollectionPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [tab, setTab] = useState<CharacterPageTab>(() =>
-    searchParams.get('tab') === 'dimensional-gate' ? 'DIMENSIONAL_GATE' : 'LIBRARY'
-  );
-
-  const changeTab = (nextTab: CharacterPageTab) => {
-    setTab(nextTab);
-    const nextParams = new URLSearchParams(searchParams);
-    if (nextTab === 'DIMENSIONAL_GATE') nextParams.set('tab', 'dimensional-gate');
-    else nextParams.delete('tab');
-    setSearchParams(nextParams, { replace: true });
-  };
+  const [tab, setTab] = useState<CharacterPageTab>('LIBRARY');
   const [filter, setFilter] = useState<FilterKey>('ALL');
   const [elementFilter, setElementFilter] = useState<ElementFilterKey>('ALL');
   const [tendencyFilter, setTendencyFilter] = useState<TendencyFilterKey>('ALL');
@@ -224,7 +210,7 @@ export default function CharacterCollectionPage() {
       <PageHeader title="편린" emoji="✦" />
 
       <main className="px-4 pt-4 lg:px-5 lg:pt-5">
-        <CharacterPageTabs tab={tab} onChange={changeTab} />
+        <CharacterPageTabs tab={tab} onChange={setTab} />
 
         {tab === 'LIBRARY' ? (
           <>
@@ -334,7 +320,7 @@ export default function CharacterCollectionPage() {
               </section>
             )}
           </>
-        ) : tab === 'COLLECTIONS' ? (
+        ) : (
           <StudentCharacterCollectionsPanel
             characterById={characterById}
             onCharacterClick={(characterId) => {
@@ -342,8 +328,6 @@ export default function CharacterCollectionPage() {
               if (character) setSelected(character);
             }}
           />
-        ) : (
-          <DimensionalGatePanel />
         )}
       </main>
 
@@ -395,7 +379,7 @@ function CharacterPageTabs({
   onChange: (tab: CharacterPageTab) => void;
 }) {
   return (
-    <div className="mb-4 grid grid-cols-3 gap-2 rounded-card-lg border border-line bg-bg-card/90 p-1.5 shadow-card">
+    <div className="mb-4 grid grid-cols-2 gap-2 rounded-card-lg border border-line bg-bg-card/90 p-1.5 shadow-card">
       {PAGE_TABS.map((item) => (
         <button
           key={item.key}

@@ -28,8 +28,6 @@ interface OwnedBackground {
 type ShowcaseCharacterRow = StudentCharacterCollectionRow & {
   showcase_image_url_2: string | null;
   showcase_image_url_3: string | null;
-  gated_visual_variant_no: 2 | 3 | null;
-  unlocked_visual_variants: Array<1 | 2 | 3>;
 };
 
 type HomeCustomizationSection = 'showcase' | 'background' | 'font';
@@ -470,38 +468,28 @@ function ShowcaseSection({
                   <button
                     key={variant.no}
                     type="button"
-                    disabled={disabled || variant.locked}
+                    disabled={disabled}
                     onClick={() => {
-                      if (variant.locked) return;
                       onSelect(variantTarget.character_id, variant.no);
                       setVariantTarget(null);
                     }}
                     className={cn(
                       'overflow-hidden rounded-card-md border bg-bg-card text-left transition',
                       selected ? 'border-brand-primary shadow-brand-sm' : 'border-line hover:border-brand-primary/50',
-                      (disabled || variant.locked) && 'opacity-60',
+                      disabled && 'opacity-60',
                     )}
                   >
-                    <div className="relative aspect-[3/4] overflow-hidden bg-bg-deep">
+                    <div className="aspect-[3/4] overflow-hidden bg-bg-deep">
                       <img
                         src={resolveAssetUrl(variant.url, 'character')}
                         alt={`${variantTarget.name} 전시 이미지 ${variant.no}`}
-                        className={cn('h-full w-full object-contain p-1', variant.locked && 'grayscale blur-[1px]')}
+                        className="h-full w-full object-contain p-1"
                         loading="eager"
                       />
-                      {variant.locked && (
-                        <div className="absolute inset-0 grid place-items-center bg-black/55 text-center">
-                          <div>
-                            <div className="text-xl">🔒</div>
-                            <div className="mt-1 text-[10px] font-black text-white">신뢰 100에서 해금</div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                     <div className="flex items-center justify-between gap-2 px-2.5 py-2">
                       <span className="text-xs font-black text-white">{variant.label}</span>
                       {selected && <span className="text-[10px] font-black text-brand-glow">현재</span>}
-                      {variant.locked && <span className="text-[9px] font-black text-text-muted">신뢰 보상</span>}
                     </div>
                   </button>
                 );
@@ -566,11 +554,10 @@ function getShowcaseImages(character: ShowcaseCharacterRow) {
     ?? character.avatar_image_url
     ?? character.resource_url;
 
-  const unlocked = new Set(character.unlocked_visual_variants ?? [1]);
-  const images: Array<{ no: 1 | 2 | 3; label: string; url: string; locked: boolean }> = [];
-  if (base) images.push({ no: 1, label: '기본 이미지', url: base, locked: false });
-  if (character.showcase_image_url_2) images.push({ no: 2, label: '이미지 2', url: character.showcase_image_url_2, locked: !unlocked.has(2) });
-  if (character.showcase_image_url_3) images.push({ no: 3, label: '이미지 3', url: character.showcase_image_url_3, locked: !unlocked.has(3) });
+  const images: Array<{ no: 1 | 2 | 3; label: string; url: string }> = [];
+  if (base) images.push({ no: 1, label: '기본 이미지', url: base });
+  if (character.showcase_image_url_2) images.push({ no: 2, label: '이미지 2', url: character.showcase_image_url_2 });
+  if (character.showcase_image_url_3) images.push({ no: 3, label: '이미지 3', url: character.showcase_image_url_3 });
   return images;
 }
 
@@ -666,19 +653,13 @@ function useOwnedCharacters(enabled: boolean) {
 
       if (owned.length === 0) return [];
 
-      const [visualRes, entitlementResult] = await Promise.all([
-        supabase
-          .from('characters')
-          .select('id,showcase_image_url_2,showcase_image_url_3')
-          .in('id', owned.map((row) => row.character_id)),
-        homePersonalizationRpc.visualEntitlements(supabase),
-      ]);
+      const visualRes = await supabase
+        .from('characters')
+        .select('id,showcase_image_url_2,showcase_image_url_3')
+        .in('id', owned.map((row) => row.character_id));
 
       if (visualRes.error) {
         throw new Error(`[Character showcase variants] ${visualRes.error.message}`);
-      }
-      if (entitlementResult.success === false) {
-        throw new Error(`[Character showcase entitlements] ${entitlementResult.error}`);
       }
 
       const visualById = new Map<number, { showcase_image_url_2: string | null; showcase_image_url_3: string | null }>(
@@ -687,14 +668,11 @@ function useOwnedCharacters(enabled: boolean) {
           showcase_image_url_3: row.showcase_image_url_3 ?? null,
         }]),
       );
-      const entitlementById = new Map((entitlementResult.data ?? []).map((row) => [row.character_id, row]));
 
       return owned.map((row) => ({
         ...row,
         showcase_image_url_2: visualById.get(row.character_id)?.showcase_image_url_2 ?? null,
         showcase_image_url_3: visualById.get(row.character_id)?.showcase_image_url_3 ?? null,
-        gated_visual_variant_no: entitlementById.get(row.character_id)?.gated_visual_variant_no ?? null,
-        unlocked_visual_variants: entitlementById.get(row.character_id)?.unlocked_visual_variants ?? [1],
       }));
     },
   });

@@ -394,23 +394,20 @@ function FutureHomeShortcuts() {
     {
       emoji: '🔮',
       label: '차원관문',
-      caption: '입장',
-      enabled: true,
-      to: '/characters?tab=dimensional-gate',
+      caption: 'COMING SOON',
+      enabled: false,
     },
     {
       emoji: '⚔️',
       label: '레이드 관문',
       caption: '입장',
       enabled: true,
-      to: '/raid',
     },
     {
       emoji: '🧭',
       label: '편린 원정대',
       caption: 'COMING SOON',
       enabled: false,
-      to: null,
     },
   ] as const;
 
@@ -420,13 +417,15 @@ function FutureHomeShortcuts() {
       className="relative z-10 mx-4 mb-1 grid grid-cols-3 gap-2 lg:mx-0"
     >
       {shortcuts.map((shortcut) => {
+        const isRaid = shortcut.label === '레이드 관문';
+
         return (
           <button
             key={shortcut.label}
             type="button"
             disabled={!shortcut.enabled}
             aria-disabled={!shortcut.enabled}
-            onClick={() => { if (shortcut.enabled && shortcut.to) navigate(shortcut.to); }}
+            onClick={isRaid ? () => navigate('/raid') : undefined}
             className={
               shortcut.enabled
                 ? 'flex h-10 items-center justify-center gap-1.5 rounded-pill border border-yellow-300/45 bg-yellow-400/10 px-3 text-2xs font-black text-yellow-100 backdrop-blur-card transition hover:border-yellow-200/75 hover:bg-yellow-400/20'

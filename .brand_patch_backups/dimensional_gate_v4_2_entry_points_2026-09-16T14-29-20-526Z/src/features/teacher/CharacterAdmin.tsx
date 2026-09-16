@@ -56,19 +56,15 @@ const TIER_NAMES = [
 
 const GRADES = ['희귀','유니크','에픽','히든','유일','초월'] as const;
 
-export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?: TabKey } = {}) {
+export default function CharacterAdmin() {
   const classroomId = useClassroomId();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<TabKey>(initialTab);
+  const [tab, setTab] = useState<TabKey>('MASTER');
   const [search, setSearch] = useState('');
   const [masterFilter, setMasterFilter] = useState<MasterFilter>('ALL');
   const [masterEditing, setMasterEditing] = useState<TeacherCharacterRow | 'NEW' | null>(null);
   const [policyEditing, setPolicyEditing] = useState<TeacherCharacterRow | null>(null);
   const [studentId, setStudentId] = useState<number | null>(null);
-
-  useEffect(() => {
-    setTab(initialTab);
-  }, [initialTab]);
 
   const boardQuery = useQuery<TeacherCharacterAdminBoard>({
     queryKey: ['character-c3-admin-board', classroomId],

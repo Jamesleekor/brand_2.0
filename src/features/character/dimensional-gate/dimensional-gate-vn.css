@@ -1,0 +1,30 @@
+@keyframes dg-vn-shake-keyframes {
+  0%,100% { transform: translate3d(0,0,0); }
+  20% { transform: translate3d(-6px,2px,0); }
+  40% { transform: translate3d(5px,-2px,0); }
+  60% { transform: translate3d(-3px,1px,0); }
+  80% { transform: translate3d(3px,-1px,0); }
+}
+.dg-vn-shake { animation: dg-vn-shake-keyframes .42s ease-out; }
+.dg-vn-vignette { box-shadow: inset 0 0 180px 55px rgba(0,0,0,.75); }
+
+@keyframes dg-vn-flash { 0%{opacity:0} 20%{opacity:.92} 100%{opacity:0} }
+@keyframes dg-vn-whiteout { 0%{opacity:0} 35%{opacity:1} 100%{opacity:0} }
+@keyframes dg-vn-redflash { 0%{opacity:0} 25%{opacity:.7} 100%{opacity:0} }
+@keyframes dg-vn-fadein { 0%{opacity:1} 100%{opacity:0} }
+.dg-vn-overlay { opacity:0; }
+.dg-vn-overlay-flash { background:#fff; animation:dg-vn-flash .55s ease-out; }
+.dg-vn-overlay-whiteout { background:#fff; animation:dg-vn-whiteout 1.5s ease-out; }
+.dg-vn-overlay-redflash { background:#7f1010; animation:dg-vn-redflash .75s ease-out; }
+.dg-vn-overlay-fadein { background:#000; animation:dg-vn-fadein 1.8s ease-out; }
+
+.dg-vn-particles i { position:absolute; display:block; pointer-events:none; }
+@keyframes dg-vn-fall { from{transform:translate3d(0,-12vh,0) rotate(0);opacity:.15} 20%{opacity:.8} to{transform:translate3d(45px,112vh,0) rotate(260deg);opacity:.15} }
+@keyframes dg-vn-rise { from{transform:translate3d(0,108vh,0);opacity:0} 25%{opacity:.85} to{transform:translate3d(24px,-15vh,0);opacity:0} }
+@keyframes dg-vn-star { 0%,100%{opacity:.1;transform:scale(.5)} 50%{opacity:.95;transform:scale(1.5)} }
+@keyframes dg-vn-rain { from{transform:translate3d(0,-15vh,0)} to{transform:translate3d(-80px,115vh,0)} }
+.dg-vn-particles-snow i { top:-4%; width:6px;height:6px;border-radius:999px;background:rgba(225,238,255,.88);filter:blur(.3px);animation:dg-vn-fall var(--dg-speed,6s) linear infinite; }
+.dg-vn-particles-petals i { top:-5%; width:9px;height:5px;border-radius:70% 30% 70% 30%;background:rgba(255,190,218,.84);animation:dg-vn-fall var(--dg-speed,6.5s) linear infinite; }
+.dg-vn-particles-embers i { bottom:-4%; width:5px;height:5px;border-radius:999px;background:#ff9d43;box-shadow:0 0 8px #ff6d1f;animation:dg-vn-rise var(--dg-speed,4s) ease-out infinite; }
+.dg-vn-particles-starlight i { width:4px;height:4px;border-radius:999px;background:#dbe7ff;box-shadow:0 0 9px rgba(170,199,255,.9);animation:dg-vn-star var(--dg-speed,2.5s) ease-in-out infinite; }
+.dg-vn-particles-rain i { top:-10%; width:1px;height:28px;background:linear-gradient(to bottom,transparent,rgba(190,211,255,.62));animation:dg-vn-rain var(--dg-speed,.9s) linear infinite; }
