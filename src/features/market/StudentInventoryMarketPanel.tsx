@@ -47,6 +47,7 @@ export function StudentMarketStorePanel() {
   const items = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase('ko-KR');
     return (query.data?.items ?? []).filter((item) => {
+      if (item.item_type === 'CONSUMABLE') return false;
       if (filter !== 'ALL' && item.item_type !== filter) return false;
       if (!needle) return true;
       return [item.name, item.description, TYPE_META[item.item_type].label]
@@ -94,7 +95,7 @@ export function StudentMarketStorePanel() {
 
       <div className="rounded-card-lg border border-line bg-bg-card p-3">
         <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {(['ALL','SNACK','CONSUMABLE','TICKET','AUCTION_PASS','SPECIAL'] as const).map((key) => (
+          {(['ALL','SNACK','TICKET','AUCTION_PASS','SPECIAL'] as const).map((key) => (
             <button
               key={key}
               type="button"
@@ -336,7 +337,7 @@ export function StudentInventoryPanel() {
 
       <div className="rounded-card-lg border border-line bg-bg-card p-3">
         <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {(['ALL','SNACK','CONSUMABLE','TICKET','AUCTION_PASS','SPECIAL'] as const).map((key) => (
+          {(['ALL','SNACK','TICKET','AUCTION_PASS','SPECIAL'] as const).map((key) => (
             <button key={key} type="button" onClick={() => setFilter(key)} className={cn('flex-shrink-0 rounded-pill border px-3 py-2 text-xs font-black', filter === key ? 'border-crystal/50 bg-crystal/15 text-white' : 'border-line bg-bg-deep text-text-secondary')}>
               {key === 'ALL' ? '전체' : `${TYPE_META[key].emoji} ${TYPE_META[key].label}`}
             </button>

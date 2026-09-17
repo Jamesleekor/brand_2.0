@@ -14,6 +14,7 @@ import {
 } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
 import { FontPreview } from '@/features/font/FontPreview';
+import { isTeacherOnlyFont } from '@/features/font/fontCatalog';
 import { purchaseMyCosmetic, selectMyCosmetic } from '@/features/font/fontCosmeticRpc';
 import { useStudentId } from '@/stores/auth_store';
 import { useWallet } from '@/hooks/useWallet';
@@ -25,7 +26,7 @@ import { cn } from '@/lib/utils/cn';
 // 타입
 // =====================================================================
 
-type CosmeticCategory = 'background' | 'character' | 'title' | 'frame' | 'effect' | 'font';
+type CosmeticCategory = 'background' | 'effect' | 'font';
 
 interface CosmeticPricingOption {
   id: number;
@@ -51,12 +52,9 @@ interface CosmeticItem {
 
 const CATEGORIES: { value: CosmeticCategory | 'ALL'; label: string; emoji: string }[] = [
   { value: 'ALL',         label: '전체',     emoji: '🎨' },
-  { value: 'background',  label: '배경',     emoji: '🌄' },
-  { value: 'character',   label: '캐릭터',   emoji: '👤' },
-  { value: 'title',       label: '칭호',     emoji: '👑' },
-  { value: 'frame',       label: '프레임',   emoji: '🖼️' },
-  { value: 'effect',      label: '효과',     emoji: '✨' },
+  { value: 'background',  label: '배경/CG',  emoji: '🌄' },
   { value: 'font',        label: '폰트',     emoji: '🔤' },
+  { value: 'effect',      label: '효과',     emoji: '✨' },
 ];
 
 // =====================================================================
@@ -71,8 +69,11 @@ export default function CosmeticPage({ embedded = false }: { embedded?: boolean 
   
   const filtered = useMemo(() => {
     if (!items) return [];
-    if (category === 'ALL') return items;
-    return items.filter((i) => i.category === category);
+    const visible = items.filter((i) =>
+      i.category === 'background' || i.category === 'font' || i.category === 'effect',
+    );
+    if (category === 'ALL') return visible;
+    return visible.filter((i) => i.category === category);
   }, [items, category]);
   
   return (
@@ -83,7 +84,7 @@ export default function CosmeticPage({ embedded = false }: { embedded?: boolean 
           <div className="mb-3 rounded-card-lg border border-line bg-bg-card p-4">
             <div className="font-system text-[10px] font-black uppercase tracking-[0.18em] text-brand-glow">COSMETIC SHOP</div>
             <h2 className="mt-1 text-xl font-black text-white">꾸미기 아이템</h2>
-            <p className="font-system mt-1 text-xs font-bold text-text-secondary">배경과 폰트를 포함한 꾸미기 아이템을 구매할 수 있어요. 폰트는 구매 전 실제 모양을 직접 확인할 수 있습니다.</p>
+            <p className="font-system mt-1 text-xs font-bold text-text-secondary">배경/CG, 폰트, 효과를 구매하고 장착할 수 있어요. 폰트는 구매 전 실제 모양을 직접 확인할 수 있습니다.</p>
           </div>
         )}
         {/* 카테고리 탭 */}
@@ -140,6 +141,7 @@ export default function CosmeticPage({ embedded = false }: { embedded?: boolean 
 // =====================================================================
 
 function CosmeticCard({ item, onClick }: { item: CosmeticItem; onClick: () => void }) {
+  const teacherOnly = isTeacherOnlyFont(item.itemUid);
   return (
     <motion.div
       whileTap={{ scale: 0.97 }}
@@ -185,6 +187,11 @@ function CosmeticCard({ item, onClick }: { item: CosmeticItem; onClick: () => vo
             보유
           </div>
         )}
+        {teacherOnly && !item.isOwned && (
+          <div className="font-system absolute right-2 top-2 rounded-pill border border-danger/50 bg-danger-bg px-2 py-0.5 text-[9px] font-black text-danger">
+            품절
+          </div>
+        )}
       </div>
       
       <div className="p-2.5">
@@ -201,6 +208,11 @@ function CosmeticCard({ item, onClick }: { item: CosmeticItem; onClick: () => vo
           )}>
             {item.isEquipped ? '✓ 장착중' : '장착하기'}
           </button>
+        ) : teacherOnly ? (
+          <div className="font-system flex items-center justify-between gap-2 text-[10px] font-black">
+            <span className="text-danger">품절</span>
+            <span className="text-text-muted">교사 지급 전용</span>
+          </div>
         ) : (
           <PricingSummary options={item.pricingOptions} />
         )}
@@ -221,10 +233,11 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
   const [selectedPricingId, setSelectedPricingId] = useState<number | null>(item.pricingOptions[0]?.id ?? null);
   const [fontPreviewText, setFontPreviewText] = useState('나의 B.R.A.N.D.를 꾸며 보세요! 123 ABC');
   const selectedPricing = item.pricingOptions.find((option) => option.id === selectedPricingId) ?? null;
-  const canBuy = !item.isOwned && !!selectedPricing && canAffordPricing(selectedPricing, wallet);
+  const teacherOnly = isTeacherOnlyFont(item.itemUid);
+  const canBuy = !teacherOnly && !item.isOwned && !!selectedPricing && canAffordPricing(selectedPricing, wallet);
   
   const handleBuy = async () => {
-    if (!studentId || !selectedPricing) return;
+    if (teacherOnly || !studentId || !selectedPricing) return;
     
     await call(
       () => purchaseMyCosmetic(supabase, item.id, selectedPricing.id),
@@ -312,7 +325,12 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
           <div className="space-y-3">
             <div className="bg-bg-deep border border-line rounded-card-md p-3">
               <div className="text-2xs font-extrabold text-text-secondary uppercase mb-2">구매 옵션</div>
-              {item.pricingOptions.length === 0 ? (
+              {teacherOnly ? (
+                <div className="rounded-card-md border border-danger/30 bg-danger-bg p-3">
+                  <div className="text-sm font-black text-danger">품절 · 교사 지급 전용</div>
+                  <div className="mt-1 text-xs font-bold text-text-secondary">이 특별 폰트는 크리스탈로 구매할 수 없으며 교사가 직접 지급합니다.</div>
+                </div>
+              ) : item.pricingOptions.length === 0 ? (
                 <div className="text-xs font-bold text-text-muted">현재 구매 가능한 가격 옵션이 없습니다.</div>
               ) : (
                 <div className="space-y-2">
@@ -343,12 +361,14 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
             
             <button
               onClick={handleBuy}
-              disabled={!canBuy || isLoading}
+              disabled={teacherOnly || !canBuy || isLoading}
               className="btn-primary w-full"
             >
               {isLoading
                 ? '구매 중...'
-                : item.pricingOptions.length === 0
+                : teacherOnly
+                  ? '🔒 품절 · 교사 지급 전용'
+                  : item.pricingOptions.length === 0
                   ? '구매 옵션 없음'
                   : !selectedPricing
                     ? '가격 옵션을 선택하세요'

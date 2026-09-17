@@ -1,5 +1,5 @@
 // Generated from data/font_catalog.json.
-export type BrandFontItemUid = 'FONT_CHOSUN100' | 'FONT_CHOSUNKM' | 'FONT_CHOSUNLO' | 'FONT_CHOSUNNM' | 'FONT_DALSEO_D' | 'FONT_DALSEO_H' | 'FONT_DANJO' | 'FONT_DNF_BITBIT' | 'FONT_FUNFLOW' | 'FONT_GHANA' | 'FONT_MONGTORI' | 'FONT_HEIRLIGHT' | 'FONT_KOPUB_B' | 'FONT_KOPUB_D' | 'FONT_LAUNDRY' | 'FONT_MAPLE' | 'FONT_NXFOOTBALL' | 'FONT_NXLV1' | 'FONT_ONE_MOBILE' | 'FONT_PINKFONG' | 'FONT_RIDI' | 'FONT_SHILLA' | 'FONT_TWAY_FLY' | 'FONT_TWAY_SKY' | 'FONT_WARHAVEN' | 'FONT_YPAIRING' | 'FONT_YES24';
+export type BrandFontItemUid = 'FONT_CHOSUN100' | 'FONT_CHOSUNKM' | 'FONT_CHOSUNLO' | 'FONT_CHOSUNNM' | 'FONT_DALSEO_D' | 'FONT_DALSEO_H' | 'FONT_DANJO' | 'FONT_DNF_BITBIT' | 'FONT_FUNFLOW' | 'FONT_GHANA' | 'FONT_MONGTORI' | 'FONT_HEIRLIGHT' | 'FONT_KOPUB_B' | 'FONT_KOPUB_D' | 'FONT_LAUNDRY' | 'FONT_MAPLE' | 'FONT_NXFOOTBALL' | 'FONT_NXLV1' | 'FONT_ONE_MOBILE' | 'FONT_PINKFONG' | 'FONT_RIDI' | 'FONT_SHILLA' | 'FONT_TWAY_FLY' | 'FONT_TWAY_SKY' | 'FONT_WARHAVEN' | 'FONT_YPAIRING' | 'FONT_YES24' | 'FONT_MONA12';
 export type BrandFontWeight = 300 | 400 | 500 | 700;
 export interface BrandFontCatalogEntry {
   itemUid: BrandFontItemUid; slug: string; displayName: string; category: 'font';
@@ -457,6 +457,25 @@ export const FONT_CATALOG = [
     "previewText": "나의 브랜드를 꾸며 보세요! 123 ABC",
     "releaseStatus": "READY"
   }
+  ,{
+    "itemUid": "FONT_MONA12",
+    "slug": "mona12-kr",
+    "displayName": "모나12",
+    "category": "font",
+    "cssFamily": "BRAND Mona12 KR",
+    "previewFamily": "BRAND Mona12 KR Preview",
+    "weights": [
+      400,
+      700
+    ],
+    "defaultWeight": 400,
+    "resourceUrl": "font:mona12-kr",
+    "assetBasePath": "/fonts/mona12-kr",
+    "previewText": "나의 브랜드를 꾸며 보세요! 123 ABC",
+    "releaseStatus": "READY"
+  }
 ] as const satisfies readonly BrandFontCatalogEntry[];
 export const FONT_BY_ITEM_UID = new Map(FONT_CATALOG.map((entry) => [entry.itemUid, entry] as const));
+export const TEACHER_ONLY_FONT_UIDS = new Set<BrandFontItemUid>(['FONT_MONA12']);
+export function isTeacherOnlyFont(itemUid: string | null | undefined) { return !!itemUid && TEACHER_ONLY_FONT_UIDS.has(itemUid as BrandFontItemUid); }
 export function getFontCatalogEntry(itemUid: string | null | undefined) { return itemUid ? FONT_BY_ITEM_UID.get(itemUid as BrandFontItemUid) ?? null : null; }

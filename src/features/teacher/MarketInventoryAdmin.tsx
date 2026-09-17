@@ -120,6 +120,7 @@ export default function MarketInventoryAdmin() {
   const rows = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase('ko-KR');
     return (query.data?.items ?? []).filter((item) => {
+      if (item.item_type === 'CONSUMABLE') return false;
       if (filter === 'ACTIVE' && (!item.is_active || item.is_archived)) return false;
       if (filter === 'ARCHIVED' && !item.is_archived) return false;
       if (filter !== 'ALL' && filter !== 'ACTIVE' && filter !== 'ARCHIVED' && item.item_type !== filter) return false;
@@ -136,10 +137,11 @@ export default function MarketInventoryAdmin() {
   if (query.isError) return <TeacherShell><div className="rounded-card-lg border border-danger/40 bg-danger-bg p-6"><h1 className="font-display text-xl text-white">시장 운영 데이터를 불러오지 못했습니다</h1><p className="mt-2 break-all text-sm text-text-primary">{query.error instanceof Error ? query.error.message : '알 수 없는 오류'}</p><button type="button" onClick={() => void query.refetch()} className="btn-secondary mt-4">다시 불러오기</button></div></TeacherShell>;
   if (query.isLoading || !query.data) return <TeacherShell><div className="flex min-h-[520px] items-center justify-center"><LoadingSpinner size="lg" /></div></TeacherShell>;
 
-  const active = query.data.items.filter((x) => x.is_active && !x.is_archived).length;
-  const currentStock = query.data.items.filter((x) => !x.is_archived).reduce((sum, x) => sum + x.current_stock, 0);
-  const owned = query.data.items.reduce((sum, x) => sum + x.inventory_owned_total, 0);
-  const dynamic = query.data.items.filter((x) => x.pricing_mode === 'STOCK_DYNAMIC' && !x.is_archived).length;
+  const generalItems = query.data.items.filter((x) => x.item_type !== 'CONSUMABLE');
+  const active = generalItems.filter((x) => x.is_active && !x.is_archived).length;
+  const currentStock = generalItems.filter((x) => !x.is_archived).reduce((sum, x) => sum + x.current_stock, 0);
+  const owned = generalItems.reduce((sum, x) => sum + x.inventory_owned_total, 0);
+  const dynamic = generalItems.filter((x) => x.pricing_mode === 'STOCK_DYNAMIC' && !x.is_archived).length;
 
   return (
     <TeacherShell>
@@ -176,7 +178,7 @@ export default function MarketInventoryAdmin() {
         <div className="rounded-card-lg border border-line bg-bg-card p-3">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex gap-1.5 overflow-x-auto pb-1">
-              {(['ALL','ACTIVE','ARCHIVED','SNACK','CONSUMABLE','TICKET','AUCTION_PASS','SPECIAL'] as const).map((key) => (
+              {(['ALL','ACTIVE','ARCHIVED','SNACK','TICKET','AUCTION_PASS','SPECIAL'] as const).map((key) => (
                 <button key={key} type="button" onClick={() => setFilter(key)} className={cn('flex-shrink-0 rounded-pill border px-3 py-2 text-xs font-black', filter === key ? 'border-brand-primary/50 bg-brand-primary/20 text-white' : 'border-line bg-bg-deep text-text-secondary')}>
                   {filterName(key)}
                 </button>
@@ -450,7 +452,7 @@ function MarketItemEditor({ classroomId, item, onClose, onSaved }: { classroomId
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="아이템 종류"><select className="login-input" value={form.itemType} onChange={(e) => changeType(e.target.value as MarketItemType)}>{Object.entries(TYPE_META).map(([value, meta]) => <option key={value} value={value}>{meta.emoji} {meta.label}</option>)}</select></Field>
+          <Field label="아이템 종류"><select className="login-input" value={form.itemType} onChange={(e) => changeType(e.target.value as MarketItemType)}>{Object.entries(TYPE_META).filter(([value]) => value !== 'CONSUMABLE').map(([value, meta]) => <option key={value} value={value}>{meta.emoji} {meta.label}</option>)}</select></Field>
           <Field label="사용 방식"><select className="login-input" value={form.useMode} onChange={(e) => setForm({ ...form, useMode: e.target.value as MarketUseMode })}>{Object.entries(USE_META).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
           <Field label="가격 방식"><select className="login-input" value={form.pricingMode} onChange={(e) => setForm({ ...form, pricingMode: e.target.value as MarketPricingMode })}><option value="STOCK_DYNAMIC">재고연동 비선형</option><option value="FIXED">고정 가격</option></select></Field>
         </div>
