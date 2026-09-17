@@ -4,7 +4,6 @@ import type { RpcResult } from './student_rpc';
 export type DimensionalGateRelationStage = 'LOCKED' | 'STRANGER' | 'INTEREST' | 'AFFECTION' | 'TRUST';
 export type DimensionalGateRelationshipStatus = 'LOCKED' | 'NORMAL';
 export type DimensionalGateStoryScope = 'STANDARD' | 'MAJOR';
-export type DimensionalGateGateStatus = 'CONNECTED' | 'CONNECTING' | 'OUT_OF_RANGE';
 export type DimensionalGateResourceKind = 'EMOJI' | 'IMAGE' | 'ANIMATED_IMAGE';
 export type DimensionalGateCutType = 'TITLE' | 'NARRATION' | 'LINE' | 'CHOICE' | 'CG';
 export type DimensionalGateGalleryAssetType = 'STORY_CG' | 'SPECIAL_CG';
@@ -29,8 +28,6 @@ export interface DimensionalGateRosterRow {
   chat_count: number;
   remaining_chat_count: number;
   story_scope: DimensionalGateStoryScope;
-  gate_status: DimensionalGateGateStatus;
-  publication_ready: boolean;
   gate_enabled: boolean;
 }
 

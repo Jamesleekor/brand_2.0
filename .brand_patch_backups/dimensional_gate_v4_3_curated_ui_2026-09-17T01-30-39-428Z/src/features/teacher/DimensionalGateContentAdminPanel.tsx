@@ -18,7 +18,6 @@ import { cn } from '@/lib/utils/cn';
 interface Props { characters: TeacherCharacterRow[]; }
 
 type ProfileForm = {
-  gateStatus: 'CONNECTED' | 'CONNECTING' | 'OUT_OF_RANGE';
   isActive: boolean;
   storyScope: 'STANDARD' | 'MAJOR';
   dailyChatLimit: string;
@@ -35,7 +34,7 @@ type ProfileForm = {
 };
 
 const blankProfile: ProfileForm = {
-  gateStatus: 'OUT_OF_RANGE', isActive: false, storyScope: 'STANDARD', dailyChatLimit: '3', startAffinity: '0', aiEnabled: true,
+  isActive: false, storyScope: 'STANDARD', dailyChatLimit: '3', startAffinity: '0', aiEnabled: true,
   systemPrompt: '', speakingStyle: '', expertise: 'general_brand', deflectRules: '', imageryRules: '',
   warningLine1: '', warningLine2: '', lockLine: '',
 };
@@ -112,7 +111,6 @@ export function DimensionalGateContentAdminPanel({ characters }: Props) {
     if (!data) return;
     const p = data.profile;
     setProfile(p ? {
-      gateStatus: p.gate_status ?? 'OUT_OF_RANGE',
       isActive: p.is_active,
       storyScope: p.story_scope,
       dailyChatLimit: String(p.daily_chat_limit),
@@ -147,7 +145,7 @@ export function DimensionalGateContentAdminPanel({ characters }: Props) {
     }
     setSaving('profile'); setMessage(null);
     const result = await dimensionalGateContentRpc.saveProfile(supabase, {
-      characterId: selectedId, gateStatus: profile.gateStatus, isActive: profile.isActive, storyScope: profile.storyScope,
+      characterId: selectedId, isActive: profile.isActive, storyScope: profile.storyScope,
       dailyChatLimit: daily, startAffinity: start, aiEnabled: profile.aiEnabled,
       systemPrompt: profile.systemPrompt, speakingStyle: profile.speakingStyle,
       expertise: profile.expertise.split(',').map((v) => v.trim()).filter(Boolean),
@@ -310,31 +308,7 @@ export function DimensionalGateContentAdminPanel({ characters }: Props) {
           <div className="rounded-card-lg border border-line bg-bg-card p-4">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div><h2 className="font-display text-lg text-white">{selected.name} · 차원관문 콘텐츠</h2><p className="text-[10px] font-bold text-text-muted">{selected.character_uid} · 만남 이벤트 {episodeCount}편 / 권장 {recommended} · 화첩 {query.data?.gallery_count ?? 0}장</p></div>
-              <label className="flex items-center gap-2 text-xs font-black text-text-secondary"><input type="checkbox" checked={profile.isActive} disabled={profile.gateStatus !== 'CONNECTED' || !extrasQuery.data?.health.ready_for_release} onChange={(e) => setProfile((p) => ({ ...p, isActive: e.target.checked }))} /> 학생 이용 공개</label>
-            </div>
-            <div className="mt-3">
-              <div className="mb-1.5 text-[9px] font-black uppercase tracking-[0.14em] text-text-muted">관문 상태</div>
-              <div className="grid grid-cols-3 gap-2">
-                {([
-                  ['OUT_OF_RANGE', '연결 범위 밖', '현재 관측 대상이 아님'],
-                  ['CONNECTING', '연결 시도 중', '제작·관측 준비 단계'],
-                  ['CONNECTED', '연결됨', '관문에 안정적으로 연결'],
-                ] as const).map(([value, label, hint]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setProfile((p) => ({ ...p, gateStatus: value, isActive: value === 'CONNECTED' ? p.isActive : false }))}
-                    className={cn(
-                      'rounded-card-md border px-3 py-2.5 text-left transition-colors',
-                      profile.gateStatus === value ? 'border-violet-300/45 bg-violet-500/10' : 'border-line bg-bg-deep hover:border-violet-300/25',
-                    )}
-                  >
-                    <div className="text-xs font-black text-white">{label}</div>
-                    <div className="mt-0.5 text-[9px] font-bold text-text-muted">{hint}</div>
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2 text-[9px] font-bold leading-relaxed text-text-muted">학생 이용 공개는 ‘연결됨’ 상태이면서 AI 프로필·기억·보상·만남 이벤트의 공개 기준을 모두 충족했을 때만 활성화됩니다.</p>
+              <label className="flex items-center gap-2 text-xs font-black text-text-secondary"><input type="checkbox" checked={profile.isActive} onChange={(e) => setProfile((p) => ({ ...p, isActive: e.target.checked }))} /> 차원관문 공개</label>
             </div>
             {message && <div className="mt-3 rounded-card-md border border-brand-primary/25 bg-brand-primary/10 px-3 py-2 text-[10px] font-black text-brand-glow">{message}</div>}
             {extrasQuery.data?.health && <ContentHealthBanner health={extrasQuery.data.health} />}

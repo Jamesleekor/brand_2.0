@@ -50,17 +50,11 @@ export default function DimensionalGatePanel() {
   }, [liminelQuery.data]);
 
   const roster = rosterQuery.data ?? [];
-  const grouped = useMemo(() => {
-    const sortRows = (rows: DimensionalGateRosterRow[]) => [...rows].sort((a, b) => {
-      if (a.is_owned !== b.is_owned) return a.is_owned ? -1 : 1;
-      return a.name.localeCompare(b.name, 'ko-KR');
-    });
-    return {
-      connected: sortRows(roster.filter((row) => row.gate_status === 'CONNECTED')),
-      connecting: sortRows(roster.filter((row) => row.gate_status === 'CONNECTING')),
-      outOfRange: sortRows(roster.filter((row) => row.gate_status === 'OUT_OF_RANGE')),
-    };
-  }, [roster]);
+  const ordered = useMemo(() => [...roster].sort((a, b) => {
+    if (a.is_owned !== b.is_owned) return a.is_owned ? -1 : 1;
+    if (a.gate_enabled !== b.gate_enabled) return a.gate_enabled ? -1 : 1;
+    return a.name.localeCompare(b.name, 'ko-KR');
+  }), [roster]);
 
   if (rosterQuery.isLoading) {
     return <div className="flex min-h-[320px] items-center justify-center"><LoadingSpinner size="lg" /></div>;
@@ -72,74 +66,51 @@ export default function DimensionalGatePanel() {
         <div className="mb-2 text-3xl">🌀</div>
         <p className="text-sm font-black text-text-primary">차원관문을 불러오지 못했어요.</p>
         <p className="mt-1 text-xs text-text-secondary">차원관문 서버 기반이 아직 적용되지 않았거나 연결이 잠시 불안정할 수 있어요.</p>
-        <button type="button" onClick={() => { void rosterQuery.refetch(); }} className="mt-4 rounded-pill border border-line bg-bg-deep px-4 py-2 text-xs font-black text-text-primary">다시 불러오기</button>
+        <button
+          type="button"
+          onClick={() => { void rosterQuery.refetch(); }}
+          className="mt-4 rounded-pill border border-line bg-bg-deep px-4 py-2 text-xs font-black text-text-primary"
+        >
+          다시 불러오기
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-7">
-      <section
-        role="button"
-        tabIndex={0}
-        onClick={() => liminelQuery.data && setLiminelOpen(true)}
-        onKeyDown={(event) => { if ((event.key === 'Enter' || event.key === ' ') && liminelQuery.data) setLiminelOpen(true); }}
-        className="cursor-pointer overflow-hidden rounded-card-xl border border-violet-400/25 bg-gradient-to-br from-bg-card via-bg-card to-violet-500/10 shadow-card transition-colors hover:border-violet-300/40"
-      >
+    <div className="space-y-4">
+      <section role="button" tabIndex={0} onClick={() => liminelQuery.data && setLiminelOpen(true)} onKeyDown={(event) => { if ((event.key === 'Enter' || event.key === ' ') && liminelQuery.data) setLiminelOpen(true); }} className="cursor-pointer overflow-hidden rounded-card-xl border border-violet-400/25 bg-gradient-to-br from-bg-card via-bg-card to-violet-500/10 shadow-card transition-colors hover:border-violet-300/40">
         <div className="p-4 sm:p-5">
           <div className="flex items-start gap-3">
             <div className="grid h-12 w-12 flex-none place-items-center rounded-full border border-violet-300/30 bg-violet-500/10 text-2xl shadow-brand-sm">◈</div>
             <div className="min-w-0">
               <div className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-200/70">Arcanum Archivist</div>
               <h2 className="mt-0.5 font-display text-xl text-white">리미넬 옵스큐라</h2>
-              <p className="mt-2 max-w-3xl text-xs font-semibold leading-relaxed text-text-secondary">
-                리미넬은 모든 편린을 기록하지 않습니다. 오직 그의 흥미를 이끌어내 줄 존재의 편린만을 관심에 둡니다.
+              <p className="mt-1 text-xs font-semibold leading-relaxed text-text-secondary">
+                차원관문의 관리자이자 편린과 맺은 관계를 기록하는 기록관. 클릭하면 되찾은 기억과 신뢰의 기록을 확인할 수 있습니다.
               </p>
-              <p className="mt-1 text-[10px] font-bold text-violet-200/60">연결된 존재의 기억과 당신이 쌓아온 관계는 그의 기록 속에 남습니다.</p>
             </div>
           </div>
         </div>
       </section>
 
-      <GateSectionHeader
-        title="연결된 편린"
-        description="차원관문 너머로 존재가 선명하게 관측되는 편린입니다. 대화하고, 기억을 되찾으며, 그들의 이야기에 다가갈 수 있습니다."
-        counter={`관측 가능 ${grouped.connected.length}`}
-      />
-      {grouped.connected.length === 0 ? (
-        <EmptyGateState symbol="◇" text="아직 안정적으로 연결된 편린이 없습니다." />
-      ) : (
+      <section>
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-base font-black text-white">연결된 편린</h2>
+            <p className="mt-0.5 text-2xs font-bold text-text-muted">영입한 편린과 관계를 쌓고, 기억과 이야기를 되찾습니다.</p>
+          </div>
+          <div className="text-2xs font-black text-brand-primary">
+            {ordered.filter((row) => row.is_owned).length} / {ordered.length} 연결
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {grouped.connected.map((row) => (
-            <ConnectedGateCharacterCard
-              key={row.character_id}
-              row={row}
-              onClick={() => { if (row.is_owned && row.gate_enabled) setSelected(row); }}
-            />
+          {ordered.map((row) => (
+            <GateCharacterCard key={row.character_id} row={row} onClick={() => row.is_owned && setSelected(row)} />
           ))}
         </div>
-      )}
-
-      <div className="border-t border-line/60 pt-6">
-        <GateSectionHeader
-          title="연결 시도 중"
-          description="희미한 신호가 차원관문에 포착되고 있습니다. 아직 안정적인 연결에는 이르지 못했습니다."
-        />
-        {grouped.connecting.length === 0 ? (
-          <EmptyGateState symbol="◌" text="현재 포착된 새로운 신호가 없습니다." />
-        ) : (
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {grouped.connecting.map((row) => <PassiveGateCharacterCard key={row.character_id} row={row} mode="CONNECTING" />)}
-          </div>
-        )}
-      </div>
-
-      <div className="border-t border-line/60 pt-6">
-        <GateSectionHeader title="연결 범위 밖" description="리미넬의 시선이 아직 닿지 않은 편린들입니다." />
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
-          {grouped.outOfRange.map((row) => <PassiveGateCharacterCard key={row.character_id} row={row} mode="OUT_OF_RANGE" />)}
-        </div>
-      </div>
+      </section>
 
       {selected && <GateCharacterPreview row={selected} onClose={() => setSelected(null)} />}
       {liminelOpen && liminelQuery.data && <DimensionalGateLiminelModal record={liminelQuery.data} onClose={() => setLiminelOpen(false)} />}
@@ -147,64 +118,43 @@ export default function DimensionalGatePanel() {
   );
 }
 
-function GateSectionHeader({ title, description, counter }: { title: string; description: string; counter?: string }) {
-  return (
-    <div className="mb-3 flex items-end justify-between gap-3">
-      <div>
-        <h2 className="text-base font-black text-white">{title}</h2>
-        <p className="mt-0.5 max-w-3xl text-2xs font-bold leading-relaxed text-text-muted">{description}</p>
-      </div>
-      {counter && <div className="flex-none text-2xs font-black text-brand-primary">{counter}</div>}
-    </div>
-  );
-}
-
-function EmptyGateState({ symbol, text }: { symbol: string; text: string }) {
-  return (
-    <div className="grid min-h-28 place-items-center rounded-card-lg border border-dashed border-violet-300/15 bg-bg-card/35 px-4 py-6 text-center">
-      <div>
-        <div className="text-2xl text-violet-200/45">{symbol}</div>
-        <p className="mt-2 text-[11px] font-bold text-text-muted">{text}</p>
-      </div>
-    </div>
-  );
-}
-
-function ConnectedGateCharacterCard({ row, onClick }: { row: DimensionalGateRosterRow; onClick: () => void }) {
+function GateCharacterCard({ row, onClick }: { row: DimensionalGateRosterRow; onClick: () => void }) {
   const image = getCharacterImage(row);
-  const canEnter = row.is_owned && row.gate_enabled;
+  const disabled = !row.is_owned;
   const pct = Math.max(0, Math.min(100, row.affinity));
 
   return (
     <motion.button
       type="button"
-      whileTap={canEnter ? { scale: 0.97 } : undefined}
+      whileTap={disabled ? undefined : { scale: 0.97 }}
       onClick={onClick}
-      disabled={!canEnter}
+      disabled={disabled}
       className={cn(
         'overflow-hidden rounded-card-lg border bg-bg-card text-left shadow-card transition-all',
-        canEnter ? 'border-violet-300/25 hover:border-brand-primary/55 hover:shadow-brand-sm' : 'cursor-default border-violet-300/15',
+        disabled ? 'cursor-default border-line opacity-55' : 'border-line hover:border-brand-primary/45 hover:shadow-brand-sm',
       )}
     >
       <div className="relative aspect-[3/4] overflow-hidden bg-bg-deep">
         {image ? (
-          <img src={image} alt="" className={cn('h-full w-full object-cover object-top', !row.is_owned && 'grayscale opacity-65')} />
+          <img src={image} alt="" className={cn('h-full w-full object-cover object-top', disabled && 'grayscale')} />
         ) : (
-          <div className="grid h-full place-items-center text-4xl text-text-muted">{row.is_owned ? '✦' : '？'}</div>
+          <div className="grid h-full place-items-center text-4xl text-text-muted">{disabled ? '？' : '✦'}</div>
         )}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-2.5 pb-2.5 pt-10">
-          <div className="truncate text-sm font-black text-white">{row.is_owned ? row.name : '???'}</div>
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-2.5 pb-2.5 pt-10">
+          <div className="truncate text-sm font-black text-white">{row.name}</div>
           <div className="mt-0.5 flex items-center justify-between gap-1 text-[10px] font-black">
-            <span className={row.is_owned ? relationTone(row.relation_stage) : 'text-text-muted'}>{row.is_owned ? DIMENSIONAL_GATE_RELATION_LABEL[row.relation_stage] : '연결 신호 감지'}</span>
-            {row.is_owned && <span className="text-white/70">{pct}/100</span>}
+            <span className={disabled ? 'text-text-muted' : relationTone(row.relation_stage)}>
+              {DIMENSIONAL_GATE_RELATION_LABEL[row.relation_stage]}
+            </span>
+            {!disabled && <span className="text-white/70">{pct}/100</span>}
           </div>
         </div>
       </div>
       <div className="p-2.5">
-        {!row.is_owned ? (
-          <div className="text-[10px] font-bold text-text-muted">편린을 먼저 만나야 합니다.</div>
+        {disabled ? (
+          <div className="text-[10px] font-bold text-text-muted">영입 후 차원관문 연결</div>
         ) : !row.gate_enabled ? (
-          <div className="text-[10px] font-black text-violet-200/75">◈ 연결 안정 · 기록 봉인</div>
+          <div className="text-[10px] font-bold text-warning">차원관문 콘텐츠 준비 중</div>
         ) : row.status === 'LOCKED' ? (
           <div className="text-[10px] font-bold text-danger">🔒 관계 잠김</div>
         ) : (
@@ -212,41 +162,11 @@ function ConnectedGateCharacterCard({ row, onClick }: { row: DimensionalGateRost
             <div className="h-1.5 overflow-hidden rounded-pill bg-bg-deep">
               <div className="h-full rounded-pill bg-gradient-to-r from-violet-500 to-brand-primary" style={{ width: `${pct}%` }} />
             </div>
-            <div className="mt-1.5 flex items-center justify-between gap-2 text-[9px] font-bold text-text-muted">
-              <span>◈ 연결 안정</span><span>오늘 남은 대화 {row.remaining_chat_count}회</span>
-            </div>
+            <div className="mt-1.5 text-[9px] font-bold text-text-muted">오늘 남은 대화 {row.remaining_chat_count}회</div>
           </>
         )}
       </div>
     </motion.button>
-  );
-}
-
-function PassiveGateCharacterCard({ row, mode }: { row: DimensionalGateRosterRow; mode: 'CONNECTING' | 'OUT_OF_RANGE' }) {
-  const image = getCharacterImage(row);
-  const connecting = mode === 'CONNECTING';
-  return (
-    <div className={cn('overflow-hidden rounded-card-lg border bg-bg-card/60', connecting ? 'border-violet-300/15' : 'border-line/60 opacity-80')}>
-      <div className="relative aspect-[3/4] overflow-hidden bg-bg-deep">
-        {image ? (
-          <img
-            src={image}
-            alt=""
-            className={cn(
-              'h-full w-full object-cover object-top',
-              connecting ? 'saturate-50 brightness-75 opacity-85' : 'grayscale brightness-75 opacity-75',
-            )}
-          />
-        ) : <div className="grid h-full place-items-center text-3xl text-text-muted">◇</div>}
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent px-2.5 pb-2.5 pt-8">
-          <div className={cn('truncate font-black text-white', connecting ? 'text-sm' : 'text-xs')}>{row.name}</div>
-        </div>
-        {connecting && <div className="pointer-events-none absolute inset-0 border border-violet-300/10 bg-[radial-gradient(circle_at_50%_45%,rgba(139,92,246,0.08),transparent_58%)]" />}
-      </div>
-      <div className={cn('font-black', connecting ? 'px-2.5 py-2.5 text-[10px] text-violet-200/70' : 'px-2 py-2 text-[9px] text-text-muted')}>
-        {connecting ? '◌ 연결 시도 중' : '연결 범위 밖'}
-      </div>
-    </div>
   );
 }
 

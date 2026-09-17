@@ -84,7 +84,6 @@ export interface DimensionalGateContentProfile {
   warning_line_2: string | null;
   lock_line: string | null;
   story_scope: 'STANDARD' | 'MAJOR';
-  gate_status: 'CONNECTED' | 'CONNECTING' | 'OUT_OF_RANGE';
   is_active: boolean;
 }
 
@@ -135,7 +134,6 @@ export interface DimensionalGateContentDetail {
 export interface SaveDimensionalGateProfileInput {
   characterId: number;
   isActive: boolean;
-  gateStatus: 'CONNECTED' | 'CONNECTING' | 'OUT_OF_RANGE';
   storyScope: 'STANDARD' | 'MAJOR';
   dailyChatLimit: number;
   startAffinity: number;
@@ -157,7 +155,6 @@ export const dimensionalGateContentRpc = {
   saveProfile: (client: SupabaseClient, input: SaveDimensionalGateProfileInput) =>
     callRpc<void>(client, 'teacher_save_dimensional_gate_profile', {
       p_character_id: input.characterId,
-      p_gate_status: input.gateStatus,
       p_is_active: input.isActive,
       p_story_scope: input.storyScope,
       p_daily_chat_limit: input.dailyChatLimit,
@@ -266,8 +263,6 @@ export interface DimensionalGateContentHealth {
   active_story_cg_count: number;
   active_special_cg_count: number;
   ready_for_release: boolean;
-  gate_status?: 'CONNECTED' | 'CONNECTING' | 'OUT_OF_RANGE';
-  published?: boolean;
 }
 
 export interface DimensionalGateContentExtras {
