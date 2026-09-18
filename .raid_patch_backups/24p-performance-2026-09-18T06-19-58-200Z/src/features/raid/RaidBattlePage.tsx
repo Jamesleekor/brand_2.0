@@ -23,7 +23,6 @@ import { useRaidTapBatcher } from '@/features/raid/hooks/useRaidTapBatcher';
 // RAID_V15_E15_BOSS_ATTACK_RUNTIME
 // RAID_V15_E2_WEAK_BREAK_GROGGY_ENRAGE
 // RAID_V15_E3C_SPECIAL_PATTERN_UI
-// RAID_V15_24P_CONCURRENCY_BATTLE_HOTFIX
 
 type ImpactTier = 'normal' | 'crit' | 'powerful' | 'devastating';
 
@@ -94,9 +93,8 @@ export default function RaidBattlePage() {
       if (result.success === false) throw new Error(result.error);
       return result.data;
     },
-    // Attack RPC responses already update local HP immediately; 1.5s polling is enough for reconciliation.
-    staleTime: 900,
-    refetchInterval: 1500,
+    staleTime: 300,
+    refetchInterval: 1000,
     refetchOnWindowFocus: true,
   });
 
@@ -145,20 +143,14 @@ export default function RaidBattlePage() {
       }
     };
 
-    // Do not let 24 devices fire the scheduler RPC on the same millisecond.
-    let timer: number | null = null;
-    const starter = window.setTimeout(() => {
-      if (cancelled) return;
+    void runTick();
+    const timer = window.setInterval(() => {
       void runTick();
-      timer = window.setInterval(() => {
-        void runTick();
-      }, 1200);
-    }, 250 + Math.floor(Math.random() * 750));
+    }, 1000);
 
     return () => {
       cancelled = true;
-      window.clearTimeout(starter);
-      if (timer !== null) window.clearInterval(timer);
+      window.clearInterval(timer);
     };
   }, [queryClient, raidId, state?.raid.status]);
 

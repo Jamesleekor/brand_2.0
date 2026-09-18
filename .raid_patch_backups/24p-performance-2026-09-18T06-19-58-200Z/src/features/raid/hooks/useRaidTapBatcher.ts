@@ -7,8 +7,6 @@ import {
 } from '@/lib/rpc/raid_student_rpc';
 import { supabase } from '@/lib/supabase/client';
 
-// RAID_V15_24P_CONCURRENCY_CLIENT_HOTFIX
-
 interface PendingBatch {
   id: string;
   taps: RaidTapInput[];
@@ -42,8 +40,6 @@ export function useRaidTapBatcher({
   const mountedRef = useRef(true);
   const onResultRef = useRef(onResult);
   const onErrorRef = useRef(onError);
-  // Spread 24 Chromebooks across the second instead of synchronizing every 250ms.
-  const batchIntervalMsRef = useRef(950 + Math.floor(Math.random() * 250));
 
   useEffect(() => {
     enabledRef.current = enabled;
@@ -65,8 +61,7 @@ export function useRaidTapBatcher({
       if (queueRef.current.length === 0) return;
       pending = {
         id: makeBatchId(),
-        // Current Raid tap cap is 5~7/s. One compact batch per second avoids DB row-lock storms.
-        taps: queueRef.current.splice(0, 7),
+        taps: queueRef.current.splice(0, 25),
         attempts: 0,
       };
     }
@@ -108,7 +103,7 @@ export function useRaidTapBatcher({
     mountedRef.current = true;
     const timer = window.setInterval(() => {
       void flush();
-    }, batchIntervalMsRef.current);
+    }, 250);
 
     return () => {
       mountedRef.current = false;
@@ -123,8 +118,7 @@ export function useRaidTapBatcher({
     if (!enabledRef.current) return false;
 
     // Keep a bounded client queue even if a Chromebook produces accidental burst input.
-    // Keep at most about three seconds of valid-rate input; never build a long latency backlog.
-    if (queueRef.current.length >= 21) return false;
+    if (queueRef.current.length >= 80) return false;
 
     queueRef.current.push(tap);
     return true;
