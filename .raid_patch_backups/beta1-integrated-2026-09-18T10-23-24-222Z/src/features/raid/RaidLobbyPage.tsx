@@ -20,7 +20,6 @@ import {
 import { cn } from '@/lib/utils/cn';
 import { useRaidLobbyRealtime } from '@/features/raid/hooks/useRaidLobbyRealtime';
 
-// RAID_BETA1_LOBBY_PRESENCE_CHAT_FIX_20260918
 type BubbleState = Record<number, RaidLobbyMessage>;
 
 type LobbyPlayer = RaidLobbyMe & { joined_at: string };
@@ -66,7 +65,6 @@ export default function RaidLobbyPage() {
   const [messages, setMessages] = useState<RaidLobbyMessage[]>([]);
   const [bubbles, setBubbles] = useState<BubbleState>({});
   const bubbleTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
-  const chatScrollRef = useRef<HTMLDivElement | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -186,12 +184,6 @@ export default function RaidLobbyPage() {
     });
   }, [snapshot?.recent_messages]);
 
-  useEffect(() => {
-    const el = chatScrollRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
-
   useEffect(
     () => () => {
       Object.values(bubbleTimers.current).forEach((timer) => clearTimeout(timer));
@@ -200,18 +192,25 @@ export default function RaidLobbyPage() {
   );
 
   const displayPlayers = useMemo<LobbyPlayer[]>(() => {
-    const presenceByStudent = new Map<number, { student_id: number; joined_at: string }>();
-    (snapshot?.present_players ?? []).forEach((player) => {
-      presenceByStudent.set(player.student_id, { student_id: player.student_id, joined_at: player.joined_at });
-    });
-    realtime.players.forEach((player) => presenceByStudent.set(player.student_id, player));
+    const presenceByStudent = new Map(
+      realtime.players.map((player) => [player.student_id, player]),
+    );
     if (me && !presenceByStudent.has(me.student_id)) {
-      presenceByStudent.set(me.student_id, { student_id: me.student_id, joined_at: new Date().toISOString() });
+      presenceByStudent.set(me.student_id, {
+        student_id: me.student_id,
+        joined_at: new Date().toISOString(),
+      });
     }
+
     return (snapshot?.roster ?? [])
       .filter((student) => presenceByStudent.has(student.student_id))
-      .map((student) => ({ ...student, joined_at: presenceByStudent.get(student.student_id)?.joined_at ?? new Date().toISOString() }));
-  }, [me, realtime.players, snapshot?.present_players, snapshot?.roster]);
+      .map((student) => ({
+        ...student,
+        joined_at:
+          presenceByStudent.get(student.student_id)?.joined_at ??
+          new Date().toISOString(),
+      }));
+  }, [me, realtime.players, snapshot?.roster]);
 
   const layout = useMemo(
     () => buildLobbyLayout(displayPlayers),
@@ -325,7 +324,7 @@ export default function RaidLobbyPage() {
         </div>
       </header>
 
-      <div className="relative z-10 grid min-h-[calc(100vh-64px)] xl:h-[calc(100vh-64px)] xl:grid-cols-[minmax(0,1fr)_330px]">
+      <div className="relative z-10 grid min-h-[calc(100vh-64px)] xl:grid-cols-[minmax(0,1fr)_330px]">
         <main className="relative min-h-[690px] overflow-hidden">
           <div
             className="pointer-events-none absolute inset-x-0 bottom-0 h-[34%]"
@@ -366,7 +365,7 @@ export default function RaidLobbyPage() {
           </div>
         </main>
 
-        <aside className="relative z-20 flex min-h-[520px] flex-col border-l border-cyan-300/20 bg-[#07111f]/92 backdrop-blur xl:min-h-0">
+        <aside className="relative z-20 flex min-h-[520px] flex-col border-l border-cyan-300/20 bg-[#07111f]/92 backdrop-blur">
           <div className="border-b border-cyan-300/20 p-4">
             <div className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100">
               관문 대화
@@ -377,7 +376,7 @@ export default function RaidLobbyPage() {
             </div>
           </div>
 
-          <div ref={chatScrollRef} className="min-h-0 flex-1 space-y-1.5 overflow-x-hidden overflow-y-auto p-3">
+          <div className="flex-1 space-y-2 overflow-y-auto p-3">
             {messages.length === 0 ? (
               <div className="rounded-card-md border border-dashed border-cyan-300/25 bg-cyan-500/5 p-5 text-center">
                 <div className="text-2xl">💬</div>
@@ -646,11 +645,29 @@ function ChatMessage({
   isMe: boolean;
 }) {
   return (
-    <div className={cn('rounded-card-md border px-3 py-2', isMe ? 'border-yellow-300/30 bg-yellow-500/10' : 'border-cyan-300/20 bg-cyan-500/5')}>
-      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2 text-xs leading-5">
-        <span className={cn('max-w-[92px] truncate font-black', isMe ? 'text-yellow-100' : 'text-cyan-100')}>{message.brand_name || message.student_name}</span>
-        <span className="min-w-0 break-all font-bold text-white [overflow-wrap:anywhere]">{message.message}</span>
-        <span className="whitespace-nowrap text-[10px] font-bold text-white/70">{formatTime(message.created_at)}</span>
+    <div
+      className={cn(
+        'rounded-card-md border px-3 py-2',
+        isMe
+          ? 'border-yellow-300/30 bg-yellow-500/10'
+          : 'border-cyan-300/20 bg-cyan-500/5',
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className={cn(
+            'truncate text-[10px] font-black',
+            isMe ? 'text-yellow-100' : 'text-cyan-100',
+          )}
+        >
+          {message.brand_name || message.student_name}
+        </span>
+        <span className="text-[9px] font-bold text-white/75">
+          {formatTime(message.created_at)}
+        </span>
+      </div>
+      <div className="mt-1 break-words text-xs font-bold leading-5 text-white">
+        {message.message}
       </div>
     </div>
   );

@@ -1,5 +1,4 @@
 // RAID_V15_E4D_AUDIO_ENGINE
-// RAID_BETA1_BROADCAST_AUDIO_FIX_20260918
 import type { RaidStatus, TeacherRaidAudioProfile } from '@/lib/rpc/raid_admin_rpc';
 
 type FeedbackTier = 'NORMAL' | 'CRIT' | 'POWERFUL' | 'DEVASTATING';
@@ -65,12 +64,10 @@ export class RaidBroadcastAudioEngine {
   private muted = false;
   private nextAllowedAt = new Map<string, number>();
   private timers = new Set<number>();
-  private sfxPools = new Map<string, HTMLAudioElement[]>();
 
   setProfile(profile: TeacherRaidAudioProfile | null | undefined) {
     this.profile = profile ?? DEFAULT_PROFILE;
     this.applyVolumes();
-    if (this.unlocked) this.prepareSfxPools();
   }
 
   isUnlocked() {
@@ -103,7 +100,6 @@ export class RaidBroadcastAudioEngine {
     }
     if (this.context.state !== 'running') await this.context.resume();
     this.unlocked = true;
-    this.prepareSfxPools();
     this.playSilentUnlockPulse();
     return true;
   }
@@ -159,8 +155,6 @@ export class RaidBroadcastAudioEngine {
     }
     if (this.context) void this.context.close().catch(() => undefined);
     this.context = null;
-    for (const pool of this.sfxPools.values()) { for (const audio of pool) { audio.pause(); audio.src = ''; } }
-    this.sfxPools.clear();
     this.unlocked = false;
   }
 
@@ -223,8 +217,8 @@ export class RaidBroadcastAudioEngine {
       this.playSfx('barrier_critical_sfx_url', 'barrier_collapse', 'boss', 1);
       return;
     }
-    if (event === 'PATTERN_STARTED') {
-      if (this.allow('pattern-start', 700, 1000)) this.playSfx('break_start_sfx_url', 'break_start', 'ui', 0.90);
+    if (event === 'PATTERN_STARTED' && (patternType === 'BREAK' || patternType === 'ULTIMATE')) {
+      if (this.allow('break-start', 900, 1200)) this.playSfx('break_start_sfx_url', 'break_start', 'ui', 0.84);
       return;
     }
     if (event === 'BREAK_SUCCESS' || event === 'ULTIMATE_SUCCESS') {
@@ -236,11 +230,11 @@ export class RaidBroadcastAudioEngine {
       return;
     }
     if (event.endsWith('_SUCCESS') || event === 'GROGGY_STARTED') {
-      if (this.allow('mechanic-success', 520, 780)) this.playSfx('break_success_sfx_url', 'ui_success', 'ui', 0.90);
+      if (this.allow('mechanic-success', 520, 780)) this.synth('ui_success', 'ui', 0.58);
       return;
     }
     if (event.endsWith('_FAILED')) {
-      if (this.allow('mechanic-fail', 520, 780)) this.playSfx('break_fail_sfx_url', 'ui_fail', 'ui', 0.90);
+      if (this.allow('mechanic-fail', 520, 780)) this.synth('ui_fail', 'ui', 0.62);
     }
   }
 
@@ -282,38 +276,15 @@ export class RaidBroadcastAudioEngine {
     return null;
   }
 
-  private resolveSfxUrl(slot: SfxSlot) {
-    const direct = this.profile[slot];
-    if (direct) return direct;
-    if (slot === 'devastating_hit_sfx_url') return this.profile.powerful_hit_sfx_url || this.profile.crit_hit_sfx_url || this.profile.normal_hit_sfx_url;
-    if (slot === 'powerful_hit_sfx_url') return this.profile.crit_hit_sfx_url || this.profile.normal_hit_sfx_url;
-    if (slot === 'crit_hit_sfx_url') return this.profile.normal_hit_sfx_url;
-    return null;
-  }
-
-  private prepareSfxPools() {
-    const urls = new Set<string>();
-    const slots: SfxSlot[] = ['raid_start_sfx_url','normal_hit_sfx_url','crit_hit_sfx_url','powerful_hit_sfx_url','devastating_hit_sfx_url','break_start_sfx_url','break_success_sfx_url','break_fail_sfx_url','barrier_hit_sfx_url','barrier_critical_sfx_url'];
-    for (const slot of slots) { const url = this.resolveSfxUrl(slot); if (url) urls.add(url); }
-    for (const url of urls) {
-      if (this.sfxPools.has(url)) continue;
-      this.sfxPools.set(url, Array.from({ length: 4 }, () => { const audio = new Audio(url); audio.preload = 'auto'; audio.load(); return audio; }));
-    }
-  }
-
   private playSfx(slot: SfxSlot, synthKind: string, channel: SfxChannel, multiplier: number) {
-    const url = this.resolveSfxUrl(slot);
+    const url = this.profile[slot];
     if (url) {
-      let pool = this.sfxPools.get(url);
-      if (!pool) { this.prepareSfxPools(); pool = this.sfxPools.get(url); }
-      const audio = pool?.find((item) => item.paused || item.ended) ?? pool?.[0];
-      if (audio) {
-        try { audio.pause(); audio.currentTime = 0; } catch {}
-        audio.volume = Math.min(1, this.externalSfxVolume(multiplier));
-        audio.muted = this.muted;
-        void audio.play().catch(() => this.synth(synthKind, channel, multiplier));
-        return;
-      }
+      const audio = new Audio(url);
+      audio.preload = 'auto';
+      audio.volume = Math.min(1, this.externalSfxVolume(multiplier));
+      audio.muted = this.muted;
+      void audio.play().catch(() => this.synth(synthKind, channel, multiplier));
+      return;
     }
     this.synth(synthKind, channel, multiplier);
   }

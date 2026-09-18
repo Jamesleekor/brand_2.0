@@ -3,8 +3,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 
 import { LoadingSpinner, useRpcCall } from '@/components/shared/components';
-
-// RAID_BETA1_REWARD_CONFIG_UI_20260918
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { raidAdminRpc, type RaidEditorPayload, type RaidElement, type RaidStatus, type TeacherRaidDetail, type TeacherRaidLiveDashboard } from '@/lib/rpc/raid_admin_rpc';
 import { supabase } from '@/lib/supabase/client';
@@ -27,8 +25,6 @@ type RaidForm = {
   varianceMax: string;
   critMultiplier: string;
   tapRateLimit: string;
-  baseRewardGold: string;
-  rewardsEnabled: boolean;
   chatEnabled: boolean;
   chatSlowMode: string;
   includeTestAccounts: boolean;
@@ -57,8 +53,6 @@ const EMPTY_FORM: RaidForm = {
   varianceMax: '1.10',
   critMultiplier: '2.0',
   tapRateLimit: '10',
-  baseRewardGold: '300',
-  rewardsEnabled: true,
   chatEnabled: true,
   chatSlowMode: '2',
   includeTestAccounts: false,
@@ -166,7 +160,6 @@ export default function RaidControlPage() {
     const critMultiplier = Number(form.critMultiplier);
     const tapRateLimit = Number(form.tapRateLimit);
     const chatSlowMode = Number(form.chatSlowMode);
-    const baseRewardGold = Number(form.baseRewardGold);
 
     if (!form.title.trim()) {
       window.alert('레이드 제목을 입력해주세요.');
@@ -200,10 +193,6 @@ export default function RaidControlPage() {
       window.alert('채팅 간격은 0~60초 범위의 정수로 입력해주세요.');
       return null;
     }
-    if (!Number.isInteger(baseRewardGold) || baseRewardGold < 0 || baseRewardGold > 10000000) {
-      window.alert('토벌 기본 보상은 0~10,000,000 GOLD 범위의 정수로 입력해주세요.');
-      return null;
-    }
 
     return {
       title: form.title.trim(),
@@ -222,7 +211,7 @@ export default function RaidControlPage() {
       include_test_accounts: form.includeTestAccounts,
       image_url: form.imageUrl.trim() || null,
       loop_video_url: form.loopVideoUrl.trim() || null,
-      reward_config: { ...(detail?.raid.reward_config ?? {}), base_gold: baseRewardGold, rewards_enabled: form.rewardsEnabled },
+      reward_config: detail?.raid.reward_config ?? {},
       metadata: detail?.raid.metadata ?? {},
     };
   };
@@ -534,12 +523,7 @@ export default function RaidControlPage() {
                     onSave={save}
                   />
 
-                  <RaidV15ConfigPanel
-                    raidId={detail.raid.id}
-                    raidStatus={detail.raid.status}
-                    bossImageUrl={detail.phases.find((phase) => phase.phase_no === 1)?.image_url ?? null}
-                    bossVideoUrl={detail.phases.find((phase) => phase.phase_no === 1)?.loop_video_url ?? null}
-                  />
+                  <RaidV15ConfigPanel raidId={detail.raid.id} raidStatus={detail.raid.status} />
 
                   <RaidStateControl
                     detail={detail}
@@ -854,13 +838,6 @@ function RaidEditor({
           <Field label="초당 터치 제한">
             <input type="number" min={1} max={30} step={1} value={form.tapRateLimit} disabled={!editable} onChange={(e) => update('tapRateLimit', e.target.value)} className={inputClass(true)} />
           </Field>
-          <Field label="토벌 기본 보상(GOLD)" hint="성공 시 기본 지급액">
-            <input type="number" min={0} max={10000000} step={10} value={form.baseRewardGold} disabled={!editable} onChange={(e) => update('baseRewardGold', e.target.value)} className={inputClass(true)} />
-          </Field>
-          <label className="flex items-center gap-2 rounded-card-md border border-yellow-300/20 bg-yellow-500/5 px-3 py-2">
-            <input type="checkbox" checked={form.rewardsEnabled} disabled={!editable} onChange={(e) => update('rewardsEnabled', e.target.checked)} className="h-4 w-4 accent-yellow-300" />
-            <span className="text-xs font-black text-yellow-100">보상 지급 사용 <span className="font-bold text-cyan-100">(베타 테스트는 OFF)</span></span>
-          </label>
         </div>
         <p className="mt-3 text-xs font-bold text-cyan-100">
           기본 피해 = 공명력 × 피해 계수 × 랜덤 보정 × 부위 배율. 치명타는 현재 기본 ×{form.critMultiplier || '2.0'}.
@@ -1389,8 +1366,6 @@ function formFromDetail(detail: TeacherRaidDetail): RaidForm {
     varianceMax: String(detail.raid.variance_max),
     critMultiplier: String(detail.raid.crit_multiplier),
     tapRateLimit: String(detail.raid.tap_rate_limit_per_second),
-    baseRewardGold: String(Number(detail.raid.reward_config?.base_gold ?? 300)),
-    rewardsEnabled: detail.raid.reward_config?.rewards_enabled !== false,
     chatEnabled: detail.raid.chat_enabled,
     chatSlowMode: String(detail.raid.chat_slow_mode_seconds),
     includeTestAccounts: detail.raid.include_test_accounts,

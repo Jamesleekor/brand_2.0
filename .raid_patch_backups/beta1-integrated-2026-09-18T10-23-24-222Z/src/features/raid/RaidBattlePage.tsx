@@ -24,7 +24,6 @@ import { useRaidTapBatcher } from '@/features/raid/hooks/useRaidTapBatcher';
 // RAID_V15_E2_WEAK_BREAK_GROGGY_ENRAGE
 // RAID_V15_E3C_SPECIAL_PATTERN_UI
 // RAID_V15_24P_CONCURRENCY_BATTLE_HOTFIX
-// RAID_BETA1_PATTERN_DOCK_20260918
 
 type ImpactTier = 'normal' | 'crit' | 'powerful' | 'devastating';
 
@@ -1308,7 +1307,7 @@ function PatternWarningBanner({
     green: 'border-emerald-300/65 bg-emerald-950/[0.90] shadow-[0_0_38px_rgba(16,185,129,0.24)]',
   }[tone];
   return (
-    <div className={cn('pointer-events-none absolute left-1/2 z-[39] -translate-x-1/2 rounded-card-lg border-2 px-5 py-3 text-center backdrop-blur-md', 'top-20 w-[min(500px,52vw)]', toneClass)}>
+    <div className={cn('pointer-events-none absolute left-1/2 z-[39] -translate-x-1/2 rounded-card-lg border-2 px-5 py-3 text-center backdrop-blur-md', compact ? 'top-[18%] w-[min(590px,58vw)]' : 'top-[28%] w-[min(620px,60vw)]', toneClass)}>
       <div className="text-[10px] font-black tracking-[0.22em] text-white/80">{eyebrow}</div>
       <div className={cn('mt-1 font-display text-white', compact ? 'text-xl' : 'text-2xl')}>{title}</div>
       <div className="mt-1 text-xs font-black text-yellow-100">{description}</div>
@@ -1347,7 +1346,7 @@ function ObjectiveMissionHud({
     cyan: 'border-cyan-200/65 bg-cyan-950/[0.90]',
   }[tone];
   return (
-    <div className={cn('pointer-events-none absolute left-1/2 top-20 z-[39] w-[min(500px,52vw)] -translate-x-1/2 rounded-card-lg border-2 p-4 shadow-[0_0_38px_rgba(0,0,0,0.34)] backdrop-blur-md', toneClass)}>
+    <div className={cn('pointer-events-none absolute left-1/2 top-20 z-[39] w-[min(600px,58vw)] -translate-x-1/2 rounded-card-lg border-2 p-4 shadow-[0_0_38px_rgba(0,0,0,0.34)] backdrop-blur-md', toneClass)}>
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="text-[10px] font-black tracking-[0.2em] text-white/75">{eyebrow}</div>

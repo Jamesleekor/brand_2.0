@@ -52,13 +52,6 @@ export interface RaidLobbyMe {
   equipped_character_image_url: string | null;
 }
 
-// RAID_BETA1_LOBBY_PRESENCE_RPC_20260918
-export interface RaidLobbyPresenceSnapshot {
-  student_id: number;
-  joined_at: string;
-  last_seen_at: string;
-}
-
 export interface RaidLobbyMessage {
   id: number;
   student_id: number;
@@ -86,7 +79,6 @@ export interface RaidLobbySnapshot {
   };
   me: RaidLobbyMe;
   roster: RaidLobbyMe[];
-  present_players: RaidLobbyPresenceSnapshot[];
   recent_messages: RaidLobbyMessage[];
 }
 

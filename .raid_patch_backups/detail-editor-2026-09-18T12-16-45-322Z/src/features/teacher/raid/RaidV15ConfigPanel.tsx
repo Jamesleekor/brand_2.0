@@ -1,7 +1,6 @@
 // RAID_V15_E5_CONFIGURATION_PANEL
 // RAID_V15_CONFIGURATION_UX_CLEANUP_20260916
 // RAID_BETA1_AUDIO_LABEL_FIX_20260918
-// RAID_V15_DETAIL_EDITOR_AUDIO_DEFAULT_20260918
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -10,8 +9,6 @@ import { supabase } from '@/lib/supabase/client';
 import {
   raidV15AdminRpc,
   type RaidV15AudioProfile,
-  type RaidV15AudioUrlProfile,
-  type RaidV15DefaultAudioProfile,
   type RaidV15CombatConfig,
   type RaidV15Pattern,
   type RaidV15PatternType,
@@ -92,14 +89,12 @@ const TRIGGERS: Array<{ value: RaidV15TriggerKind; label: string }> = [
   { value: 'MANUAL', label: '수동 발동(MANUAL)' },
 ];
 
-export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, bossVideoUrl }: { raidId: number; raidStatus: RaidStatus; bossImageUrl?: string | null; bossVideoUrl?: string | null }) {
+export default function RaidV15ConfigPanel({ raidId, raidStatus }: { raidId: number; raidStatus: RaidStatus }) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>('COMBAT');
   const [combat, setCombat] = useState<RaidV15CombatConfig>(DEFAULT_COMBAT);
   const [patterns, setPatterns] = useState<RaidV15Pattern[]>([]);
   const [audio, setAudio] = useState<Omit<RaidV15AudioProfile, 'raid_id' | 'configured'>>(EMPTY_AUDIO);
-  const [defaultAudio, setDefaultAudio] = useState<RaidV15DefaultAudioProfile>({ lobby_bgm_url:null,battle_bgm_url:null,enrage_bgm_url:null,raid_start_sfx_url:null,raid_success_bgm_url:null,raid_failure_bgm_url:null,normal_hit_sfx_url:null,crit_hit_sfx_url:null,powerful_hit_sfx_url:null,devastating_hit_sfx_url:null,break_start_sfx_url:null,break_success_sfx_url:null,break_fail_sfx_url:null,barrier_hit_sfx_url:null,barrier_critical_sfx_url:null,configured:false });
-  const [audioScope, setAudioScope] = useState<'DEFAULT'|'OVERRIDE'>('OVERRIDE');
   const [loadedRaid, setLoadedRaid] = useState<number | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
 
@@ -126,9 +121,8 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
     if (!combatQuery.data || !audioQuery.data) return;
     setCombat({ ...DEFAULT_COMBAT, ...(combatQuery.data.config ?? {}) });
     setPatterns((combatQuery.data.patterns ?? []).map(normalizePattern));
-    const { raid_id: _raidId, configured: _configured, ...audioData } = audioQuery.data.override_profile;
+    const { raid_id: _raidId, configured: _configured, ...audioData } = audioQuery.data;
     setAudio({ ...EMPTY_AUDIO, ...audioData });
-    setDefaultAudio(audioQuery.data.default_profile);
     setLoadedRaid(raidId);
   }, [audioQuery.data, combatQuery.data, loadedRaid, raidId]);
 
@@ -195,18 +189,6 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
     }
   };
 
-  const saveDefaultAudio = async () => {
-    if (!editableAudio) return;
-    setSaving('DEFAULT_AUDIO');
-    try {
-      const { configured: _configured, ...payload } = defaultAudio;
-      const result = await raidV15AdminRpc.saveDefaultAudio(supabase, raidId, payload);
-      if (result.success === false) return window.alert(result.error);
-      window.alert('학급 공용 Raid 오디오 기본값을 저장했습니다.');
-      await refresh();
-    } finally { setSaving(null); }
-  };
-
   const saveAudio = async () => {
     if (!editableAudio) return;
     setSaving('AUDIO');
@@ -263,8 +245,6 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
             raidStatus={raidStatus}
             savingKey={saving}
             onTriggerManual={triggerManual}
-            bossImageUrl={bossImageUrl}
-            bossVideoUrl={bossVideoUrl}
           />
           <PatternSection
             title="보스(Boss) 특수 패턴"
@@ -278,11 +258,10 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
             onTriggerManual={triggerManual}
             special
           />
-          <PatternSummaryPanel patterns={patterns} />
           <div className="flex justify-end"><button type="button" onClick={savePatterns} disabled={!editableCombat || saving !== null} className="btn-primary text-base disabled:opacity-40">{saving === 'PATTERNS' ? '저장 중…' : '🧩 전체 패턴 저장'}</button></div>
         </div>
       ) : null}
-      {tab === 'AUDIO' ? <AudioEditor value={audio} defaultValue={defaultAudio} effectiveValue={audioQuery.data.effective_profile} scope={audioScope} onScopeChange={setAudioScope} onChange={setAudio} onDefaultChange={setDefaultAudio} disabled={!editableAudio} saving={saving} onSave={saveAudio} onSaveDefault={saveDefaultAudio} /> : null}
+      {tab === 'AUDIO' ? <AudioEditor value={audio} onChange={setAudio} disabled={!editableAudio} saving={saving === 'AUDIO'} onSave={saveAudio} /> : null}
     </section>
   );
 }
@@ -320,7 +299,7 @@ function CombatEditor({ value, onChange, disabled, saving, onSave }: { value: Ra
   );
 }
 
-function PatternSection({ title, description, patterns, allPatterns, setPatterns, disabled, raidStatus, savingKey, onTriggerManual, bossImageUrl, bossVideoUrl, special = false }: { title: string; description: string; patterns: RaidV15Pattern[]; allPatterns: RaidV15Pattern[]; setPatterns: (v: RaidV15Pattern[]) => void; disabled: boolean; raidStatus: RaidStatus; savingKey: string | null; onTriggerManual: (pattern: RaidV15Pattern) => void; bossImageUrl?: string | null; bossVideoUrl?: string | null; special?: boolean }) {
+function PatternSection({ title, description, patterns, allPatterns, setPatterns, disabled, raidStatus, savingKey, onTriggerManual, special = false }: { title: string; description: string; patterns: RaidV15Pattern[]; allPatterns: RaidV15Pattern[]; setPatterns: (v: RaidV15Pattern[]) => void; disabled: boolean; raidStatus: RaidStatus; savingKey: string | null; onTriggerManual: (pattern: RaidV15Pattern) => void; special?: boolean }) {
   const update = (target: RaidV15Pattern, next: RaidV15Pattern) => setPatterns(allPatterns.map((pattern) => pattern === target ? next : pattern));
   const remove = (target: RaidV15Pattern) => setPatterns(allPatterns.filter((pattern) => pattern !== target));
   const add = () => {
@@ -351,8 +330,6 @@ function PatternSection({ title, description, patterns, allPatterns, setPatterns
             canTriggerManual={raidStatus === 'ACTIVE' && pattern.trigger_kind === 'MANUAL' && Boolean(pattern.id)}
             triggering={savingKey === `TRIGGER-${pattern.id ?? 0}`}
             onTriggerManual={() => onTriggerManual(pattern)}
-            bossImageUrl={bossImageUrl}
-            bossVideoUrl={bossVideoUrl}
           />
         ))}
       </div>
@@ -360,36 +337,48 @@ function PatternSection({ title, description, patterns, allPatterns, setPatterns
   );
 }
 
-function PatternCard({ pattern, onChange, onDelete, disabled, common, canTriggerManual, triggering, onTriggerManual, bossImageUrl, bossVideoUrl }: { pattern: RaidV15Pattern; onChange: (p: RaidV15Pattern) => void; onDelete: () => void; disabled: boolean; common: boolean; canTriggerManual: boolean; triggering: boolean; onTriggerManual: () => void; bossImageUrl?: string | null; bossVideoUrl?: string | null }) {
-  const [collapsed, setCollapsed] = useState(Boolean(pattern.id));
+function PatternCard({ pattern, onChange, onDelete, disabled, common, canTriggerManual, triggering, onTriggerManual }: { pattern: RaidV15Pattern; onChange: (p: RaidV15Pattern) => void; onDelete: () => void; disabled: boolean; common: boolean; canTriggerManual: boolean; triggering: boolean; onTriggerManual: () => void }) {
   const set = <K extends keyof RaidV15Pattern>(key: K, value: RaidV15Pattern[K]) => onChange({ ...pattern, [key]: value });
   const allowedTypes = PATTERN_TYPES.filter((type) => common ? type.common : !type.common);
   const displayType = pattern.pattern_type === 'BOSS_STRIKE' ? 'ULTIMATE' : pattern.pattern_type;
   const changeType = (type: RaidV15PatternType) => onChange({ ...pattern, pattern_type: type, name: defaultPatternName(type), config: defaultPatternConfig(type) });
   const ratioTrigger = pattern.trigger_kind === 'HP_RATIO' || pattern.trigger_kind === 'BARRIER_RATIO';
   const displayTriggerValue = pattern.trigger_kind === 'MANUAL' ? 0 : ratioTrigger ? ratioToPercent(pattern.trigger_value) : pattern.trigger_value;
-  return <div className={cn('overflow-hidden rounded-card-md border', pattern.is_enabled ? 'border-cyan-300/30 bg-bg-deep' : 'border-amber-300/20 bg-black/20 opacity-70')}>
-    <button type="button" onClick={() => setCollapsed(!collapsed)} className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-white/[0.03]">
-      <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="rounded-full border border-cyan-300/25 px-2 py-0.5 text-sm font-black text-cyan-100">#{pattern.seq}</span><span className="truncate text-base font-black text-white">{pattern.name}</span><span className="text-sm font-bold text-amber-100">{patternTypeLabel(displayType)}</span></div><div className="mt-1 text-sm font-bold text-cyan-100">{describeTrigger(pattern)} · {pattern.duration_seconds}초 · {pattern.is_enabled ? '사용' : '미사용'}</div></div>
-      <span className="flex-none rounded-card-md border border-cyan-300/25 px-3 py-1.5 text-sm font-black text-cyan-100">{collapsed ? '펼치기 ▾' : '접기 ▴'}</span>
-    </button>
-    {!collapsed && <div className="border-t border-cyan-300/15 p-4">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+
+  return (
+    <div className={cn('rounded-card-md border p-4', pattern.is_enabled ? 'border-cyan-300/30 bg-bg-deep' : 'border-amber-300/20 bg-black/20 opacity-70')}>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[100px_minmax(190px,1.3fr)_minmax(210px,1.2fr)_minmax(230px,1.2fr)_170px_135px]">
         <NumberInput label="순서(Seq)" value={pattern.seq} onChange={(next) => set('seq', Math.round(next))} disabled={disabled} step={10} />
         <TextInput label="패턴 이름" value={pattern.name} onChange={(next) => set('name', next)} disabled={disabled} />
         <SelectInput label="기믹 종류(Type)" value={displayType} options={allowedTypes} onChange={(next) => changeType(next as RaidV15PatternType)} disabled={disabled} />
         <SelectInput label="발동 조건(Trigger)" value={pattern.trigger_kind} options={TRIGGERS} onChange={(next) => set('trigger_kind', next as RaidV15TriggerKind)} disabled={disabled} />
-        <NumberInput label={triggerValueLabel(pattern.trigger_kind)} value={displayTriggerValue} onChange={(next) => set('trigger_value', ratioTrigger ? percentToRatio(next) : next)} disabled={disabled || pattern.trigger_kind === 'MANUAL'} step={1} suffix={ratioTrigger ? '%' : undefined} />
+        <NumberInput
+          label={triggerValueLabel(pattern.trigger_kind)}
+          value={displayTriggerValue}
+          onChange={(next) => set('trigger_value', ratioTrigger ? percentToRatio(next) : next)}
+          disabled={disabled || pattern.trigger_kind === 'MANUAL'}
+          step={ratioTrigger ? 1 : 1}
+          suffix={ratioTrigger ? '%' : undefined}
+        />
         <NumberInput label="지속 시간" suffix="초" value={pattern.duration_seconds} onChange={(next) => set('duration_seconds', next)} disabled={disabled} step={0.5} />
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">{pattern.trigger_kind === 'MANUAL' ? <button type="button" onClick={onTriggerManual} disabled={!canTriggerManual || triggering} className="rounded-card-md border border-gold/50 bg-gold/10 px-3 py-2 text-base font-black text-yellow-100 disabled:opacity-40">{triggering ? '발동 중…' : '▶ 수동 발동'}</button> : null}<button type="button" onClick={() => set('is_enabled', !pattern.is_enabled)} disabled={disabled} className="rounded-card-md border border-cyan-300/30 bg-cyan-500/10 px-3 py-2 text-base font-black text-cyan-100 disabled:opacity-40">{pattern.is_enabled ? '사용(ON)' : '미사용(OFF)'}</button><button type="button" onClick={onDelete} disabled={disabled} className="rounded-card-md border border-red-300/30 bg-red-500/10 px-3 py-2 text-base font-black text-red-100 disabled:opacity-40">삭제</button></div>
-      {pattern.trigger_kind === 'RANDOM_WINDOW' ? <div className="mt-3 max-w-[260px]"><NumberInput label="무작위 시간창 종료" suffix="초" value={numberFrom(pattern.config.window_end_seconds, pattern.trigger_value + 10)} onChange={(next) => set('config', { ...pattern.config, window_end_seconds: next })} disabled={disabled} step={1} /></div> : null}
-      <PatternConfigFields pattern={pattern} onChange={onChange} disabled={disabled} bossImageUrl={bossImageUrl} bossVideoUrl={bossVideoUrl} />
-    </div>}
-  </div>;
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {pattern.trigger_kind === 'MANUAL' ? <button type="button" onClick={onTriggerManual} disabled={!canTriggerManual || triggering} className="rounded-card-md border border-gold/50 bg-gold/10 px-3 py-2 text-base font-black text-yellow-100 disabled:opacity-40">{triggering ? '발동 중…' : '▶ 수동 발동'}</button> : null}
+        <button type="button" onClick={() => set('is_enabled', !pattern.is_enabled)} disabled={disabled} className="rounded-card-md border border-cyan-300/30 bg-cyan-500/10 px-3 py-2 text-base font-black text-cyan-100 disabled:opacity-40">{pattern.is_enabled ? '사용(ON)' : '미사용(OFF)'}</button>
+        <button type="button" onClick={onDelete} disabled={disabled} className="rounded-card-md border border-red-300/30 bg-red-500/10 px-3 py-2 text-base font-black text-red-100 disabled:opacity-40">삭제</button>
+      </div>
+
+      {pattern.trigger_kind === 'RANDOM_WINDOW' ? (
+        <div className="mt-3 max-w-[260px]"><NumberInput label="무작위 시간창 종료" suffix="초" value={numberFrom(pattern.config.window_end_seconds, pattern.trigger_value + 10)} onChange={(next) => set('config', { ...pattern.config, window_end_seconds: next })} disabled={disabled} step={1} /></div>
+      ) : null}
+
+      <PatternConfigFields pattern={pattern} onChange={onChange} disabled={disabled} />
+    </div>
+  );
 }
 
-function PatternConfigFields({ pattern, onChange, disabled, bossImageUrl, bossVideoUrl }: { pattern: RaidV15Pattern; onChange: (p: RaidV15Pattern) => void; disabled: boolean; bossImageUrl?: string | null; bossVideoUrl?: string | null }) {
+function PatternConfigFields({ pattern, onChange, disabled }: { pattern: RaidV15Pattern; onChange: (p: RaidV15Pattern) => void; disabled: boolean }) {
   const type = pattern.pattern_type === 'BOSS_STRIKE' ? 'ULTIMATE' : pattern.pattern_type;
   const config = pattern.config ?? {};
   const setConfig = (key: string, value: unknown) => onChange({ ...pattern, config: { ...config, [key]: value } });
@@ -401,11 +390,9 @@ function PatternConfigFields({ pattern, onChange, disabled, bossImageUrl, bossVi
 
   let fields: ReactNode[] = [];
   let help: string | null = null;
-  let extra: ReactNode = null;
 
   switch (type) {
     case 'WEAK_POINT':
-      extra = <WeakPointVisualEditor imageUrl={bossImageUrl} videoUrl={bossVideoUrl} config={config} disabled={disabled} onChange={(rect) => onChange({ ...pattern, config: { ...config, ...rect } })} />;
       fields = [
         direct('x', 0.42, '약점 X 위치(0~1)', 0.01),
         direct('y', 0.30, '약점 Y 위치(0~1)', 0.01),
@@ -508,32 +495,40 @@ function PatternConfigFields({ pattern, onChange, disabled, bossImageUrl, bossVi
     <div className="mt-4 border-t border-cyan-300/10 pt-4">
       <div className="mb-3 text-base font-black text-cyan-200">기믹 세부 설정(TYPE CONFIG)</div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{fields}</div>
-      {extra}
       {help ? <div className="mt-3 rounded-card-md border border-amber-300/20 bg-amber-500/5 px-4 py-3 text-base font-bold leading-6 text-amber-100">💡 {help}</div> : null}
     </div>
   );
 }
 
-function AudioEditor({ value, defaultValue, effectiveValue, scope, onScopeChange, onChange, onDefaultChange, disabled, saving, onSave, onSaveDefault }: { value: Omit<RaidV15AudioProfile, 'raid_id' | 'configured'>; defaultValue: RaidV15DefaultAudioProfile; effectiveValue: RaidV15AudioProfile; scope:'DEFAULT'|'OVERRIDE'; onScopeChange:(v:'DEFAULT'|'OVERRIDE')=>void; onChange:(v:Omit<RaidV15AudioProfile,'raid_id'|'configured'>)=>void; onDefaultChange:(v:RaidV15DefaultAudioProfile)=>void; disabled:boolean; saving:string|null; onSave:()=>void; onSaveDefault:()=>void }) {
-  const setOverride=(key:keyof typeof value,next:string|number|null)=>onChange({...value,[key]:next});
-  const setDefault=(key:keyof RaidV15AudioUrlProfile,next:string|null)=>onDefaultChange({...defaultValue,[key]:next});
-  const defaultUrls=defaultValue as RaidV15AudioUrlProfile;
-  const active=scope==='DEFAULT' ? defaultUrls : value;
-  const setter=scope==='DEFAULT' ? setDefault : setOverride;
-  return <div className="mt-5 space-y-4">
-    <div className="flex flex-wrap gap-2"><button type="button" onClick={()=>onScopeChange('DEFAULT')} className={cn('rounded-card-md border px-4 py-2 text-base font-black',scope==='DEFAULT'?'border-gold/60 bg-gold/15 text-yellow-100':'border-cyan-300/20 text-cyan-100')}>🏫 학급 공용 기본 음원</button><button type="button" onClick={()=>onScopeChange('OVERRIDE')} className={cn('rounded-card-md border px-4 py-2 text-base font-black',scope==='OVERRIDE'?'border-gold/60 bg-gold/15 text-yellow-100':'border-cyan-300/20 text-cyan-100')}>👾 현재 보스 개별 음원</button></div>
-    <div className="rounded-card-md border border-amber-300/25 bg-amber-500/5 px-4 py-3 text-base font-bold leading-6 text-amber-100">{scope==='DEFAULT'?'여기에 한 번 등록하면 같은 학급의 Raid가 공통으로 사용합니다.':'빈 칸은 학급 공용 기본 음원을 자동 사용합니다. 이 보스에서만 바꾸고 싶은 슬롯만 입력하세요.'}</div>
-    {scope==='OVERRIDE' ? <div className="grid gap-3 lg:grid-cols-3"><VolumeControl label="전체 음량(Master)" value={value.master_volume} onChange={(next)=>setOverride('master_volume',next)} disabled={disabled}/><VolumeControl label="배경음악(BGM)" value={value.bgm_volume} onChange={(next)=>setOverride('bgm_volume',next)} disabled={disabled}/><VolumeControl label="효과음(SFX)" value={value.sfx_volume} onChange={(next)=>setOverride('sfx_volume',next)} disabled={disabled}/></div>:null}
-    <AudioGroup title="🎵 배경음악(BGM)" fields={[[ 'lobby_bgm_url','로비 배경음악(Lobby BGM)' ],['battle_bgm_url','전투 배경음악(Battle BGM)'],['enrage_bgm_url','광폭화 배경음악(Enrage BGM)'],['raid_success_bgm_url','성공 배경음악(Success BGM)'],['raid_failure_bgm_url','실패 배경음악(Failure BGM)']]} value={active} set={setter} disabled={disabled} fallback={scope==='OVERRIDE'?defaultUrls:undefined}/>
-    <AudioGroup title="⚔️ 공격 효과음(SFX)" fields={[[ 'raid_start_sfx_url','레이드 시작(Raid Start)' ],['normal_hit_sfx_url','일반 타격(Normal Hit)'],['crit_hit_sfx_url','치명타(Critical Hit)'],['powerful_hit_sfx_url','강력한 일격(Powerful Hit)'],['devastating_hit_sfx_url','압도적 일격(Devastating Hit)']]} value={active} set={setter} disabled={disabled} fallback={scope==='OVERRIDE'?defaultUrls:undefined}/>
-    <AudioGroup title="🛡 기믹 효과음(SFX)" fields={[[ 'break_start_sfx_url','특수 패턴 예고(Pattern Warning)' ],['break_success_sfx_url','특수 패턴 파훼 성공(Pattern Success)'],['break_fail_sfx_url','특수 패턴 파훼 실패(Pattern Fail)'],['barrier_hit_sfx_url','공명방벽 피격(Barrier Hit)'],['barrier_critical_sfx_url','공명방벽 위험(Barrier Critical)']]} value={active} set={setter} disabled={disabled} fallback={scope==='OVERRIDE'?defaultUrls:undefined}/>
-    <div className="flex justify-end"><button type="button" onClick={scope==='DEFAULT'?onSaveDefault:onSave} disabled={disabled||saving!==null} className="btn-primary text-base disabled:opacity-40">{saving ? '저장 중…' : scope==='DEFAULT'?'🏫 공용 기본 음원 저장':'👾 보스 개별 음원 저장'}</button></div>
-    <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-4 text-sm font-bold text-cyan-100">현재 최종 적용: 전투 BGM {effectiveValue.battle_bgm_url ? '✓' : '없음'} · 일반 타격 {effectiveValue.normal_hit_sfx_url ? '✓' : '없음'} · 치명타 {effectiveValue.crit_hit_sfx_url ? '✓' : '없음'}</div>
-  </div>;
+function AudioEditor({ value, onChange, disabled, saving, onSave }: { value: Omit<RaidV15AudioProfile, 'raid_id' | 'configured'>; onChange: (v: Omit<RaidV15AudioProfile, 'raid_id' | 'configured'>) => void; disabled: boolean; saving: boolean; onSave: () => void }) {
+  const set = (key: keyof typeof value, next: string | number | null) => onChange({ ...value, [key]: next });
+  return (
+    <div className="mt-5 space-y-4">
+      <div className="grid gap-3 lg:grid-cols-3">
+        <VolumeControl label="전체 음량(Master)" value={value.master_volume} onChange={(next) => set('master_volume', next)} disabled={disabled} />
+        <VolumeControl label="배경음악(BGM)" value={value.bgm_volume} onChange={(next) => set('bgm_volume', next)} disabled={disabled} />
+        <VolumeControl label="효과음(SFX)" value={value.sfx_volume} onChange={(next) => set('sfx_volume', next)} disabled={disabled} />
+      </div>
+      <AudioGroup title="🎵 배경음악(BGM)" fields={[[ 'lobby_bgm_url', '로비 배경음악(Lobby BGM)' ], [ 'battle_bgm_url', '전투 배경음악(Battle BGM)' ], [ 'enrage_bgm_url', '광폭화 배경음악(Enrage BGM)' ], [ 'raid_success_bgm_url', '성공 배경음악(Success BGM)' ], [ 'raid_failure_bgm_url', '실패 배경음악(Failure BGM)' ]]} value={value} set={set} disabled={disabled} />
+      <AudioGroup title="⚔️ 공격 효과음(SFX)" fields={[[ 'raid_start_sfx_url', '레이드 시작(Raid Start)' ], [ 'normal_hit_sfx_url', '일반 타격(Normal Hit)' ], [ 'crit_hit_sfx_url', '치명타(Critical Hit)' ], [ 'powerful_hit_sfx_url', '강력한 일격(Powerful Hit)' ], [ 'devastating_hit_sfx_url', '압도적 일격(Devastating Hit)' ]]} value={value} set={set} disabled={disabled} />
+      <AudioGroup title="🛡 기믹 효과음(SFX)" fields={[[ 'break_start_sfx_url', '특수 패턴 예고(Pattern Warning)' ], [ 'break_success_sfx_url', '특수 패턴 파훼 성공(Pattern Success)' ], [ 'break_fail_sfx_url', '특수 패턴 파훼 실패(Pattern Fail)' ], [ 'barrier_hit_sfx_url', '공명방벽 피격(Barrier Hit)' ], [ 'barrier_critical_sfx_url', '공명방벽 위험(Barrier Critical)' ]]} value={value} set={set} disabled={disabled} />
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <p className="text-base font-bold leading-6 text-cyan-100">효과음은 중계 화면에서 미리 로드해 재사용합니다. 강력/압도적 일격 URL이 비어 있으면 치명타 또는 일반 타격 효과음을 자동으로 사용합니다.</p>
+        <button type="button" onClick={onSave} disabled={disabled || saving} className="btn-primary text-base disabled:opacity-40">{saving ? '저장 중…' : '🔊 오디오 저장'}</button>
+      </div>
+    </div>
+  );
 }
 
-function AudioGroup({ title, fields, value, set, disabled, fallback }: { title:string; fields:Array<[keyof RaidV15AudioUrlProfile,string]>; value:Partial<RaidV15AudioUrlProfile>; set:(key:keyof RaidV15AudioUrlProfile,next:string|null)=>void; disabled:boolean; fallback?:RaidV15AudioUrlProfile }) {
-  return <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-4"><h3 className="mb-3 text-lg font-black text-white">{title}</h3><div className="grid gap-3 lg:grid-cols-2">{fields.map(([key,label])=><label key={String(key)} className="block min-w-0"><span className="mb-1 block text-base font-black text-cyan-100">{label}</span><input type="text" value={String(value[key]??'')} placeholder={fallback?.[key] ? '비워두면 공용 기본값 사용' : 'https://...'} onChange={(e)=>set(key,e.target.value.trim()||null)} disabled={disabled} className="w-full min-w-0 rounded-card-md border border-cyan-300/20 bg-black/30 px-3 py-2 text-base font-bold text-white outline-none focus:border-cyan-300/60 disabled:opacity-50"/>{fallback?.[key] && !value[key] ? <div className="mt-1 truncate text-sm font-bold text-amber-100">기본값: {fallback[key]}</div>:null}</label>)}</div></div>;
+function AudioGroup({ title, fields, value, set, disabled }: { title: string; fields: Array<[keyof Omit<RaidV15AudioProfile, 'raid_id' | 'configured'>, string]>; value: Omit<RaidV15AudioProfile, 'raid_id' | 'configured'>; set: (key: keyof typeof value, next: string | number | null) => void; disabled: boolean }) {
+  return (
+    <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-4">
+      <h3 className="mb-3 text-lg font-black text-white">{title}</h3>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {fields.map(([key, label]) => <TextInput key={String(key)} label={label} value={String(value[key] ?? '')} onChange={(next) => set(key, next.trim() || null)} disabled={disabled} placeholder="https://..." />)}
+      </div>
+    </div>
+  );
 }
 
 function VolumeControl({ label, value, onChange, disabled }: { label: string; value: number; onChange: (v: number) => void; disabled: boolean }) {
@@ -623,11 +618,6 @@ function JsonInput({ label, value, onChange, disabled }: { label: string; value:
     </label>
   );
 }
-
-function patternTypeLabel(type:string){return PATTERN_TYPES.find((item)=>item.value===type)?.name ?? type;}
-function describeTrigger(pattern:RaidV15Pattern){const v=Number(pattern.trigger_value??0);switch(pattern.trigger_kind){case 'TIME_SECONDS':return `전투 시작 +${v}초`;case 'TIME_REMAINING':return `남은 시간 ${v}초`;case 'HP_RATIO':return `보스 HP ${Math.round(v*100)}%`;case 'BARRIER_RATIO':return `방벽 ${Math.round(v*100)}%`;case 'AFTER_PATTERN':return `#${v} 이후`;case 'RANDOM_WINDOW':return `${v}~${numberFrom(pattern.config.window_end_seconds,v+10)}초 무작위`;case 'MANUAL':return '수동 발동';default:return pattern.trigger_kind;}}
-function PatternSummaryPanel({patterns}:{patterns:RaidV15Pattern[]}){const enabled=[...patterns].filter(p=>p.is_enabled).sort((a,b)=>a.seq-b.seq);const dup=new Set(enabled.filter((p,i,a)=>a.findIndex(x=>x.seq===p.seq)!==i).map(p=>p.seq));const timed=enabled.filter(p=>p.trigger_kind==='TIME_SECONDS').map(p=>({p,start:Number(p.trigger_value),end:Number(p.trigger_value)+Number(p.duration_seconds)}));const overlap=new Set<number>();for(let i=0;i<timed.length;i++)for(let j=i+1;j<timed.length;j++)if(timed[i].start<timed[j].end&&timed[j].start<timed[i].end){overlap.add(timed[i].p.seq);overlap.add(timed[j].p.seq);}return <div className="rounded-card-lg border border-cyan-300/25 bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg font-black text-white">📋 적용 패턴 전체 요약</h3><span className="text-sm font-black text-cyan-100">활성 {enabled.length} / 전체 {patterns.length}</span></div><div className="mt-3 grid gap-2">{enabled.map(p=><div key={p.client_key??p.id??p.seq} className={cn('grid gap-2 rounded-card-md border px-3 py-2 text-sm font-bold md:grid-cols-[70px_1.2fr_1fr_1fr_90px]',dup.has(p.seq)||overlap.has(p.seq)?'border-red-300/40 bg-red-500/5':'border-cyan-300/15 bg-bg-deep')}><span className="font-mono text-cyan-100">#{p.seq}</span><span className="text-white">{p.name}</span><span className="text-amber-100">{patternTypeLabel(p.pattern_type==='BOSS_STRIKE'?'ULTIMATE':p.pattern_type)}</span><span className="text-cyan-100">{describeTrigger(p)}</span><span className="text-right text-white">{p.duration_seconds}초</span>{dup.has(p.seq)?<span className="md:col-span-5 text-red-100">⚠ 같은 Seq가 중복됩니다.</span>:null}{overlap.has(p.seq)?<span className="md:col-span-5 text-red-100">⚠ 시간 기반 패턴 구간이 다른 패턴과 겹칩니다.</span>:null}</div>)}</div></div>;}
-function WeakPointVisualEditor({imageUrl,videoUrl,config,onChange,disabled}:{imageUrl?:string|null;videoUrl?:string|null;config:Record<string,unknown>;onChange:(r:{x:number;y:number;width:number;height:number})=>void;disabled:boolean}){const [start,setStart]=useState<{x:number;y:number}|null>(null);const rect={x:numberFrom(config.x,0.42),y:numberFrom(config.y,0.30),width:numberFrom(config.width,0.16),height:numberFrom(config.height,0.22)};const point=(e:React.PointerEvent<HTMLDivElement>)=>{const r=e.currentTarget.getBoundingClientRect();return{x:Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),y:Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))};};const move=(e:React.PointerEvent<HTMLDivElement>)=>{if(!start||disabled)return;const q=point(e);onChange({x:Number(Math.min(start.x,q.x).toFixed(3)),y:Number(Math.min(start.y,q.y).toFixed(3)),width:Number(Math.max(.02,Math.abs(q.x-start.x)).toFixed(3)),height:Number(Math.max(.02,Math.abs(q.y-start.y)).toFixed(3))});};if(!imageUrl&&!videoUrl)return <div className="mt-4 rounded-card-md border border-dashed border-amber-300/30 p-4 text-base font-bold text-amber-100">보스 이미지/영상을 먼저 등록하면 여기에서 약점 위치를 드래그로 지정할 수 있습니다.</div>;return <div className="mt-4"><div className="mb-2 text-base font-black text-cyan-200">🎯 약점 위치 시각 편집기</div><div className="mb-2 text-sm font-bold text-amber-100">보스 화면 위에서 원하는 약점 영역을 드래그하세요. 실제 전투와 같은 16:9 · object-cover 좌표를 사용합니다.</div><div className="relative aspect-video max-w-[820px] overflow-hidden rounded-card-md border border-cyan-300/30 bg-black touch-none" onPointerDown={(e)=>{if(disabled)return;e.currentTarget.setPointerCapture(e.pointerId);setStart(point(e));}} onPointerMove={move} onPointerUp={()=>setStart(null)}>{videoUrl?<video src={videoUrl} muted loop autoPlay playsInline className="pointer-events-none h-full w-full object-cover"/>:<img src={imageUrl??''} alt="보스 약점 위치 미리보기" className="pointer-events-none h-full w-full object-cover"/>}<div className="pointer-events-none absolute border-2 border-yellow-300 bg-yellow-300/15 shadow-[0_0_18px_rgba(253,224,71,.45)]" style={{left:`${rect.x*100}%`,top:`${rect.y*100}%`,width:`${rect.width*100}%`,height:`${rect.height*100}%`}}><div className="absolute -top-7 left-0 rounded bg-black/80 px-2 py-1 text-xs font-black text-yellow-100">WEAK POINT</div></div></div></div>;}
 
 function normalizePattern(pattern: RaidV15Pattern): RaidV15Pattern {
   return {

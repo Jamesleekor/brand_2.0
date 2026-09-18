@@ -534,12 +534,7 @@ export default function RaidControlPage() {
                     onSave={save}
                   />
 
-                  <RaidV15ConfigPanel
-                    raidId={detail.raid.id}
-                    raidStatus={detail.raid.status}
-                    bossImageUrl={detail.phases.find((phase) => phase.phase_no === 1)?.image_url ?? null}
-                    bossVideoUrl={detail.phases.find((phase) => phase.phase_no === 1)?.loop_video_url ?? null}
-                  />
+                  <RaidV15ConfigPanel raidId={detail.raid.id} raidStatus={detail.raid.status} />
 
                   <RaidStateControl
                     detail={detail}

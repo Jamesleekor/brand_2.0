@@ -1,5 +1,4 @@
 // RAID_V15_E5_ADMIN_RPC
-// RAID_V15_DETAIL_EDITOR_AUDIO_DEFAULT_20260918
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RpcResult } from './student_rpc';
 
@@ -71,14 +70,6 @@ export interface RaidV15AudioProfile {
   configured: boolean;
 }
 
-export type RaidV15AudioUrlProfile = Pick<RaidV15AudioProfile,
-  'lobby_bgm_url'|'battle_bgm_url'|'enrage_bgm_url'|'raid_start_sfx_url'|'raid_success_bgm_url'|'raid_failure_bgm_url'|
-  'normal_hit_sfx_url'|'crit_hit_sfx_url'|'powerful_hit_sfx_url'|'devastating_hit_sfx_url'|'break_start_sfx_url'|'break_success_sfx_url'|'break_fail_sfx_url'|'barrier_hit_sfx_url'|'barrier_critical_sfx_url'>;
-export interface RaidV15DefaultAudioProfile extends RaidV15AudioUrlProfile { configured: boolean; }
-export interface RaidV15AudioConfiguration {
-  raid_id:number; classroom_id:number; default_profile:RaidV15DefaultAudioProfile; override_profile:RaidV15AudioProfile; effective_profile:RaidV15AudioProfile;
-}
-
 async function callRpc<T>(supabase: SupabaseClient, fn: string, args: Record<string, unknown>): Promise<RpcResult<T>> {
   const { data, error } = await supabase.rpc(fn, args);
   if (error) return { success: false, type: 'SERVER', error: error.message, code: error.code };
@@ -93,13 +84,10 @@ export const raidV15AdminRpc = {
     callRpc<RaidV15CombatResponse>(supabase, 'teacher_save_raid_combat_config', { p_raid_id: raidId, p_payload: payload }),
 
   audio: (supabase: SupabaseClient, raidId: number) =>
-    callRpc<RaidV15AudioConfiguration>(supabase, 'teacher_get_raid_audio_configuration', { p_raid_id: raidId }),
+    callRpc<RaidV15AudioProfile>(supabase, 'teacher_get_raid_audio_profile', { p_raid_id: raidId }),
 
   saveAudio: (supabase: SupabaseClient, raidId: number, payload: Omit<RaidV15AudioProfile, 'raid_id' | 'configured'>) =>
     callRpc<RaidV15AudioProfile>(supabase, 'teacher_save_raid_audio_profile', { p_raid_id: raidId, p_payload: payload }),
-
-  saveDefaultAudio: (supabase: SupabaseClient, raidId: number, payload: RaidV15AudioUrlProfile) =>
-    callRpc<RaidV15AudioConfiguration>(supabase, 'teacher_save_default_raid_audio_profile', { p_raid_id: raidId, p_payload: payload }),
 
   triggerPattern: (supabase: SupabaseClient, raidId: number, patternId: number) =>
     callRpc<{ event?: string; pattern_run_id?: number; pattern_type?: string; pattern_name?: string }>(
