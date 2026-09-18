@@ -213,8 +213,7 @@ function ConnectedGateCharacterCard({ row, onClick }: { row: DimensionalGateRost
               <div className="h-full rounded-pill bg-gradient-to-r from-violet-500 to-brand-primary" style={{ width: `${pct}%` }} />
             </div>
             <div className="mt-1.5 flex items-center justify-between gap-2 text-[9px] font-bold text-text-muted">
-              <span>◈ 연결 안정</span>
-              <span>{row.chat_enabled ? `오늘 남은 대화 ${row.remaining_chat_count}회` : row.story_enabled ? '만남 기록 활성' : '기록 준비 중'}</span>
+              <span>◈ 연결 안정</span><span>오늘 남은 대화 {row.remaining_chat_count}회</span>
             </div>
           </>
         )}
@@ -290,10 +289,10 @@ function GateCharacterPreview({ row, onClose }: { row: DimensionalGateRosterRow;
         <div className="space-y-3 p-4">
           <p className="text-xs font-semibold leading-relaxed text-text-secondary">{row.description || '아직 기록되지 않은 편린입니다.'}</p>
           <div className="grid grid-cols-4 gap-2">
-            <PreviewAction icon="💬" label="대화" disabled={!row.chat_enabled || row.status === 'LOCKED'} onClick={() => setChatOpen(true)} />
-            <PreviewAction icon="▶" label="만남" disabled={!row.story_enabled} onClick={() => setStoryOpen(true)} />
-            <PreviewAction icon="🖼️" label="화첩" disabled={!row.gallery_enabled} onClick={() => setGalleryOpen(true)} />
-            <PreviewAction icon="🎁" label="보상" disabled={!row.rewards_enabled} onClick={() => setRewardsOpen(true)} />
+            <PreviewAction icon="💬" label="대화" disabled={!row.gate_enabled || row.status === 'LOCKED'} onClick={() => setChatOpen(true)} />
+            <PreviewAction icon="▶" label="만남" disabled={!row.gate_enabled} onClick={() => setStoryOpen(true)} />
+            <PreviewAction icon="🖼️" label="화첩" disabled={!row.gate_enabled} onClick={() => setGalleryOpen(true)} />
+            <PreviewAction icon="🎁" label="보상" disabled={!row.gate_enabled} onClick={() => setRewardsOpen(true)} />
           </div>
 
           <div>
@@ -325,9 +324,7 @@ function GateCharacterPreview({ row, onClose }: { row: DimensionalGateRosterRow;
           </div>
 
           <div className="rounded-card-md border border-line bg-bg-deep/60 px-3 py-2 text-[10px] font-bold leading-relaxed text-text-muted">
-            {row.story_enabled && !row.gallery_enabled && !row.rewards_enabled && !row.chat_enabled
-              ? '현재는 만남 이벤트 기록만 안정적으로 연결되어 있습니다. 다른 기록은 아직 봉인되어 있습니다.'
-              : '차원관문에 연결된 기록을 확인할 수 있습니다.'}
+            AI 자유 대화·기억·만남 이벤트·화첩·호감도 보상이 연결되어 있습니다.
           </div>
         </div>
       </motion.div>

@@ -31,10 +31,6 @@ export interface DimensionalGateRosterRow {
   story_scope: DimensionalGateStoryScope;
   gate_status: DimensionalGateGateStatus;
   publication_ready: boolean;
-  story_enabled: boolean;
-  gallery_enabled: boolean;
-  rewards_enabled: boolean;
-  chat_enabled: boolean;
   gate_enabled: boolean;
 }
 

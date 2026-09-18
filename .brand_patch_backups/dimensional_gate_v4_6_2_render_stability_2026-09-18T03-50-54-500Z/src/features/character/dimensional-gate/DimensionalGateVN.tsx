@@ -28,7 +28,6 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   const [index, setIndex] = useState(0);
   const [visibleCharCount, setVisibleCharCount] = useState(0);
   const [typingDone, setTypingDone] = useState(false);
-  const [typingCutOrder, setTypingCutOrder] = useState<number | null>(null);
   const [ended, setEnded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -57,9 +56,6 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   const script = previewScript ?? scriptQuery.data;
   const cuts = script?.cuts ?? [];
   const current = cuts[index] ?? null;
-  const typingStateReady = current != null && typingCutOrder === current.cut_order;
-  const currentVisibleCharCount = typingStateReady ? visibleCharCount : 0;
-  const currentTypingDone = typingStateReady ? typingDone : false;
   const orderMap = useMemo(() => {
     const map = new Map<number, number>();
     cuts.forEach((cut, idx) => map.set(cut.cut_order, idx));
@@ -89,7 +85,6 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
 
     const text = current.content ?? '';
     const glyphCount = Array.from(text).length;
-    setTypingCutOrder(current.cut_order);
     setVisibleCharCount(0);
     setTypingDone(glyphCount === 0);
     if (!glyphCount) return;
@@ -210,8 +205,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
 
   const advance = useCallback(() => {
     if (!current || saving || ended || epilogueRun) return;
-    if (!currentTypingDone) {
-      setTypingCutOrder(current.cut_order);
+    if (!typingDone) {
       setVisibleCharCount(Array.from(current.content ?? '').length);
       setTypingDone(true);
       return;
@@ -237,7 +231,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
     }
 
     goToIndex(index + 1);
-  }, [current, cuts.length, ended, epilogueRun, finalEpilogue, goToIndex, index, orderMap, saving, currentTypingDone]);
+  }, [current, cuts.length, ended, epilogueRun, finalEpilogue, goToIndex, index, orderMap, saving, typingDone]);
 
   const choose = useCallback((to: number) => {
     const target = orderMap.get(to);
@@ -338,12 +332,12 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
 
       {!isCg && !isTitle && !hideSprite && sprite && (
         <motion.img
-          key={sprite}
+          key={`${sprite}-${current.cut_order}`}
           src={sprite}
           alt=""
-          initial={false}
-          animate={{ x: '-50%', scale: effects.includes('zoomin') ? 1.08 : effects.includes('zoomout') ? 0.93 : 1 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0, x: '-50%', scale: effects.includes('zoomin') ? 1.08 : effects.includes('zoomout') ? 0.93 : 1 }}
+          transition={{ duration: 0.45 }}
           className="pointer-events-none absolute bottom-[12vh] left-1/2 max-h-[72vh] max-w-[84vw] object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.55)] sm:bottom-[10vh]"
         />
       )}
@@ -384,30 +378,22 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
         >
           <div>
             <div className="text-xs font-black uppercase tracking-[0.35em] text-violet-100/65">{titleKick}</div>
-            <div className="mt-4 font-display text-3xl text-white sm:text-5xl"><SoftTypedText key={`title-${current.cut_order}`} text={current.content ?? ''} visibleCount={currentVisibleCharCount} /></div>
-            {currentTypingDone && <div className="mt-6 text-[10px] font-black tracking-widest text-white/45">화면을 눌러 계속</div>}
+            <div className="mt-4 font-display text-3xl text-white sm:text-5xl"><SoftTypedText text={current.content ?? ''} visibleCount={visibleCharCount} /></div>
+            {typingDone && <div className="mt-6 text-[10px] font-black tracking-widest text-white/45">화면을 눌러 계속</div>}
           </div>
         </motion.div>
       ) : (
         <div className="absolute inset-x-0 bottom-0 z-20 p-3 pb-5 sm:p-6 sm:pb-8">
           <div className={cn(
-            'mx-auto min-h-[142px] max-w-4xl rounded-[20px] border border-white/15 bg-[#090b17]/88 p-4 shadow-2xl backdrop-blur-md sm:min-h-[156px] sm:p-5',
+            'mx-auto max-w-4xl rounded-[20px] border border-white/15 bg-[#090b17]/88 p-4 shadow-2xl backdrop-blur-md sm:p-5',
             isNarration && 'bg-black/62 text-center',
           )}>
-            <div
-              className={cn(
-                'mb-2 min-h-[1rem] text-xs font-black tracking-wide text-violet-200',
-                nameGlow && 'drop-shadow-[0_0_10px_rgba(196,181,253,0.95)] text-violet-100',
-                (isNarration || !current.speaker) && 'invisible',
-              )}
-            >
-              {current.speaker || '\u00A0'}
-            </div>
-            <div className={cn('min-h-[4.5rem] whitespace-pre-wrap text-[17px] font-semibold leading-8 text-white sm:text-[19px] sm:leading-9', isNarration && 'font-serif leading-9')}>
-              <SoftTypedText key={`body-${current.cut_order}`} text={current.content ?? ''} visibleCount={currentVisibleCharCount} />
+            {!isNarration && current.speaker && <div className={cn('mb-2 text-xs font-black tracking-wide text-violet-200', nameGlow && 'drop-shadow-[0_0_10px_rgba(196,181,253,0.95)] text-violet-100')}>{current.speaker}</div>}
+            <div className={cn('min-h-[3.5rem] whitespace-pre-wrap text-[17px] font-semibold leading-8 text-white sm:text-[19px] sm:leading-9', isNarration && 'font-serif leading-9')}>
+              <SoftTypedText text={current.content ?? ''} visibleCount={visibleCharCount} />
             </div>
 
-            {current.cut_type === 'CHOICE' && currentTypingDone && current.choices && (
+            {current.cut_type === 'CHOICE' && typingDone && current.choices && (
               <div className="mt-4 grid gap-2" onClick={(event) => event.stopPropagation()}>
                 {current.choices.map((choice, choiceIndex) => (
                   <button
@@ -422,11 +408,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
               </div>
             )}
 
-            {current.cut_type !== 'CHOICE' && (
-              <div className="mt-2 min-h-[0.9rem] text-right text-[9px] font-black tracking-widest text-white/40">
-                {currentTypingDone ? '다음 ▼' : '\u00A0'}
-              </div>
-            )}
+            {current.cut_type !== 'CHOICE' && typingDone && <div className="mt-2 text-right text-[9px] font-black tracking-widest text-white/40">다음 ▼</div>}
           </div>
         </div>
       )}

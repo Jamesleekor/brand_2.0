@@ -26,19 +26,15 @@ interface Props {
 export default function DimensionalGateVN({ character, story, onClose, previewMode = false, previewScript }: Props) {
   const queryClient = useQueryClient();
   const [index, setIndex] = useState(0);
-  const [visibleCharCount, setVisibleCharCount] = useState(0);
+  const [displayText, setDisplayText] = useState('');
   const [typingDone, setTypingDone] = useState(false);
-  const [typingCutOrder, setTypingCutOrder] = useState<number | null>(null);
   const [ended, setEnded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
   const [qaCutOrder, setQaCutOrder] = useState('');
-  const [epilogueRun, setEpilogueRun] = useState<EpilogueRun | null>(null);
-  const [epilogueEndReveal, setEpilogueEndReveal] = useState(false);
   const visitedGalleryIds = useRef<Set<number>>(new Set());
   const bgmRef = useRef<HTMLAudioElement | null>(null);
-  const bgmSourceRef = useRef<string | null>(null);
   const sfxRef = useRef<HTMLAudioElement | null>(null);
   const startedRef = useRef(false);
 
@@ -57,15 +53,11 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   const script = previewScript ?? scriptQuery.data;
   const cuts = script?.cuts ?? [];
   const current = cuts[index] ?? null;
-  const typingStateReady = current != null && typingCutOrder === current.cut_order;
-  const currentVisibleCharCount = typingStateReady ? visibleCharCount : 0;
-  const currentTypingDone = typingStateReady ? typingDone : false;
   const orderMap = useMemo(() => {
     const map = new Map<number, number>();
     cuts.forEach((cut, idx) => map.set(cut.cut_order, idx));
     return map;
   }, [cuts]);
-  const finalEpilogue = useMemo(() => getFinalEpilogueConfig(script?.title), [script?.title]);
 
   useEffect(() => {
     if (!script || startedRef.current) return;
@@ -88,64 +80,57 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
     if (current.gallery_asset_id != null) visitedGalleryIds.current.add(current.gallery_asset_id);
 
     const text = current.content ?? '';
-    const glyphCount = Array.from(text).length;
-    setTypingCutOrder(current.cut_order);
-    setVisibleCharCount(0);
-    setTypingDone(glyphCount === 0);
-    if (!glyphCount) return;
+    setDisplayText('');
+    setTypingDone(text.length === 0);
+    if (!text) return;
 
-    // Legacy BrandVN-style soft reveal: lay the whole sentence out first, then fade
-    // small two-character groups in. This avoids the eye-fatiguing horizontal reflow
-    // of slicing the string one character at a time.
     let cursor = 0;
     const timer = window.setInterval(() => {
-      cursor = Math.min(glyphCount, cursor + 2);
-      setVisibleCharCount(cursor);
-      if (cursor >= glyphCount) {
+      cursor += 1;
+      setDisplayText(text.slice(0, cursor));
+      if (cursor >= text.length) {
         window.clearInterval(timer);
         setTypingDone(true);
       }
-    }, 45);
+    }, 18);
     return () => window.clearInterval(timer);
   }, [current?.cut_order]);
 
-  const applyBgmCommand = useCallback((raw: string | null | undefined) => {
-    const command = parseBgmCommand(raw);
-    if (command.kind === 'hold') return;
-
-    if (command.kind === 'stop') {
-      if (bgmSourceRef.current === BGM_STOP_KEY && !bgmRef.current) return;
-      bgmRef.current?.pause();
-      bgmRef.current = null;
-      bgmSourceRef.current = BGM_STOP_KEY;
+  useEffect(() => {
+    if (!script) return;
+    let target = current?.bgm_url ?? (index === 0 ? script.default_bgm_url : undefined);
+    if (previewMode) {
+      target = script.default_bgm_url;
+      for (let cursor = index; cursor >= 0; cursor -= 1) {
+        const candidate = cuts[cursor]?.bgm_url;
+        if (candidate !== undefined && candidate !== null && String(candidate).trim() !== '') {
+          target = candidate;
+          break;
+        }
+      }
+    }
+    if (target === undefined || target === null || target === '') {
+      if (previewMode) {
+        bgmRef.current?.pause();
+        bgmRef.current = null;
+      }
       return;
     }
-
-    // Compare the original logical source string, not HTMLAudioElement.src. Browsers
-    // percent-encode Korean filenames in audio.src, which previously made the same
-    // track look different on every cut and restarted it from 0:00.
-    if (bgmSourceRef.current === command.url && bgmRef.current) return;
+    const normalized = String(target).trim();
+    if (normalized === '-' || normalized.toLowerCase() === 'none') {
+      bgmRef.current?.pause();
+      bgmRef.current = null;
+      return;
+    }
+    const url = resolveAssetUrl(normalized, 'icon');
+    if (bgmRef.current?.src === url) return;
     bgmRef.current?.pause();
-    const audio = new Audio(resolveAssetUrl(command.url, 'icon'));
+    const audio = new Audio(url);
     audio.loop = true;
     audio.volume = muted ? 0 : 0.45;
     bgmRef.current = audio;
-    bgmSourceRef.current = command.url;
     void audio.play().catch(() => undefined);
-  }, [muted]);
-
-  useEffect(() => {
-    if (!script || !current) return;
-    const cutCommand = parseBgmCommand(current.bgm_url);
-    if (cutCommand.kind !== 'hold') {
-      applyBgmCommand(current.bgm_url);
-      return;
-    }
-
-    // Empty BGM cell means HOLD: keep the previously playing music. Only the first
-    // cut falls back to the episode default when no explicit cue exists yet.
-    if (index === 0) applyBgmCommand(script.default_bgm_url);
-  }, [applyBgmCommand, current?.bgm_url, current?.cut_order, index, script]);
+  }, [cuts, previewMode, script, current?.cut_order, current?.bgm_url, index]);
 
   useEffect(() => {
     if (bgmRef.current) bgmRef.current.volume = muted ? 0 : 0.45;
@@ -169,15 +154,12 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
 
   useEffect(() => () => {
     bgmRef.current?.pause();
-    bgmRef.current = null;
-    bgmSourceRef.current = null;
     sfxRef.current?.pause();
   }, []);
 
   const complete = useCallback(async () => {
     if (!script || saving || ended) return;
     if (previewMode) {
-      setEpilogueEndReveal(false);
       setEnded(true);
       return;
     }
@@ -190,11 +172,9 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
     );
     setSaving(false);
     if (result.success === false) {
-      setEpilogueEndReveal(false);
       setSaveError(result.error);
       return;
     }
-    setEpilogueEndReveal(false);
     setEnded(true);
     void queryClient.invalidateQueries({ queryKey: ['dimensional-gate-stories', character.character_id] });
     void queryClient.invalidateQueries({ queryKey: ['dimensional-gate-gallery', character.character_id] });
@@ -209,10 +189,9 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   }, [complete, cuts.length]);
 
   const advance = useCallback(() => {
-    if (!current || saving || ended || epilogueRun) return;
-    if (!currentTypingDone) {
-      setTypingCutOrder(current.cut_order);
-      setVisibleCharCount(Array.from(current.content ?? '').length);
+    if (!current || saving || ended) return;
+    if (!typingDone) {
+      setDisplayText(current.content ?? '');
       setTypingDone(true);
       return;
     }
@@ -222,22 +201,8 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
       goToIndex(jumpIndex ?? index + 1);
       return;
     }
-
-    // 1.0 BrandVN final-chapter staging:
-    // - Rumi: after cut 235, play the epilogue before revealing cut 236 (hidden ending).
-    // - Astell: after the final cut, play the epilogue before the Story Complete screen.
-    if (finalEpilogue?.atCut != null && current.cut_order === finalEpilogue.atCut) {
-      setEpilogueRun({ config: finalEpilogue, mode: 'mid', sourceIndex: index });
-      return;
-    }
-    if (finalEpilogue && finalEpilogue.atCut == null && index >= cuts.length - 1) {
-      setEpilogueEndReveal(false);
-      setEpilogueRun({ config: finalEpilogue, mode: 'end', sourceIndex: index });
-      return;
-    }
-
     goToIndex(index + 1);
-  }, [current, cuts.length, ended, epilogueRun, finalEpilogue, goToIndex, index, orderMap, saving, currentTypingDone]);
+  }, [current, ended, goToIndex, index, orderMap, saving, typingDone]);
 
   const choose = useCallback((to: number) => {
     const target = orderMap.get(to);
@@ -249,40 +214,9 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
     if (!Number.isInteger(order)) return;
     const target = orderMap.get(order);
     if (target == null) return;
-
-    // QA cut-jump has no playback history, so rebuild the effective BGM from the
-    // nearest preceding valid command. Sequential playback itself never scans back.
-    if (previewMode) {
-      const qaBgm = effectiveBgmCommandAt(cuts, target, script?.default_bgm_url);
-      if (qaBgm != null) applyBgmCommand(qaBgm);
-      else {
-        bgmRef.current?.pause();
-        bgmRef.current = null;
-        bgmSourceRef.current = null;
-      }
-    }
-
-    setEpilogueRun(null);
-    setEpilogueEndReveal(false);
     setEnded(false);
     setIndex(target);
-  }, [applyBgmCommand, cuts, orderMap, previewMode, qaCutOrder, script?.default_bgm_url]);
-
-  const handleEpilogueReveal = useCallback(() => {
-    if (!epilogueRun) return;
-    if (epilogueRun.mode === 'mid') {
-      setIndex(Math.min(cuts.length - 1, epilogueRun.sourceIndex + 1));
-    } else {
-      setEpilogueEndReveal(true);
-    }
-  }, [cuts.length, epilogueRun]);
-
-  const handleEpilogueDone = useCallback(() => {
-    if (!epilogueRun) return;
-    const mode = epilogueRun.mode;
-    setEpilogueRun(null);
-    if (mode === 'end') void complete();
-  }, [complete, epilogueRun]);
+  }, [orderMap, qaCutOrder]);
 
   if (!previewScript && scriptQuery.isLoading) {
     return <div className="fixed inset-0 z-[100] grid place-items-center bg-[#050610]"><LoadingSpinner size="lg" /></div>;
@@ -338,13 +272,13 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
 
       {!isCg && !isTitle && !hideSprite && sprite && (
         <motion.img
-          key={sprite}
+          key={`${sprite}-${current.cut_order}`}
           src={sprite}
           alt=""
-          initial={false}
-          animate={{ x: '-50%', scale: effects.includes('zoomin') ? 1.08 : effects.includes('zoomout') ? 0.93 : 1 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="pointer-events-none absolute bottom-[12vh] left-1/2 max-h-[72vh] max-w-[84vw] object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.55)] sm:bottom-[10vh]"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: effects.includes('dim') ? 0.42 : 1, y: 0, x: '-50%', scale: effects.includes('zoomin') ? 1.08 : effects.includes('zoomout') ? 0.93 : 1 }}
+          transition={{ duration: 0.45 }}
+          className="pointer-events-none absolute bottom-[18%] left-1/2 max-h-[70vh] max-w-[80vw] object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.55)] sm:left-[60%]"
         />
       )}
 
@@ -361,7 +295,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
         <div className="absolute left-1/2 top-14 z-30 flex w-[min(94vw,720px)] -translate-x-1/2 flex-wrap items-center justify-center gap-1.5 rounded-card-md border border-amber-200/25 bg-black/72 px-2.5 py-2 shadow-xl backdrop-blur sm:top-16" onClick={(event) => event.stopPropagation()}>
           <span className="mr-1 text-[9px] font-black text-amber-100">교사 QA · 기록/보상 없음</span>
           <button type="button" onClick={() => { setEnded(false); setIndex(Math.max(0, index - 1)); }} disabled={index <= 0} className="rounded border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-black text-white disabled:opacity-30">← 이전</button>
-          <button type="button" onClick={() => { setEnded(false); advance(); }} disabled={saving || ended || !!epilogueRun} className="rounded border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-black text-white disabled:opacity-30">다음 →</button>
+          <button type="button" onClick={() => { setEnded(false); setIndex(Math.min(cuts.length - 1, index + 1)); }} disabled={index >= cuts.length - 1} className="rounded border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-black text-white disabled:opacity-30">다음 →</button>
           <span className="px-1 text-[9px] font-black text-white/70">CUT {current.cut_order} · {index + 1}/{cuts.length}</span>
           <input
             value={qaCutOrder}
@@ -384,30 +318,22 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
         >
           <div>
             <div className="text-xs font-black uppercase tracking-[0.35em] text-violet-100/65">{titleKick}</div>
-            <div className="mt-4 font-display text-3xl text-white sm:text-5xl"><SoftTypedText key={`title-${current.cut_order}`} text={current.content ?? ''} visibleCount={currentVisibleCharCount} /></div>
-            {currentTypingDone && <div className="mt-6 text-[10px] font-black tracking-widest text-white/45">화면을 눌러 계속</div>}
+            <div className="mt-4 font-display text-3xl text-white sm:text-5xl">{displayText || current.content}</div>
+            {typingDone && <div className="mt-6 text-[10px] font-black tracking-widest text-white/45">화면을 눌러 계속</div>}
           </div>
         </motion.div>
       ) : (
         <div className="absolute inset-x-0 bottom-0 z-20 p-3 pb-5 sm:p-6 sm:pb-8">
           <div className={cn(
-            'mx-auto min-h-[142px] max-w-4xl rounded-[20px] border border-white/15 bg-[#090b17]/88 p-4 shadow-2xl backdrop-blur-md sm:min-h-[156px] sm:p-5',
+            'mx-auto max-w-4xl rounded-[20px] border border-white/15 bg-[#090b17]/88 p-4 shadow-2xl backdrop-blur-md sm:p-5',
             isNarration && 'bg-black/62 text-center',
           )}>
-            <div
-              className={cn(
-                'mb-2 min-h-[1rem] text-xs font-black tracking-wide text-violet-200',
-                nameGlow && 'drop-shadow-[0_0_10px_rgba(196,181,253,0.95)] text-violet-100',
-                (isNarration || !current.speaker) && 'invisible',
-              )}
-            >
-              {current.speaker || '\u00A0'}
-            </div>
-            <div className={cn('min-h-[4.5rem] whitespace-pre-wrap text-[17px] font-semibold leading-8 text-white sm:text-[19px] sm:leading-9', isNarration && 'font-serif leading-9')}>
-              <SoftTypedText key={`body-${current.cut_order}`} text={current.content ?? ''} visibleCount={currentVisibleCharCount} />
+            {!isNarration && current.speaker && <div className={cn('mb-2 text-xs font-black tracking-wide text-violet-200', nameGlow && 'drop-shadow-[0_0_10px_rgba(196,181,253,0.95)] text-violet-100')}>{current.speaker}</div>}
+            <div className={cn('min-h-[3.25rem] whitespace-pre-wrap text-sm font-semibold leading-7 text-white sm:text-base', isNarration && 'font-serif leading-8')}>
+              {displayText}
             </div>
 
-            {current.cut_type === 'CHOICE' && currentTypingDone && current.choices && (
+            {current.cut_type === 'CHOICE' && typingDone && current.choices && (
               <div className="mt-4 grid gap-2" onClick={(event) => event.stopPropagation()}>
                 {current.choices.map((choice, choiceIndex) => (
                   <button
@@ -422,37 +348,22 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
               </div>
             )}
 
-            {current.cut_type !== 'CHOICE' && (
-              <div className="mt-2 min-h-[0.9rem] text-right text-[9px] font-black tracking-widest text-white/40">
-                {currentTypingDone ? '다음 ▼' : '\u00A0'}
-              </div>
-            )}
+            {current.cut_type !== 'CHOICE' && typingDone && <div className="mt-2 text-right text-[9px] font-black tracking-widest text-white/40">다음 ▼</div>}
           </div>
         </div>
       )}
 
-      {epilogueRun && (
-        <FinalChapterEpilogue
-          key={`${epilogueRun.config.key}-${epilogueRun.mode}-${epilogueRun.sourceIndex}`}
-          config={epilogueRun.config}
-          onReveal={handleEpilogueReveal}
-          onDone={handleEpilogueDone}
-        />
-      )}
-
-      {(ended || epilogueEndReveal) && (
+      {ended && (
         <div className="absolute inset-0 z-50 grid place-items-center bg-black/88 p-4" onClick={(event) => event.stopPropagation()}>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="max-w-md text-center">
             <div className="text-4xl">✦</div>
             <div className="mt-4 text-[10px] font-black uppercase tracking-[0.3em] text-violet-200/70">Story Complete</div>
             <h2 className="mt-2 font-display text-2xl text-white">{script.title}</h2>
-            <p className="mt-2 text-xs font-semibold leading-relaxed text-white/60">{epilogueEndReveal && !ended ? '마지막 기록을 정리하고 있습니다.' : previewMode ? '교사 QA 미리보기에서는 학생 진행도·화첩·보상을 기록하지 않습니다.' : '이 장면의 기록이 차원관문에 남았습니다.'}</p>
-            {ended && (
-              <div className="mt-5 flex justify-center gap-2">
-                {previewMode && <button type="button" onClick={() => { setEnded(false); setIndex(0); }} className="rounded-pill border border-white/15 bg-white/5 px-5 py-2.5 text-xs font-black text-white">처음부터 다시</button>}
-                <button type="button" onClick={onClose} className="rounded-pill border border-violet-200/25 bg-violet-500/15 px-5 py-2.5 text-xs font-black text-white">{previewMode ? '미리보기 닫기' : '차원관문으로 돌아가기'}</button>
-              </div>
-            )}
+            <p className="mt-2 text-xs font-semibold leading-relaxed text-white/60">{previewMode ? '교사 QA 미리보기에서는 학생 진행도·화첩·보상을 기록하지 않습니다.' : '이 장면의 기록이 차원관문에 남았습니다.'}</p>
+            <div className="mt-5 flex justify-center gap-2">
+              {previewMode && <button type="button" onClick={() => { setEnded(false); setIndex(0); }} className="rounded-pill border border-white/15 bg-white/5 px-5 py-2.5 text-xs font-black text-white">처음부터 다시</button>}
+              <button type="button" onClick={onClose} className="rounded-pill border border-violet-200/25 bg-violet-500/15 px-5 py-2.5 text-xs font-black text-white">{previewMode ? '미리보기 닫기' : '차원관문으로 돌아가기'}</button>
+            </div>
           </motion.div>
         </div>
       )}
@@ -463,185 +374,6 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
           이야기 완료 기록에 실패했습니다. 다시 마지막 장면을 눌러 주세요. ({saveError})
         </div>
       )}
-    </div>
-  );
-}
-
-type EpilogueLine = {
-  text: string;
-  opening?: boolean;
-  witness?: boolean;
-  blankAfter?: boolean;
-  longPauseAfter?: boolean;
-};
-
-type FinalEpilogueConfig = {
-  key: string;
-  lines: EpilogueLine[];
-  atCut?: number;
-};
-
-type EpilogueRun = {
-  config: FinalEpilogueConfig;
-  mode: 'mid' | 'end';
-  sourceIndex: number;
-};
-
-const EPILOGUE_TIMING = {
-  fadeToBlack: 2500,
-  holdBlack: 2500,
-  lineFade: 1800,
-  afterOpening: 1600,
-  gapSmall: 450,
-  betweenLines: 1200,
-  beforeWitness: 900,
-  longPause: 2800,
-  narrationHold: 3000,
-  narrationFade: 2200,
-  revealEnding: 2200,
-};
-
-const ASTELL_EPILOGUE_LINES: EpilogueLine[] = [
-  { text: '별이 자라는 데엔, 아주 오랜 시간이 걸린다.', opening: true, blankAfter: true },
-  { text: '잊혀가던 그의 기억을 깨우고,' },
-  { text: '그 밤의 진실을 끝까지 들어준 단 한 사람.', blankAfter: true },
-  { text: '그는 오래도록 기억할 것이다.' },
-  { text: '그 멈춘 밤의 증인을.', witness: true, blankAfter: true, longPauseAfter: true },
-  { text: '그러니 가끔은, 그를 보러 와주길.' },
-  { text: '……그 긴 기다림이, 조금은 덜 외롭도록.' },
-];
-
-const RUMI_EPILOGUE_LINES: EpilogueLine[] = [
-  { text: '긴 겨울이 있었다.', opening: true, blankAfter: true },
-  { text: '닿으면 부서질까 두려워' },
-  { text: '끝내 아무도 곁에 두지 못했던 눈여우가 있었다.', blankAfter: true },
-  { text: '그 겨울의 끝까지 남아' },
-  { text: '그녀의 이름을 불러 준 단 한 사람.', witness: true, blankAfter: true, longPauseAfter: true },
-  { text: '그러니 가끔은, 그녀를 보러 와주길.' },
-  { text: '……눈이 녹아야, 봄이 오는 거니까.' },
-];
-
-const FINAL_EPILOGUES: FinalEpilogueConfig[] = [
-  { key: '멈춰버린 밤', lines: ASTELL_EPILOGUE_LINES },
-  // Legacy 1.0 plays Rumi's ending narration after cut 235, then reveals
-  // the Arcanum/Liminel hidden-ending sequence stored in cuts 236+.
-  { key: '맞잡은 손', lines: RUMI_EPILOGUE_LINES, atCut: 235 },
-];
-
-function getFinalEpilogueConfig(title?: string | null) {
-  const normalized = String(title ?? '');
-  return FINAL_EPILOGUES.find((item) => normalized.includes(item.key)) ?? null;
-}
-
-function SoftTypedText({ text, visibleCount }: { text: string; visibleCount: number }) {
-  const glyphs = Array.from(text);
-  return (
-    <>
-      {glyphs.map((glyph, index) => glyph === '\n' ? (
-        <br key={`br-${index}`} />
-      ) : (
-        <span
-          key={`${index}-${glyph}`}
-          style={{
-            opacity: index < visibleCount ? 1 : 0,
-            transition: 'opacity 260ms ease-out',
-            whiteSpace: 'pre',
-          }}
-        >
-          {glyph}
-        </span>
-      ))}
-    </>
-  );
-}
-
-function FinalChapterEpilogue({
-  config,
-  onReveal,
-  onDone,
-}: {
-  config: FinalEpilogueConfig;
-  onReveal: () => void;
-  onDone: () => void;
-}) {
-  const [overlayVisible, setOverlayVisible] = useState(false);
-  const [visibleLines, setVisibleLines] = useState(0);
-  const [textVisible, setTextVisible] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
-
-    const run = async () => {
-      await sleep(30);
-      if (cancelled) return;
-      setOverlayVisible(true);
-      await sleep(EPILOGUE_TIMING.fadeToBlack + EPILOGUE_TIMING.holdBlack);
-
-      for (let index = 0; index < config.lines.length; index += 1) {
-        if (cancelled) return;
-        setVisibleLines(index + 1);
-        const line = config.lines[index];
-        await sleep(EPILOGUE_TIMING.lineFade);
-        if (line.longPauseAfter) await sleep(EPILOGUE_TIMING.longPause);
-        else if (line.blankAfter) await sleep(EPILOGUE_TIMING.betweenLines);
-        else if (index === 0) await sleep(EPILOGUE_TIMING.afterOpening);
-        else await sleep(EPILOGUE_TIMING.gapSmall);
-        if (config.lines[index + 1]?.witness) await sleep(EPILOGUE_TIMING.beforeWitness);
-      }
-
-      if (cancelled) return;
-      await sleep(EPILOGUE_TIMING.narrationHold);
-      setTextVisible(false);
-      await sleep(EPILOGUE_TIMING.narrationFade);
-      if (cancelled) return;
-
-      // Match 1.0: prepare the hidden ending / complete screen underneath first,
-      // then let the black narration veil recede to reveal it.
-      onReveal();
-      setOverlayVisible(false);
-      await sleep(EPILOGUE_TIMING.revealEnding);
-      if (!cancelled) onDone();
-    };
-
-    void run();
-    return () => { cancelled = true; };
-  }, [config, onDone, onReveal]);
-
-  return (
-    <div
-      className="absolute inset-0 z-[60] flex items-center justify-center bg-black px-6 py-10"
-      style={{
-        opacity: overlayVisible ? 1 : 0,
-        transition: `opacity ${overlayVisible ? EPILOGUE_TIMING.fadeToBlack : EPILOGUE_TIMING.revealEnding}ms ease`,
-      }}
-      onClick={(event) => event.stopPropagation()}
-    >
-      <div
-        className="w-full max-w-3xl text-center font-serif leading-[2.1] text-[#d7ddf5]"
-        style={{
-          opacity: textVisible ? 1 : 0,
-          transition: `opacity ${EPILOGUE_TIMING.narrationFade}ms ease`,
-        }}
-      >
-        {config.lines.map((line, index) => (
-          <div key={`${config.key}-${index}`} className={line.blankAfter ? 'mb-3.5' : ''}>
-            <p
-              className={cn(
-                'm-0 text-[18px] tracking-[0.04em] sm:text-[23px]',
-                line.opening && 'text-[21px] tracking-[0.12em] text-[#c6cdf0] sm:text-[26px]',
-                line.witness && 'tracking-[0.14em] text-[#eaf0ff] drop-shadow-[0_0_18px_rgba(160,180,255,0.55)]',
-              )}
-              style={{
-                opacity: index < visibleLines ? 1 : 0,
-                transition: `opacity ${EPILOGUE_TIMING.lineFade}ms ease`,
-              }}
-            >
-              {line.text}
-            </p>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -688,52 +420,8 @@ function sceneFilter(effects: string[]) {
   const filters: string[] = [];
   if (effects.includes('gray')) filters.push('grayscale(1)');
   if (effects.includes('sepia')) filters.push('sepia(.9)');
-
-  // Legacy H-column `dim` is a scene-depth cue: soften the BACKGROUND so the
-  // foreground character/text reads more clearly. Sprites must never be dimmed.
-  // Explicit `blur` remains the stronger blur cue.
   if (effects.includes('blur')) filters.push('blur(5px)');
-  else if (effects.includes('dim')) filters.push('blur(2.8px)', 'brightness(.9)');
-
   return filters.join(' ') || undefined;
-}
-
-type BgmCommand =
-  | { kind: 'hold' }
-  | { kind: 'stop' }
-  | { kind: 'play'; url: string };
-
-const BGM_STOP_KEY = '__DG_BGM_STOP__';
-
-function parseBgmCommand(raw: string | null | undefined): BgmCommand {
-  const value = String(raw ?? '').trim();
-  if (!value) return { kind: 'hold' };
-  const lower = value.toLowerCase();
-  if (value === '-' || lower === 'none') return { kind: 'stop' };
-  if (/^https?:\/\//i.test(value)) return { kind: 'play', url: value };
-
-  // Source TSV contains a few descriptive cue notes (e.g. music direction text)
-  // without a playable URL. Do not invent a file or interrupt the current track.
-  return { kind: 'hold' };
-}
-
-function effectiveBgmCommandAt(
-  cuts: DimensionalGateStoryCut[],
-  targetIndex: number,
-  defaultBgm: string | null | undefined,
-) {
-  let effective: string | null = null;
-  const initial = parseBgmCommand(defaultBgm);
-  if (initial.kind === 'play') effective = initial.url;
-  else if (initial.kind === 'stop') effective = 'none';
-
-  for (let cursor = 0; cursor <= targetIndex; cursor += 1) {
-    const raw = cuts[cursor]?.bgm_url;
-    const command = parseBgmCommand(raw);
-    if (command.kind === 'play') effective = command.url;
-    else if (command.kind === 'stop') effective = 'none';
-  }
-  return effective;
 }
 
 const DIMENSIONAL_GATE_DEFAULT_STORY_SPRITES: Record<string, string> = {

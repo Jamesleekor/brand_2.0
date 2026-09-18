@@ -28,7 +28,6 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   const [index, setIndex] = useState(0);
   const [visibleCharCount, setVisibleCharCount] = useState(0);
   const [typingDone, setTypingDone] = useState(false);
-  const [typingCutOrder, setTypingCutOrder] = useState<number | null>(null);
   const [ended, setEnded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -38,7 +37,6 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   const [epilogueEndReveal, setEpilogueEndReveal] = useState(false);
   const visitedGalleryIds = useRef<Set<number>>(new Set());
   const bgmRef = useRef<HTMLAudioElement | null>(null);
-  const bgmSourceRef = useRef<string | null>(null);
   const sfxRef = useRef<HTMLAudioElement | null>(null);
   const startedRef = useRef(false);
 
@@ -57,9 +55,6 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   const script = previewScript ?? scriptQuery.data;
   const cuts = script?.cuts ?? [];
   const current = cuts[index] ?? null;
-  const typingStateReady = current != null && typingCutOrder === current.cut_order;
-  const currentVisibleCharCount = typingStateReady ? visibleCharCount : 0;
-  const currentTypingDone = typingStateReady ? typingDone : false;
   const orderMap = useMemo(() => {
     const map = new Map<number, number>();
     cuts.forEach((cut, idx) => map.set(cut.cut_order, idx));
@@ -89,7 +84,6 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
 
     const text = current.content ?? '';
     const glyphCount = Array.from(text).length;
-    setTypingCutOrder(current.cut_order);
     setVisibleCharCount(0);
     setTypingDone(glyphCount === 0);
     if (!glyphCount) return;
@@ -109,43 +103,41 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
     return () => window.clearInterval(timer);
   }, [current?.cut_order]);
 
-  const applyBgmCommand = useCallback((raw: string | null | undefined) => {
-    const command = parseBgmCommand(raw);
-    if (command.kind === 'hold') return;
-
-    if (command.kind === 'stop') {
-      if (bgmSourceRef.current === BGM_STOP_KEY && !bgmRef.current) return;
-      bgmRef.current?.pause();
-      bgmRef.current = null;
-      bgmSourceRef.current = BGM_STOP_KEY;
+  useEffect(() => {
+    if (!script) return;
+    let target = current?.bgm_url ?? (index === 0 ? script.default_bgm_url : undefined);
+    if (previewMode) {
+      target = script.default_bgm_url;
+      for (let cursor = index; cursor >= 0; cursor -= 1) {
+        const candidate = cuts[cursor]?.bgm_url;
+        if (candidate !== undefined && candidate !== null && String(candidate).trim() !== '') {
+          target = candidate;
+          break;
+        }
+      }
+    }
+    if (target === undefined || target === null || target === '') {
+      if (previewMode) {
+        bgmRef.current?.pause();
+        bgmRef.current = null;
+      }
       return;
     }
-
-    // Compare the original logical source string, not HTMLAudioElement.src. Browsers
-    // percent-encode Korean filenames in audio.src, which previously made the same
-    // track look different on every cut and restarted it from 0:00.
-    if (bgmSourceRef.current === command.url && bgmRef.current) return;
+    const normalized = String(target).trim();
+    if (normalized === '-' || normalized.toLowerCase() === 'none') {
+      bgmRef.current?.pause();
+      bgmRef.current = null;
+      return;
+    }
+    const url = resolveAssetUrl(normalized, 'icon');
+    if (bgmRef.current?.src === url) return;
     bgmRef.current?.pause();
-    const audio = new Audio(resolveAssetUrl(command.url, 'icon'));
+    const audio = new Audio(url);
     audio.loop = true;
     audio.volume = muted ? 0 : 0.45;
     bgmRef.current = audio;
-    bgmSourceRef.current = command.url;
     void audio.play().catch(() => undefined);
-  }, [muted]);
-
-  useEffect(() => {
-    if (!script || !current) return;
-    const cutCommand = parseBgmCommand(current.bgm_url);
-    if (cutCommand.kind !== 'hold') {
-      applyBgmCommand(current.bgm_url);
-      return;
-    }
-
-    // Empty BGM cell means HOLD: keep the previously playing music. Only the first
-    // cut falls back to the episode default when no explicit cue exists yet.
-    if (index === 0) applyBgmCommand(script.default_bgm_url);
-  }, [applyBgmCommand, current?.bgm_url, current?.cut_order, index, script]);
+  }, [cuts, previewMode, script, current?.cut_order, current?.bgm_url, index]);
 
   useEffect(() => {
     if (bgmRef.current) bgmRef.current.volume = muted ? 0 : 0.45;
@@ -169,8 +161,6 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
 
   useEffect(() => () => {
     bgmRef.current?.pause();
-    bgmRef.current = null;
-    bgmSourceRef.current = null;
     sfxRef.current?.pause();
   }, []);
 
@@ -210,8 +200,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
 
   const advance = useCallback(() => {
     if (!current || saving || ended || epilogueRun) return;
-    if (!currentTypingDone) {
-      setTypingCutOrder(current.cut_order);
+    if (!typingDone) {
       setVisibleCharCount(Array.from(current.content ?? '').length);
       setTypingDone(true);
       return;
@@ -237,7 +226,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
     }
 
     goToIndex(index + 1);
-  }, [current, cuts.length, ended, epilogueRun, finalEpilogue, goToIndex, index, orderMap, saving, currentTypingDone]);
+  }, [current, cuts.length, ended, epilogueRun, finalEpilogue, goToIndex, index, orderMap, saving, typingDone]);
 
   const choose = useCallback((to: number) => {
     const target = orderMap.get(to);
@@ -249,24 +238,11 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
     if (!Number.isInteger(order)) return;
     const target = orderMap.get(order);
     if (target == null) return;
-
-    // QA cut-jump has no playback history, so rebuild the effective BGM from the
-    // nearest preceding valid command. Sequential playback itself never scans back.
-    if (previewMode) {
-      const qaBgm = effectiveBgmCommandAt(cuts, target, script?.default_bgm_url);
-      if (qaBgm != null) applyBgmCommand(qaBgm);
-      else {
-        bgmRef.current?.pause();
-        bgmRef.current = null;
-        bgmSourceRef.current = null;
-      }
-    }
-
     setEpilogueRun(null);
     setEpilogueEndReveal(false);
     setEnded(false);
     setIndex(target);
-  }, [applyBgmCommand, cuts, orderMap, previewMode, qaCutOrder, script?.default_bgm_url]);
+  }, [orderMap, qaCutOrder]);
 
   const handleEpilogueReveal = useCallback(() => {
     if (!epilogueRun) return;
@@ -338,12 +314,12 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
 
       {!isCg && !isTitle && !hideSprite && sprite && (
         <motion.img
-          key={sprite}
+          key={`${sprite}-${current.cut_order}`}
           src={sprite}
           alt=""
-          initial={false}
-          animate={{ x: '-50%', scale: effects.includes('zoomin') ? 1.08 : effects.includes('zoomout') ? 0.93 : 1 }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: effects.includes('dim') ? 0.42 : 1, y: 0, x: '-50%', scale: effects.includes('zoomin') ? 1.08 : effects.includes('zoomout') ? 0.93 : 1 }}
+          transition={{ duration: 0.45 }}
           className="pointer-events-none absolute bottom-[12vh] left-1/2 max-h-[72vh] max-w-[84vw] object-contain drop-shadow-[0_20px_30px_rgba(0,0,0,0.55)] sm:bottom-[10vh]"
         />
       )}
@@ -384,30 +360,22 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
         >
           <div>
             <div className="text-xs font-black uppercase tracking-[0.35em] text-violet-100/65">{titleKick}</div>
-            <div className="mt-4 font-display text-3xl text-white sm:text-5xl"><SoftTypedText key={`title-${current.cut_order}`} text={current.content ?? ''} visibleCount={currentVisibleCharCount} /></div>
-            {currentTypingDone && <div className="mt-6 text-[10px] font-black tracking-widest text-white/45">화면을 눌러 계속</div>}
+            <div className="mt-4 font-display text-3xl text-white sm:text-5xl"><SoftTypedText text={current.content ?? ''} visibleCount={visibleCharCount} /></div>
+            {typingDone && <div className="mt-6 text-[10px] font-black tracking-widest text-white/45">화면을 눌러 계속</div>}
           </div>
         </motion.div>
       ) : (
         <div className="absolute inset-x-0 bottom-0 z-20 p-3 pb-5 sm:p-6 sm:pb-8">
           <div className={cn(
-            'mx-auto min-h-[142px] max-w-4xl rounded-[20px] border border-white/15 bg-[#090b17]/88 p-4 shadow-2xl backdrop-blur-md sm:min-h-[156px] sm:p-5',
+            'mx-auto max-w-4xl rounded-[20px] border border-white/15 bg-[#090b17]/88 p-4 shadow-2xl backdrop-blur-md sm:p-5',
             isNarration && 'bg-black/62 text-center',
           )}>
-            <div
-              className={cn(
-                'mb-2 min-h-[1rem] text-xs font-black tracking-wide text-violet-200',
-                nameGlow && 'drop-shadow-[0_0_10px_rgba(196,181,253,0.95)] text-violet-100',
-                (isNarration || !current.speaker) && 'invisible',
-              )}
-            >
-              {current.speaker || '\u00A0'}
-            </div>
-            <div className={cn('min-h-[4.5rem] whitespace-pre-wrap text-[17px] font-semibold leading-8 text-white sm:text-[19px] sm:leading-9', isNarration && 'font-serif leading-9')}>
-              <SoftTypedText key={`body-${current.cut_order}`} text={current.content ?? ''} visibleCount={currentVisibleCharCount} />
+            {!isNarration && current.speaker && <div className={cn('mb-2 text-xs font-black tracking-wide text-violet-200', nameGlow && 'drop-shadow-[0_0_10px_rgba(196,181,253,0.95)] text-violet-100')}>{current.speaker}</div>}
+            <div className={cn('min-h-[3.5rem] whitespace-pre-wrap text-[17px] font-semibold leading-8 text-white sm:text-[19px] sm:leading-9', isNarration && 'font-serif leading-9')}>
+              <SoftTypedText text={current.content ?? ''} visibleCount={visibleCharCount} />
             </div>
 
-            {current.cut_type === 'CHOICE' && currentTypingDone && current.choices && (
+            {current.cut_type === 'CHOICE' && typingDone && current.choices && (
               <div className="mt-4 grid gap-2" onClick={(event) => event.stopPropagation()}>
                 {current.choices.map((choice, choiceIndex) => (
                   <button
@@ -422,11 +390,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
               </div>
             )}
 
-            {current.cut_type !== 'CHOICE' && (
-              <div className="mt-2 min-h-[0.9rem] text-right text-[9px] font-black tracking-widest text-white/40">
-                {currentTypingDone ? '다음 ▼' : '\u00A0'}
-              </div>
-            )}
+            {current.cut_type !== 'CHOICE' && typingDone && <div className="mt-2 text-right text-[9px] font-black tracking-widest text-white/40">다음 ▼</div>}
           </div>
         </div>
       )}
@@ -688,52 +652,8 @@ function sceneFilter(effects: string[]) {
   const filters: string[] = [];
   if (effects.includes('gray')) filters.push('grayscale(1)');
   if (effects.includes('sepia')) filters.push('sepia(.9)');
-
-  // Legacy H-column `dim` is a scene-depth cue: soften the BACKGROUND so the
-  // foreground character/text reads more clearly. Sprites must never be dimmed.
-  // Explicit `blur` remains the stronger blur cue.
   if (effects.includes('blur')) filters.push('blur(5px)');
-  else if (effects.includes('dim')) filters.push('blur(2.8px)', 'brightness(.9)');
-
   return filters.join(' ') || undefined;
-}
-
-type BgmCommand =
-  | { kind: 'hold' }
-  | { kind: 'stop' }
-  | { kind: 'play'; url: string };
-
-const BGM_STOP_KEY = '__DG_BGM_STOP__';
-
-function parseBgmCommand(raw: string | null | undefined): BgmCommand {
-  const value = String(raw ?? '').trim();
-  if (!value) return { kind: 'hold' };
-  const lower = value.toLowerCase();
-  if (value === '-' || lower === 'none') return { kind: 'stop' };
-  if (/^https?:\/\//i.test(value)) return { kind: 'play', url: value };
-
-  // Source TSV contains a few descriptive cue notes (e.g. music direction text)
-  // without a playable URL. Do not invent a file or interrupt the current track.
-  return { kind: 'hold' };
-}
-
-function effectiveBgmCommandAt(
-  cuts: DimensionalGateStoryCut[],
-  targetIndex: number,
-  defaultBgm: string | null | undefined,
-) {
-  let effective: string | null = null;
-  const initial = parseBgmCommand(defaultBgm);
-  if (initial.kind === 'play') effective = initial.url;
-  else if (initial.kind === 'stop') effective = 'none';
-
-  for (let cursor = 0; cursor <= targetIndex; cursor += 1) {
-    const raw = cuts[cursor]?.bgm_url;
-    const command = parseBgmCommand(raw);
-    if (command.kind === 'play') effective = command.url;
-    else if (command.kind === 'stop') effective = 'none';
-  }
-  return effective;
 }
 
 const DIMENSIONAL_GATE_DEFAULT_STORY_SPRITES: Record<string, string> = {

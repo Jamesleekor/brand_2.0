@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { EmptyState, LoadingSpinner } from '@/components/shared/components';
-import DimensionalGateVN from '@/features/character/dimensional-gate/DimensionalGateVN';
 import type { TeacherCharacterRow } from '@/lib/rpc/character_c3_rpc';
-import type { DimensionalGateRosterRow, DimensionalGateStoryListItem, DimensionalGateStoryScript } from '@/lib/rpc/dimensional_gate_rpc';
 import {
   dimensionalGateContentRpc,
   dimensionalGateContentExtrasRpc,
@@ -18,12 +16,6 @@ import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
 
 interface Props { characters: TeacherCharacterRow[]; }
-
-type StoryPreviewState = {
-  character: DimensionalGateRosterRow;
-  story: DimensionalGateStoryListItem;
-  script: DimensionalGateStoryScript;
-};
 
 type ProfileForm = {
   gateStatus: 'CONNECTED' | 'CONNECTING' | 'OUT_OF_RANGE';
@@ -65,87 +57,6 @@ const blankSpecialCgs = (): DimensionalGateSpecialCgAdminRow[] => ([
   { unlock_affinity: 100, title: '', image_url: '', home_background_allowed: false, is_active: false },
 ]);
 
-function makeTeacherStoryPreview(
-  character: TeacherCharacterRow,
-  episodeId: number,
-  pkg: DimensionalGateStoryPackage,
-  storyScope: 'STANDARD' | 'MAJOR',
-): StoryPreviewState {
-  const cuts = [...pkg.cuts]
-    .sort((a, b) => a.cut_order - b.cut_order)
-    .map((cut) => ({
-      cut_order: cut.cut_order,
-      cut_type: cut.cut_type,
-      speaker: cut.speaker ?? null,
-      content: cut.content ?? null,
-      background_url: cut.background_url ?? null,
-      sprite_url: cut.sprite_url ?? null,
-      bgm_url: cut.bgm_url ?? null,
-      sfx_url: cut.sfx_url ?? null,
-      effects: Array.isArray(cut.effects) ? cut.effects : [],
-      choices: Array.isArray(cut.choices) ? cut.choices : null,
-      jump_to_order: cut.jump_to_order ?? null,
-      gallery_asset_id: null,
-      metadata: cut.metadata ?? {},
-    }));
-
-  const story: DimensionalGateStoryListItem = {
-    episode_id: episodeId,
-    episode_no: pkg.episode.episode_no,
-    title: pkg.episode.title,
-    required_affinity: pkg.episode.required_affinity,
-    unlocked: true,
-    opened: false,
-    completed: false,
-    is_new: false,
-    estimated_minutes: pkg.episode.estimated_minutes ?? null,
-    headphone_recommended: pkg.episode.headphone_recommended ?? false,
-  };
-
-  return {
-    character: {
-      character_id: character.id,
-      character_uid: character.character_uid,
-      name: character.name,
-      epithet: character.epithet,
-      description: character.description,
-      resource_kind: character.resource_kind,
-      resource_url: character.resource_url,
-      full_image_url: character.full_image_url,
-      card_image_url: character.card_image_url,
-      avatar_image_url: character.avatar_image_url,
-      is_owned: true,
-      relationship_exists: false,
-      affinity: 100,
-      relation_stage: 'TRUST',
-      status: 'NORMAL',
-      daily_chat_limit: 0,
-      chat_count: 0,
-      remaining_chat_count: 0,
-      story_scope: storyScope,
-      gate_status: 'CONNECTED',
-      publication_ready: false,
-      story_enabled: true,
-      gallery_enabled: false,
-      rewards_enabled: false,
-      chat_enabled: false,
-      gate_enabled: true,
-    },
-    story,
-    script: {
-      episode_id: episodeId,
-      character_id: character.id,
-      episode_no: pkg.episode.episode_no,
-      title: pkg.episode.title,
-      required_affinity: pkg.episode.required_affinity,
-      default_bgm_url: pkg.episode.default_bgm_url ?? null,
-      estimated_minutes: pkg.episode.estimated_minutes ?? null,
-      headphone_recommended: pkg.episode.headphone_recommended ?? false,
-      cuts,
-    },
-  };
-}
-
 export function DimensionalGateContentAdminPanel({ characters }: Props) {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<number | null>(characters[0]?.id ?? null);
@@ -158,8 +69,6 @@ export function DimensionalGateContentAdminPanel({ characters }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const [storyJson, setStoryJson] = useState('');
   const [storyEditorLabel, setStoryEditorLabel] = useState('');
-  const [storyPreview, setStoryPreview] = useState<StoryPreviewState | null>(null);
-  const [previewLoadingId, setPreviewLoadingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (selectedId == null && characters[0]) setSelectedId(characters[0].id);
@@ -320,19 +229,6 @@ export function DimensionalGateContentAdminPanel({ characters }: Props) {
     setStoryJson(JSON.stringify(result.data, null, 2));
     setStoryEditorLabel(`${episodeNo}편 편집`);
     setMessage(`${episodeNo}편 패키지를 불러왔습니다. 에피소드 ID와 학생 진행 기록은 저장 후에도 유지됩니다.`);
-  };
-
-  const openStoryPreview = async (episodeId: number, character: TeacherCharacterRow) => {
-    if (previewLoadingId !== null) return;
-    setPreviewLoadingId(episodeId);
-    setMessage(null);
-    const result = await dimensionalGateStoryAdminRpc.getPackage(supabase, episodeId);
-    setPreviewLoadingId(null);
-    if (result.success === false) {
-      setMessage(`VN 미리보기를 불러오지 못했습니다. ${result.error}`);
-      return;
-    }
-    setStoryPreview(makeTeacherStoryPreview(character, episodeId, result.data, profile.storyScope));
   };
 
   const parseStoryPackage = (): DimensionalGateStoryPackage => {
@@ -511,8 +407,7 @@ export function DimensionalGateContentAdminPanel({ characters }: Props) {
               <SectionTitle title="만남 이벤트 · JSON 패키지" description={`현재 ${episodeCount}편 · ${profile.storyScope === 'MAJOR' ? '주요 편린 권장 4~6편' : '일반 편린 권장 2~3편'} · 에피소드 ID를 유지한 채 안전하게 덮어씁니다.`} />
               <button type="button" onClick={makeStoryTemplate} className="rounded-card-md border border-brand-primary/40 bg-brand-primary/10 px-3 py-2 text-[10px] font-black text-brand-glow">+ 새 편 템플릿</button>
             </div>
-            {(query.data?.episodes.length ?? 0) === 0 ? <div className="mt-3 rounded-card-md border border-dashed border-line bg-bg-deep/40 p-5 text-center text-[10px] font-bold text-text-muted">아직 등록된 만남 이벤트가 없습니다. 위 버튼으로 템플릿을 만들거나, ChatGPT가 만든 스토리 패키지 JSON을 아래에 붙여넣으세요.</div> : <div className="mt-3 space-y-1.5">{query.data?.episodes.map((e) => <div key={e.episode_id} className="flex items-center justify-between gap-3 rounded-card-md border border-line bg-bg-deep/55 px-3 py-2"><div><div className="text-xs font-black text-white">{e.episode_no}편 · {e.title}</div><div className="text-[9px] font-bold text-text-muted">호감도 {e.required_affinity} · {e.cut_count}컷{e.is_active ? '' : ' · 비공개'}</div></div><div className="flex shrink-0 items-center gap-1.5"><button type="button" disabled={Boolean(saving) || previewLoadingId !== null} onClick={() => { void openStoryPreview(e.episode_id, selected); }} className="rounded-card-md border border-violet-300/35 bg-violet-500/10 px-2.5 py-1.5 text-[9px] font-black text-violet-100 hover:bg-violet-500/20 disabled:opacity-40">{previewLoadingId === e.episode_id ? '불러오는 중…' : '▶ VN 미리보기'}</button><button type="button" disabled={Boolean(saving) || previewLoadingId !== null} onClick={() => { void loadStoryPackage(e.episode_id,e.episode_no); }} className="rounded-card-md border border-line bg-bg-card px-2.5 py-1.5 text-[9px] font-black text-text-secondary hover:text-white disabled:opacity-40">JSON 편집</button></div></div>)}</div>}
-            <div className="mt-2 text-[9px] font-bold leading-relaxed text-text-muted">VN 미리보기는 교사 전용 읽기 모드입니다. 학생 공개 여부·보유 여부·호감도를 무시하며 진행도, 화첩 해금, 보상은 기록하지 않습니다.</div>
+            {(query.data?.episodes.length ?? 0) === 0 ? <div className="mt-3 rounded-card-md border border-dashed border-line bg-bg-deep/40 p-5 text-center text-[10px] font-bold text-text-muted">아직 등록된 만남 이벤트가 없습니다. 위 버튼으로 템플릿을 만들거나, ChatGPT가 만든 스토리 패키지 JSON을 아래에 붙여넣으세요.</div> : <div className="mt-3 space-y-1.5">{query.data?.episodes.map((e) => <div key={e.episode_id} className="flex items-center justify-between gap-3 rounded-card-md border border-line bg-bg-deep/55 px-3 py-2"><div><div className="text-xs font-black text-white">{e.episode_no}편 · {e.title}</div><div className="text-[9px] font-bold text-text-muted">호감도 {e.required_affinity} · {e.cut_count}컷{e.is_active ? '' : ' · 비공개'}</div></div><button type="button" disabled={Boolean(saving)} onClick={() => { void loadStoryPackage(e.episode_id,e.episode_no); }} className="shrink-0 rounded-card-md border border-line bg-bg-card px-2.5 py-1.5 text-[9px] font-black text-text-secondary hover:text-white disabled:opacity-40">JSON 편집</button></div>)}</div>}
             <div className="mt-4 rounded-card-md border border-line bg-bg-deep/50 p-3">
               <div className="flex items-center justify-between gap-2"><div className="text-xs font-black text-white">{storyEditorLabel || '스토리 패키지 편집기'}</div><div className="text-[9px] font-bold text-text-muted">TITLE · NARRATION · LINE · CHOICE · CG</div></div>
               <textarea value={storyJson} onChange={(e) => setStoryJson(e.target.value)} rows={20} spellCheck={false} placeholder={'{\n  \"episode\": { ... },\n  \"cuts\": [ ... ]\n}'} className="mt-2 w-full resize-y rounded-card-md border border-line bg-[#090b14] px-3 py-3 font-mono text-[10px] leading-relaxed text-slate-200 outline-none focus:border-brand-primary/50" />
@@ -521,16 +416,6 @@ export function DimensionalGateContentAdminPanel({ characters }: Props) {
             </div>
           </div>
         </div>
-      )}
-      {storyPreview && (
-        <DimensionalGateVN
-          key={`teacher-story-preview-${storyPreview.story.episode_id}`}
-          character={storyPreview.character}
-          story={storyPreview.story}
-          previewMode
-          previewScript={storyPreview.script}
-          onClose={() => setStoryPreview(null)}
-        />
       )}
     </section>
   );
