@@ -20,3 +20,7 @@ _patch_backup/
 _raid_v15_hotfix_backups/
 .raid_e6_backup_*/
 backup_raid_v15_e5_*/
+
+# Generated config outputs
+/vite.config.js
+/vite.config.d.ts
