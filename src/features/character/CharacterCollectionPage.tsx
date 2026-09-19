@@ -39,6 +39,32 @@ type CharacterElementProfile = {
   secondary_points: number;
 };
 
+type ExpeditionSpecialtyCode = 'RUINS' | 'NATURE' | 'SANCTUARY';
+
+type CharacterExpeditionProfile = {
+  character_id: number;
+  specialty_code: ExpeditionSpecialtyCode;
+  profile_status: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
+};
+
+const EXPEDITION_SPECIALTY_META: Record<ExpeditionSpecialtyCode, { label: string; icon: string; className: string }> = {
+  RUINS: {
+    label: '유적',
+    icon: '🏛',
+    className: 'border-[#D6A56B]/45 bg-[#5A3A20]/55 text-[#FFD9A3]',
+  },
+  NATURE: {
+    label: '자연',
+    icon: '🌿',
+    className: 'border-[#7DCE87]/45 bg-[#1E4A2B]/55 text-[#BDF5C5]',
+  },
+  SANCTUARY: {
+    label: '성소',
+    icon: '✦',
+    className: 'border-[#CFA8FF]/45 bg-[#432664]/55 text-[#E8CFFF]',
+  },
+};
+
 const FILTERS: Array<{ key: FilterKey; label: string; icon: string }> = [
   { key: 'ALL', label: '전체', icon: '✦' },
   { key: 'OWNED', label: '보유', icon: '✓' },
@@ -153,6 +179,7 @@ export default function CharacterCollectionPage() {
   const collectionQuery = useCharacterCollection();
   const recruitmentQuery = useCharacterRecruitmentStore();
   const elementQuery = useCharacterElementProfiles();
+  const expeditionProfileQuery = useCharacterExpeditionProfiles();
   const characters = collectionQuery.data ?? [];
   const recruitmentById = useMemo(
     () => new Map((recruitmentQuery.data ?? []).map((row) => [row.character_id, row])),
@@ -161,6 +188,10 @@ export default function CharacterCollectionPage() {
   const elementById = useMemo(
     () => new Map((elementQuery.data ?? []).map((row) => [row.character_id, row])),
     [elementQuery.data],
+  );
+  const expeditionProfileById = useMemo(
+    () => new Map((expeditionProfileQuery.data ?? []).map((row) => [row.character_id, row])),
+    [expeditionProfileQuery.data],
   );
 
   const ownedCount = useMemo(
@@ -248,6 +279,12 @@ export default function CharacterCollectionPage() {
               </div>
             )}
 
+            {expeditionProfileQuery.isError && (
+              <div className="mt-3 rounded-card-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs font-bold text-warning">
+                원정 특기 정보를 불러오지 못했습니다. 특기 표시는 잠시 사용할 수 없습니다.
+              </div>
+            )}
+
             <div className="mt-4 rounded-card-lg border border-line bg-bg-card/90 p-3 backdrop-blur-card lg:p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
@@ -328,6 +365,7 @@ export default function CharacterCollectionPage() {
                     character={character}
                     recruitment={recruitmentById.get(character.character_id) ?? null}
                     elementProfile={elementById.get(character.character_id) ?? null}
+                    expeditionProfile={expeditionProfileById.get(character.character_id) ?? null}
                     onClick={() => setSelected(character)}
                   />
                 ))}
@@ -351,6 +389,7 @@ export default function CharacterCollectionPage() {
         character={selected}
         recruitment={selected ? recruitmentById.get(selected.character_id) ?? null : null}
         elementProfile={selected ? elementById.get(selected.character_id) ?? null : null}
+        expeditionProfile={selected ? expeditionProfileById.get(selected.character_id) ?? null : null}
         onClose={() => setSelected(null)}
       />
     </>
@@ -510,11 +549,13 @@ function CharacterCard({
   character,
   recruitment,
   elementProfile,
+  expeditionProfile,
   onClick,
 }: {
   character: StudentCharacterCollectionRow;
   recruitment: StudentCharacterRecruitmentRow | null;
   elementProfile: CharacterElementProfile | null;
+  expeditionProfile: CharacterExpeditionProfile | null;
   onClick: () => void;
 }) {
   const state = getCharacterState(character, recruitment);
@@ -574,7 +615,9 @@ function CharacterCard({
         <p className={cn('mt-2 truncate text-[10px] font-bold', state.textClass)}>
           {state.detail}
         </p>
-        {elementProfile && <CharacterElementLine profile={elementProfile} />}
+        {elementProfile && (
+          <CharacterElementLine profile={elementProfile} expeditionProfile={expeditionProfile} />
+        )}
       </div>
     </motion.button>
   );
@@ -588,18 +631,34 @@ function TierBadge({ budget }: { budget: number }) {
   );
 }
 
-function CharacterElementLine({ profile }: { profile: CharacterElementProfile }) {
+function CharacterElementLine({
+  profile,
+  expeditionProfile,
+}: {
+  profile: CharacterElementProfile;
+  expeditionProfile: CharacterExpeditionProfile | null;
+}) {
   const primary = ELEMENT_META[profile.primary_element];
   const secondary = profile.secondary_element ? ELEMENT_META[profile.secondary_element] : null;
+  const specialty = expeditionProfile ? EXPEDITION_SPECIALTY_META[expeditionProfile.specialty_code] : null;
+
   return (
     <div className="mt-2 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-black text-text-primary">
       <span className="flex-shrink-0">{primary.icon} {profile.primary_points}</span>
       {secondary && profile.secondary_points > 0 && (
         <span className="flex-shrink-0">{secondary.icon} {profile.secondary_points}</span>
       )}
-      <span className="truncate rounded-pill border border-line bg-bg-deep/70 px-1.5 py-0.5 text-[9px] text-text-secondary">
+      <span className="truncate rounded-pill border border-line bg-bg-deep/70 px-1.5 py-0.5 text-[9px] text-[#F5E9D4]">
         {getTendencyShortLabel(getElementTendency(profile))}
       </span>
+      {specialty && (
+        <span className={cn(
+          'flex-shrink-0 rounded-pill border px-1.5 py-0.5 text-[9px]',
+          specialty.className,
+        )}>
+          {specialty.icon} {specialty.label}
+        </span>
+      )}
     </div>
   );
 }
@@ -742,11 +801,13 @@ function CharacterDetailModal({
   character,
   recruitment,
   elementProfile,
+  expeditionProfile,
   onClose,
 }: {
   character: StudentCharacterCollectionRow | null;
   recruitment: StudentCharacterRecruitmentRow | null;
   elementProfile: CharacterElementProfile | null;
+  expeditionProfile: CharacterExpeditionProfile | null;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -797,7 +858,12 @@ function CharacterDetailModal({
                   <StateBadge state={getCharacterState(character, recruitment)} />
                 </div>
               </div>
-              {elementProfile && <CharacterElementPanel profile={elementProfile} />}
+              {elementProfile && (
+                <CharacterElementPanel
+                  profile={elementProfile}
+                  expeditionProfile={expeditionProfile}
+                />
+              )}
 
               <CharacterRaidAbilityPanel character={character} />
             </div>
@@ -932,9 +998,16 @@ function CharacterRaidAbilityPanel({ character }: { character: StudentCharacterC
     </div>
   );
 }
-function CharacterElementPanel({ profile }: { profile: CharacterElementProfile }) {
+function CharacterElementPanel({
+  profile,
+  expeditionProfile,
+}: {
+  profile: CharacterElementProfile;
+  expeditionProfile: CharacterExpeditionProfile | null;
+}) {
   const primary = ELEMENT_META[profile.primary_element];
   const secondary = profile.secondary_element ? ELEMENT_META[profile.secondary_element] : null;
+  const specialty = expeditionProfile ? EXPEDITION_SPECIALTY_META[expeditionProfile.specialty_code] : null;
   const primaryPercent = profile.element_budget > 0
     ? Math.max(0, Math.min(100, (profile.primary_points / profile.element_budget) * 100))
     : 0;
@@ -957,19 +1030,30 @@ function CharacterElementPanel({ profile }: { profile: CharacterElementProfile }
             <span className="text-[#FFF7ED]">{getTierLabel(profile.element_budget)} · {profile.element_budget}</span>
             <span className="text-[#E7CFA4]">·</span>
             <span className="text-[#FFB56B]">{getTendencyFullLabel(getElementTendency(profile))}</span>
+            {specialty && (
+              <>
+                <span className="text-[#E7CFA4]">·</span>
+                <span className={cn(
+                  'rounded-pill border px-2 py-0.5 text-[12px]',
+                  specialty.className,
+                )}>
+                  {specialty.icon} 원정 특기 · {specialty.label}
+                </span>
+              </>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap justify-end gap-2 text-[16px] font-black">
           <span
             className="inline-flex items-center gap-1 rounded-pill border px-2.5 py-1"
             style={elementChipStyle(primary)}
-          >            <span>{primary.icon} {primary.label} {profile.primary_points}</span>
+          >            <span>{primary.icon} {primary.label} {profile.primary_points}</span>
           </span>
           {secondary && profile.secondary_points > 0 && (
             <span
               className="inline-flex items-center gap-1 rounded-pill border px-2.5 py-1"
               style={elementChipStyle(secondary)}
-            >              <span>{secondary.icon} {secondary.label} {profile.secondary_points}</span>
+            >              <span>{secondary.icon} {secondary.label} {profile.secondary_points}</span>
             </span>
           )}
         </div>
@@ -1243,6 +1327,27 @@ function useCharacterElementProfiles() {
         primary_points: Number(row.primary_points),
         secondary_element: row.secondary_element ? row.secondary_element as ElementCode : null,
         secondary_points: Number(row.secondary_points ?? 0),
+      }));
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+function useCharacterExpeditionProfiles() {
+  return useQuery<CharacterExpeditionProfile[]>({
+    queryKey: ['character-expedition-profiles'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('character_expedition_profiles')
+        .select('character_id,specialty_code,profile_status')
+        .eq('profile_status', 'ACTIVE');
+
+      if (error) throw error;
+
+      return (data ?? []).map((row) => ({
+        character_id: Number(row.character_id),
+        specialty_code: row.specialty_code as ExpeditionSpecialtyCode,
+        profile_status: row.profile_status as CharacterExpeditionProfile['profile_status'],
       }));
     },
     staleTime: 5 * 60_000,
