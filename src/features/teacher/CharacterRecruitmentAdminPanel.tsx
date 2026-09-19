@@ -7,7 +7,10 @@ import {
   type TeacherCharacterRecruitmentBoard,
   type TeacherCharacterRecruitmentRow,
 } from '@/lib/rpc/character_s1_rpc';
-import type { CharacterRecruitmentMode } from '@/lib/zod_schemas/character_s1_schemas';
+import type {
+  CharacterRecruitmentDiscountStatus,
+  CharacterRecruitmentMode,
+} from '@/lib/zod_schemas/character_s1_schemas';
 import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
 
@@ -163,6 +166,9 @@ function RecruitmentRow({ row, onEdit }: { row: TeacherCharacterRecruitmentRow; 
           <span className="font-mono text-[10px] font-black text-text-muted">{row.character_uid}</span>
           {!row.is_active && <MiniBadge label="Master 비활성" tone="muted" />}
           {offer?.is_active && <MiniBadge label="경로 활성" tone="success" />}
+          {offer && offer.discount_rate > 0 && (
+            <DiscountStatusBadge status={offer.discount_status} rate={offer.discount_rate} />
+          )}
           {!offer && <MiniBadge label="가격 미설정" tone="warning" />}
         </div>
         <div className="mt-0.5 truncate text-sm font-black text-white">{row.name}</div>
@@ -194,10 +200,27 @@ function RecruitmentRow({ row, onEdit }: { row: TeacherCharacterRecruitmentRow; 
       </div>
 
       <div>
-        <div className="text-[10px] font-black text-text-muted">Season 2 기본가</div>
-        <div className={cn('mt-0.5 text-sm font-black', mode === 'CRYSTAL' ? 'text-crystal' : 'text-text-secondary')}>
-          {mode === 'CRYSTAL' ? `💎 ${formatGold(offer?.base_price_crystal ?? 0)} 크리스탈` : mode === 'FREE' ? '무료' : '—'}
-        </div>
+        <div className="text-[10px] font-black text-[#F2EADB]">Season 2 영입가</div>
+        {mode === 'CRYSTAL' && offer ? (
+          <div className="mt-0.5">
+            {offer.discount_status === 'ACTIVE' ? (
+              <>
+                <div className="text-[10px] font-bold text-[#D9CBB7] line-through">
+                  💎 {formatGold(offer.base_price_crystal)}
+                </div>
+                <div className="text-sm font-black text-crystal">
+                  💎 {formatGold(offer.promotion_price_crystal)} 크리스탈
+                </div>
+              </>
+            ) : (
+              <div className="text-sm font-black text-crystal">
+                💎 {formatGold(offer.base_price_crystal)} 크리스탈
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="mt-0.5 text-sm font-black text-[#F2EADB]">{mode === 'FREE' ? '무료' : '—'}</div>
+        )}
       </div>
 
       <div>
@@ -231,6 +254,9 @@ function RecruitmentOfferModal({
   const [price, setPrice] = useState('0');
   const [active, setActive] = useState(false);
   const [notes, setNotes] = useState('');
+  const [discountRate, setDiscountRate] = useState('0');
+  const [discountStartAt, setDiscountStartAt] = useState('');
+  const [discountEndAt, setDiscountEndAt] = useState('');
 
   useEffect(() => {
     if (!row) return;
@@ -238,6 +264,9 @@ function RecruitmentOfferModal({
     setPrice(String(row.offer?.base_price_crystal ?? 0));
     setActive(row.offer?.is_active ?? false);
     setNotes(row.offer?.notes ?? '');
+    setDiscountRate(String(row.offer?.discount_rate ?? 0));
+    setDiscountStartAt(toDateTimeLocalInput(row.offer?.discount_start_at ?? null));
+    setDiscountEndAt(toDateTimeLocalInput(row.offer?.discount_end_at ?? null));
   }, [row]);
 
   if (!row) return null;
@@ -245,11 +274,40 @@ function RecruitmentOfferModal({
   const policyReady = row.policy_status === 'ACTIVE' && row.policy_is_recruitable;
   const selfMode = mode === 'CRYSTAL' || mode === 'FREE';
   const invalidPolicy = selfMode && active && !policyReady;
+  const normalizedDiscountRate = Math.min(99, Math.max(0, Math.trunc(Number(discountRate) || 0)));
+  const discountEnabled = mode === 'CRYSTAL' && normalizedDiscountRate > 0;
+  const draftDiscountStatus = getDraftDiscountStatus(
+    normalizedDiscountRate,
+    discountStartAt,
+    discountEndAt,
+  );
+  const basePriceNumber = Math.max(0, Math.trunc(Number(price) || 0));
+  const previewPromotionPrice = discountEnabled
+    ? Math.max(1, Math.floor(basePriceNumber * (100 - normalizedDiscountRate) / 100))
+    : basePriceNumber;
 
   const selectMode = (next: CharacterRecruitmentMode) => {
     setMode(next);
-    if (next !== 'CRYSTAL') setPrice('0');
+    if (next !== 'CRYSTAL') {
+      setPrice('0');
+      setDiscountRate('0');
+      setDiscountStartAt('');
+      setDiscountEndAt('');
+    }
     if (next === 'UNAVAILABLE') setActive(false);
+  };
+
+  const changeDiscountRate = (raw: string) => {
+    if (raw === '') {
+      setDiscountRate('');
+      return;
+    }
+    const next = Math.min(99, Math.max(0, Math.trunc(Number(raw) || 0)));
+    setDiscountRate(String(next));
+    if (next === 0) {
+      setDiscountStartAt('');
+      setDiscountEndAt('');
+    }
   };
 
   const save = async () => {
@@ -258,9 +316,12 @@ function RecruitmentOfferModal({
         p_classroom_id: classroomId,
         p_character_id: row.character_id,
         p_acquisition_mode: mode,
-        p_base_price_crystal: mode === 'CRYSTAL' ? Math.max(0, Math.trunc(Number(price) || 0)) : 0,
+        p_base_price_crystal: mode === 'CRYSTAL' ? basePriceNumber : 0,
         p_is_active: active,
         p_notes: notes.trim() || null,
+        p_discount_rate: mode === 'CRYSTAL' ? normalizedDiscountRate : 0,
+        p_discount_start_at: discountEnabled ? dateTimeLocalToIso(discountStartAt) : null,
+        p_discount_end_at: discountEnabled ? dateTimeLocalToIso(discountEndAt) : null,
       }),
       {
         successTitle: `${row.name} 영입 설정 저장 완료`,
@@ -275,9 +336,9 @@ function RecruitmentOfferModal({
         <div className="flex items-center gap-3 rounded-card-lg border border-line bg-bg-deep p-3">
           <CharacterThumb row={row} className="h-16 w-16" />
           <div className="min-w-0">
-            <div className="font-mono text-[10px] font-black text-text-muted">{row.character_uid}</div>
+            <div className="font-mono text-[10px] font-black text-[#D9CBB7]">{row.character_uid}</div>
             <div className="truncate font-display text-xl text-white">{row.name}</div>
-            <div className="truncate text-xs font-semibold text-text-secondary">{row.epithet || 'B.R.A.N.D 편린'}</div>
+            <div className="truncate text-xs font-semibold text-[#F2EADB]">{row.epithet || 'B.R.A.N.D 편린'}</div>
           </div>
         </div>
 
@@ -288,16 +349,16 @@ function RecruitmentOfferModal({
           <div className={cn('text-xs font-black', policyReady ? 'text-success' : 'text-warning')}>
             {policyReady ? '✓ 학생 영입 조건 정책 사용 가능' : '⚠ 학생 직접 영입 전 조건 정책을 먼저 활성화하세요'}
           </div>
-          <p className="mt-1 text-xs font-semibold text-text-secondary">
+          <p className="mt-1 text-xs font-semibold text-[#F2EADB]">
             {row.source_condition_text || (policyReady ? '조건 없음' : '현재 영입 정책이 ACTIVE 상태가 아닙니다.')}
           </p>
-          <p className="mt-1 text-[10px] font-bold text-text-muted">
+          <p className="mt-1 text-[10px] font-bold text-[#D9CBB7]">
             현재 조건 달성 {row.eligible_students} / {row.total_students}명
           </p>
         </div>
 
         <div>
-          <label className="text-xs font-black text-text-secondary">영입 방식</label>
+          <label className="text-xs font-black text-[#FFF7ED]">영입 방식</label>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
             {(['CRYSTAL','FREE','TEACHER_ONLY','EVENT_ONLY','UNAVAILABLE'] as const).map((item) => (
               <button
@@ -308,34 +369,98 @@ function RecruitmentOfferModal({
                   'rounded-card-md border px-2 py-2.5 text-[11px] font-black transition',
                   mode === item
                     ? 'border-brand-primary/50 bg-brand-primary/15 text-white'
-                    : 'border-line bg-bg-deep text-text-secondary hover:text-white',
+                    : 'border-line bg-bg-deep text-[#F2EADB] hover:text-white',
                 )}
               >
                 {modeLabel(item)}
               </button>
             ))}
           </div>
-          <p className="mt-2 text-[10px] font-bold leading-relaxed text-text-muted">
-            크리스탈/무료는 학생이 조건 충족 후 직접 영입합니다. 교사 지급/이벤트 전용은 학생에게 획득 경로만 안내하고 직접 버튼은 열지 않습니다.
+          <p className="mt-2 text-[10px] font-bold leading-relaxed text-[#D9CBB7]">
+            크리스탈/무료는 학생이 조건 충족 후 직접 영입합니다. 운영국 지급/이벤트 전용은 학생에게 획득 경로만 안내합니다.
           </p>
         </div>
 
         {mode === 'CRYSTAL' && (
-          <div>
-            <label className="text-xs font-black text-text-secondary">Season 2 기본 영입가 (크리스탈)</label>
-            <input
-              type="number"
-              min={1}
-              max={10_000_000}
-              step={1}
-              value={price}
-              onChange={(event) => setPrice(event.target.value)}
-              className="mt-1.5 w-full rounded-card-md border border-line bg-bg-deep px-3 py-2.5 text-sm font-black text-gold outline-none focus:border-brand-primary/60"
-            />
-            <p className="mt-1.5 text-[10px] font-bold text-text-muted">
-              이 값은 기본 영입가입니다. 학생의 콜렉션 상점 할인 버프가 있으면 서버가 최종 영입가를 자동 계산해 적용합니다.
-            </p>
-          </div>
+          <>
+            <div>
+              <label className="text-xs font-black text-[#FFF7ED]">Season 2 기본 영입가 (크리스탈)</label>
+              <input
+                type="number"
+                min={1}
+                max={10_000_000}
+                step={1}
+                value={price}
+                onChange={(event) => setPrice(event.target.value)}
+                className="mt-1.5 w-full rounded-card-md border border-line bg-bg-deep px-3 py-2.5 text-sm font-black text-gold outline-none focus:border-brand-primary/60"
+              />
+              <p className="mt-1.5 text-[10px] font-bold text-[#D9CBB7]">
+                기간 할인 후 콜렉션 할인 버프가 순서대로 적용되며, 각 최종 금액은 서버에서 소수점 버림으로 계산합니다.
+              </p>
+            </div>
+
+            <div className="rounded-card-lg border border-crystal/30 bg-crystal/5 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="text-xs font-black text-[#FFF7ED]">기간 한정 할인</div>
+                  <div className="mt-0.5 text-[10px] font-bold text-[#D9CBB7]">
+                    할인율 0%이면 기간 입력은 자동으로 비활성화됩니다.
+                  </div>
+                </div>
+                {normalizedDiscountRate > 0 && (
+                  <DiscountStatusBadge status={draftDiscountStatus} rate={normalizedDiscountRate} />
+                )}
+              </div>
+
+              <div className="mt-3 space-y-3">
+                <label className="block w-full max-w-[160px]">
+                  <span className="text-[10px] font-black text-[#F2EADB]">할인율</span>
+                  <div className="relative mt-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={99}
+                      step={1}
+                      value={discountRate}
+                      onChange={(event) => changeDiscountRate(event.target.value)}
+                      className="w-full min-w-0 rounded-card-md border border-line bg-bg-deep px-3 py-2.5 pr-8 text-sm font-black text-crystal outline-none focus:border-crystal/60"
+                    />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-black text-[#F2EADB]">%</span>
+                  </div>
+                </label>
+
+                <div className="grid min-w-0 gap-3 md:grid-cols-2">
+                  <label className={cn('min-w-0', !discountEnabled && 'opacity-45')}>
+                    <span className="text-[10px] font-black text-[#F2EADB]">할인 시작</span>
+                    <input
+                      type="datetime-local"
+                      value={discountStartAt}
+                      disabled={!discountEnabled}
+                      onChange={(event) => setDiscountStartAt(event.target.value)}
+                      className="mt-1 block w-full min-w-0 max-w-full rounded-card-md border border-line bg-bg-deep px-3 py-2.5 text-xs font-bold text-[#FFF7ED] outline-none focus:border-crystal/60 disabled:cursor-not-allowed"
+                    />
+                  </label>
+                  <label className={cn('min-w-0', !discountEnabled && 'opacity-45')}>
+                    <span className="text-[10px] font-black text-[#F2EADB]">할인 종료</span>
+                    <input
+                      type="datetime-local"
+                      value={discountEndAt}
+                      disabled={!discountEnabled}
+                      onChange={(event) => setDiscountEndAt(event.target.value)}
+                      className="mt-1 block w-full min-w-0 max-w-full rounded-card-md border border-line bg-bg-deep px-3 py-2.5 text-xs font-bold text-[#FFF7ED] outline-none focus:border-crystal/60 disabled:cursor-not-allowed"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {discountEnabled && (
+                <div className="mt-3 rounded-card-md border border-crystal/25 bg-bg-deep/65 px-3 py-2 text-[11px] font-bold text-[#F2EADB]">
+                  정가 💎 {formatGold(basePriceNumber)} → 기간 할인가 💎 {formatGold(previewPromotionPrice)}
+                  <span className="ml-2 text-crystal">({normalizedDiscountRate}% 할인)</span>
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {mode === 'FREE' && (
@@ -349,8 +474,8 @@ function RecruitmentOfferModal({
           mode === 'UNAVAILABLE' ? 'cursor-not-allowed border-line bg-bg-deep/50 opacity-60' : 'border-line bg-bg-deep',
         )}>
           <div>
-            <div className="text-xs font-black text-text-primary">영입 경로 활성화</div>
-            <div className="mt-0.5 text-[10px] font-bold text-text-muted">
+            <div className="text-xs font-black text-[#FFF7ED]">영입 경로 활성화</div>
+            <div className="mt-0.5 text-[10px] font-bold text-[#D9CBB7]">
               끄면 설정은 보존하지만 학생에게는 준비 중 상태로 표시됩니다.
             </div>
           </div>
@@ -370,14 +495,14 @@ function RecruitmentOfferModal({
         )}
 
         <div>
-          <label className="text-xs font-black text-text-secondary">운영 메모</label>
+          <label className="text-xs font-black text-[#FFF7ED]">운영 메모</label>
           <textarea
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             rows={3}
             maxLength={1000}
             placeholder="예: 시즌2 기본 판매가 / 특정 이벤트 종료 후 중지 예정"
-            className="mt-1.5 w-full resize-none rounded-card-md border border-line bg-bg-deep px-3 py-2 text-xs font-semibold text-text-primary outline-none focus:border-brand-primary/60"
+            className="mt-1.5 w-full resize-none rounded-card-md border border-line bg-bg-deep px-3 py-2 text-xs font-semibold text-[#FFF7ED] outline-none focus:border-brand-primary/60"
           />
         </div>
 
@@ -394,6 +519,57 @@ function RecruitmentOfferModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+function toDateTimeLocalInput(value: string | null): string {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function dateTimeLocalToIso(value: string): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function getDraftDiscountStatus(
+  rate: number,
+  startLocal: string,
+  endLocal: string,
+): CharacterRecruitmentDiscountStatus {
+  if (rate <= 0 || !startLocal || !endLocal) return 'NONE';
+  const now = Date.now();
+  const start = new Date(startLocal).getTime();
+  const end = new Date(endLocal).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return 'NONE';
+  if (now < start) return 'SCHEDULED';
+  if (now >= end) return 'ENDED';
+  return 'ACTIVE';
+}
+
+function DiscountStatusBadge({
+  status,
+  rate,
+}: {
+  status: CharacterRecruitmentDiscountStatus;
+  rate: number;
+}) {
+  if (rate <= 0 || status === 'NONE') return null;
+  const config = {
+    ACTIVE: { label: `할인 중 ${rate}%`, className: 'border-success/40 bg-success/15 text-success' },
+    SCHEDULED: { label: `예정 ${rate}%`, className: 'border-crystal/40 bg-crystal/15 text-crystal' },
+    ENDED: { label: `종료 ${rate}%`, className: 'border-line-strong bg-bg-deep text-[#F2EADB]' },
+    NONE: { label: '', className: '' },
+  }[status];
+  if (!config.label) return null;
+  return (
+    <span className={cn('inline-flex rounded-pill border px-2 py-0.5 text-[9px] font-black', config.className)}>
+      {config.label}
+    </span>
   );
 }
 

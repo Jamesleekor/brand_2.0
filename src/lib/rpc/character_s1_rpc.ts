@@ -3,6 +3,7 @@ import type { RpcResult } from './student_rpc';
 import {
   RecruitCharacterSchema,
   TeacherSetCharacterRecruitmentOfferSchema,
+  type CharacterRecruitmentDiscountStatus,
   type CharacterRecruitmentMode,
   type TeacherSetCharacterRecruitmentOfferInput,
 } from '@/lib/zod_schemas/character_s1_schemas';
@@ -27,7 +28,12 @@ export interface StudentCharacterRecruitmentRow {
   character_id: number;
   acquisition_mode: CharacterRecruitmentMode | null;
   base_price_crystal: number | null;
+  promotion_price_crystal: number | null;
   effective_price_crystal: number | null;
+  discount_rate: number;
+  discount_start_at: string | null;
+  discount_end_at: string | null;
+  discount_status: CharacterRecruitmentDiscountStatus;
   offer_active: boolean;
   is_eligible: boolean;
   can_self_recruit: boolean;
@@ -49,9 +55,14 @@ export interface TeacherCharacterRecruitmentOffer {
   id: number;
   acquisition_mode: CharacterRecruitmentMode;
   base_price_crystal: number;
+  promotion_price_crystal: number;
   is_active: boolean;
   notes: string | null;
   updated_at: string;
+  discount_rate: number;
+  discount_start_at: string | null;
+  discount_end_at: string | null;
+  discount_status: CharacterRecruitmentDiscountStatus;
 }
 
 export interface TeacherCharacterRecruitmentRow {
@@ -98,7 +109,7 @@ async function callRpc<T>(
 
 export const characterS1Rpc = {
   myStore: (supabase: SupabaseClient) =>
-    callRpc<StudentCharacterRecruitmentRow[]>(supabase, 'get_my_character_recruitment_store'),
+    callRpc<StudentCharacterRecruitmentRow[]>(supabase, 'get_my_character_recruitment_store_v2'),
 
   recruit: (supabase: SupabaseClient, characterId: number) => {
     const parsed = RecruitCharacterSchema.safeParse({ p_character_id: characterId });
@@ -114,7 +125,7 @@ export const characterS1Rpc = {
   },
 
   teacherBoard: (supabase: SupabaseClient, classroomId: number) =>
-    callRpc<TeacherCharacterRecruitmentBoard>(supabase, 'teacher_get_character_recruitment_store_board', {
+    callRpc<TeacherCharacterRecruitmentBoard>(supabase, 'teacher_get_character_recruitment_store_board_v2', {
       p_classroom_id: classroomId,
     }),
 
@@ -128,6 +139,6 @@ export const characterS1Rpc = {
         ),
       );
     }
-    return callRpc<number>(supabase, 'teacher_set_character_recruitment_offer', parsed.data);
+    return callRpc<number>(supabase, 'teacher_set_character_recruitment_offer_v2', parsed.data);
   },
 };

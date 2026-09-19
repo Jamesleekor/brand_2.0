@@ -693,13 +693,19 @@ function getCharacterState(
 
   if (recruitment?.can_self_recruit) {
     const basePrice = Number(recruitment.base_price_crystal ?? 0);
-    const effectivePrice = Number(recruitment.effective_price_crystal ?? basePrice);
-    const hasCollectionDiscount = recruitment.acquisition_mode === 'CRYSTAL' && basePrice > effectivePrice;
+    const promotionPrice = Number(recruitment.promotion_price_crystal ?? basePrice);
+    const effectivePrice = Number(recruitment.effective_price_crystal ?? promotionPrice);
+    const periodDiscountActive = recruitment.acquisition_mode === 'CRYSTAL'
+      && recruitment.discount_status === 'ACTIVE'
+      && recruitment.discount_rate > 0;
+    const hasCollectionDiscount = recruitment.acquisition_mode === 'CRYSTAL' && promotionPrice > effectivePrice;
     const detail = recruitment.acquisition_mode === 'FREE'
       ? '무료로 지금 영입 가능'
-      : hasCollectionDiscount
-        ? `${formatGold(effectivePrice)} 크리스탈 · 콜렉션 할인 적용`
-        : `${formatGold(effectivePrice)} 크리스탈로 영입 가능`;
+      : periodDiscountActive
+        ? `${formatGold(effectivePrice)} 크리스탈 · ${recruitment.discount_rate}% 할인 중`
+        : hasCollectionDiscount
+          ? `${formatGold(effectivePrice)} 크리스탈 · 콜렉션 할인 적용`
+          : `${formatGold(effectivePrice)} 크리스탈로 영입 가능`;
     return {
       label: '영입 가능',
       detail,
@@ -711,7 +717,7 @@ function getCharacterState(
   if (recruitment?.availability_code === 'TEACHER_ONLY') {
     return {
       label: '특별 영입',
-      detail: '교사 지급 전용',
+      detail: '운영국 지급 전용',
       badgeClass: 'border-crystal/45 bg-crystal/15 text-crystal',
       textClass: 'text-crystal',
     };
@@ -813,8 +819,14 @@ function CharacterDetailModal({
   const queryClient = useQueryClient();
   const { call, isLoading } = useRpcCall();
   const { wallet } = useWallet();
+  const [recruitConfirmOpen, setRecruitConfirmOpen] = useState(false);
 
   if (typeof document === 'undefined') return null;
+
+  const closeDetail = () => {
+    setRecruitConfirmOpen(false);
+    onClose();
+  };
 
   const handleEquip = async (nextCharacterId: number | null) => {
     await call(
@@ -824,7 +836,7 @@ function CharacterDetailModal({
         onSuccess: () => {
           void queryClient.invalidateQueries({ queryKey: ['character-collection'] });
           void queryClient.invalidateQueries({ queryKey: ['equipped-characters'] });
-          onClose();
+          closeDetail();
         },
       },
     );
@@ -838,7 +850,7 @@ function CharacterDetailModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm sm:p-5"
-          onClick={onClose}
+          onClick={closeDetail}
         >
           <motion.div
             initial={{ opacity: 0, y: 16, scale: 0.98 }}
@@ -879,7 +891,7 @@ function CharacterDetailModal({
                   </h2>
                 </div>
                 <button
-                  onClick={onClose}
+                  onClick={closeDetail}
                   className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-line bg-bg-deep text-text-secondary transition hover:text-text-primary"
                   aria-label="닫기"
                 >
@@ -922,26 +934,9 @@ function CharacterDetailModal({
                     recruitment={recruitment}
                     walletCrystal={wallet?.crystal ?? null}
                     isLoading={isLoading}
-                    onRecruit={async () => {
+                    onRecruit={() => {
                       if (!recruitment?.can_self_recruit) return;
-                      const price = recruitment.effective_price_crystal ?? recruitment.base_price_crystal ?? 0;
-                      const label = recruitment.acquisition_mode === 'FREE' ? '무료' : `${formatGold(price)} 크리스탈`;
-                      if (!window.confirm(`${character.name} 편린을 ${label}로 영입할까요?`)) return;
-                      await call(
-                        () => characterS1Rpc.recruit(supabase, character.character_id),
-                        {
-                          successTitle: `${character.name} 영입 완료`,
-                          onSuccess: () => {
-                            void queryClient.invalidateQueries({ queryKey: ['character-collection'] });
-                            void queryClient.invalidateQueries({ queryKey: ['character-s1-store'] });
-                            void queryClient.invalidateQueries({ queryKey: ['wallet'] });
-                            void queryClient.invalidateQueries({ queryKey: ['transactions'] });
-                            void queryClient.invalidateQueries({ queryKey: ['character-collection-progress'] });
-                            void queryClient.invalidateQueries({ queryKey: ['character-active-buffs'] });
-                            onClose();
-                          },
-                        },
-                      );
+                      setRecruitConfirmOpen(true);
                     }}
                   />
                 )}
@@ -971,6 +966,33 @@ function CharacterDetailModal({
             </div>
           </motion.div>
         </motion.div>
+      )}
+
+      {character && recruitConfirmOpen && recruitment?.can_self_recruit && (
+        <RecruitmentConfirmModal
+          character={character}
+          recruitment={recruitment}
+          isLoading={isLoading}
+          onCancel={() => setRecruitConfirmOpen(false)}
+          onConfirm={async () => {
+            await call(
+              () => characterS1Rpc.recruit(supabase, character.character_id),
+              {
+                successTitle: `${character.name} 영입 완료`,
+                onSuccess: () => {
+                  void queryClient.invalidateQueries({ queryKey: ['character-collection'] });
+                  void queryClient.invalidateQueries({ queryKey: ['character-s1-store'] });
+                  void queryClient.invalidateQueries({ queryKey: ['wallet'] });
+                  void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+                  void queryClient.invalidateQueries({ queryKey: ['character-collection-progress'] });
+                  void queryClient.invalidateQueries({ queryKey: ['character-active-buffs'] });
+                  setRecruitConfirmOpen(false);
+                  closeDetail();
+                },
+              },
+            );
+          }}
+        />
       )}
     </AnimatePresence>,
     document.body,
@@ -1142,7 +1164,7 @@ function DetailStatusPanel({
   if (recruitment?.availability_code === 'TEACHER_ONLY') {
     return (
       <div className="rounded-card-lg border border-crystal/35 bg-crystal/10 p-4">
-        <p className="text-sm font-black text-crystal">✦ 교사 지급 전용 편린</p>
+        <p className="text-sm font-black text-crystal">✦ 운영국 지급 전용 편린</p>
         <p className="mt-1 text-xs font-semibold text-[#F2EADB]">학생이 직접 구매하지 않고 운영국을 통해 획득하는 편린입니다.</p>
       </div>
     );
@@ -1179,6 +1201,136 @@ function DetailStatusPanel({
   );
 }
 
+function RecruitmentConfirmModal({
+  character,
+  recruitment,
+  isLoading,
+  onCancel,
+  onConfirm,
+}: {
+  character: StudentCharacterCollectionRow;
+  recruitment: StudentCharacterRecruitmentRow;
+  isLoading: boolean;
+  onCancel: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  const free = recruitment.acquisition_mode === 'FREE';
+  const basePrice = Number(recruitment.base_price_crystal ?? 0);
+  const promotionPrice = Number(recruitment.promotion_price_crystal ?? basePrice);
+  const finalPrice = Number(recruitment.effective_price_crystal ?? promotionPrice);
+  const periodDiscountActive = !free
+    && recruitment.discount_status === 'ACTIVE'
+    && recruitment.discount_rate > 0;
+  const hasCollectionDiscount = !free && promotionPrice > finalPrice;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[1300] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+      onClick={onCancel}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 12, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 8, scale: 0.97 }}
+        className="w-full max-w-md overflow-hidden rounded-card-xl border border-brand-primary/40 bg-bg-base shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="border-b border-line bg-bg-deep/80 px-5 py-4">
+          <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">영입 최종 확인</div>
+          <h3 className="mt-1 font-display text-xl text-[#FFF7ED]">{character.name}</h3>
+        </div>
+
+        <div className="space-y-3 p-5">
+          {free ? (
+            <div className="rounded-card-lg border border-success/30 bg-success/10 p-4 text-center">
+              <div className="text-sm font-black text-success">무료 영입</div>
+              <div className="mt-1 text-xs font-bold text-[#F2EADB]">크리스탈이 차감되지 않습니다.</div>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-card-lg border border-line bg-bg-card">
+              <ConfirmPriceRow label="정가" value={`💎 ${formatGold(basePrice)} 크리스탈`} />
+              <ConfirmPriceRow
+                label="할인율"
+                value={periodDiscountActive ? `${recruitment.discount_rate}%` : '0%'}
+                emphasis={periodDiscountActive}
+              />
+              {periodDiscountActive && (
+                <ConfirmPriceRow label="기간 할인가" value={`💎 ${formatGold(promotionPrice)} 크리스탈`} />
+              )}
+              {hasCollectionDiscount && (
+                <ConfirmPriceRow label="콜렉션 할인" value="추가 적용" emphasis />
+              )}
+              <ConfirmPriceRow label="최종 가격" value={`💎 ${formatGold(finalPrice)} 크리스탈`} strong />
+            </div>
+          )}
+
+          {periodDiscountActive && recruitment.discount_end_at && (
+            <div className="rounded-card-md border border-crystal/30 bg-crystal/10 px-3 py-2 text-xs font-black text-crystal">
+              {recruitment.discount_rate}% 할인 중 · {formatRecruitmentDateTime(recruitment.discount_end_at)}까지
+            </div>
+          )}
+
+          <p className="text-[11px] font-bold leading-relaxed text-[#F2EADB]">
+            영입 버튼을 누르는 순간 서버가 보유 여부, 영입 조건, 할인 기간, 최종 가격과 크리스탈 잔액을 다시 확인합니다.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 border-t border-line bg-bg-deep/60 p-4">
+          <button type="button" onClick={onCancel} disabled={isLoading} className="btn-secondary py-3 disabled:opacity-50">
+            취소
+          </button>
+          <button type="button" onClick={() => void onConfirm()} disabled={isLoading} className="btn-primary py-3 disabled:opacity-50">
+            {isLoading ? '영입 처리 중...' : free ? '무료 영입하기' : `💎 ${formatGold(finalPrice)} 영입`}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function ConfirmPriceRow({
+  label,
+  value,
+  emphasis = false,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  emphasis?: boolean;
+  strong?: boolean;
+}) {
+  return (
+    <div className={cn(
+      'flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0',
+      strong && 'bg-brand-primary/10',
+    )}>
+      <span className="text-xs font-black text-[#F2EADB]">{label}</span>
+      <span className={cn(
+        'text-sm font-black text-[#FFF7ED]',
+        emphasis && 'text-crystal',
+        strong && 'text-base text-crystal',
+      )}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function formatRecruitmentDateTime(value: string | null): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
 function RecruitmentOfferPanel({
   character,
   recruitment,
@@ -1190,11 +1342,11 @@ function RecruitmentOfferPanel({
   recruitment: StudentCharacterRecruitmentRow | null;
   walletCrystal: number | null;
   isLoading: boolean;
-  onRecruit: () => Promise<void>;
+  onRecruit: () => void;
 }) {
   if (!recruitment || !recruitment.can_self_recruit) {
     const routeText =
-      recruitment?.availability_code === 'TEACHER_ONLY' ? '교사 지급 전용'
+      recruitment?.availability_code === 'TEACHER_ONLY' ? '운영국 지급 전용'
       : recruitment?.availability_code === 'EVENT_ONLY' ? '이벤트 전용'
       : recruitment?.availability_code === 'REQUIREMENT_NOT_MET' ? '영입 조건 미달성'
       : recruitment?.availability_code === 'REVOKED_TEACHER_RESTORE_REQUIRED' ? '운영국 복원 필요'
@@ -1202,34 +1354,63 @@ function RecruitmentOfferPanel({
 
     return (
       <div className="mt-3 rounded-card-lg border border-line bg-bg-card p-4">
-        <div className="text-[10px] font-black uppercase tracking-[0.13em] text-text-muted">영입 경로</div>
-        <p className="mt-1.5 text-sm font-black text-text-primary">{routeText}</p>
+        <div className="text-[10px] font-black uppercase tracking-[0.13em] text-[#D9CBB7]">영입 경로</div>
+        <p className="mt-1.5 text-sm font-black text-[#FFF7ED]">{routeText}</p>
       </div>
     );
   }
 
   const free = recruitment.acquisition_mode === 'FREE';
   const basePrice = Number(recruitment.base_price_crystal ?? 0);
-  const price = Number(recruitment.effective_price_crystal ?? basePrice);
-  const hasCollectionDiscount = !free && basePrice > price;
+  const promotionPrice = Number(recruitment.promotion_price_crystal ?? basePrice);
+  const price = Number(recruitment.effective_price_crystal ?? promotionPrice);
+  const periodDiscountActive = !free
+    && recruitment.discount_status === 'ACTIVE'
+    && recruitment.discount_rate > 0;
+  const periodDiscountScheduled = !free
+    && recruitment.discount_status === 'SCHEDULED'
+    && recruitment.discount_rate > 0;
+  const hasCollectionDiscount = !free && promotionPrice > price;
   const enoughCrystal = free || (walletCrystal !== null && walletCrystal >= price);
 
   return (
     <div className="mt-3 overflow-hidden rounded-card-lg border border-brand-primary/30 bg-brand-primary/5">
       <div className="grid gap-3 p-4 sm:grid-cols-2">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.13em] text-text-muted">영입 비용</div>
+          <div className="text-[10px] font-black uppercase tracking-[0.13em] text-[#D9CBB7]">영입 비용</div>
           <div className={cn('mt-1 text-xl font-black', free ? 'text-success' : 'text-crystal')}>
             {free ? '무료' : `💎 ${formatGold(price)} 크리스탈`}
           </div>
+
+          {periodDiscountActive && (
+            <div className="mt-1.5 space-y-1">
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
+                <span className="text-[#D9CBB7] line-through">정가 {formatGold(basePrice)} 크리스탈</span>
+                <span className="rounded-pill border border-crystal/40 bg-crystal/15 px-1.5 py-0.5 text-crystal">
+                  {recruitment.discount_rate}% 할인 중
+                </span>
+              </div>
+              {recruitment.discount_end_at && (
+                <div className="text-[10px] font-black text-[#FFF0D6]">
+                  {formatRecruitmentDateTime(recruitment.discount_end_at)}까지
+                </div>
+              )}
+            </div>
+          )}
+
+          {periodDiscountScheduled && recruitment.discount_start_at && recruitment.discount_end_at && (
+            <div className="mt-1.5 rounded-card-md border border-crystal/25 bg-crystal/10 px-2 py-1.5 text-[10px] font-black text-crystal">
+              {recruitment.discount_rate}% 할인 예정 · {formatRecruitmentDateTime(recruitment.discount_start_at)} ~ {formatRecruitmentDateTime(recruitment.discount_end_at)}
+            </div>
+          )}
+
           {hasCollectionDiscount && (
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
-              <span className="text-text-muted line-through">기본 {formatGold(basePrice)} 크리스탈</span>
-              <span className="rounded-pill border border-success/30 bg-success/10 px-1.5 py-0.5 text-success">콜렉션 할인 적용</span>
+              <span className="rounded-pill border border-success/30 bg-success/10 px-1.5 py-0.5 text-success">콜렉션 할인 추가 적용</span>
             </div>
           )}
           {!free && (
-            <div className="mt-1 text-[11px] font-bold text-text-secondary">
+            <div className="mt-1 text-[11px] font-bold text-[#F2EADB]">
               내 크리스탈 {walletCrystal === null ? '—' : formatGold(walletCrystal)}
             </div>
           )}
@@ -1237,7 +1418,7 @@ function RecruitmentOfferPanel({
         <div className="flex items-end">
           <button
             type="button"
-            onClick={() => void onRecruit()}
+            onClick={onRecruit}
             disabled={isLoading || !enoughCrystal}
             className="btn-primary w-full py-3 text-sm disabled:cursor-not-allowed disabled:opacity-45"
           >
@@ -1251,9 +1432,9 @@ function RecruitmentOfferPanel({
           </button>
         </div>
       </div>
-      <div className="border-t border-brand-primary/15 bg-bg-deep/45 px-4 py-2 text-[10px] font-bold text-text-muted">
-        {hasCollectionDiscount
-          ? '표시된 할인가는 서버가 현재 콜렉션 버프를 적용해 계산한 최종 영입가입니다. 영입 직전 다시 검증합니다.'
+      <div className="border-t border-brand-primary/15 bg-bg-deep/45 px-4 py-2 text-[10px] font-bold text-[#D9CBB7]">
+        {periodDiscountActive || hasCollectionDiscount
+          ? '표시된 금액은 현재 기간 할인과 콜렉션 버프를 반영한 서버 계산값입니다. 영입 직전 다시 검증합니다.'
           : '영입 직전 서버에서 조건·보유 여부·가격·크리스탈 잔액을 다시 확인합니다.'}
       </div>
     </div>
