@@ -12,7 +12,6 @@ import { cn } from '@/lib/utils/cn';
 import { CharacterCollectionAdminPanel } from './CharacterCollectionAdminPanel';
 import { CharacterRecruitmentAdminPanel } from './CharacterRecruitmentAdminPanel';
 import { DimensionalGateAdminPanel } from './DimensionalGateAdminPanel';
-import { DimensionalGateAiQaPanel } from './DimensionalGateAiQaPanel';
 import { DimensionalGateContentAdminPanel } from './DimensionalGateContentAdminPanel';
 
 // =====================================================================
@@ -20,7 +19,7 @@ import { DimensionalGateContentAdminPanel } from './DimensionalGateContentAdminP
 // 편린 Master / 영입 조건 / 학생 보유 / 영입 이력
 // =====================================================================
 
-type TabKey = 'MASTER' | 'RECRUITMENT' | 'COLLECTIONS' | 'GATE_CONTENT' | 'GATE' | 'GATE_QA' | 'STUDENTS' | 'EVENTS';
+type TabKey = 'MASTER' | 'RECRUITMENT' | 'COLLECTIONS' | 'GATE_CONTENT' | 'GATE' | 'STUDENTS' | 'EVENTS';
 type MasterFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'DRAFT';
 
 type MasterForm = {
@@ -185,7 +184,6 @@ export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?:
               <TabButton active={tab === 'COLLECTIONS'} onClick={() => setTab('COLLECTIONS')} label="콜렉션 관리" icon="🧩" />
               <TabButton active={tab === 'GATE_CONTENT'} onClick={() => setTab('GATE_CONTENT')} label="관문 콘텐츠" icon="📖" />
               <TabButton active={tab === 'GATE'} onClick={() => setTab('GATE')} label="관문 운영" icon="🌀" />
-              <TabButton active={tab === 'GATE_QA'} onClick={() => setTab('GATE_QA')} label="AI QA" icon="🧪" />
               <TabButton active={tab === 'STUDENTS'} onClick={() => setTab('STUDENTS')} label="학생 보유" icon="🎒" />
               <TabButton active={tab === 'EVENTS'} onClick={() => setTab('EVENTS')} label="영입 기록" icon="🧾" />
             </nav>
@@ -222,10 +220,6 @@ export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?:
 
             {tab === 'GATE' && classroomId !== null && (
               <DimensionalGateAdminPanel classroomId={classroomId} />
-            )}
-
-            {tab === 'GATE_QA' && classroomId !== null && (
-              <DimensionalGateAiQaPanel classroomId={classroomId} />
             )}
 
             {tab === 'STUDENTS' && (

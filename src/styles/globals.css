@@ -363,6 +363,64 @@
 
 
 /* ===================================================================
+   Raid V1.5 — local predicted damage feedback
+   =================================================================== */
+.raid-damage-float {
+  --raid-drift-x: 0px;
+  will-change: transform, opacity;
+  animation-name: raid-damage-pop-rise;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.25, 1);
+  animation-fill-mode: forwards;
+}
+
+.raid-damage-float--crit {
+  animation-name: raid-damage-pop-rise-crit;
+}
+
+@keyframes raid-damage-pop-rise {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, -46%, 0) scale(0.92);
+  }
+  9% {
+    opacity: 1;
+    transform: translate3d(-50%, -52%, 0) scale(1.08);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(calc(-50% + var(--raid-drift-x)), calc(-50% - 28px), 0) scale(1);
+  }
+}
+
+@keyframes raid-damage-pop-rise-crit {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, -48%, 0) scale(1.18);
+  }
+  9% {
+    opacity: 1;
+    transform: translate3d(-50%, -54%, 0) scale(1.30);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(calc(-50% + var(--raid-drift-x)), calc(-50% - 38px), 0) scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .raid-damage-float,
+  .raid-damage-float--crit {
+    animation-duration: 220ms !important;
+    animation-name: raid-damage-fade-only;
+  }
+}
+
+@keyframes raid-damage-fade-only {
+  from { opacity: 1; transform: translate3d(-50%, -50%, 0); }
+  to { opacity: 0; transform: translate3d(-50%, -50%, 0); }
+}
+
+/* ===================================================================
    Student-selectable font theme
    =================================================================== */
 .font-display { font-family: var(--font-theme-family); }

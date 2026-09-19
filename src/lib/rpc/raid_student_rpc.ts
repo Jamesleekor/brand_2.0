@@ -177,6 +177,9 @@ export interface RaidBattleState {
     current_hp: number;
     hp_ratio: number;
     damage_coefficient: number;
+    variance_min: number;
+    variance_max: number;
+    tap_rate_limit_per_second: number;
     crit_multiplier: number;
     end_reason: string | null;
     phase: {
@@ -290,6 +293,22 @@ export interface RaidTapBatchResult {
   pattern?: RaidTapBatchPatternResult | null;
 }
 
+// RAID_V15_ATTACK_BACKPRESSURE_V2
+export interface RaidTapBatchBusyResult {
+  busy: true;
+  retry_after_ms: number;
+  raid_id: number;
+  batch_id: string;
+}
+
+export type RaidTapBatchResponse = RaidTapBatchResult | RaidTapBatchBusyResult;
+
+export function isRaidTapBatchBusyResult(
+  value: RaidTapBatchResponse,
+): value is RaidTapBatchBusyResult {
+  return 'busy' in value && value.busy === true;
+}
+
 export interface RaidRankingRow {
   final_rank: number;
   student_id: number;
@@ -391,7 +410,7 @@ export const raidStudentRpc = {
     batchId: string,
     taps: RaidTapInput[],
   ) =>
-    callRpc<RaidTapBatchResult>(supabase, 'submit_raid_tap_batch', {
+    callRpc<RaidTapBatchResponse>(supabase, 'submit_raid_tap_batch', {
       p_raid_id: raidId,
       p_batch_id: batchId,
       p_taps: taps,

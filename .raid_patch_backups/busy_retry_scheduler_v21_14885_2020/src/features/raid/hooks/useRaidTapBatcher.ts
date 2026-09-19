@@ -48,7 +48,6 @@ export function useRaidTapBatcher({
   const retryRef = useRef<PendingBatch | null>(null);
   const inFlightRef = useRef(false);
   const nextAttemptAtRef = useRef(0);
-  const nextFreshBatchAtRef = useRef(0);
   const busyStreakRef = useRef(0);
   const enabledRef = useRef(enabled);
   const tapRateLimitRef = useRef(Math.max(1, Number(tapRateLimitPerSecond) || 1));
@@ -62,9 +61,6 @@ export function useRaidTapBatcher({
   // V2: keep attack RPC around 12~16/s for 24 players while local hit feedback stays immediate.
   // Per-device jitter prevents all Chromebooks from flushing on the same millisecond.
   const batchIntervalMsRef = useRef(1550 + Math.floor(Math.random() * 451));
-  // A lightweight local scheduler lets BUSY retries honor retry_after_ms without
-  // increasing the cadence of brand-new attack batches.
-  const schedulerIntervalMsRef = useRef(125);
 
   useEffect(() => {
     enabledRef.current = enabled;
@@ -93,18 +89,11 @@ export function useRaidTapBatcher({
 
   const flush = useCallback(async () => {
     if (!mountedRef.current || inFlightRef.current || !enabledRef.current) return;
+    if (performance.now() < nextAttemptAtRef.current) return;
 
-    const now = performance.now();
     let pending = retryRef.current;
-
-    if (pending) {
-      // BUSY / network retry: honor the retry clock independently from the normal batch cadence.
-      if (now < nextAttemptAtRef.current) return;
-    } else {
-      // Brand-new batches remain intentionally slow (~1.55–2.0s per client).
-      if (now < nextFreshBatchAtRef.current) return;
+    if (!pending) {
       if (queueRef.current.length === 0) return;
-
       pending = {
         id: makeBatchId(),
         // Roughly two seconds of allowed taps per request. The server token bucket has ~3s capacity.
@@ -114,7 +103,6 @@ export function useRaidTapBatcher({
         ),
         attempts: 0,
       };
-      nextFreshBatchAtRef.current = now + batchIntervalMsRef.current;
     }
 
     inFlightRef.current = true;
@@ -152,14 +140,9 @@ export function useRaidTapBatcher({
       }
     } else if (attempted.attempts < 3) {
       // Same batch id + same taps: server idempotency makes network retries safe.
-      // Use a short bounded retry delay so a transient network failure cannot spin at 125ms.
       retryRef.current = attempted;
       busyStreakRef.current = 0;
-      const networkBackoffMs = Math.min(
-        1200,
-        250 * attempted.attempts + 100 + Math.floor(Math.random() * 201),
-      );
-      nextAttemptAtRef.current = performance.now() + networkBackoffMs;
+      nextAttemptAtRef.current = 0;
     } else {
       retryRef.current = null;
       busyStreakRef.current = 0;
@@ -176,11 +159,9 @@ export function useRaidTapBatcher({
 
   useEffect(() => {
     mountedRef.current = true;
-    nextFreshBatchAtRef.current = performance.now() + batchIntervalMsRef.current;
-
     const timer = window.setInterval(() => {
       void flush();
-    }, schedulerIntervalMsRef.current);
+    }, batchIntervalMsRef.current);
 
     return () => {
       mountedRef.current = false;
@@ -189,7 +170,6 @@ export function useRaidTapBatcher({
       retryRef.current = null;
       inFlightRef.current = false;
       nextAttemptAtRef.current = 0;
-      nextFreshBatchAtRef.current = 0;
       busyStreakRef.current = 0;
     };
   }, [flush]);

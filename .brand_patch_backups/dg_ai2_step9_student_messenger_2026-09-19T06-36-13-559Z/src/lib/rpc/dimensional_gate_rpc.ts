@@ -196,40 +196,9 @@ export interface DimensionalGateChatMessage {
   affinity_delta: number | null;
 }
 
-export interface DimensionalGateChatRelationshipResult {
-  duplicate?: boolean;
-  expired?: boolean;
-  stale?: boolean;
-  aborted?: boolean;
-  reply?: string | null;
-  severity?: 'none' | 'mild' | 'severe';
-  affinity_delta?: number;
-  affinity?: number;
-  relation_stage?: Exclude<DimensionalGateRelationStage, 'LOCKED'>;
-  warning_count?: number;
-  status?: DimensionalGateRelationshipStatus;
-  remaining_chat_count?: number;
-}
-
 export interface DimensionalGateChatResponse {
   duplicate?: boolean;
-  completed?: boolean;
-  request_id?: string;
   reply: string;
-  moderation_severity?: 'none' | 'mild' | 'severe';
-  safety_action?: 'none' | 'supportive_redirect' | 'trusted_adult' | 'emergency_help';
-  boundary?: 'normal' | 'knowledge_boundary' | 'relationship_boundary' | 'safety_boundary';
-  refs?: {
-    fact_refs: string[];
-    history_refs: string[];
-    lore_refs: string[];
-    memory_refs: string[];
-    activity_refs: string[];
-  };
-  relationship?: DimensionalGateChatRelationshipResult;
-  model?: string;
-
-  // Legacy compatibility fields used by older Edge Function responses.
   severity?: 'none' | 'mild' | 'severe';
   affinity_delta?: number;
   affinity?: number;
@@ -317,106 +286,25 @@ export const dimensionalGateRpc = {
     }),
 
   async sendChat(supabase: SupabaseClient, characterId: number, message: string, requestId: string): Promise<RpcResult<DimensionalGateChatResponse>> {
-    // DG_EDGE_FETCH_FALLBACK_V1
-    const requestBody = { character_id: characterId, message, request_id: requestId };
-
-    const validateSuccess = (payload: unknown): RpcResult<DimensionalGateChatResponse> => {
-      if (!payload || typeof payload !== 'object' || typeof (payload as DimensionalGateChatResponse).reply !== 'string') {
-        return { success: false, type: 'SERVER', error: '차원관문 서버가 올바른 응답을 반환하지 않았어요.' };
-      }
-      return { success: true, data: payload as DimensionalGateChatResponse };
-    };
-
-    const { data, error } = await supabase.functions.invoke<DimensionalGateChatResponse>('dimensional-gate-ai-chat', {
-      body: requestBody,
+    const { data, error } = await supabase.functions.invoke<DimensionalGateChatResponse>('dimensional-gate-chat', {
+      body: { character_id: characterId, message, request_id: requestId },
     });
-
-    if (!error) return validateSuccess(data);
-
-    let detail = error.message || '차원관문 대화를 완료하지 못했어요.';
-    let code: string | undefined;
-
-    if (error.context instanceof Response) {
-      try {
-        const body = await error.context.clone().json() as { error?: string; code?: string };
-        detail = body.error || detail;
-        code = body.code;
-      } catch {
-        // Keep SDK error message when response body is unavailable.
+    if (error) {
+      let detail = error.message || '차원관문 대화를 완료하지 못했어요.';
+      if (error.context instanceof Response) {
+        try {
+          const body = await error.context.clone().json() as { error?: string };
+          detail = body.error || detail;
+        } catch {
+          // Keep SDK error message when response body is unavailable.
+        }
       }
-      return { success: false, type: 'SERVER', error: detail, code };
+      return { success: false, type: 'SERVER', error: detail };
     }
-
-    const errorName = String((error as { name?: string }).name || '');
-    const shouldFallback = errorName === 'FunctionsFetchError'
-      || /Failed to send a request to the Edge Function/i.test(detail);
-
-    if (!shouldFallback) {
-      return { success: false, type: 'SERVER', error: detail, code };
+    if (!data || typeof data.reply !== 'string') {
+      return { success: false, type: 'SERVER', error: '차원관문 서버가 올바른 응답을 반환하지 않았어요.' };
     }
-
-    try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (sessionError || !accessToken) {
-        return {
-          success: false,
-          type: 'SERVER',
-          error: '로그인 세션을 확인하지 못했어요. 다시 로그인한 뒤 시도해주세요.',
-          code: 'DG_AUTH_SESSION_MISSING',
-        };
-      }
-
-      const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
-      const publicKey = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
-      if (!supabaseUrl || !publicKey) {
-        return {
-          success: false,
-          type: 'SERVER',
-          error: '차원관문 서버 연결 설정을 확인하지 못했어요.',
-          code: 'DG_EDGE_CONFIG_MISSING',
-        };
-      }
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/dimensional-gate-ai-chat`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'apikey': publicKey,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      let payload: unknown = null;
-      try {
-        payload = await response.json();
-      } catch {
-        payload = null;
-      }
-
-      if (!response.ok) {
-        const edgeError = payload && typeof payload === 'object'
-          ? payload as { error?: string; code?: string }
-          : {};
-        return {
-          success: false,
-          type: 'SERVER',
-          error: edgeError.error || `차원관문 서버 오류가 발생했어요. (HTTP ${response.status})`,
-          code: edgeError.code || `HTTP_${response.status}`,
-        };
-      }
-
-      return validateSuccess(payload);
-    } catch (fallbackError) {
-      console.error('[DimensionalGate] Edge Function direct fetch fallback failed', fallbackError);
-      return {
-        success: false,
-        type: 'SERVER',
-        error: 'AI 서버에 연결하지 못했어요. 네트워크 연결을 확인하고 다시 시도해주세요.',
-        code: 'DG_EDGE_NETWORK',
-      };
-    }
+    return { success: true, data };
   },
 
   claimReward: (supabase: SupabaseClient, characterId: number, affinityThreshold: 40 | 70 | 100) =>

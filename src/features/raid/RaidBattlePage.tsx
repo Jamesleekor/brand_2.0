@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent,
 } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -37,6 +38,8 @@ interface DamageNumber {
   impactTier: ImpactTier;
   zoneKey?: string;
   patternMultiplier?: number;
+  driftX: number;
+  durationMs: number;
 }
 
 interface PatternFeedback {
@@ -82,6 +85,7 @@ export default function RaidBattlePage() {
   const [bossImpact, setBossImpact] = useState<BossImpact | null>(null);
   const [patternFeedback, setPatternFeedback] = useState<PatternFeedback[]>([]);
   const damageTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const localDamageSeqRef = useRef(0);
   const lastBossAttackSeqRef = useRef<number | null>(null);
   const bossImpactTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const patternFeedbackTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -95,9 +99,9 @@ export default function RaidBattlePage() {
       if (result.success === false) throw new Error(result.error);
       return result.data;
     },
-    // Attack RPC responses already update local HP immediately; 1.5s polling is enough for reconciliation.
-    staleTime: 900,
-    refetchInterval: 1500,
+    // Local hit feedback is immediate; authoritative state polling is reconciliation only.
+    staleTime: 1200,
+    refetchInterval: 1900,
     refetchOnWindowFocus: true,
   });
 
@@ -147,14 +151,16 @@ export default function RaidBattlePage() {
     };
 
     // Do not let 24 devices fire the scheduler RPC on the same millisecond.
+    // Server-side tick guard remains authoritative; this only lowers redundant scheduler traffic.
+    const tickIntervalMs = 1800 + Math.floor(Math.random() * 701);
     let timer: number | null = null;
     const starter = window.setTimeout(() => {
       if (cancelled) return;
       void runTick();
       timer = window.setInterval(() => {
         void runTick();
-      }, 1200);
-    }, 250 + Math.floor(Math.random() * 750));
+      }, tickIntervalMs);
+    }, 350 + Math.floor(Math.random() * 1101));
 
     return () => {
       cancelled = true;
@@ -238,67 +244,91 @@ export default function RaidBattlePage() {
     [],
   );
 
-  const showDamageNumbers = useCallback(
-    (batch: RaidTapBatchResult) => {
-      const next: DamageNumber[] = [];
+  const showPredictedDamage = useCallback(
+    (x: number, y: number) => {
+      if (!state) return;
 
-      const expectedNormalDamage = Math.max(
-        1,
-        Number(state?.me.raid_power ?? 0) *
-          Number(state?.raid.damage_coefficient ?? 0.02),
-      );
-      const critReference =
-        expectedNormalDamage * Number(state?.raid.crit_multiplier ?? 2);
+      const raidPower = Math.max(0, Number(state.me.raid_power ?? 0));
+      const coefficient = Math.max(0, Number(state.raid.damage_coefficient ?? 0));
+      if (raidPower <= 0 || coefficient <= 0) return;
 
-      batch.results.forEach((item, index) => {
-        if (!item.accepted || !item.damage || item.x == null || item.y == null) return;
+      const varianceMin = Number(state.raid.variance_min ?? 0.9);
+      const varianceMax = Number(state.raid.variance_max ?? varianceMin);
+      const low = Math.min(varianceMin, varianceMax);
+      const high = Math.max(varianceMin, varianceMax);
+      const variance = low + Math.random() * Math.max(0, high - low);
 
-        const damage = Number(item.damage);
-        const crit = Boolean(item.crit);
-        let impactTier: ImpactTier = crit ? 'crit' : 'normal';
+      const critBp = Math.max(0, Math.min(10000, Number(state.me.final_crit_bp ?? 0)));
+      const crit = Math.random() * 10000 < critBp;
+      const critMultiplier = crit ? Math.max(1, Number(state.raid.crit_multiplier ?? 2)) : 1;
 
-        if (damage >= critReference * 1.08) {
-          impactTier = 'devastating';
-        } else if (damage >= critReference * 1.02) {
-          impactTier = 'powerful';
+      let zoneKey: string | undefined;
+      let patternMultiplier = 1;
+      const activePattern = state.combat.active_pattern;
+      if (activePattern?.pattern_type === 'WEAK_POINT') {
+        const weakX = numberFromPattern(activePattern.state, 'x', 0.42);
+        const weakY = numberFromPattern(activePattern.state, 'y', 0.3);
+        const weakWidth = numberFromPattern(activePattern.state, 'width', 0.16);
+        const weakHeight = numberFromPattern(activePattern.state, 'height', 0.22);
+        if (
+          x >= weakX &&
+          x <= weakX + weakWidth &&
+          y >= weakY &&
+          y <= weakY + weakHeight
+        ) {
+          zoneKey = 'WEAK_POINT';
+          patternMultiplier = Math.max(0, numberFromPattern(activePattern.state, 'multiplier', 2));
         }
-
-        const id = `${batch.batch_id}-${index}`;
-        next.push({
-          id,
-          x: Number(item.x),
-          y: Number(item.y),
-          damage,
-          crit,
-          impactTier,
-          zoneKey: item.zone_key,
-          patternMultiplier: Number(item.pattern_multiplier ?? 1),
-        });
-
-        damageTimers.current[id] = setTimeout(
-          () => {
-            setDamageNumbers((current) =>
-              current.filter((entry) => entry.id !== id),
-            );
-            delete damageTimers.current[id];
-          },
-          crit || impactTier === 'powerful' || impactTier === 'devastating'
-            ? 950
-            : 700,
-        );
-      });
-
-      if (next.length > 0) {
-        setDamageNumbers((current) =>
-          [...current.slice(-16), ...next].slice(-22),
-        );
       }
+
+      const groggyMultiplier = state.combat.groggy_active
+        ? Math.max(0, Number(state.combat.groggy_damage_multiplier ?? 1))
+        : 1;
+      const enrageMultiplier = state.combat.enrage_active
+        ? Math.max(0, Number(state.combat.enrage_player_damage_multiplier ?? 1))
+        : 1;
+
+      const estimatedDamage = Math.max(
+        1,
+        Math.round(
+          raidPower *
+            coefficient *
+            variance *
+            critMultiplier *
+            patternMultiplier *
+            groggyMultiplier *
+            enrageMultiplier,
+        ),
+      );
+
+      const totalPresentationMultiplier =
+        critMultiplier * patternMultiplier * groggyMultiplier * enrageMultiplier;
+      let impactTier: ImpactTier = crit ? 'crit' : 'normal';
+      if (totalPresentationMultiplier >= 3) impactTier = 'devastating';
+      else if (totalPresentationMultiplier >= 1.8) impactTier = 'powerful';
+
+      const id = `local-${Date.now()}-${++localDamageSeqRef.current}`;
+      const durationMs = crit || impactTier !== 'normal' ? 760 : 620;
+      const item: DamageNumber = {
+        id,
+        x,
+        y,
+        damage: estimatedDamage,
+        crit,
+        impactTier,
+        zoneKey,
+        patternMultiplier,
+        driftX: Math.round(Math.random() * 16 - 8),
+        durationMs,
+      };
+
+      setDamageNumbers((current) => [...current.slice(-27), item].slice(-28));
+      damageTimers.current[id] = setTimeout(() => {
+        setDamageNumbers((current) => current.filter((entry) => entry.id !== id));
+        delete damageTimers.current[id];
+      }, durationMs + 80);
     },
-    [
-      state?.me.raid_power,
-      state?.raid.damage_coefficient,
-      state?.raid.crit_multiplier,
-    ],
+    [state],
   );
 
   const showPatternFeedback = useCallback((batch: RaidTapBatchResult) => {
@@ -350,7 +380,6 @@ export default function RaidBattlePage() {
       setDisplayHp(Number(batch.raid_hp));
       setDisplayHpRatio(Number(batch.raid_hp_ratio));
       setMyDamage(Number(batch.my_total_damage));
-      showDamageNumbers(batch);
       showPatternFeedback(batch);
 
       if (batch.pattern) {
@@ -404,7 +433,7 @@ export default function RaidBattlePage() {
         }
       }
     },
-    [queryClient, raidId, showDamageNumbers, showPatternFeedback],
+    [queryClient, raidId, showPatternFeedback],
   );
 
   const battleEnabled =
@@ -413,6 +442,7 @@ export default function RaidBattlePage() {
   const { queueTap } = useRaidTapBatcher({
     raidId,
     enabled: battleEnabled,
+    tapRateLimitPerSecond: Number(state?.raid.tap_rate_limit_per_second ?? 7),
     onResult: onBatchResult,
     onError: (message) => setBattleError(message),
   });
@@ -437,15 +467,17 @@ export default function RaidBattlePage() {
     const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
     const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
 
-    const accepted = queueTap({
+    const queueResult = queueTap({
       x: Number(x.toFixed(6)),
       y: Number(y.toFixed(6)),
       client_t: performance.now(),
     });
 
-    if (!accepted) {
-      setBattleError('입력 속도가 너무 빠릅니다. 잠시 후 다시 공격해주세요.');
-    }
+    // RATE_LIMITED / QUEUE_FULL are intentional local backpressure, not battle errors.
+    // Only QUEUED taps receive an immediate predicted damage popup.
+    if (queueResult !== 'QUEUED') return;
+
+    showPredictedDamage(x, y);
   };
 
   if (!Number.isFinite(raidId) || raidId <= 0) {
@@ -1461,11 +1493,18 @@ function DamageLayer({ items }: { items: DamageNumber[] }) {
         return (
           <div
             key={item.id}
-            className="absolute -translate-x-1/2 -translate-y-1/2"
-            style={{
-              left: `${item.x * 100}%`,
-              top: `${item.y * 100}%`,
-            }}
+            className={cn(
+              'raid-damage-float absolute',
+              isCrit && 'raid-damage-float--crit',
+            )}
+            style={
+              {
+                left: `${item.x * 100}%`,
+                top: `${item.y * 100}%`,
+                '--raid-drift-x': `${item.driftX}px`,
+                animationDuration: `${item.durationMs}ms`,
+              } as CSSProperties
+            }
           >
             <div
               className={cn(
