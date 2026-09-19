@@ -22,35 +22,12 @@ export type RaidTapQueueResult =
   | 'QUEUE_FULL'
   | 'DISABLED';
 
-export interface RaidTapBatcherDiagnostics {
-  rawTapAttempts: number;
-  queuedTapCount: number;
-  rateLimitedCount: number;
-  queueFullCount: number;
-  queueDepth: number;
-  retryTapCount: number;
-  inFlight: boolean;
-  busyStreak: number;
-  busyResponses: number;
-  rpcCalls: number;
-  successfulBatches: number;
-  networkRetries: number;
-  acceptedTaps: number;
-  rejectedTaps: number;
-  lastRpcMs: number;
-  averageRpcMs: number;
-  maxRpcMs: number;
-  batchIntervalMs: number;
-  tapRateLimitPerSecond: number;
-}
-
 interface UseRaidTapBatcherArgs {
   raidId: number;
   enabled: boolean;
   tapRateLimitPerSecond: number;
   onResult: (result: RaidTapBatchResult) => void;
   onError?: (message: string) => void;
-  onDiagnostics?: (diagnostics: RaidTapBatcherDiagnostics) => void;
 }
 
 function makeBatchId() {
@@ -66,7 +43,6 @@ export function useRaidTapBatcher({
   tapRateLimitPerSecond,
   onResult,
   onError,
-  onDiagnostics,
 }: UseRaidTapBatcherArgs) {
   const queueRef = useRef<RaidTapInput[]>([]);
   const retryRef = useRef<PendingBatch | null>(null);
@@ -83,23 +59,6 @@ export function useRaidTapBatcher({
   const mountedRef = useRef(true);
   const onResultRef = useRef(onResult);
   const onErrorRef = useRef(onError);
-  const onDiagnosticsRef = useRef(onDiagnostics);
-  const lastDiagnosticsEmitAtRef = useRef(0);
-  const diagnosticsRef = useRef({
-    rawTapAttempts: 0,
-    queuedTapCount: 0,
-    rateLimitedCount: 0,
-    queueFullCount: 0,
-    busyResponses: 0,
-    rpcCalls: 0,
-    successfulBatches: 0,
-    networkRetries: 0,
-    acceptedTaps: 0,
-    rejectedTaps: 0,
-    lastRpcMs: 0,
-    rpcDurationTotalMs: 0,
-    maxRpcMs: 0,
-  });
   // V2: keep attack RPC around 12~16/s for 24 players while local hit feedback stays immediate.
   // Per-device jitter prevents all Chromebooks from flushing on the same millisecond.
   const batchIntervalMsRef = useRef(1550 + Math.floor(Math.random() * 451));
@@ -131,43 +90,6 @@ export function useRaidTapBatcher({
   useEffect(() => {
     onErrorRef.current = onError;
   }, [onError]);
-
-  useEffect(() => {
-    onDiagnosticsRef.current = onDiagnostics;
-  }, [onDiagnostics]);
-
-  const emitDiagnostics = useCallback((force = false) => {
-    const callback = onDiagnosticsRef.current;
-    if (!callback) return;
-
-    const now = performance.now();
-    if (!force && now - lastDiagnosticsEmitAtRef.current < 500) return;
-    lastDiagnosticsEmitAtRef.current = now;
-
-    const stats = diagnosticsRef.current;
-    callback({
-      rawTapAttempts: stats.rawTapAttempts,
-      queuedTapCount: stats.queuedTapCount,
-      rateLimitedCount: stats.rateLimitedCount,
-      queueFullCount: stats.queueFullCount,
-      queueDepth: queueRef.current.length,
-      retryTapCount: retryRef.current?.taps.length ?? 0,
-      inFlight: inFlightRef.current,
-      busyStreak: busyStreakRef.current,
-      busyResponses: stats.busyResponses,
-      rpcCalls: stats.rpcCalls,
-      successfulBatches: stats.successfulBatches,
-      networkRetries: stats.networkRetries,
-      acceptedTaps: stats.acceptedTaps,
-      rejectedTaps: stats.rejectedTaps,
-      lastRpcMs: Math.round(stats.lastRpcMs),
-      averageRpcMs:
-        stats.rpcCalls > 0 ? Math.round(stats.rpcDurationTotalMs / stats.rpcCalls) : 0,
-      maxRpcMs: Math.round(stats.maxRpcMs),
-      batchIntervalMs: batchIntervalMsRef.current,
-      tapRateLimitPerSecond: tapRateLimitRef.current,
-    });
-  }, []);
 
   const flush = useCallback(async () => {
     if (!mountedRef.current || inFlightRef.current || !enabledRef.current) return;
@@ -201,22 +123,11 @@ export function useRaidTapBatcher({
       attempts: pending.attempts + 1,
     };
 
-    const rpcStartedAt = performance.now();
-    diagnosticsRef.current.rpcCalls += 1;
-
     const response = await raidStudentRpc.submitTapBatch(
       supabase,
       raidId,
       attempted.id,
       attempted.taps,
-    );
-
-    const rpcDurationMs = performance.now() - rpcStartedAt;
-    diagnosticsRef.current.lastRpcMs = rpcDurationMs;
-    diagnosticsRef.current.rpcDurationTotalMs += rpcDurationMs;
-    diagnosticsRef.current.maxRpcMs = Math.max(
-      diagnosticsRef.current.maxRpcMs,
-      rpcDurationMs,
     );
 
     if (!mountedRef.current) return;
@@ -227,7 +138,6 @@ export function useRaidTapBatcher({
         // Keep the exact same batch id + taps so the eventual retry remains idempotent.
         retryRef.current = pending;
         busyStreakRef.current += 1;
-        diagnosticsRef.current.busyResponses += 1;
 
         const serverDelay = Math.max(50, Number(response.data.retry_after_ms) || 0);
         const jitter = 80 + Math.floor(Math.random() * 171);
@@ -238,9 +148,6 @@ export function useRaidTapBatcher({
         retryRef.current = null;
         busyStreakRef.current = 0;
         nextAttemptAtRef.current = 0;
-        diagnosticsRef.current.successfulBatches += 1;
-        diagnosticsRef.current.acceptedTaps += Number(response.data.accepted ?? 0);
-        diagnosticsRef.current.rejectedTaps += Number(response.data.rejected ?? 0);
         onResultRef.current(response.data);
       }
     } else if (attempted.attempts < 3) {
@@ -248,7 +155,6 @@ export function useRaidTapBatcher({
       // Use a short bounded retry delay so a transient network failure cannot spin at 125ms.
       retryRef.current = attempted;
       busyStreakRef.current = 0;
-      diagnosticsRef.current.networkRetries += 1;
       const networkBackoffMs = Math.min(
         1200,
         250 * attempted.attempts + 100 + Math.floor(Math.random() * 201),
@@ -266,8 +172,7 @@ export function useRaidTapBatcher({
     }
 
     inFlightRef.current = false;
-    emitDiagnostics(true);
-  }, [emitDiagnostics, raidId]);
+  }, [raidId]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -275,7 +180,6 @@ export function useRaidTapBatcher({
 
     const timer = window.setInterval(() => {
       void flush();
-      emitDiagnostics();
     }, schedulerIntervalMsRef.current);
 
     return () => {
@@ -288,19 +192,15 @@ export function useRaidTapBatcher({
       nextFreshBatchAtRef.current = 0;
       busyStreakRef.current = 0;
     };
-  }, [emitDiagnostics, flush]);
+  }, [flush]);
 
   const queueTap = useCallback((tap: RaidTapInput): RaidTapQueueResult => {
-    diagnosticsRef.current.rawTapAttempts += 1;
     if (!enabledRef.current) return 'DISABLED';
 
     // Keep at most about three seconds of valid-rate input; never build a long latency backlog.
     const rate = tapRateLimitRef.current;
     const queueLimit = Math.max(3, Math.ceil(rate * 3));
-    if (queueRef.current.length >= queueLimit) {
-      diagnosticsRef.current.queueFullCount += 1;
-      return 'QUEUE_FULL';
-    }
+    if (queueRef.current.length >= queueLimit) return 'QUEUE_FULL';
 
     // Presentation-side token bucket: only taps that can plausibly be accepted by the
     // authoritative server enter the queue and receive an immediate damage popup.
@@ -311,14 +211,10 @@ export function useRaidTapBatcher({
     bucket.tokens = Math.min(rate, bucket.tokens + elapsedSeconds * rate);
     bucket.updatedAt = now;
 
-    if (bucket.tokens < 1) {
-      diagnosticsRef.current.rateLimitedCount += 1;
-      return 'RATE_LIMITED';
-    }
+    if (bucket.tokens < 1) return 'RATE_LIMITED';
 
     bucket.tokens -= 1;
     queueRef.current.push(tap);
-    diagnosticsRef.current.queuedTapCount += 1;
     return 'QUEUED';
   }, []);
 

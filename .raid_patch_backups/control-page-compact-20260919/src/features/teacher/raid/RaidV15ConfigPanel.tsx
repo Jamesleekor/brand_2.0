@@ -95,7 +95,6 @@ const TRIGGERS: Array<{ value: RaidV15TriggerKind; label: string }> = [
 export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, bossVideoUrl }: { raidId: number; raidStatus: RaidStatus; bossImageUrl?: string | null; bossVideoUrl?: string | null }) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>('COMBAT');
-  const [collapsed, setCollapsed] = useState(true);
   const [combat, setCombat] = useState<RaidV15CombatConfig>(DEFAULT_COMBAT);
   const [patterns, setPatterns] = useState<RaidV15Pattern[]>([]);
   const [audio, setAudio] = useState<Omit<RaidV15AudioProfile, 'raid_id' | 'configured'>>(EMPTY_AUDIO);
@@ -221,30 +220,6 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
     }
   };
 
-  if (collapsed) {
-    return (
-      <section className="rounded-card-lg border border-cyan-400/25 bg-bg-card px-5 py-4 shadow-[0_0_28px_rgba(34,211,238,0.04)]">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-xs font-black tracking-[0.08em] text-cyan-200">레이드 구성(RAID CONFIGURATION)</div>
-            <div className="mt-1 truncate text-sm font-black text-white">⚙️ 전투 기믹 · 패턴 에디터 · 중계 오디오</div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {!editableCombat ? <span className="rounded-full border border-amber-300/40 bg-amber-500/10 px-3 py-1.5 text-xs font-black text-amber-100">🔒 읽기 전용</span> : null}
-            <button
-              type="button"
-              onClick={() => setCollapsed(false)}
-              className="rounded-card-md border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20"
-              aria-expanded={false}
-            >
-              ▼ 펼치기
-            </button>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
   if (combatQuery.isError || audioQuery.isError) {
     const err = combatQuery.error ?? audioQuery.error;
     return (
@@ -255,24 +230,7 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
   }
 
   if (combatQuery.isLoading || audioQuery.isLoading || loadedRaid !== raidId) {
-    return (
-      <section className="rounded-card-lg border border-cyan-400/25 bg-bg-card px-5 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-xs font-black tracking-[0.08em] text-cyan-200">레이드 구성(RAID CONFIGURATION)</div>
-            <div className="mt-1 text-sm font-black text-white">⚙️ 설정 불러오는 중…</div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setCollapsed(true)}
-            className="rounded-card-md border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20"
-          >
-            ▲ 접기
-          </button>
-        </div>
-        <div className="mt-3 flex min-h-16 items-center justify-center"><LoadingSpinner /></div>
-      </section>
-    );
+    return <section className="rounded-card-lg border border-cyan-400/25 bg-bg-card p-6"><div className="flex min-h-[160px] items-center justify-center"><LoadingSpinner /></div></section>;
   }
 
   return (
@@ -281,25 +239,11 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
         <div>
           <div className="text-base font-black tracking-[0.08em] text-cyan-200">레이드 구성(RAID CONFIGURATION)</div>
           <h2 className="mt-1 text-xl font-black text-white">⚙️ 전투 기믹 · 패턴 · 중계 오디오</h2>
-          {!collapsed ? (
-            <p className="mt-2 text-base font-bold leading-6 text-amber-100">실제 서버 전투 엔진이 사용하는 값입니다. 전투가 시작되면 전투·패턴 설정은 읽기 전용이 됩니다.</p>
-          ) : null}
+          <p className="mt-2 text-base font-bold leading-6 text-amber-100">실제 서버 전투 엔진이 사용하는 값입니다. 전투가 시작되면 전투·패턴 설정은 읽기 전용이 됩니다.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {!editableCombat ? <span className="rounded-full border border-amber-300/40 bg-amber-500/10 px-4 py-2 text-base font-black text-amber-100">🔒 전투 설정 읽기 전용</span> : null}
-          <button
-            type="button"
-            onClick={() => setCollapsed((current) => !current)}
-            className="rounded-card-md border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-sm font-black text-cyan-100 hover:bg-cyan-500/20"
-            aria-expanded={!collapsed}
-          >
-            {collapsed ? '▼ 펼치기' : '▲ 접기'}
-          </button>
-        </div>
+        {!editableCombat ? <span className="rounded-full border border-amber-300/40 bg-amber-500/10 px-4 py-2 text-base font-black text-amber-100">🔒 전투 설정 읽기 전용</span> : null}
       </div>
 
-      {!collapsed ? (
-        <>
       <div className="mt-5 flex flex-wrap gap-2">
         <TabButton active={tab === 'COMBAT'} onClick={() => setTab('COMBAT')}>🛡 전투 기믹</TabButton>
         <TabButton active={tab === 'PATTERNS'} onClick={() => setTab('PATTERNS')}>🧩 패턴 에디터 <span className="ml-1">{patterns.length}</span></TabButton>
@@ -339,8 +283,6 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
         </div>
       ) : null}
       {tab === 'AUDIO' ? <AudioEditor value={audio} defaultValue={defaultAudio} effectiveValue={audioQuery.data.effective_profile} scope={audioScope} onScopeChange={setAudioScope} onChange={setAudio} onDefaultChange={setDefaultAudio} disabled={!editableAudio} saving={saving} onSave={saveAudio} onSaveDefault={saveDefaultAudio} /> : null}
-        </>
-      ) : null}
     </section>
   );
 }

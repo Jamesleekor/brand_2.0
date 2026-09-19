@@ -221,30 +221,6 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
     }
   };
 
-  if (collapsed) {
-    return (
-      <section className="rounded-card-lg border border-cyan-400/25 bg-bg-card px-5 py-4 shadow-[0_0_28px_rgba(34,211,238,0.04)]">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-xs font-black tracking-[0.08em] text-cyan-200">레이드 구성(RAID CONFIGURATION)</div>
-            <div className="mt-1 truncate text-sm font-black text-white">⚙️ 전투 기믹 · 패턴 에디터 · 중계 오디오</div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {!editableCombat ? <span className="rounded-full border border-amber-300/40 bg-amber-500/10 px-3 py-1.5 text-xs font-black text-amber-100">🔒 읽기 전용</span> : null}
-            <button
-              type="button"
-              onClick={() => setCollapsed(false)}
-              className="rounded-card-md border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20"
-              aria-expanded={false}
-            >
-              ▼ 펼치기
-            </button>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
   if (combatQuery.isError || audioQuery.isError) {
     const err = combatQuery.error ?? audioQuery.error;
     return (
@@ -255,24 +231,7 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
   }
 
   if (combatQuery.isLoading || audioQuery.isLoading || loadedRaid !== raidId) {
-    return (
-      <section className="rounded-card-lg border border-cyan-400/25 bg-bg-card px-5 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="text-xs font-black tracking-[0.08em] text-cyan-200">레이드 구성(RAID CONFIGURATION)</div>
-            <div className="mt-1 text-sm font-black text-white">⚙️ 설정 불러오는 중…</div>
-          </div>
-          <button
-            type="button"
-            onClick={() => setCollapsed(true)}
-            className="rounded-card-md border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20"
-          >
-            ▲ 접기
-          </button>
-        </div>
-        <div className="mt-3 flex min-h-16 items-center justify-center"><LoadingSpinner /></div>
-      </section>
-    );
+    return <section className="rounded-card-lg border border-cyan-400/25 bg-bg-card p-6"><div className="flex min-h-[160px] items-center justify-center"><LoadingSpinner /></div></section>;
   }
 
   return (

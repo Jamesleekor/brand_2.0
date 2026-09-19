@@ -535,8 +535,8 @@ export default function RaidControlPage() {
             message={boardQuery.error instanceof Error ? boardQuery.error.message : '알 수 없는 오류'}
           />
         ) : (
-          <>
-            <RaidSelectorBar
+          <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+            <RaidList
               raids={raids}
               selectedId={selectedRaidId}
               creating={isCreating}
@@ -565,12 +565,28 @@ export default function RaidControlPage() {
                     message={detailQuery.error instanceof Error ? detailQuery.error.message : '알 수 없는 오류'}
                   />
                 ) : (
-                  <div className="flex min-h-[280px] items-center justify-center rounded-card-lg border border-line bg-bg-card">
+                  <div className="flex min-h-[420px] items-center justify-center rounded-card-lg border border-line bg-bg-card">
                     <LoadingSpinner size="lg" />
                   </div>
                 )
               ) : (
                 <>
+                  <RaidEditor
+                    form={form}
+                    setForm={setForm}
+                    status={detail.raid.status}
+                    creating={false}
+                    saving={busyAction === 'SAVE' || rpcLoading}
+                    onSave={save}
+                  />
+
+                  <RaidV15ConfigPanel
+                    raidId={detail.raid.id}
+                    raidStatus={detail.raid.status}
+                    bossImageUrl={detail.phases.find((phase) => phase.phase_no === 1)?.image_url ?? null}
+                    bossVideoUrl={detail.phases.find((phase) => phase.phase_no === 1)?.loop_video_url ?? null}
+                  />
+
                   <RaidStateControl
                     detail={detail}
                     busyAction={busyAction}
@@ -601,35 +617,17 @@ export default function RaidControlPage() {
                     loading={liveQuery.isLoading}
                     error={liveQuery.isError ? (liveQuery.error instanceof Error ? liveQuery.error.message : '알 수 없는 오류') : null}
                   />
-
-                  <RaidEditor
-                    key={`raid-editor-${detail.raid.id}`}
-                    form={form}
-                    setForm={setForm}
-                    status={detail.raid.status}
-                    creating={false}
-                    saving={busyAction === 'SAVE' || rpcLoading}
-                    onSave={save}
-                  />
-
-                  <RaidV15ConfigPanel
-                    key={`raid-config-${detail.raid.id}`}
-                    raidId={detail.raid.id}
-                    raidStatus={detail.raid.status}
-                    bossImageUrl={detail.phases.find((phase) => phase.phase_no === 1)?.image_url ?? null}
-                    bossVideoUrl={detail.phases.find((phase) => phase.phase_no === 1)?.loop_video_url ?? null}
-                  />
                 </>
               )}
             </div>
-          </>
+          </div>
         )}
       </div>
     </TeacherShell>
   );
 }
 
-function RaidSelectorBar({
+function RaidList({
   raids,
   selectedId,
   creating,
@@ -655,206 +653,87 @@ function RaidSelectorBar({
   onDelete: (raid: { id: number; title: string; status: RaidStatus }) => void;
   deletingRaidId: number | null;
 }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'ALL' | 'RUNNING' | 'FINISHED' | 'DRAFT'>('ALL');
-  const selected = raids.find((raid) => raid.id === selectedId) ?? null;
-
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open]);
-
-  const filteredRaids = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-    return raids.filter((raid) => {
-      const matchesSearch = !keyword || `${raid.title} ${raid.boss_name} ${raid.id}`.toLowerCase().includes(keyword);
-      if (!matchesSearch) return false;
-      if (filter === 'RUNNING') return raid.status === 'LOBBY_OPEN' || raid.status === 'ACTIVE' || raid.status === 'PAUSED';
-      if (filter === 'FINISHED') return raid.status === 'COMPLETED' || raid.status === 'FAILED' || raid.status === 'ARCHIVED';
-      if (filter === 'DRAFT') return raid.status === 'DRAFT';
-      return true;
-    });
-  }, [filter, raids, search]);
-
   return (
-    <section className="relative rounded-card-lg border border-cyan-400/30 bg-bg-card px-4 py-3 shadow-[0_0_24px_rgba(34,211,238,0.04)]">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <aside className="self-start rounded-card-lg border border-line bg-bg-card p-3 xl:sticky xl:top-[76px]">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <div className="text-xs font-black text-cyan-100">레이드 목록</div>
+          <div className="mt-0.5 text-[11px] font-bold text-amber-100">{raids.length}개 기록</div>
+        </div>
         <button
           type="button"
-          onClick={() => setOpen(true)}
-          className="min-w-0 flex-1 rounded-card-md border border-cyan-300/25 bg-bg-deep px-4 py-3 text-left transition hover:border-cyan-300/55"
-          aria-haspopup="dialog"
-          aria-expanded={open}
+          onClick={onCreate}
+          className={cn(
+            'rounded-card-md border px-2.5 py-1.5 text-xs font-black',
+            creating
+              ? 'border-gold/60 bg-gold/15 text-yellow-100'
+              : 'border-line bg-bg-deep text-white hover:border-gold/50',
+          )}
         >
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex-none text-xl">🗂️</span>
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-black uppercase tracking-[0.17em] text-cyan-200">
-                CURRENT RAID · 클릭해서 레이드 변경
-              </div>
-              {creating ? (
-                <div className="mt-1 truncate text-sm font-black text-yellow-100">+ 새 레이드 작성 중</div>
-              ) : selected ? (
-                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-2">
-                  <span className="min-w-0 truncate text-sm font-black text-white">#{selected.id} · {selected.title}</span>
-                  <StatusBadge status={selected.status} />
-                  <span className="truncate text-xs font-bold text-amber-100">{elementLabel(selected.boss_element)} · {selected.boss_name}</span>
-                </div>
-              ) : (
-                <div className="mt-1 text-sm font-black text-amber-100">레이드를 선택해주세요.</div>
-              )}
-            </div>
-            <span className="flex-none text-xs font-black text-cyan-100">목록 열기 ▾</span>
-          </div>
+          + 생성
         </button>
-
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setOpen(true)} className="rounded-card-md border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20">
-            레이드 목록 {raids.length}
-          </button>
-          <button type="button" onClick={onCreate} className="btn-primary px-4 py-2 text-xs">
-            + 새 레이드
-          </button>
-        </div>
       </div>
 
-      {open ? (
-        <>
-          <button
-            type="button"
-            aria-label="레이드 목록 닫기"
-            className="fixed inset-0 z-40 cursor-default bg-black/50"
-            onClick={() => setOpen(false)}
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="레이드 선택"
-            className="absolute left-0 top-full z-50 mt-2 w-full max-w-3xl overflow-hidden rounded-card-lg border border-cyan-300/35 bg-[#0b1020] shadow-[0_20px_70px_rgba(0,0,0,0.6)]"
-          >
-            <div className="border-b border-cyan-300/15 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">RAID ARCHIVE</div>
-                  <div className="mt-1 text-lg font-black text-white">레이드 선택 · 기록 관리</div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOpen(false);
-                      onCreate();
-                    }}
-                    className="btn-primary px-3 py-2 text-xs"
-                  >
-                    + 새 레이드
-                  </button>
-                  <button type="button" onClick={() => setOpen(false)} className="rounded-card-md border border-line bg-bg-deep px-3 py-2 text-xs font-black text-white">
-                    닫기 ✕
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto]">
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="레이드 제목 · 보스 이름 · ID 검색"
-                  className="w-full rounded-card-md border border-cyan-300/25 bg-black/25 px-3 py-2.5 text-sm font-bold text-white outline-none placeholder:text-cyan-100/45 focus:border-cyan-300/65"
-                />
-                <div className="flex flex-wrap gap-1.5">
-                  {([
-                    ['ALL', '전체'],
-                    ['RUNNING', '진행 중'],
-                    ['FINISHED', '종료'],
-                    ['DRAFT', '초안'],
-                  ] as const).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setFilter(value)}
-                      className={cn(
-                        'rounded-card-md border px-2.5 py-2 text-[11px] font-black',
-                        filter === value
-                          ? 'border-gold/55 bg-gold/15 text-yellow-100'
-                          : 'border-line bg-bg-deep text-cyan-100 hover:border-cyan-300/45',
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="max-h-[520px] overflow-y-auto p-3">
-              {filteredRaids.length === 0 ? (
-                <div className="rounded-card-md border border-dashed border-cyan-300/25 px-4 py-10 text-center text-sm font-black text-amber-100">
-                  조건에 맞는 레이드가 없습니다.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredRaids.map((raid) => {
-                    const active = !creating && raid.id === selectedId;
-                    const hpRatio = raid.max_hp > 0 ? raid.current_hp / raid.max_hp : 0;
-                    const deleteDisabled = raid.status === 'LOBBY_OPEN' || raid.status === 'ACTIVE' || raid.status === 'PAUSED';
-                    return (
-                      <div
-                        key={raid.id}
-                        className={cn(
-                          'grid gap-2 rounded-card-md border p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center',
-                          active ? 'border-gold/65 bg-gold/10' : 'border-line bg-bg-deep',
-                        )}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onSelect(raid.id);
-                            setOpen(false);
-                          }}
-                          className="min-w-0 text-left"
-                        >
-                          <div className="flex min-w-0 flex-wrap items-center gap-2">
-                            <span className="truncate text-sm font-black text-white">#{raid.id} · {raid.title}</span>
-                            <StatusBadge status={raid.status} />
-                          </div>
-                          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold">
-                            <span className="truncate text-amber-100">{elementLabel(raid.boss_element)} · {raid.boss_name}</span>
-                            <span className="text-cyan-100">HP {formatPercent(hpRatio * 100)}</span>
-                            <span className="text-cyan-100">참여 {raid.participant_count}</span>
-                          </div>
-                          <div className="mt-2 h-1 overflow-hidden rounded-full bg-black/40">
-                            <div
-                              className="h-full rounded-full bg-gradient-to-r from-red-400 via-amber-300 to-yellow-200"
-                              style={{ width: `${Math.max(0, Math.min(100, hpRatio * 100))}%` }}
-                            />
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => onDelete(raid)}
-                          disabled={deleteDisabled || deletingRaidId !== null}
-                          title={deleteDisabled ? '진행 중인 레이드는 종료 후 삭제할 수 있습니다.' : '레이드 기록 삭제'}
-                          className="rounded-card-md border border-red-300/35 bg-red-500/10 px-3 py-2 text-[11px] font-black text-red-100 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-35"
-                        >
-                          {deletingRaidId === raid.id ? '삭제 중…' : '🗑 기록 삭제'}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+      <div className="max-h-[calc(100vh-170px)] space-y-2 overflow-y-auto pr-1">
+        {raids.length === 0 && !creating ? (
+          <div className="rounded-card-md border border-dashed border-cyan-400/30 bg-bg-deep p-5 text-center">
+            <div className="text-3xl">👾</div>
+            <div className="mt-2 text-sm font-black text-white">아직 레이드가 없습니다</div>
+            <button type="button" className="mt-3 btn-primary" onClick={onCreate}>첫 레이드 만들기</button>
           </div>
-        </>
-      ) : null}
-    </section>
+        ) : null}
+
+        {raids.map((raid) => {
+          const active = !creating && raid.id === selectedId;
+          const hpRatio = raid.max_hp > 0 ? raid.current_hp / raid.max_hp : 0;
+          const deleteDisabled = raid.status === 'LOBBY_OPEN' || raid.status === 'ACTIVE' || raid.status === 'PAUSED';
+          return (
+            <div
+              key={raid.id}
+              className={cn(
+                'rounded-card-md border p-2 transition',
+                active
+                  ? 'border-gold/70 bg-gold/10 shadow-[0_0_16px_rgba(245,158,11,0.08)]'
+                  : 'border-line bg-bg-deep hover:border-cyan-400/40',
+              )}
+            >
+              <button type="button" onClick={() => onSelect(raid.id)} className="w-full p-1 text-left">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-black text-white">{raid.title}</div>
+                    <div className="mt-0.5 truncate text-xs font-bold text-amber-100">
+                      {elementLabel(raid.boss_element)} · {raid.boss_name}
+                    </div>
+                  </div>
+                  <StatusBadge status={raid.status} />
+                </div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/40">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-red-400 via-amber-300 to-yellow-200"
+                    style={{ width: `${Math.max(0, Math.min(100, hpRatio * 100))}%` }}
+                  />
+                </div>
+                <div className="mt-1.5 flex justify-between text-[10px] font-black text-cyan-100">
+                  <span>HP {formatPercent(hpRatio * 100)}</span>
+                  <span>참여 {raid.participant_count}</span>
+                </div>
+              </button>
+              <div className="mt-2 flex justify-end border-t border-white/10 pt-2">
+                <button
+                  type="button"
+                  onClick={() => onDelete(raid)}
+                  disabled={deleteDisabled || deletingRaidId !== null}
+                  title={deleteDisabled ? '진행 중인 레이드는 종료 후 삭제할 수 있습니다.' : '레이드 기록 삭제'}
+                  className="rounded-card-md border border-red-300/35 bg-red-500/10 px-2.5 py-1.5 text-[11px] font-black text-red-100 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  {deletingRaidId === raid.id ? '삭제 중…' : '🗑 기록 삭제'}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </aside>
   );
 }
 
@@ -874,19 +753,13 @@ function RaidEditor({
   onSave: () => void;
 }) {
   const editable = creating || canEdit(status);
-  const [collapsed, setCollapsed] = useState(!creating);
-
-  useEffect(() => {
-    setCollapsed(!creating);
-  }, [creating]);
-
   const update = <K extends keyof RaidForm>(key: K, value: RaidForm[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
   return (
     <section className="rounded-card-lg border border-line bg-bg-card p-5">
-      <div className={`${collapsed ? '' : 'mb-5'} flex flex-wrap items-start justify-between gap-3`}>
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">
             BOSS SETUP · PHASE 1
@@ -894,27 +767,13 @@ function RaidEditor({
           <h2 className="mt-1 font-display text-xl text-white">
             {creating ? '새 레이드 초안' : '보스 및 전투 설정'}
           </h2>
-          {!collapsed && (
-            <p className="mt-1 text-xs font-bold text-amber-100">
-              V1은 1페이즈(100% → 0%)를 사용합니다. 다중 페이즈 데이터 구조는 이미 준비되어 있습니다.
-            </p>
-          )}
+          <p className="mt-1 text-xs font-bold text-amber-100">
+            V1은 1페이즈(100% → 0%)를 사용합니다. 다중 페이즈 데이터 구조는 이미 준비되어 있습니다.
+          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {!creating && <StatusBadge status={status} />}
-          <button
-            type="button"
-            onClick={() => setCollapsed((current) => !current)}
-            className="rounded-card-md border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20"
-            aria-expanded={!collapsed}
-          >
-            {collapsed ? '▼ 펼치기' : '▲ 접기'}
-          </button>
-        </div>
+        {!creating && <StatusBadge status={status} />}
       </div>
 
-      {!collapsed && (
-        <>
       <div className="grid gap-4 lg:grid-cols-2">
         <Field label="레이드 제목">
           <input
@@ -1092,8 +951,6 @@ function RaidEditor({
           </span>
         )}
       </div>
-        </>
-      )}
     </section>
   );
 }
@@ -1286,35 +1143,35 @@ function RaidStateControl({
 }) {
   const status = detail.raid.status;
   return (
-    <section className="z-20 rounded-card-lg border border-cyan-300/25 bg-bg-card/95 px-4 py-3 shadow-[0_10px_28px_rgba(0,0,0,0.18)] xl:sticky xl:top-3 xl:backdrop-blur">
-      <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <div className="flex-none">
-            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">STATE CONTROL</div>
-            <div className="mt-0.5 text-sm font-black text-white">레이드 상태 제어</div>
+    <section className="rounded-card-lg border border-line bg-bg-card p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">STATE CONTROL</div>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h2 className="font-display text-lg text-white">레이드 상태 제어</h2>
+            <StatusBadge status={status} />
           </div>
-          <StatusBadge status={status} />
-          <div className="hidden h-7 w-px bg-cyan-300/15 lg:block" />
-          <p className="min-w-0 text-[11px] font-bold text-amber-100">
-            시작 시 학생 전투 스탯이 스냅샷으로 고정됩니다.
+          <p className="mt-1 text-xs font-bold text-amber-100">
+            시작 시 학생들의 편린·공명력·치명타·장착 편린·길드가 스냅샷으로 고정됩니다.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {/* RAID_V15_E4A_BROADCAST_BUTTON */}
           <Link
             to={`/teacher/raid/${detail.raid.id}/broadcast`}
             target="_blank"
             rel="noreferrer"
             className="rounded-card-md border border-fuchsia-300/45 bg-fuchsia-500/10 px-3 py-2 text-xs font-black text-fuchsia-100 hover:bg-fuchsia-500/20"
           >
-            📺 화면 중계
+            📺 레이드 화면 중계
           </Link>
           <ActionButton onClick={onClone} disabled={busyAction !== null} tone="gold">
-            ♻️ 재생성
+            ♻️ 이 레이드 재생성
           </ActionButton>
           {status === 'DRAFT' && (
             <ActionButton onClick={onE3TestPreset} disabled={busyAction !== null} tone="cyan">
-              🧪 E3 테스트
+              🧪 E3 기믹 테스트
             </ActionButton>
           )}
           {status === 'DRAFT' && (
@@ -1362,11 +1219,9 @@ function LivePanel({
   loading: boolean;
   error: string | null;
 }) {
-  const [participantsExpanded, setParticipantsExpanded] = useState(false);
-
   if (loading) {
     return (
-      <section className="flex min-h-28 items-center justify-center rounded-card-lg border border-line bg-bg-card">
+      <section className="flex min-h-44 items-center justify-center rounded-card-lg border border-line bg-bg-card">
         <LoadingSpinner />
       </section>
     );
@@ -1378,23 +1233,10 @@ function LivePanel({
   const hpPercent = Number(data.raid.hp_ratio ?? 0) * 100;
 
   return (
-    <section className="space-y-3 rounded-card-lg border border-line bg-bg-card p-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
-          <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.17em] text-cyan-200">LIVE CONTROL</div>
-            <h2 className="mt-0.5 font-display text-lg text-white">실시간 현황</h2>
-          </div>
-          <span className="pb-0.5 text-[11px] font-bold text-amber-100">전투 핵심 지표는 항상 표시되고, 참가자 표는 필요할 때만 펼칩니다.</span>
-        </div>
-        <button
-          type="button"
-          onClick={() => setParticipantsExpanded((current) => !current)}
-          className="rounded-card-md border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20"
-          aria-expanded={participantsExpanded}
-        >
-          {participantsExpanded ? '▲ 참가자 상세 접기' : `▼ 참가자 상세 펼치기 (${summary.participant_count})`}
-        </button>
+    <section className="space-y-4 rounded-card-lg border border-line bg-bg-card p-5">
+      <div>
+        <div className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">LIVE CONTROL</div>
+        <h2 className="mt-1 font-display text-lg text-white">실시간 현황</h2>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -1404,52 +1246,50 @@ function LivePanel({
         <MetricCard label="유효 터치" value={formatNumber(summary.accepted_taps)} accent="white" />
       </div>
 
-      {participantsExpanded ? (
-        <div className="overflow-x-auto rounded-card-md border border-line">
-          <table className="w-full min-w-[760px] text-left">
-            <thead className="bg-black/25">
-              <tr className="text-[11px] font-black text-cyan-100">
-                <th className="px-3 py-2.5">학생</th>
-                <th className="px-3 py-2.5">길드</th>
-                <th className="px-3 py-2.5 text-right">공명력</th>
-                <th className="px-3 py-2.5 text-right">Crit</th>
-                <th className="px-3 py-2.5 text-right">누적 피해</th>
-                <th className="px-3 py-2.5 text-right">유효 터치</th>
-                <th className="px-3 py-2.5">상태</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {data.students.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm font-black text-amber-100">아직 학생 스냅샷이 없습니다.</td></tr>
-              ) : (
-                data.students.map((student) => (
-                  <tr key={student.student_id} className="text-xs font-bold text-white">
-                    <td className="px-3 py-2.5">
-                      <div className="font-black">{student.brand_name || student.name}</div>
-                      {student.brand_name && <div className="mt-0.5 text-[10px] text-amber-100">{student.name}</div>}
-                    </td>
-                    <td className="px-3 py-2.5 text-yellow-100">{student.guild_name || '—'}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-cyan-100">{formatNumber(student.raid_power)}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-yellow-100">{formatCritBp(student.final_crit_bp)}</td>
-                    <td className="px-3 py-2.5 text-right font-mono font-black text-white">{formatNumber(student.total_damage)}</td>
-                    <td className="px-3 py-2.5 text-right font-mono text-cyan-100">{formatNumber(student.accepted_taps)}</td>
-                    <td className="px-3 py-2.5">
-                      <span className={cn(
-                        'rounded-pill border px-2 py-1 text-[10px] font-black',
-                        student.attack_blocked
-                          ? 'border-red-400/50 bg-red-500/15 text-red-100'
-                          : 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100',
-                      )}>
-                        {student.attack_blocked ? '공격 차단' : student.accepted_taps > 0 ? '참여 중' : '대기'}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      ) : null}
+      <div className="overflow-x-auto rounded-card-md border border-line">
+        <table className="w-full min-w-[760px] text-left">
+          <thead className="bg-black/25">
+            <tr className="text-[11px] font-black text-cyan-100">
+              <th className="px-3 py-2.5">학생</th>
+              <th className="px-3 py-2.5">길드</th>
+              <th className="px-3 py-2.5 text-right">공명력</th>
+              <th className="px-3 py-2.5 text-right">Crit</th>
+              <th className="px-3 py-2.5 text-right">누적 피해</th>
+              <th className="px-3 py-2.5 text-right">유효 터치</th>
+              <th className="px-3 py-2.5">상태</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {data.students.length === 0 ? (
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-sm font-black text-amber-100">아직 학생 스냅샷이 없습니다.</td></tr>
+            ) : (
+              data.students.map((student) => (
+                <tr key={student.student_id} className="text-xs font-bold text-white">
+                  <td className="px-3 py-2.5">
+                    <div className="font-black">{student.brand_name || student.name}</div>
+                    {student.brand_name && <div className="mt-0.5 text-[10px] text-amber-100">{student.name}</div>}
+                  </td>
+                  <td className="px-3 py-2.5 text-yellow-100">{student.guild_name || '—'}</td>
+                  <td className="px-3 py-2.5 text-right font-mono text-cyan-100">{formatNumber(student.raid_power)}</td>
+                  <td className="px-3 py-2.5 text-right font-mono text-yellow-100">{formatCritBp(student.final_crit_bp)}</td>
+                  <td className="px-3 py-2.5 text-right font-mono font-black text-white">{formatNumber(student.total_damage)}</td>
+                  <td className="px-3 py-2.5 text-right font-mono text-cyan-100">{formatNumber(student.accepted_taps)}</td>
+                  <td className="px-3 py-2.5">
+                    <span className={cn(
+                      'rounded-pill border px-2 py-1 text-[10px] font-black',
+                      student.attack_blocked
+                        ? 'border-red-400/50 bg-red-500/15 text-red-100'
+                        : 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100',
+                    )}>
+                      {student.attack_blocked ? '공격 차단' : student.accepted_taps > 0 ? '참여 중' : '대기'}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

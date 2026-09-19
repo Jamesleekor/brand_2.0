@@ -19,10 +19,7 @@ import {
 import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
 import { RaidResultModal } from '@/features/raid/RaidResultModal';
-import {
-  useRaidTapBatcher,
-  type RaidTapBatcherDiagnostics,
-} from '@/features/raid/hooks/useRaidTapBatcher';
+import { useRaidTapBatcher } from '@/features/raid/hooks/useRaidTapBatcher';
 
 // RAID_V15_E15_BOSS_ATTACK_RUNTIME
 // RAID_V15_E2_WEAK_BREAK_GROGGY_ENRAGE
@@ -87,12 +84,6 @@ export default function RaidBattlePage() {
   const [clockNowMs, setClockNowMs] = useState(() => Date.now());
   const [bossImpact, setBossImpact] = useState<BossImpact | null>(null);
   const [patternFeedback, setPatternFeedback] = useState<PatternFeedback[]>([]);
-  const [batcherDiagnostics, setBatcherDiagnostics] =
-    useState<RaidTapBatcherDiagnostics | null>(null);
-  const raidDebugEnabled = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return new URLSearchParams(window.location.search).get('raidDebug') === '1';
-  }, []);
   const damageTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const localDamageSeqRef = useRef(0);
   const lastBossAttackSeqRef = useRef<number | null>(null);
@@ -454,7 +445,6 @@ export default function RaidBattlePage() {
     tapRateLimitPerSecond: Number(state?.raid.tap_rate_limit_per_second ?? 7),
     onResult: onBatchResult,
     onError: (message) => setBattleError(message),
-    onDiagnostics: raidDebugEnabled ? setBatcherDiagnostics : undefined,
   });
 
   const handleResultClose = () => {
@@ -655,10 +645,6 @@ export default function RaidBattlePage() {
         <DamageLayer items={damageNumbers} />
         <PatternFeedbackLayer items={patternFeedback} />
 
-        {raidDebugEnabled && batcherDiagnostics && (
-          <RaidPerformanceDebugPanel diagnostics={batcherDiagnostics} />
-        )}
-
         {state.raid.status === 'PAUSED' && (
           <CenterStatus
             icon="⏸"
@@ -728,60 +714,6 @@ export default function RaidBattlePage() {
         open={resultOpen}
         onClose={handleResultClose}
       />
-    </div>
-  );
-}
-
-
-function RaidPerformanceDebugPanel({
-  diagnostics,
-}: {
-  diagnostics: RaidTapBatcherDiagnostics;
-}) {
-  const busyRatio =
-    diagnostics.rpcCalls > 0
-      ? (diagnostics.busyResponses / diagnostics.rpcCalls) * 100
-      : 0;
-  const acceptanceRatio =
-    diagnostics.acceptedTaps + diagnostics.rejectedTaps > 0
-      ? (diagnostics.acceptedTaps /
-          (diagnostics.acceptedTaps + diagnostics.rejectedTaps)) *
-        100
-      : 100;
-
-  return (
-    <div className="pointer-events-none absolute right-4 top-4 z-[70] w-[min(340px,42vw)] rounded-card-lg border border-cyan-300/35 bg-black/82 p-3 font-mono text-[10px] leading-4 text-cyan-50 shadow-xl backdrop-blur md:right-5 md:top-5">
-      <div className="mb-2 flex items-center justify-between gap-2 font-black text-cyan-200">
-        <span>RAID LOAD DEBUG</span>
-        <span>{diagnostics.tapRateLimitPerSecond.toFixed(0)} taps/s</span>
-      </div>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-        <span>raw / queued</span>
-        <span className="text-right">{diagnostics.rawTapAttempts} / {diagnostics.queuedTapCount}</span>
-        <span>rate limited</span>
-        <span className="text-right">{diagnostics.rateLimitedCount}</span>
-        <span>queue / retry</span>
-        <span className="text-right">{diagnostics.queueDepth} / {diagnostics.retryTapCount}</span>
-        <span>RPC calls</span>
-        <span className="text-right">{diagnostics.rpcCalls}</span>
-        <span>BUSY</span>
-        <span className="text-right">{diagnostics.busyResponses} ({busyRatio.toFixed(1)}%)</span>
-        <span>network retry</span>
-        <span className="text-right">{diagnostics.networkRetries}</span>
-        <span>accepted / rejected</span>
-        <span className="text-right">{diagnostics.acceptedTaps} / {diagnostics.rejectedTaps}</span>
-        <span>accept rate</span>
-        <span className="text-right">{acceptanceRatio.toFixed(1)}%</span>
-        <span>RPC ms last / avg</span>
-        <span className="text-right">{diagnostics.lastRpcMs} / {diagnostics.averageRpcMs}</span>
-        <span>RPC ms max</span>
-        <span className="text-right">{diagnostics.maxRpcMs}</span>
-        <span>batch interval</span>
-        <span className="text-right">{diagnostics.batchIntervalMs} ms</span>
-      </div>
-      <div className="mt-2 border-t border-cyan-200/15 pt-1.5 text-[9px] text-cyan-100/80">
-        {diagnostics.inFlight ? 'RPC IN-FLIGHT' : 'RPC IDLE'} · BUSY streak {diagnostics.busyStreak} · queue full {diagnostics.queueFullCount}
-      </div>
     </div>
   );
 }
