@@ -7,3 +7,16 @@ dist
 /BRAND_2.0_FONT_RECOVERY_INSTALLER_*/
 /BRAND_2.0_FONT_BUILD_HOTFIX_*/
 /BRAND_2.0_FONT_SAFE_PATCH_*/
+# B.R.A.N.D local/generated cleanup rules
+*.tsbuildinfo
+*.bak
+*.bak_*
+*.before-*
+*.before_*
+.brand_patch_backups/
+.patch_backups/
+.raid_patch_backups/
+_patch_backup/
+_raid_v15_hotfix_backups/
+.raid_e6_backup_*/
+backup_raid_v15_e5_*/
