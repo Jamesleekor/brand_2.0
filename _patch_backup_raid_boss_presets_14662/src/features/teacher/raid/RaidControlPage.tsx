@@ -12,15 +12,6 @@ import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
 import RaidV15ConfigPanel from '@/features/teacher/raid/RaidV15ConfigPanel';
-import { isValidOptionalHttpUrl, mergeRaidVisualV2Metadata, readRaidVisualV2 } from '@/features/raid/visual/raidVisualConfig';
-import type { RaidVisualStateVideoTrigger } from '@/features/raid/visual/raidVisualTypes';
-import { raidV15AdminRpc } from '@/lib/rpc/raid_v15_admin_rpc';
-import {
-  RAID_BOSS_PRESETS,
-  cloneRaidBossPresetPatterns,
-  getRaidBossPreset,
-  type RaidBossPresetKey,
-} from '@/features/teacher/raid/raidBossPresets';
 // RAID_V15_E5_CONFIGURATION_UI
 
 // RAID_V15_E3C_TEACHER_TEST_PRESET
@@ -44,9 +35,6 @@ type RaidForm = {
   includeTestAccounts: boolean;
   imageUrl: string;
   loopVideoUrl: string;
-  actionVideoUrl: string;
-  stateVideoUrl: string;
-  stateVideoTrigger: RaidVisualStateVideoTrigger;
 };
 
 const ELEMENT_OPTIONS: Array<{ value: RaidElement; label: string }> = [
@@ -77,9 +65,6 @@ const EMPTY_FORM: RaidForm = {
   includeTestAccounts: false,
   imageUrl: '',
   loopVideoUrl: '',
-  actionVideoUrl: '',
-  stateVideoUrl: '',
-  stateVideoTrigger: 'BOTH',
 };
 
 export default function RaidControlPage() {
@@ -93,8 +78,6 @@ export default function RaidControlPage() {
   const [formLoadedFor, setFormLoadedFor] = useState<number | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [deletingRaidId, setDeletingRaidId] = useState<number | null>(null);
-  const [pendingBossPresetKey, setPendingBossPresetKey] = useState<RaidBossPresetKey | null>(null);
-  const [raidConfigRevision, setRaidConfigRevision] = useState(0);
 
   const boardQuery = useQuery({
     queryKey: ['teacher-raid-control-board', classroomId],
@@ -169,42 +152,12 @@ export default function RaidControlPage() {
     setSelectedRaidId(null);
     setForm({ ...EMPTY_FORM });
     setFormLoadedFor(null);
-    setPendingBossPresetKey(null);
   };
 
   const selectRaid = (raidId: number) => {
     setIsCreating(false);
     setSelectedRaidId(raidId);
     setFormLoadedFor(null);
-    setPendingBossPresetKey(null);
-  };
-
-  const selectBossPreset = (presetKey: RaidBossPresetKey | null) => {
-    setPendingBossPresetKey(presetKey);
-    const preset = getRaidBossPreset(presetKey);
-    if (!preset) return;
-    setForm((current) => ({
-      ...current,
-      title: preset.raidTitle,
-      bossName: preset.bossName,
-      bossDescription: preset.description,
-      bossElement: preset.element,
-    }));
-  };
-
-  const saveBossPresetCombat = async (raidId: number, presetKey: RaidBossPresetKey) => {
-    const preset = getRaidBossPreset(presetKey);
-    if (!preset) return false;
-    const result = await raidV15AdminRpc.saveCombat(supabase, raidId, {
-      config: { ...preset.combat, metadata: { ...(preset.combat.metadata ?? {}) } },
-      patterns: cloneRaidBossPresetPatterns(preset),
-    });
-    if (result.success === false) {
-      window.alert(`보스 프리셋의 전투 기믹/패턴 적용에 실패했습니다.\n\n${result.error}`);
-      return false;
-    }
-    setRaidConfigRevision((current) => current + 1);
-    return true;
   };
 
   const deleteRaidRecord = async (raid: { id: number; title: string; status: RaidStatus }) => {
@@ -296,19 +249,6 @@ export default function RaidControlPage() {
       return null;
     }
 
-    const mediaUrls: Array<[string, string]> = [
-      ['첫 프레임 이미지 URL', form.imageUrl],
-      ['IDLE 루프 영상 URL', form.loopVideoUrl],
-      ['ACTION 루프 영상 URL', form.actionVideoUrl],
-      ['STATE 루프 영상 URL', form.stateVideoUrl],
-    ];
-    for (const [label, value] of mediaUrls) {
-      if (!isValidOptionalHttpUrl(value)) {
-        window.alert(`${label}은 비워두거나 http:// 또는 https:// 주소를 입력해주세요.`);
-        return null;
-      }
-    }
-
     return {
       title: form.title.trim(),
       boss_name: form.bossName.trim(),
@@ -327,9 +267,7 @@ export default function RaidControlPage() {
       image_url: form.imageUrl.trim() || null,
       loop_video_url: form.loopVideoUrl.trim() || null,
       reward_config: { ...(detail?.raid.reward_config ?? {}), base_gold: baseRewardGold, rewards_enabled: form.rewardsEnabled },
-      metadata: pendingBossPresetKey
-        ? { ...(detail?.raid.metadata ?? {}), boss_preset_key: pendingBossPresetKey, boss_preset_version: 1 }
-        : (detail?.raid.metadata ?? {}),
+      metadata: detail?.raid.metadata ?? {},
     };
   };
 
@@ -349,35 +287,6 @@ export default function RaidControlPage() {
           },
         );
         if (typeof newId === 'number') {
-          const visualMetadata = mergeRaidVisualV2Metadata({}, {
-            actionVideoUrl: form.actionVideoUrl,
-            stateVideoUrl: form.stateVideoUrl,
-            stateVideoTrigger: form.stateVideoTrigger,
-          });
-
-          const phaseSaveResult = await call(
-            () => raidAdminRpc.savePhase(supabase, newId, 1, {
-              hp_from_ratio: 1,
-              hp_to_ratio: 0,
-              boss_element: form.bossElement,
-              image_url: form.imageUrl.trim() || null,
-              loop_video_url: form.loopVideoUrl.trim() || null,
-              damage_config: {},
-              metadata: visualMetadata,
-            }),
-            { silent: true },
-          );
-
-          if (phaseSaveResult === null) {
-            window.alert(
-              '레이드 초안은 생성되었지만 Visual V2 설정 저장에 실패했습니다. 생성된 레이드를 다시 열어 미디어 설정을 저장해주세요.',
-            );
-          }
-
-          if (pendingBossPresetKey) {
-            const presetApplied = await saveBossPresetCombat(newId, pendingBossPresetKey);
-            if (presetApplied) setPendingBossPresetKey(null);
-          }
           setIsCreating(false);
           await refreshAll(newId);
         }
@@ -411,11 +320,7 @@ export default function RaidControlPage() {
           image_url: form.imageUrl.trim() || null,
           loop_video_url: form.loopVideoUrl.trim() || null,
           damage_config: phase?.damage_config ?? {},
-          metadata: mergeRaidVisualV2Metadata(phase?.metadata, {
-            actionVideoUrl: form.actionVideoUrl,
-            stateVideoUrl: form.stateVideoUrl,
-            stateVideoTrigger: form.stateVideoTrigger,
-          }),
+          metadata: phase?.metadata ?? {},
         }),
         {
           successTitle: '레이드 설정 저장 완료',
@@ -423,10 +328,6 @@ export default function RaidControlPage() {
         },
       );
       if (phaseResult !== null) {
-        if (pendingBossPresetKey) {
-          const presetApplied = await saveBossPresetCombat(selectedRaidId, pendingBossPresetKey);
-          if (presetApplied) setPendingBossPresetKey(null);
-        }
         await refreshAll(selectedRaidId);
       }
     } finally {
@@ -653,8 +554,6 @@ export default function RaidControlPage() {
                   status="DRAFT"
                   creating
                   saving={busyAction === 'SAVE' || rpcLoading}
-                  pendingBossPresetKey={pendingBossPresetKey}
-                  onBossPresetSelect={selectBossPreset}
                   onSave={save}
                 />
               ) : selectedRaidId === null ? (
@@ -710,13 +609,11 @@ export default function RaidControlPage() {
                     status={detail.raid.status}
                     creating={false}
                     saving={busyAction === 'SAVE' || rpcLoading}
-                    pendingBossPresetKey={pendingBossPresetKey}
-                    onBossPresetSelect={selectBossPreset}
                     onSave={save}
                   />
 
                   <RaidV15ConfigPanel
-                    key={`raid-config-${detail.raid.id}-${raidConfigRevision}`}
+                    key={`raid-config-${detail.raid.id}`}
                     raidId={detail.raid.id}
                     raidStatus={detail.raid.status}
                     bossImageUrl={detail.phases.find((phase) => phase.phase_no === 1)?.image_url ?? null}
@@ -967,8 +864,6 @@ function RaidEditor({
   status,
   creating,
   saving,
-  pendingBossPresetKey,
-  onBossPresetSelect,
   onSave,
 }: {
   form: RaidForm;
@@ -976,8 +871,6 @@ function RaidEditor({
   status: RaidStatus;
   creating: boolean;
   saving: boolean;
-  pendingBossPresetKey: RaidBossPresetKey | null;
-  onBossPresetSelect: (presetKey: RaidBossPresetKey | null) => void;
   onSave: () => void;
 }) {
   const editable = creating || canEdit(status);
@@ -1022,13 +915,6 @@ function RaidEditor({
 
       {!collapsed && (
         <>
-      <BossPresetPicker
-        value={pendingBossPresetKey}
-        onChange={onBossPresetSelect}
-        disabled={!editable || saving}
-        creating={creating}
-      />
-
       <div className="grid gap-4 lg:grid-cols-2">
         <Field label="레이드 제목">
           <input
@@ -1120,10 +1006,7 @@ function RaidEditor({
       <div className="my-5 border-t border-line" />
 
       <div>
-        <div className="mb-1 text-sm font-black text-yellow-100">🎞️ Boss Visual · 1페이즈</div>
-        <p className="mb-3 text-xs font-bold text-cyan-100">
-          IDLE은 기존 loop_video_url을 그대로 사용하고 ACTION / STATE는 phase metadata의 visual_v2에 저장됩니다.
-        </p>
+        <div className="mb-3 text-sm font-black text-yellow-100">🎞️ 1페이즈 미디어</div>
         <div className="grid gap-4 lg:grid-cols-2">
           <Field label="첫 프레임 이미지 URL" hint="영상 로딩 실패 시 fallback">
             <input
@@ -1143,63 +1026,14 @@ function RaidEditor({
               placeholder="https://..."
             />
           </Field>
-          <Field label="ACTION / Pattern Loop Video URL" hint="선택 · 공격/패턴 상태용">
-            <input
-              value={form.actionVideoUrl}
-              disabled={!editable}
-              onChange={(e) => update('actionVideoUrl', e.target.value)}
-              className={inputClass()}
-              placeholder="https://..."
-            />
-          </Field>
-          <Field label="STATE Loop Video URL" hint="선택 · Groggy/Enrage 상태용">
-            <input
-              value={form.stateVideoUrl}
-              disabled={!editable}
-              onChange={(e) => update('stateVideoUrl', e.target.value)}
-              className={inputClass()}
-              placeholder="https://..."
-            />
-          </Field>
-        </div>
-
-        <div className="mt-4 rounded-card-md border border-cyan-300/20 bg-cyan-500/5 p-3">
-          <div className="text-[11px] font-black uppercase tracking-[0.14em] text-cyan-100">STATE 사용 조건</div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {([
-              ['GROGGY', 'Groggy'],
-              ['ENRAGE', 'Enrage'],
-              ['BOTH', 'Both'],
-            ] as const).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                disabled={!editable}
-                onClick={() => update('stateVideoTrigger', value)}
-                className={cn(
-                  'rounded-card-md border px-3 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50',
-                  form.stateVideoTrigger === value
-                    ? 'border-gold/65 bg-gold/15 text-yellow-100'
-                    : 'border-cyan-300/25 bg-bg-deep text-cyan-100 hover:border-cyan-300/55',
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
         </div>
         {!form.imageUrl.trim() && !form.loopVideoUrl.trim() && (
           <div className="mt-3 rounded-card-md border border-warning/45 bg-warning/10 px-3 py-2 text-xs font-black text-yellow-100">
-            ⚠️ 초안 저장은 가능하지만, 이미지 또는 IDLE 루프 영상 중 하나가 없으면 레이드를 시작할 수 없습니다.
+            ⚠️ 초안 저장은 가능하지만, 이미지 또는 루프 영상 중 하나가 없으면 레이드를 시작할 수 없습니다.
           </div>
         )}
-        {(form.imageUrl.trim() || form.loopVideoUrl.trim() || form.actionVideoUrl.trim() || form.stateVideoUrl.trim()) && (
-          <BossVisualPreview
-            imageUrl={form.imageUrl.trim()}
-            idleVideoUrl={form.loopVideoUrl.trim()}
-            actionVideoUrl={form.actionVideoUrl.trim()}
-            stateVideoUrl={form.stateVideoUrl.trim()}
-          />
+        {(form.imageUrl.trim() || form.loopVideoUrl.trim()) && (
+          <BossMediaPreview imageUrl={form.imageUrl.trim()} videoUrl={form.loopVideoUrl.trim()} />
         )}
       </div>
 
@@ -1261,156 +1095,6 @@ function RaidEditor({
         </>
       )}
     </section>
-  );
-}
-
-
-function BossPresetPicker({
-  value,
-  onChange,
-  disabled,
-  creating,
-}: {
-  value: RaidBossPresetKey | null;
-  onChange: (presetKey: RaidBossPresetKey | null) => void;
-  disabled: boolean;
-  creating: boolean;
-}) {
-  const selected = getRaidBossPreset(value);
-
-  return (
-    <div className="mb-5 rounded-card-lg border border-gold/35 bg-gold/5 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="text-xs font-black uppercase tracking-[0.15em] text-yellow-100">INITIAL BOSS PRESET · A-TYPE</div>
-          <h3 className="mt-1 text-lg font-black text-white">⚡ 초기 4보스 전투 프리셋</h3>
-          <p className="mt-1 max-w-4xl text-sm font-bold leading-6 text-cyan-100">
-            보스를 선택하면 이름·속성·소개가 즉시 채워지고, {creating ? '초안 생성 시' : '설정 저장 시'} 공명방벽·기본 공격·공통 기믹·특수 패턴 초안까지 함께 저장됩니다.
-          </p>
-        </div>
-        {value ? (
-          <button
-            type="button"
-            onClick={() => onChange(null)}
-            disabled={disabled}
-            className="rounded-card-md border border-cyan-300/30 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 disabled:opacity-40"
-          >
-            프리셋 해제
-          </button>
-        ) : null}
-      </div>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {RAID_BOSS_PRESETS.map((preset) => {
-          const active = preset.key === value;
-          return (
-            <button
-              key={preset.key}
-              type="button"
-              onClick={() => onChange(preset.key)}
-              disabled={disabled}
-              className={cn(
-                'rounded-card-md border p-3 text-left transition disabled:opacity-40',
-                active
-                  ? 'border-gold/70 bg-gold/15 shadow-[0_0_20px_rgba(251,191,36,0.08)]'
-                  : 'border-cyan-300/20 bg-bg-deep hover:border-cyan-300/50',
-              )}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-black text-yellow-100">RAID {preset.raidNo}</span>
-                <span className="text-xs font-black text-cyan-100">{elementLabel(preset.element)}</span>
-              </div>
-              <div className="mt-2 text-sm font-black leading-5 text-white">{preset.bossName}</div>
-              <div className="mt-2 text-xs font-bold leading-5 text-cyan-100">특수 {preset.specialPatterns.length}종 · 총 패턴 {preset.patterns.length}개</div>
-            </button>
-          );
-        })}
-      </div>
-
-      {selected ? (
-        <div className="mt-4 grid gap-3 xl:grid-cols-2">
-          <div className="rounded-card-md border border-cyan-300/20 bg-black/20 p-3">
-            <div className="text-sm font-black text-yellow-100">⚔️ 전투 구성</div>
-            <div className="mt-2 text-sm font-bold leading-6 text-white">
-              공통: {selected.commonMechanics.join(' · ')}
-            </div>
-            <div className="mt-1 text-sm font-bold leading-6 text-amber-100">
-              특수: {selected.specialPatterns.join(' · ')}
-            </div>
-            <div className="mt-2 text-xs font-bold leading-5 text-cyan-100">
-              기본 공격: {selected.combat.boss_attack_name} · {selected.combat.boss_attack_interval_seconds}초 간격 · 방벽 {(selected.combat.boss_attack_barrier_ratio * 100).toFixed(1)}%
-            </div>
-          </div>
-          <div className="rounded-card-md border border-fuchsia-300/20 bg-black/20 p-3">
-            <div className="text-sm font-black text-fuchsia-100">🎬 그래픽 가이드</div>
-            <div className="mt-2 text-xs font-bold leading-5 text-white">환경 · {selected.environment}</div>
-            <div className="mt-1 text-xs font-bold leading-5 text-cyan-100">카메라 · {selected.camera}</div>
-            <div className="mt-1 text-xs font-bold leading-5 text-amber-100">Idle · {selected.idleLoop}</div>
-          </div>
-          {!creating ? (
-            <div className="xl:col-span-2 rounded-card-md border border-red-300/25 bg-red-500/5 px-3 py-2 text-xs font-black leading-5 text-red-100">
-              ⚠️ 기존 DRAFT에 이 프리셋을 저장하면 현재 V1.5 전투 기믹과 패턴 목록이 프리셋 초안으로 교체됩니다. 이미지·루프 영상·HP·보상값은 자동으로 덮어쓰지 않습니다.
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function BossVisualPreview({
-  imageUrl,
-  idleVideoUrl,
-  actionVideoUrl,
-  stateVideoUrl,
-}: {
-  imageUrl: string;
-  idleVideoUrl: string;
-  actionVideoUrl: string;
-  stateVideoUrl: string;
-}) {
-  type PreviewSlot = 'IDLE' | 'ACTION' | 'STATE';
-  const [slot, setSlot] = useState<PreviewSlot>('IDLE');
-  const slotUrls: Record<PreviewSlot, string> = {
-    IDLE: idleVideoUrl,
-    ACTION: actionVideoUrl,
-    STATE: stateVideoUrl,
-  };
-  const selectedUrl = slotUrls[slot];
-
-  return (
-    <div className="mt-4">
-      <div className="flex flex-wrap gap-2 rounded-card-md border border-cyan-400/25 bg-[#07111f]/95 px-3 py-2.5">
-        {(['IDLE', 'ACTION', 'STATE'] as const).map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setSlot(value)}
-            className={cn(
-              'rounded-card-md border px-3 py-2 text-[11px] font-black transition',
-              slot === value
-                ? 'border-gold/65 bg-gold/15 text-yellow-100'
-                : 'border-cyan-300/25 bg-bg-deep text-cyan-100 hover:border-cyan-300/55',
-            )}
-          >
-            {value} {slotUrls[value] ? '●' : '○'}
-          </button>
-        ))}
-        <span className="ml-auto self-center text-[10px] font-bold text-cyan-100/75">● URL 설정됨 · ○ 미설정</span>
-      </div>
-
-      {selectedUrl || imageUrl ? (
-        <BossMediaPreview
-          key={`${slot}:${selectedUrl}:${imageUrl}`}
-          imageUrl={imageUrl}
-          videoUrl={selectedUrl}
-        />
-      ) : (
-        <div className="mt-3 flex aspect-video items-center justify-center rounded-card-lg border border-cyan-400/30 bg-black/55 px-6 text-center text-xs font-black text-amber-100">
-          {slot} 슬롯에 영상이 없고 fallback 이미지도 없습니다.
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -1915,7 +1599,6 @@ function canEdit(status: RaidStatus) {
 
 function formFromDetail(detail: TeacherRaidDetail): RaidForm {
   const phase = detail.phases.find((item) => item.phase_no === 1);
-  const visual = readRaidVisualV2(phase?.metadata);
   return {
     title: detail.raid.title,
     bossName: detail.raid.boss_name,
@@ -1935,9 +1618,6 @@ function formFromDetail(detail: TeacherRaidDetail): RaidForm {
     includeTestAccounts: detail.raid.include_test_accounts,
     imageUrl: phase?.image_url ?? '',
     loopVideoUrl: phase?.loop_video_url ?? '',
-    actionVideoUrl: visual.media.action_video_url ?? '',
-    stateVideoUrl: visual.media.state_video_url ?? '',
-    stateVideoTrigger: visual.media.state_video_trigger,
   };
 }
 
