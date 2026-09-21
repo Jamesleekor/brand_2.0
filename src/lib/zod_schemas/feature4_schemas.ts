@@ -30,6 +30,10 @@ export const F4A = {
     p_body: z.string().trim().min(1).max(5000),
     p_message_type: z.enum(['INFO','ACHIEVEMENT','ACHIEVEMENT_REJECT','REWARD','WARNING','PENALTY','DEPOSIT_MATURITY','LOAN_REMINDER','AUCTION_RESULT','TEACHER_MESSAGE','JOB_APPROVAL','COSMETIC_GIFT','P2P_NOTE','OTHER']).default('TEACHER_MESSAGE'),
   }),
+  recallMailDispatch: z.object({
+    p_classroom_id: PositiveInt,
+    p_dispatch_uid: z.string().trim().min(1).max(96),
+  }),
   broadcastAlert: z.object({
     p_classroom_id: PositiveInt,
     p_message: z.string().trim().min(1).max(1000),

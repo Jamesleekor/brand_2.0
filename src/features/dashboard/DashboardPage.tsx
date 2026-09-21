@@ -699,7 +699,8 @@ function useDashboardData(
           .from('mail_messages')
           .select('id', { count: 'exact', head: true })
           .eq('recipient_id', studentId)
-          .eq('is_read', false),
+          .eq('is_read', false)
+          .is('recalled_at', null),
         
         // 2. Feature4A — 활성 알림 + 본인 읽음 기록을 함께 조회해 실제 미읽음 수 계산
         Promise.all([

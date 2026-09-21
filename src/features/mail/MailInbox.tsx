@@ -64,6 +64,7 @@ export function MailInbox({ isOpen, onClose }: MailInboxProps) {
           sender:students!sender_id(name, brand_name)
         `)
         .eq('recipient_id', studentId)
+        .is('recalled_at', null)
         .order('created_at', { ascending: false })
         .limit(50);
       

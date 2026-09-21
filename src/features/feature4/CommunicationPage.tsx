@@ -55,7 +55,7 @@ export default function CommunicationPage() {
 function MailTab({studentId,classroomId}:{studentId:number|null;classroomId:number|null}) {
   const qc=useQueryClient(); const {call}=useRpcCall(); const [openId,setOpenId]=useState<number|null>(null);
   const q=useQuery({queryKey:['f4a-mail',studentId],enabled:!!studentId,queryFn:async()=>{
-    const {data,error}=await supabase.from('mail_messages').select('id,title,body,sender_type,message_type,is_read,created_at').eq('recipient_id',studentId!).order('created_at',{ascending:false}).limit(100); if(error) throw feature4QueryError('F4A','mail-list',error); return data??[];
+    const {data,error}=await supabase.from('mail_messages').select('id,title,body,sender_type,message_type,is_read,created_at').eq('recipient_id',studentId!).is('recalled_at',null).order('created_at',{ascending:false}).limit(100); if(error) throw feature4QueryError('F4A','mail-list',error); return data??[];
   }});
   const selected=useMemo(()=>q.data?.find((m:any)=>m.id===openId),[q.data,openId]);
   useEffect(()=>{
