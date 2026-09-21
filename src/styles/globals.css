@@ -432,3 +432,98 @@
   font-family: var(--font-system-family);
   font-variant-numeric: tabular-nums;
 }
+
+/* ===================================================================
+   BRAND_ACTION_BUTTON_COMFORT_V2
+   Dark, high-contrast primary actions. Gold/orange remains an accent.
+   =================================================================== */
+@layer components {
+  .btn-primary {
+    background-image: none !important;
+    background-color: #2b2537 !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(177, 151, 252, 0.44) !important;
+    box-shadow:
+      0 5px 16px rgba(5, 3, 12, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+    text-shadow: none !important;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: #372f46 !important;
+    border-color: rgba(197, 181, 255, 0.68) !important;
+    box-shadow:
+      0 6px 18px rgba(5, 3, 12, 0.34),
+      0 0 0 1px rgba(177, 151, 252, 0.06) !important;
+  }
+
+  .btn-primary:active:not(:disabled) {
+    background-color: #241f2f !important;
+    transform: translateY(0) !important;
+  }
+}
+
+/* Interactive-only overrides for legacy CTA buttons that bypass .btn-primary.
+   Status badges/cards keep their existing gold/warning accents. */
+button[class*="from-brand-primary"][class*="to-gold"],
+a[class*="from-brand-primary"][class*="to-gold"],
+button[class*="from-gold"][class*="to-brand"],
+a[class*="from-gold"][class*="to-brand"],
+button[class*="from-orange-"],
+a[class*="from-orange-"],
+button[class*="from-yellow-"],
+a[class*="from-yellow-"],
+button[class*="from-amber-"],
+a[class*="from-amber-"],
+button[class~="bg-gold"],
+a[class~="bg-gold"],
+button[class~="bg-warning"],
+a[class~="bg-warning"],
+button[class~="bg-yellow-300"],
+button[class~="bg-yellow-400"],
+button[class~="bg-yellow-500"],
+button[class~="bg-yellow-600"],
+a[class~="bg-yellow-300"],
+a[class~="bg-yellow-400"],
+a[class~="bg-yellow-500"],
+a[class~="bg-yellow-600"],
+button[class~="bg-amber-300"],
+button[class~="bg-amber-400"],
+button[class~="bg-amber-500"],
+button[class~="bg-amber-600"],
+a[class~="bg-amber-300"],
+a[class~="bg-amber-400"],
+a[class~="bg-amber-500"],
+a[class~="bg-amber-600"],
+button[class~="bg-orange-300"],
+button[class~="bg-orange-400"],
+button[class~="bg-orange-500"],
+button[class~="bg-orange-600"],
+a[class~="bg-orange-300"],
+a[class~="bg-orange-400"],
+a[class~="bg-orange-500"],
+a[class~="bg-orange-600"] {
+  background-image: none !important;
+  background-color: #2b2537 !important;
+  color: #ffffff !important;
+  border-color: rgba(177, 151, 252, 0.44) !important;
+  box-shadow:
+    0 5px 16px rgba(5, 3, 12, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+  text-shadow: none !important;
+}
+
+button[class*="from-brand-primary"][class*="to-gold"]:hover:not(:disabled),
+a[class*="from-brand-primary"][class*="to-gold"]:hover,
+button[class*="from-gold"][class*="to-brand"]:hover:not(:disabled),
+a[class*="from-gold"][class*="to-brand"]:hover,
+button[class*="from-orange-"]:hover:not(:disabled),
+a[class*="from-orange-"]:hover,
+button[class*="from-yellow-"]:hover:not(:disabled),
+a[class*="from-yellow-"]:hover,
+button[class*="from-amber-"]:hover:not(:disabled),
+a[class*="from-amber-"]:hover {
+  background-color: #372f46 !important;
+  border-color: rgba(197, 181, 255, 0.68) !important;
+}
+

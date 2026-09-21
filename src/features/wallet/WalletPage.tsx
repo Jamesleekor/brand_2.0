@@ -6,7 +6,7 @@
 // =====================================================================
 
 import { useState } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   PageHeader,
@@ -42,6 +42,23 @@ interface Transaction {
   isReversed: boolean;
 }
 
+interface AssetArrearEntry {
+  id: number;
+  value_token: "BV" | "GOLD" | "CRYSTAL";
+  assessed_amount: number;
+  paid_amount: number;
+  outstanding_amount: number;
+  reason: string;
+  status: "UNPAID" | "PARTIAL";
+  created_at: string;
+}
+
+interface AssetArrearsSummary {
+  total_items: number;
+  totals: { BV: number; GOLD: number; CRYSTAL: number };
+  entries: AssetArrearEntry[];
+}
+
 type Filter = "ALL" | "GOLD" | "BV" | "CRYSTAL";
 
 const SOURCE_LABELS: Record<string, { label: string; emoji: string }> = {
@@ -53,6 +70,7 @@ const SOURCE_LABELS: Record<string, { label: string; emoji: string }> = {
   ASSIGNMENT_SUBMIT: { label: "과제 제출", emoji: "📝" },
   ASSIGNMENT_EXCELLENCE: { label: "과제 우수", emoji: "🌟" },
   ACHIEVEMENT_RECOGNITION: { label: "업적 보상", emoji: "🏆" },
+  ACHIEVEMENT_REWARD: { label: "업적 달성 보상", emoji: "🏆" },
   PRIMARY_JOB_WAGE: { label: "1인1역 급여", emoji: "💼" },
   GUILD_MISSION_REWARD: { label: "길드 보상", emoji: "🛡️" },
   INITIAL_BALANCE: { label: "초기 지급", emoji: "🎁" },
@@ -120,6 +138,9 @@ export default function WalletPage() {
 
         {/* 학생 경제 행동 */}
         <EconomicActionsPanel wallet={wallet} isLoading={isLoading} />
+
+        {/* 미납 벌금 */}
+        <AssetArrearsPanel />
 
         {/* 필터 탭 */}
         <FilterTabs current={filter} onChange={setFilter} />
@@ -228,6 +249,76 @@ function AssetCard({
         </div>
       )}
     </motion.div>
+  );
+}
+
+// =====================================================================
+// 미납 벌금
+// =====================================================================
+
+function AssetArrearsPanel() {
+  const { data, isLoading, isError } = useQuery<AssetArrearsSummary>({
+    queryKey: ["student-asset-arrears"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("student_get_my_asset_arrears");
+      if (error) throw new Error(error.message);
+      return data as AssetArrearsSummary;
+    },
+    staleTime: 15_000,
+  });
+
+  if (isLoading || isError || !data || data.total_items <= 0) return null;
+
+  const tokenMeta = {
+    BV: { emoji: "⭐", label: "BV", className: "text-bv" },
+    GOLD: { emoji: "🪙", label: "골드", className: "text-gold" },
+    CRYSTAL: { emoji: "💎", label: "크리스탈", className: "text-crystal" },
+  } as const;
+
+  return (
+    <section className="mb-4 overflow-hidden rounded-card-md border border-danger/40 bg-danger-bg/40">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-danger/20 px-3 py-2.5">
+        <div>
+          <p className="text-sm font-black text-danger">⚠️ 납부하지 못한 벌금이 있어요</p>
+          <p className="mt-0.5 text-xs font-bold text-text-secondary">현재 자산으로 납부하지 못한 금액입니다. 자산은 0 아래로 내려가지 않습니다.</p>
+        </div>
+        <span className="rounded-pill border border-danger/30 bg-bg-deep px-2.5 py-1 text-xs font-black text-danger">{data.total_items}건 미납</span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-1.5 p-3">
+        {(["BV", "GOLD", "CRYSTAL"] as const).map((token) => {
+          const meta = tokenMeta[token];
+          return (
+            <div key={token} className="rounded-card-sm border border-line bg-bg-deep px-2.5 py-2 text-center">
+              <div className="text-[11px] font-extrabold text-text-secondary">{meta.emoji} {meta.label}</div>
+              <div className={cn("mt-1 font-display text-base", data.totals[token] > 0 ? meta.className : "text-text-muted")}>
+                {formatNumber(data.totals[token])}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <details className="border-t border-danger/20">
+        <summary className="cursor-pointer px-3 py-2 text-xs font-black text-text-secondary hover:text-text-primary">미납 내역 보기</summary>
+        <div className="divide-y divide-line/70 border-t border-line/70">
+          {data.entries.map((entry) => {
+            const meta = tokenMeta[entry.value_token];
+            return (
+              <div key={entry.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-extrabold text-text-primary">{entry.reason}</p>
+                  <p className="mt-0.5 text-[11px] font-bold text-text-secondary">부과 {formatNumber(entry.assessed_amount)} · 납부 {formatNumber(entry.paid_amount)}</p>
+                </div>
+                <div className={cn("whitespace-nowrap text-right font-display text-sm", meta.className)}>
+                  {meta.emoji} {formatNumber(entry.outstanding_amount)} 미납
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </details>
+    </section>
   );
 }
 

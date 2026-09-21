@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
@@ -33,6 +33,8 @@ interface LastAdjustment {
   goldAmount?: number;
   reason: string;
   studentCount: number;
+  taxAmount?: number;
+  arrearAmount?: number;
 }
 
 const isValidAmount = (value: number) => Number.isInteger(value) && value >= 1 && value <= 10_000_000;
@@ -51,6 +53,24 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
   const [reason, setReason] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [lastAdjustment, setLastAdjustment] = useState<LastAdjustment | null>(null);
+  const [taxRateInput, setTaxRateInput] = useState('10');
+
+  const adjustmentConfigQuery = useQuery({
+    queryKey: ['teacher-asset-adjustment-config', classroomId],
+    queryFn: async () => {
+      if (!classroomId) return null;
+      const result = await teacherRpc.getAssetAdjustmentConfig(supabase, { p_classroom_id: classroomId });
+      if (result.success === false) throw new Error(result.error);
+      return result.data;
+    },
+    enabled: classroomId !== null,
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    const rate = adjustmentConfigQuery.data?.income_tax_rate_percent;
+    if (rate !== undefined && rate !== null) setTaxRateInput(String(rate));
+  }, [adjustmentConfigQuery.data?.income_tax_rate_percent]);
 
   const studentsQuery = useQuery<AssetStudent[]>({
     queryKey: ['teacher-asset-students', classroomId],
@@ -126,8 +146,14 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
     isValidNonNegativeAmount(goldAmount) &&
     (bvAmount > 0 || goldAmount > 0);
   const trimmedReason = reason.trim();
+  const taxRatePercent = Number(taxRateInput);
+  const validTaxRate = Number.isFinite(taxRatePercent) && taxRatePercent >= 0 && taxRatePercent < 100;
+  const goldGrantUsesTax = operation === 'GRANT' && (token === 'GOLD' || (token === 'BOTH' && goldAmount > 0));
   const insufficientStudents = operation === 'DEDUCT' && token !== 'BOTH' && validSingleAmount
     ? selectedStudents.filter((student) => (token === 'BV' ? student.bv : token === 'GOLD' ? student.gold : student.crystal) < amount)
+    : [];
+  const combinedInsufficientStudents = operation === 'DEDUCT' && token === 'BOTH' && validCombinedAmount
+    ? selectedStudents.filter((student) => student.bv < bvAmount || student.gold < goldAmount)
     : [];
 
   const validAmount = token === 'BOTH' ? validCombinedAmount : validSingleAmount;
@@ -136,7 +162,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
     validAmount &&
     trimmedReason.length >= 2 &&
     trimmedReason.length <= 200 &&
-    insufficientStudents.length === 0 &&
+    (!goldGrantUsesTax || validTaxRate) &&
     !isSubmitting;
 
   const allVisibleSelected =
@@ -164,7 +190,6 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
 
   const setTokenMode = (nextToken: AssetToken) => {
     setToken(nextToken);
-    if (nextToken === 'BOTH') setOperation('GRANT');
   };
 
   const clearFormAfterSuccess = () => {
@@ -185,6 +210,8 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
       queryClient.invalidateQueries({ queryKey: ['dashboard'] }),
       queryClient.invalidateQueries({ queryKey: ['profile-detail'] }),
       queryClient.invalidateQueries({ queryKey: ['rankings'] }),
+      queryClient.invalidateQueries({ queryKey: ['student-asset-arrears'] }),
+      queryClient.invalidateQueries({ queryKey: ['teacher-asset-adjustment-config'] }),
     ]);
   };
 
@@ -193,34 +220,39 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
 
     if (token === 'BOTH') {
       const results = await call(
-        () => teacherRpc.grantStudentAssetsCombined(supabase, {
+        () => teacherRpc.adjustStudentAssetsCombined(supabase, {
           p_student_ids: selectedStudents.map((student) => student.id),
           p_bv_amount: bvAmount,
           p_gold_amount: goldAmount,
+          p_operation: operation,
           p_reason: trimmedReason,
+          p_tax_rate_percent: goldGrantUsesTax ? taxRatePercent : null,
         }),
         {
-          successTitle: 'BV + 골드 동시 지급 완료',
+          successTitle: operation === 'GRANT' ? 'BV + 골드 동시 지급 완료' : 'BV + 골드 동시 차감 완료',
           successDescription: `${selectedStudents.length}명 · ${formatNumber(bvAmount)} BV + ${formatNumber(goldAmount)} 골드`,
         }
       );
       if (!results) return;
       setLastAdjustment({
         token: 'BOTH',
-        operation: 'GRANT',
+        operation,
         bvAmount,
         goldAmount,
         reason: trimmedReason,
         studentCount: selectedStudents.length,
+        taxAmount: results.reduce((sum, row) => sum + Number(row.gold_tax_amount ?? 0), 0),
+        arrearAmount: results.reduce((sum, row) => sum + Number(row.bv_arrear_amount ?? 0) + Number(row.gold_arrear_amount ?? 0), 0),
       });
     } else {
       const signedAmount = operation === 'GRANT' ? amount : -amount;
       const results = await call(
-        () => teacherRpc.adjustStudentAssets(supabase, {
+        () => teacherRpc.adjustStudentAssetsV2(supabase, {
           p_student_ids: selectedStudents.map((student) => student.id),
           p_value_token: token,
           p_amount: signedAmount,
           p_reason: trimmedReason,
+          p_tax_rate_percent: goldGrantUsesTax ? taxRatePercent : null,
         }),
         {
           successTitle: operation === 'GRANT' ? '자산 지급 완료' : '자산 차감 완료',
@@ -234,6 +266,8 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
         amount,
         reason: trimmedReason,
         studentCount: selectedStudents.length,
+        taxAmount: results.reduce((sum, row) => sum + Number(row.tax_amount ?? 0), 0),
+        arrearAmount: results.reduce((sum, row) => sum + Number(row.arrear_amount ?? 0), 0),
       });
     }
 
@@ -242,7 +276,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
   };
 
   const totalSummary = token === 'BOTH'
-    ? `+${formatNumber(bvAmount * selectedStudents.length)} BV · +${formatNumber(goldAmount * selectedStudents.length)} 골드`
+    ? `${operation === 'GRANT' ? '+' : '-'}${formatNumber(bvAmount * selectedStudents.length)} BV · ${operation === 'GRANT' ? '+' : '-'}${formatNumber(goldAmount * selectedStudents.length)} 골드`
     : `${operation === 'GRANT' ? '+' : '-'}${validSingleAmount ? formatNumber(amount * selectedStudents.length) : '0'} ${token === 'BV' ? 'BV' : token === 'GOLD' ? '골드' : '크리스탈'}`;
 
   return (
@@ -324,14 +358,14 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
         <div className="p-4 bg-bg-deep/30 space-y-4">
           <div>
             <label className="block text-sm font-extrabold text-text-primary mb-2">자산 종류</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {([
                 { value: 'BV', label: 'BV', emoji: '⭐', active: 'bg-bv/15 border-bv/60 text-bv' },
                 { value: 'GOLD', label: '골드', emoji: '🪙', active: 'bg-gold/15 border-gold/60 text-gold' },
                 { value: 'CRYSTAL', label: '크리스탈', emoji: '💎', active: 'bg-crystal/15 border-crystal/60 text-crystal' },
                 { value: 'BOTH', label: 'BV+골드', emoji: '✨', active: 'bg-brand-primary/15 border-brand-primary/60 text-white' },
               ] as const).map((option) => (
-                <button type="button" key={option.value} onClick={() => setTokenMode(option.value)} className={cn('py-2.5 rounded-card-md border text-sm font-black transition-all', token === option.value ? option.active : 'bg-bg-deep border-line text-text-secondary')}>
+                <button type="button" key={option.value} onClick={() => setTokenMode(option.value)} className={cn('py-2.5 px-1 rounded-card-md border text-xs sm:text-sm font-black transition-all whitespace-nowrap', token === option.value ? option.active : 'bg-bg-deep border-line text-text-secondary')}>
                   {option.emoji} {option.label}
                 </button>
               ))}
@@ -342,9 +376,9 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
             <label className="block text-sm font-extrabold text-text-primary mb-2">처리 방식</label>
             <div className="grid grid-cols-2 gap-2">
               <button type="button" onClick={() => setOperation('GRANT')} className={cn('py-2.5 rounded-card-md border text-sm font-black transition-all', operation === 'GRANT' ? 'bg-success-bg border-success/60 text-success' : 'bg-bg-deep border-line text-text-secondary')}>➕ 지급</button>
-              <button type="button" disabled={token === 'BOTH'} onClick={() => setOperation('DEDUCT')} title={token === 'BOTH' ? 'BV+골드 동시 처리는 지급만 지원합니다.' : undefined} className={cn('py-2.5 rounded-card-md border text-sm font-black transition-all disabled:opacity-35 disabled:cursor-not-allowed', operation === 'DEDUCT' ? 'bg-danger-bg border-danger/60 text-danger' : 'bg-bg-deep border-line text-text-secondary')}>➖ 차감</button>
+              <button type="button" onClick={() => setOperation('DEDUCT')} className={cn('py-2.5 rounded-card-md border text-sm font-black transition-all', operation === 'DEDUCT' ? 'bg-danger-bg border-danger/60 text-danger' : 'bg-bg-deep border-line text-text-secondary')}>➖ 차감</button>
             </div>
-            {token === 'BOTH' && <p className="text-xs text-text-secondary mt-1.5">BV+골드는 두 자산을 하나의 DB 트랜잭션에서 동시에 지급합니다.</p>}
+            {token === 'BOTH' && <p className="text-xs text-text-secondary mt-1.5">BV와 골드를 한 번에 지급하거나 차감합니다. 잔액보다 큰 차감액은 미납 벌금으로 남습니다.</p>}
           </div>
 
           {token === 'BOTH' ? (
@@ -367,6 +401,20 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
             </div>
           )}
 
+          {goldGrantUsesTax && (
+            <div className="rounded-card-md border border-warning/30 bg-warning-bg/40 p-3">
+              <div className="flex items-end gap-2">
+                <div className="min-w-0 flex-1">
+                  <label htmlFor="asset-income-tax-rate" className="block text-sm font-extrabold text-text-primary mb-1.5">학급 기본 소득세율 (%)</label>
+                  <input id="asset-income-tax-rate" type="number" min={0} max={99.99} step={0.1} value={taxRateInput} onChange={(event) => setTaxRateInput(event.target.value)} className="login-input" />
+                </div>
+                <span className="pb-2 text-xs font-black text-warning">기본 {taxRateInput || '0'}%</span>
+              </div>
+              <p className="mt-1.5 text-xs font-bold text-text-secondary break-keep">골드 지급액에 적용됩니다. 학생별 컬렉션 세율 감면은 자동으로 추가 반영되며, 입력한 세율은 학급 기본 소득세율로 저장됩니다.</p>
+              {!validTaxRate && <p className="mt-1 text-xs font-bold text-danger">0 이상 100 미만의 세율을 입력해주세요.</p>}
+            </div>
+          )}
+
           <div>
             <label htmlFor="asset-adjustment-reason" className="block text-sm font-extrabold text-text-primary mb-1.5">지급·차감 사유</label>
             <textarea id="asset-adjustment-reason" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="예: 수업 참여 보상 / 규칙 위반 차감" rows={3} maxLength={200} className="w-full px-3 py-2.5 bg-bg-deep border border-line-strong rounded-card-md text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-brand-primary resize-none" />
@@ -376,10 +424,10 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
             </div>
           </div>
 
-          {operation === 'DEDUCT' && insufficientStudents.length > 0 && (
-            <div className="bg-danger-bg border border-danger/40 rounded-card-md p-3">
-              <p className="text-xs font-extrabold text-danger mb-1">잔액이 부족한 학생이 있습니다.</p>
-              <p className="text-xs text-text-primary font-bold break-keep">{insufficientStudents.slice(0, 4).map((student) => student.name).join(', ')}{insufficientStudents.length > 4 ? ` 외 ${insufficientStudents.length - 4}명` : ''}</p>
+          {operation === 'DEDUCT' && (insufficientStudents.length > 0 || combinedInsufficientStudents.length > 0) && (
+            <div className="bg-warning-bg border border-warning/40 rounded-card-md p-3">
+              <p className="text-xs font-extrabold text-warning mb-1">현재 잔액보다 큰 벌금이 포함되어 있습니다.</p>
+              <p className="text-xs text-text-primary font-bold break-keep">납부 가능한 만큼만 즉시 차감하고, 부족한 금액은 학생의 미납 벌금으로 기록합니다. 학생 자산은 0 아래로 내려가지 않습니다.</p>
             </div>
           )}
 
@@ -391,7 +439,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
           <button type="button" onClick={() => setConfirmOpen(true)} disabled={!canOpenConfirm} className={cn('w-full py-3 rounded-card-md text-sm font-black transition-all', operation === 'GRANT' ? 'btn-primary' : 'btn-danger', !canOpenConfirm && 'opacity-50 cursor-not-allowed')}>
             {isSubmitting ? '처리 중...' : `${selectedStudents.length}명 ${operation === 'GRANT' ? '지급' : '차감'} 확인`}
           </button>
-          <p className="text-xs text-text-secondary font-bold leading-relaxed break-keep">다중 처리는 전부 성공하거나 전부 취소됩니다. 한 학생이라도 잔액 또는 권한 검증에 실패하면 아무도 변경되지 않습니다.</p>
+          <p className="text-xs text-text-secondary font-bold leading-relaxed break-keep">다중 처리는 한 DB 작업으로 처리됩니다. 지급 골드는 소득세가 자동 반영되고, 차감액이 잔액을 넘으면 부족분은 미납 벌금으로 남습니다.</p>
         </div>
       </div>
 
@@ -402,9 +450,11 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
               <p className="text-sm font-extrabold text-success">✅ 마지막 작업 완료</p>
               <p className="text-xs text-text-primary font-bold mt-0.5 break-keep">
                 {lastAdjustment.token === 'BOTH'
-                  ? `${lastAdjustment.studentCount}명에게 ${formatNumber(lastAdjustment.bvAmount ?? 0)} BV + ${formatNumber(lastAdjustment.goldAmount ?? 0)} 골드를 동시에 지급했습니다.`
+                  ? `${lastAdjustment.studentCount}명에게 ${formatNumber(lastAdjustment.bvAmount ?? 0)} BV + ${formatNumber(lastAdjustment.goldAmount ?? 0)} 골드를 동시에 ${lastAdjustment.operation === 'GRANT' ? '지급' : '차감'}했습니다.`
                   : `${lastAdjustment.studentCount}명에게 ${formatNumber(lastAdjustment.amount ?? 0)} ${lastAdjustment.token === 'BV' ? 'BV' : lastAdjustment.token === 'GOLD' ? '골드' : '크리스탈'}를 ${lastAdjustment.operation === 'GRANT' ? '지급' : '차감'}했습니다.`}
               </p>
+              {(lastAdjustment.taxAmount ?? 0) > 0 && <p className="text-xs text-warning font-bold mt-1">소득세 합계: {formatNumber(lastAdjustment.taxAmount ?? 0)} 골드</p>}
+              {(lastAdjustment.arrearAmount ?? 0) > 0 && <p className="text-xs text-danger font-bold mt-1">새로 발생한 미납금 합계: {formatNumber(lastAdjustment.arrearAmount ?? 0)}</p>}
               <p className="text-xs text-text-secondary font-bold mt-1">사유: {lastAdjustment.reason}</p>
             </div>
             <button type="button" onClick={() => setLastAdjustment(null)} className="text-xs font-black text-text-secondary hover:text-text-primary">결과 닫기</button>
@@ -419,7 +469,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
               <div className="text-xs font-black uppercase tracking-widest text-text-secondary mb-1">실행할 작업</div>
               <div className={cn('font-display text-xl tracking-tight', operation === 'GRANT' ? 'text-success' : 'text-danger')}>
                 {token === 'BOTH'
-                  ? `${selectedStudents.length}명 · +${formatNumber(bvAmount)} BV + ${formatNumber(goldAmount)} 골드`
+                  ? `${selectedStudents.length}명 · ${operation === 'GRANT' ? '+' : '-'}${formatNumber(bvAmount)} BV · ${operation === 'GRANT' ? '+' : '-'}${formatNumber(goldAmount)} 골드`
                   : `${selectedStudents.length}명 · ${operation === 'GRANT' ? '+' : '-'}${formatNumber(amount)} ${token === 'BV' ? 'BV' : token === 'GOLD' ? '골드' : '크리스탈'}`}
               </div>
             </div>
@@ -438,12 +488,18 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
                   </div>
                   {token === 'BOTH' ? (
                     <p className="text-xs font-mono font-bold text-right text-text-primary whitespace-nowrap">
-                      BV {formatNumber(student.bv)} → {formatNumber(student.bv + bvAmount)}<br />
-                      GOLD {formatNumber(student.gold)} → {formatNumber(student.gold + goldAmount)}
+                      BV {formatNumber(student.bv)} → {operation === 'GRANT' ? formatNumber(student.bv + bvAmount) : formatNumber(Math.max(0, student.bv - bvAmount))}<br />
+                      GOLD {operation === 'GRANT' ? `총 ${formatNumber(goldAmount)} 지급 · 세금 후 반영` : `${formatNumber(student.gold)} → ${formatNumber(Math.max(0, student.gold - goldAmount))}`}
+                    </p>
+                  ) : token === 'GOLD' && operation === 'GRANT' ? (
+                    <p className="text-xs font-mono font-bold text-right text-text-primary whitespace-nowrap">
+                      총 {formatNumber(amount)} 지급<br /><span className="text-warning">소득세 차감 후 반영</span>
                     </p>
                   ) : (
                     <p className="text-xs font-mono font-bold text-text-secondary whitespace-nowrap">
-                      {formatNumber(token === 'BV' ? student.bv : token === 'GOLD' ? student.gold : student.crystal)} → <span className="text-text-primary">{formatNumber((token === 'BV' ? student.bv : token === 'GOLD' ? student.gold : student.crystal) + (operation === 'GRANT' ? amount : -amount))}</span>
+                      {formatNumber(token === 'BV' ? student.bv : token === 'GOLD' ? student.gold : student.crystal)} → <span className="text-text-primary">{formatNumber(operation === 'GRANT'
+                        ? (token === 'BV' ? student.bv : token === 'GOLD' ? student.gold : student.crystal) + amount
+                        : Math.max(0, (token === 'BV' ? student.bv : token === 'GOLD' ? student.gold : student.crystal) - amount))}</span>
                     </p>
                   )}
                 </div>
@@ -451,7 +507,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
             </div>
 
             <div className="bg-warning-bg border border-warning/30 rounded-card-md p-3">
-              <p className="text-xs text-text-primary font-bold break-keep">실행 즉시 학생 지갑과 거래 기록에 반영됩니다. BV+골드 동시 지급은 한 DB 함수 안에서 원자적으로 처리됩니다.</p>
+              <p className="text-xs text-text-primary font-bold break-keep">실행 즉시 학생 지갑과 거래 기록에 반영됩니다. 골드 지급에는 학급 기본 소득세율과 학생별 감면이 적용되며, 잔액을 넘는 차감액은 미납 벌금으로 기록됩니다.</p>
             </div>
 
             <div className="flex gap-2">

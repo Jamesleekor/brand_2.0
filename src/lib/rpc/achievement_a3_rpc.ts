@@ -13,6 +13,21 @@ export interface AchievementHelperEvidenceDetail {
   value?: unknown;
 }
 
+export type AchievementHelperVerificationMode = 'SYSTEM_RECORD' | 'PARTIAL_PRIVATE' | 'TEACHER_JUDGMENT';
+
+export type AchievementHelperRecordSection =
+  | 'OVERVIEW'
+  | 'ECONOMY'
+  | 'P2P'
+  | 'AUCTION'
+  | 'ARCADE'
+  | 'GUILD'
+  | 'SHARDS'
+  | 'DAILY'
+  | 'ACCESS'
+  | 'DIMENSION'
+  | 'ACHIEVEMENTS';
+
 export interface AchievementHelperSystemEvidence {
   available?: boolean;
   source?: string;
@@ -26,6 +41,39 @@ export interface AchievementHelperSystemEvidence {
   note?: string;
   snapshot?: Record<string, unknown>;
   error?: string;
+  verification_mode?: AchievementHelperVerificationMode;
+  record_sections?: AchievementHelperRecordSection[];
+  privacy_note?: string;
+}
+
+export interface AchievementHelperDirectoryItem {
+  student_id: number;
+  student_name: string;
+  brand_name: string | null;
+  tier: string | null;
+  bv_rank: number;
+  achievement_count: number;
+  achievement_rank: number;
+  donation_gold: number;
+  donation_rank: number;
+  bv_deduction_count: number;
+  low_deduction_rank: number;
+  credit_score: number | null;
+  primary_job_count: number;
+  arcade_official_run_count: number;
+}
+
+export interface AchievementHelperStudentRecord {
+  section: AchievementHelperRecordSection;
+  student: {
+    student_id: number;
+    student_name: string;
+    brand_name: string | null;
+    tier: string | null;
+    enrolled_at?: string | null;
+  };
+  privacy?: string;
+  data: Record<string, unknown>;
 }
 
 export interface AchievementHelperQueueItem {
@@ -39,6 +87,9 @@ export interface AchievementHelperQueueItem {
   grade: string;
   evaluation_type: 'QUANTITATIVE' | 'QUALITATIVE';
   auto_eval_enabled: boolean;
+  verification_mode: AchievementHelperVerificationMode;
+  record_sections: AchievementHelperRecordSection[];
+  helper_note: string | null;
   evidence_text: string | null;
   system_evidence: AchievementHelperSystemEvidence | null;
   status: string;
@@ -118,6 +169,19 @@ export const achievementA3Rpc = {
 
   helperQueue: (supabase: SupabaseClient) =>
     callRpc<AchievementHelperQueueItem[]>(supabase, 'student_get_achievement_helper_queue'),
+
+  helperDirectory: (supabase: SupabaseClient) =>
+    callRpc<AchievementHelperDirectoryItem[]>(supabase, 'student_get_achievement_helper_directory'),
+
+  helperStudentRecord: (
+    supabase: SupabaseClient,
+    input: { p_student_id: number; p_section: AchievementHelperRecordSection; p_limit?: number; p_offset?: number },
+  ) => callRpc<AchievementHelperStudentRecord>(supabase, 'student_get_achievement_helper_student_record', {
+    p_student_id: input.p_student_id,
+    p_section: input.p_section,
+    p_limit: input.p_limit ?? 100,
+    p_offset: input.p_offset ?? 0,
+  }),
 
   helperRecommend: (
     supabase: SupabaseClient,

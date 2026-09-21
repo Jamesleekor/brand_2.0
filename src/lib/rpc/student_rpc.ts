@@ -40,6 +40,30 @@ export interface TeacherCombinedAssetGrantResult {
   new_gold: number;
 }
 
+export interface TeacherAssetAdjustmentConfig {
+  classroom_id: number;
+  income_tax_rate_percent: number;
+}
+
+export interface TeacherAssetAdjustmentV2Result {
+  student_id: number;
+  transaction_id: number | null;
+  new_balance: number;
+  tax_amount: number;
+  arrear_amount: number;
+}
+
+export interface TeacherCombinedAssetAdjustmentResult {
+  student_id: number;
+  bv_transaction_id: number | null;
+  gold_transaction_id: number | null;
+  new_bv: number;
+  new_gold: number;
+  gold_tax_amount: number;
+  bv_arrear_amount: number;
+  gold_arrear_amount: number;
+}
+
 export interface WelfareDonationResult {
   transaction_id: number;
   movement_id: number;
@@ -517,6 +541,42 @@ export const teacherRpc = {
       supabase,
       "teacher_adjust_student_assets",
       TeacherSchemas.TeacherAdjustStudentAssetsSchema,
+      input,
+    );
+  },
+
+  getAssetAdjustmentConfig: (
+    supabase: SupabaseClient,
+    input: TeacherSchemas.TeacherGetAssetAdjustmentConfigInput,
+  ): Promise<RpcResult<TeacherAssetAdjustmentConfig>> => {
+    return safeRpc(
+      supabase,
+      "teacher_get_asset_adjustment_config",
+      TeacherSchemas.TeacherGetAssetAdjustmentConfigSchema,
+      input,
+    );
+  },
+
+  adjustStudentAssetsV2: (
+    supabase: SupabaseClient,
+    input: TeacherSchemas.TeacherAdjustStudentAssetsV2Input,
+  ): Promise<RpcResult<TeacherAssetAdjustmentV2Result[]>> => {
+    return safeRpc(
+      supabase,
+      "teacher_adjust_student_assets_v2",
+      TeacherSchemas.TeacherAdjustStudentAssetsV2Schema,
+      input,
+    );
+  },
+
+  adjustStudentAssetsCombined: (
+    supabase: SupabaseClient,
+    input: TeacherSchemas.TeacherAdjustStudentAssetsCombinedInput,
+  ): Promise<RpcResult<TeacherCombinedAssetAdjustmentResult[]>> => {
+    return safeRpc(
+      supabase,
+      "teacher_adjust_student_assets_combined",
+      TeacherSchemas.TeacherAdjustStudentAssetsCombinedSchema,
       input,
     );
   },

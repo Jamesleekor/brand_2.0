@@ -26,7 +26,65 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const displayStudent = (student: any) => student?.brand_name || student?.name || `학생 #${student?.id ?? '?'}`;
+
+
+function isNoopGuild3MissionRecalcRow(event: any, rows: any[]) {
+  const cancelReason = 'Guild 3 공식 미션 GS 초안 변경 취소';
+  const repostReason = 'Guild 3 공식 미션 GS 초안 재계산 반영';
+  const reason = String(event?.reason ?? '');
+  if (reason !== cancelReason && reason !== repostReason) return false;
+
+  const sourceId = Number(event?.source_id);
+  const guildId = Number(event?.guild_id);
+  const createdAt = String(event?.created_at ?? '');
+  const absRoundedPoints = Math.round(Math.abs(Number(event?.points ?? 0)) * 100);
+
+  return rows.some((other: any) => {
+    if (Number(other?.id) === Number(event?.id)) return false;
+    const otherReason = String(other?.reason ?? '');
+    const isPair =
+      (reason === cancelReason && otherReason === repostReason) ||
+      (reason === repostReason && otherReason === cancelReason);
+    if (!isPair) return false;
+
+    return Number(other?.source_id) === sourceId
+      && Number(other?.guild_id) === guildId
+      && String(other?.created_at ?? '') === createdAt
+      && Math.round(Math.abs(Number(other?.points ?? 0)) * 100) === absRoundedPoints;
+  });
+}
 const idKey = () => crypto.randomUUID();
+
+const GS_EVENT_LABEL: Record<string, string> = {
+  INDIVIDUAL_CONTRIBUTION: '개인 기여도',
+  MEMBER_COMPENSATION: '인원 보정',
+  MISSION_GS: '공식 미션',
+  MANUAL_ADJUSTMENT: '수동 조정',
+  REVERSAL: '기록 취소',
+};
+
+function gsEventLabel(sourceType: string) {
+  return GS_EVENT_LABEL[sourceType] ?? sourceType;
+}
+
+function gsEventTone(sourceType: string) {
+  if (sourceType === 'REVERSAL') return 'border-danger/25 bg-danger/10 text-danger';
+  if (sourceType === 'MANUAL_ADJUSTMENT') return 'border-warning/25 bg-warning/10 text-warning';
+  if (sourceType === 'MISSION_GS') return 'border-bv/25 bg-bv/10 text-bv';
+  if (sourceType === 'MEMBER_COMPENSATION') return 'border-gold/25 bg-gold/10 text-gold';
+  return 'border-line bg-bg-card text-text-secondary';
+}
+
+function formatLedgerTime(value: string) {
+  return new Date(value).toLocaleString('ko-KR', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+}
 
 export default function GuildScoreAdmin() {
   const classroomId = useClassroomId();
@@ -92,7 +150,7 @@ function useGuild2AdminData(classroomId: number | null, yearMonth: string) {
         supabase.from('guild2_monthly_gs_summaries').select('*').eq('classroom_id', classroomId!).eq('year_month', yearMonth).order('draft_rank'),
         supabase.from('guild2_compensation_configs').select('*').eq('classroom_id', classroomId!),
         supabase.from('guild2_observation_events').select('*').eq('classroom_id', classroomId!).eq('year_month', yearMonth).order('created_at', { ascending: false }),
-        supabase.from('guild2_gs_events').select('*').eq('classroom_id', classroomId!).eq('year_month', yearMonth).order('created_at', { ascending: false }).limit(100),
+        supabase.from('guild2_gs_events').select('*').eq('classroom_id', classroomId!).eq('year_month', yearMonth).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(500),
       ]);
       const responses = { students, seasons, guilds, contributions, summaries, configs, observations, ledger };
       for (const [name, response] of Object.entries(responses)) {
@@ -158,6 +216,14 @@ function Guild2ScoreContents({ data }: { data: any }) {
   const contributionByStudent = useMemo(() => new Map<number, any>(data.contributions.map((row: any) => [Number(row.student_id), row])), [data.contributions]);
   const summaryByGuild = useMemo(() => new Map<number, any>(data.summaries.map((row: any) => [Number(row.guild_id), row])), [data.summaries]);
   const configByGuild = useMemo(() => new Map<number, any>(data.configs.map((row: any) => [Number(row.guild_id), row])), [data.configs]);
+  const guildById = useMemo(() => new Map<number, any>(data.guilds.map((guild: any) => [Number(guild.id), guild])), [data.guilds]);
+  const sortedLedger = useMemo(() => [...data.ledger]
+    .filter((event: any) => !isNoopGuild3MissionRecalcRow(event, data.ledger))
+    .sort((a: any, b: any) => {
+      const timeDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return timeDiff !== 0 ? timeDiff : Number(b.id) - Number(a.id);
+    })
+    .slice(0, 100), [data.ledger]);
   const reversedEventIds = useMemo(() => new Set(data.observations.filter((row: any) => row.event_kind === 'REVERSAL').map((row: any) => Number(row.reversal_of))), [data.observations]);
 
   useEffect(() => {
@@ -238,7 +304,27 @@ function Guild2ScoreContents({ data }: { data: any }) {
 
     <section className="grid gap-5 xl:grid-cols-2">
       <div className="glass-card p-4"><div className="mb-3"><h2 className="font-display text-lg">GS 수동 조정</h2><p className="mt-1 text-xs text-text-secondary">예외적인 공식 조정만 기록하세요. 기존 GS 행을 바꾸지 않고, 이유가 있는 새 기록을 추가합니다.</p></div><div className="space-y-3"><select className="input-field w-full" value={adjustmentGuildId} onChange={(event) => setAdjustmentGuildId(event.target.value)}><option value="">길드 선택</option>{data.guilds.map((guild: any) => <option key={guild.id} value={guild.id}>{guild.name}</option>)}</select><input className="input-field w-full" type="number" step="0.01" min="-5000" max="5000" value={adjustmentPoints} onChange={(event) => setAdjustmentPoints(event.target.value)} placeholder="더할/뺄 GS (예: 50 또는 -50)" /><input className="input-field w-full" value={adjustmentReason} maxLength={300} onChange={(event) => setAdjustmentReason(event.target.value)} placeholder="조정 사유 (2자 이상)" /><button className="btn-secondary w-full" disabled={isLoading || !adjustmentGuildId || !adjustmentReason.trim() || Number(adjustmentPoints) === 0} onClick={postAdjustment}>GS 조정 기록 추가</button></div></div>
-      <div className="glass-card p-4"><div className="mb-3"><h2 className="font-display text-lg">최근 GS 기록장</h2><p className="mt-1 text-xs text-text-secondary">이 합계가 위 길드별 GS 초안의 근거입니다.</p></div>{!data.ledger.length ? <p className="py-8 text-center text-sm text-text-secondary">아직 GS 기록이 없습니다. 점수 다시 계산을 눌러 시작하세요.</p> : <div className="max-h-[340px] space-y-2 overflow-y-auto pr-1">{data.ledger.map((event: any) => <div key={event.id} className="flex items-start justify-between gap-3 rounded-card-md border border-line bg-bg-deep p-3"><div><div className="font-black text-white">{event.source_type === 'INDIVIDUAL_CONTRIBUTION' ? '개인 기여도' : event.source_type === 'MEMBER_COMPENSATION' ? '인원 보정' : event.source_type === 'MANUAL_ADJUSTMENT' ? '수동 조정' : event.source_type === 'REVERSAL' ? '취소 기록' : event.source_type}</div><p className="mt-1 text-xs text-text-secondary">{event.reason}</p><div className="mt-1 text-[10px] text-text-muted">{new Date(event.created_at).toLocaleString('ko-KR')}</div></div><b className={Number(event.points) < 0 ? 'text-danger' : 'text-success'}>{Number(event.points) > 0 ? '+' : ''}{formatNumber(Number(event.points))}</b></div>)}</div>}</div>
+      <div className="glass-card overflow-hidden">
+        <div className="flex items-end justify-between gap-3 border-b border-line px-4 py-3">
+          <div><h2 className="font-display text-lg">최근 GS 기록장</h2><p className="mt-0.5 text-xs text-text-secondary">최신 기록부터 표시합니다. 같은 시각의 기록은 실제 생성 순서로 정렬됩니다. 동일 점수 자동 재계산 쌍은 숨깁니다.</p></div>
+          <span className="text-[10px] font-black text-text-muted">최근 {Math.min(sortedLedger.length, 100)}건</span>
+        </div>
+        {!sortedLedger.length ? <p className="py-8 text-center text-sm text-text-secondary">아직 GS 기록이 없습니다. 점수 다시 계산을 눌러 시작하세요.</p> : <div className="max-h-[420px] overflow-y-auto">{sortedLedger.map((event: any) => {
+          const guild = guildById.get(Number(event.guild_id));
+          const points = Number(event.points);
+          return <div key={event.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-line/70 px-3 py-2.5 last:border-0 hover:bg-bg-deep/60">
+            <div className="min-w-0">
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                <span className="max-w-[150px] truncate rounded-pill border border-line bg-bg-deep px-2 py-0.5 text-[10px] font-black text-white">{guild?.name ?? `길드 #${event.guild_id}`}</span>
+                <span className={`rounded-pill border px-2 py-0.5 text-[10px] font-black ${gsEventTone(String(event.source_type))}`}>{gsEventLabel(String(event.source_type))}</span>
+                <span className="min-w-0 flex-1 truncate text-xs font-bold text-text-secondary" title={event.reason}>{event.reason}</span>
+              </div>
+              <div className="mt-1 text-[10px] text-text-muted">{formatLedgerTime(event.created_at)}</div>
+            </div>
+            <div className={`whitespace-nowrap text-right font-display text-base ${points < 0 ? 'text-danger' : 'text-success'}`}>{points > 0 ? '+' : ''}{formatNumber(points)} <span className="text-[10px] font-black">GS</span></div>
+          </div>;
+        })}</div>}
+      </div>
     </section>
   </div>;
 }

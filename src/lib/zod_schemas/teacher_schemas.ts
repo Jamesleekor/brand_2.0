@@ -73,6 +73,47 @@ export type TeacherGrantStudentAssetsCombinedInput = z.infer<
   typeof TeacherGrantStudentAssetsCombinedSchema
 >;
 
+export const TeacherGetAssetAdjustmentConfigSchema = z.object({
+  p_classroom_id: PositiveInt,
+});
+
+export type TeacherGetAssetAdjustmentConfigInput = z.infer<
+  typeof TeacherGetAssetAdjustmentConfigSchema
+>;
+
+export const TeacherAdjustStudentAssetsV2Schema = TeacherAdjustStudentAssetsSchema.extend({
+  p_tax_rate_percent: z.number().min(0).max(99.99).nullable().optional(),
+});
+
+export type TeacherAdjustStudentAssetsV2Input = z.infer<
+  typeof TeacherAdjustStudentAssetsV2Schema
+>;
+
+export const TeacherAdjustStudentAssetsCombinedSchema = z.object({
+  p_student_ids: z
+    .array(PositiveInt)
+    .min(1)
+    .max(100)
+    .superRefine((ids, ctx) => {
+      if (new Set(ids).size !== ids.length) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "같은 학생이 중복 선택되어 있습니다." });
+      }
+    }),
+  p_bv_amount: z.number().int().min(0).max(10_000_000),
+  p_gold_amount: z.number().int().min(0).max(10_000_000),
+  p_operation: z.enum(["GRANT", "DEDUCT"]),
+  p_reason: AssetAdjustmentReason,
+  p_tax_rate_percent: z.number().min(0).max(99.99).nullable().optional(),
+}).superRefine((value, ctx) => {
+  if (value.p_bv_amount === 0 && value.p_gold_amount === 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "BV와 골드 중 하나 이상은 1 이상이어야 합니다." });
+  }
+});
+
+export type TeacherAdjustStudentAssetsCombinedInput = z.infer<
+  typeof TeacherAdjustStudentAssetsCombinedSchema
+>;
+
 // =====================================================================
 // 1. confirm_auction_sale — 경매 낙찰 ⭐ (Master Lee 페인 ②)
 // =====================================================================

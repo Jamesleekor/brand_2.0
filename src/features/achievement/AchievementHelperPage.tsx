@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { EmptyState, LoadingSpinner, PageHeader, useRpcCall } from '@/components/shared/components';
+import { AchievementHelperRecordRoom, HelperRecordModal, type HelperRecordTarget } from './AchievementHelperRecordRoom';
 import { supabase } from '@/lib/supabase/client';
 import {
   achievementA3Rpc,
@@ -13,10 +14,11 @@ import { formatRelativeTime } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 
 type Filter = 'ALL' | 'TODO' | 'DONE' | 'APPROVE' | 'REJECT';
+type PageMode = 'REVIEW' | 'RECORDS';
 
 const FILTERS: ReadonlyArray<{ value: Filter; label: string }> = [
   { value: 'TODO', label: '검토 대기' },
-  { value: 'DONE', label: '내 검토 완료' },
+  { value: 'DONE', label: '검토 완료' },
   { value: 'APPROVE', label: '승인 추천' },
   { value: 'REJECT', label: '반려 추천' },
   { value: 'ALL', label: '전체' },
@@ -26,6 +28,10 @@ export default function AchievementHelperPage() {
   const studentId = useStudentId();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<Filter>('TODO');
+  const [mode, setMode] = useState<PageMode>('REVIEW');
+  const [search, setSearch] = useState('');
+  const [selectedApplicationId, setSelectedApplicationId] = useState<number | null>(null);
+  const [recordTarget, setRecordTarget] = useState<HelperRecordTarget | null>(null);
 
   const status = useQuery({
     queryKey: ['achievement-helper-status', studentId],
@@ -50,7 +56,6 @@ export default function AchievementHelperPage() {
     enabled: Boolean(status.data?.can_access),
     staleTime: 10_000,
     retry: 1,
-    // Realtime 연결이 일시적으로 끊겨도 검토 큐가 오래 멈추지 않도록 안전망을 둔다.
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
   });
@@ -63,8 +68,6 @@ export default function AchievementHelperPage() {
       void queryClient.invalidateQueries({ queryKey: ['achievement-helper-queue', studentId] });
     };
 
-    // helper_reviews는 브라우저에 직접 공개하지 않는다. 추천 RPC가 parent application의
-    // updated_at을 touch하므로, 기존 안전한 application stream만 구독하면 충분하다.
     const channel = supabase
       .channel(`achievement-helper-apps:${classroomId}:${studentId}`)
       .on(
@@ -93,16 +96,54 @@ export default function AchievementHelperPage() {
     reject: rows.filter((r) => r.my_recommendation === 'REJECT').length,
   }), [rows]);
 
-  const items = useMemo(() => {
-    if (filter === 'TODO') return rows.filter((r) => !r.my_recommendation);
-    if (filter === 'DONE') return rows.filter((r) => Boolean(r.my_recommendation));
-    if (filter === 'APPROVE') return rows.filter((r) => r.my_recommendation === 'APPROVE');
-    if (filter === 'REJECT') return rows.filter((r) => r.my_recommendation === 'REJECT');
-    return rows;
-  }, [rows, filter]);
+  const filteredItems = useMemo(() => {
+    let next = rows;
+    if (filter === 'TODO') next = next.filter((r) => !r.my_recommendation);
+    if (filter === 'DONE') next = next.filter((r) => Boolean(r.my_recommendation));
+    if (filter === 'APPROVE') next = next.filter((r) => r.my_recommendation === 'APPROVE');
+    if (filter === 'REJECT') next = next.filter((r) => r.my_recommendation === 'REJECT');
+
+    const needle = search.trim().toLocaleLowerCase('ko-KR');
+    if (!needle) return next;
+    return next.filter((r) => [
+      r.student_name,
+      r.achievement_name,
+      r.achievement_uid,
+      r.condition_text,
+    ].some((value) => value.toLocaleLowerCase('ko-KR').includes(needle)));
+  }, [rows, filter, search]);
+
+  useEffect(() => {
+    if (mode !== 'REVIEW') return;
+    if (filteredItems.length === 0) {
+      setSelectedApplicationId(null);
+      return;
+    }
+    if (!selectedApplicationId || !filteredItems.some((item) => item.application_id === selectedApplicationId)) {
+      setSelectedApplicationId(filteredItems[0].application_id);
+    }
+  }, [filteredItems, mode, selectedApplicationId]);
+
+  const selectedItem = useMemo(
+    () => filteredItems.find((item) => item.application_id === selectedApplicationId) ?? null,
+    [filteredItems, selectedApplicationId],
+  );
 
   const refresh = async () => {
     await Promise.all([status.refetch(), queue.refetch()]);
+  };
+
+  const openStudentRecord = (target: HelperRecordTarget) => {
+    setRecordTarget(target);
+  };
+
+  const moveToNextAfterSave = (applicationId: number) => {
+    if (filter !== 'TODO') return;
+    const currentIndex = filteredItems.findIndex((item) => item.application_id === applicationId);
+    const next = filteredItems[currentIndex + 1]
+      ?? filteredItems.find((item) => item.application_id !== applicationId)
+      ?? null;
+    setSelectedApplicationId(next?.application_id ?? null);
   };
 
   return (
@@ -122,7 +163,7 @@ export default function AchievementHelperPage() {
         ) : undefined}
       />
 
-      <div className="px-4 pt-4 pb-24">
+      <div className="px-4 pb-24 pt-3">
         {status.isLoading ? (
           <div className="flex justify-center py-16"><LoadingSpinner size="lg" /></div>
         ) : status.isError ? (
@@ -135,118 +176,312 @@ export default function AchievementHelperPage() {
           <EmptyState
             emoji="🔒"
             title="업적검증도우미 전용입니다"
-            description="현재 1인1역이 업적검증도우미인 학생만 사용할 수 있습니다. 실제 승인·반려 권한은 선생님에게만 있습니다."
+            description="현재 업적검증도우미 역할을 가진 학생만 사용할 수 있습니다. 실제 승인·반려 권한은 선생님에게만 있습니다."
           />
         ) : (
           <>
-            <section className="mb-4 rounded-card-lg border border-bv/30 bg-bv/10 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-black text-bv-100">선생님을 돕는 1차 검토 화면</div>
-                  <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-300">
-                    신청 내용과 시스템 검증 근거를 확인해 <b>승인 추천</b> 또는 <b>반려 추천</b>을 남겨주세요.
-                    추천은 최종 결정이 아니며 선생님이 다시 확인합니다.
-                  </p>
-                </div>
-                <span className="flex-shrink-0 rounded-pill border border-success/30 bg-success-bg px-2.5 py-1 text-[10px] font-black text-success">
-                  권한 확인됨
-                </span>
-              </div>
-              <div className="mt-3 rounded-card-sm border border-warning/20 bg-warning/5 px-3 py-2 text-[11px] font-bold leading-relaxed text-slate-200">
-                🔐 히든 업적 특별보고와 교사 전용 업적은 이 화면에 표시되지 않습니다. 도우미는 업적을 직접 승인·반려하거나 보상을 지급할 수 없습니다.
-              </div>
-            </section>
+            <HelperTopBar
+              mode={mode}
+              onMode={setMode}
+              todo={counts.todo}
+              done={counts.done}
+              all={counts.all}
+            />
 
-            <section className="mb-4 grid grid-cols-3 gap-2">
-              <SummaryCard label="검토 대기" value={counts.todo} tone="warning" />
-              <SummaryCard label="내 검토 완료" value={counts.done} tone="success" />
-              <SummaryCard label="전체 공개 큐" value={counts.all} tone="default" />
-            </section>
-
-            <div className="mb-3 flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-              {FILTERS.map(({ value, label }) => {
-                const count = value === 'TODO'
-                  ? counts.todo
-                  : value === 'DONE'
-                    ? counts.done
-                    : value === 'APPROVE'
-                      ? counts.approve
-                      : value === 'REJECT'
-                        ? counts.reject
-                        : counts.all;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setFilter(value)}
-                    className={cn(
-                      'flex flex-shrink-0 items-center gap-1.5 rounded-pill px-3 py-1.5 text-2xs font-black',
-                      filter === value
-                        ? 'bg-gradient-to-r from-brand-primary to-gold text-white'
-                        : 'border border-line bg-bg-card text-slate-200',
-                    )}
-                  >
-                    {label}
-                    <span className={cn(
-                      'min-w-[18px] rounded-pill px-1.5 py-0.5 text-[9px]',
-                      filter === value ? 'bg-white/20 text-white' : 'bg-bg-deep text-slate-200',
-                    )}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {queue.isLoading ? (
-              <div className="flex justify-center py-12"><LoadingSpinner size="lg" /></div>
-            ) : queue.isError ? (
-              <HelperLoadError
-                title="업적 신청 목록을 불러오지 못했습니다"
-                message={errorMessage(queue.error)}
+            {mode === 'REVIEW' ? (
+              <ReviewWorkspace
+                items={filteredItems}
+                selectedItem={selectedItem}
+                selectedApplicationId={selectedApplicationId}
+                onSelect={setSelectedApplicationId}
+                counts={counts}
+                filter={filter}
+                onFilter={setFilter}
+                search={search}
+                onSearch={setSearch}
+                isLoading={queue.isLoading}
+                isError={queue.isError}
+                error={queue.error}
                 onRetry={() => void queue.refetch()}
-              />
-            ) : items.length === 0 ? (
-              <EmptyState
-                emoji={filter === 'TODO' ? '🎉' : '✅'}
-                title={filter === 'TODO' ? '검토 대기 신청이 없습니다' : '표시할 신청이 없습니다'}
-                description={filter === 'TODO' ? '새 신청이 들어오면 자동으로 이 목록에 표시됩니다.' : '다른 필터를 선택해 확인해보세요.'}
+                onOpenRecord={openStudentRecord}
+                onSaved={moveToNextAfterSave}
               />
             ) : (
-              <div className="space-y-3">
-                {items.map((item) => <HelperReviewCard key={item.application_id} item={item} />)}
-              </div>
+              <AchievementHelperRecordRoom
+                enabled={Boolean(status.data?.can_access)}
+                onOpenRecord={openStudentRecord}
+              />
             )}
           </>
         )}
       </div>
+
+      {recordTarget && (
+        <HelperRecordModal
+          key={`${recordTarget.studentId}-${recordTarget.initialSection ?? 'OVERVIEW'}-${recordTarget.suggestedSections?.join(',') ?? ''}`}
+          target={recordTarget}
+          onClose={() => setRecordTarget(null)}
+        />
+      )}
     </>
   );
 }
 
-function SummaryCard({ label, value, tone }: { label: string; value: number; tone: 'warning' | 'success' | 'default' }) {
+function HelperTopBar({
+  mode,
+  onMode,
+  todo,
+  done,
+  all,
+}: {
+  mode: PageMode;
+  onMode: (mode: PageMode) => void;
+  todo: number;
+  done: number;
+  all: number;
+}) {
+  const completedPercent = all > 0 ? Math.round((done / all) * 100) : 0;
   return (
-    <div className={cn(
-      'rounded-card-md border p-3 text-center',
-      tone === 'warning'
-        ? 'border-warning/25 bg-warning/5'
-        : tone === 'success'
-          ? 'border-success/25 bg-success-bg/30'
-          : 'border-line bg-bg-card',
-    )}>
-      <div className="text-xl font-black text-white">{value}</div>
-      <div className="mt-0.5 text-[10px] font-black text-slate-200">{label}</div>
+    <section className="mb-3 rounded-card-lg border border-line bg-bg-card px-3 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex rounded-pill border border-line bg-bg-deep p-1">
+            <button
+              type="button"
+              onClick={() => onMode('REVIEW')}
+              className={cn(
+                'rounded-pill px-3 py-1.5 text-xs font-black transition',
+                mode === 'REVIEW' ? 'bg-bv text-white' : 'text-slate-300 hover:text-white',
+              )}
+            >
+              🔎 신청 검토
+            </button>
+            <button
+              type="button"
+              onClick={() => onMode('RECORDS')}
+              className={cn(
+                'rounded-pill px-3 py-1.5 text-xs font-black transition',
+                mode === 'RECORDS' ? 'bg-bv text-white' : 'text-slate-300 hover:text-white',
+              )}
+            >
+              📚 학생 기록실
+            </button>
+          </div>
+          <div className="hidden text-[11px] font-bold text-slate-300 md:block">
+            추천은 선생님의 최종 판단을 돕는 1차 검토입니다.
+          </div>
+        </div>
+
+        <div className="flex min-w-[220px] items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between text-[10px] font-black text-slate-300">
+              <span>검토 진행 {done}/{all}</span>
+              <span>{completedPercent}%</span>
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-bg-deep">
+              <div className="h-full rounded-full bg-success transition-all" style={{ width: `${completedPercent}%` }} />
+            </div>
+          </div>
+          <span className="rounded-pill border border-warning/30 bg-warning/5 px-2.5 py-1 text-[10px] font-black text-warning">
+            {todo}건 남음
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ReviewWorkspace({
+  items,
+  selectedItem,
+  selectedApplicationId,
+  onSelect,
+  counts,
+  filter,
+  onFilter,
+  search,
+  onSearch,
+  isLoading,
+  isError,
+  error,
+  onRetry,
+  onOpenRecord,
+  onSaved,
+}: {
+  items: AchievementHelperQueueItem[];
+  selectedItem: AchievementHelperQueueItem | null;
+  selectedApplicationId: number | null;
+  onSelect: (id: number) => void;
+  counts: { all: number; todo: number; done: number; approve: number; reject: number };
+  filter: Filter;
+  onFilter: (filter: Filter) => void;
+  search: string;
+  onSearch: (value: string) => void;
+  isLoading: boolean;
+  isError: boolean;
+  error: unknown;
+  onRetry: () => void;
+  onOpenRecord: (target: HelperRecordTarget) => void;
+  onSaved: (applicationId: number) => void;
+}) {
+  return (
+    <div className="grid gap-3 lg:grid-cols-[330px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
+      <aside className="overflow-hidden rounded-card-lg border border-line bg-bg-card lg:sticky lg:top-3">
+        <div className="border-b border-line p-2.5">
+          <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+            {FILTERS.map(({ value, label }) => {
+              const count = value === 'TODO'
+                ? counts.todo
+                : value === 'DONE'
+                  ? counts.done
+                  : value === 'APPROVE'
+                    ? counts.approve
+                    : value === 'REJECT'
+                      ? counts.reject
+                      : counts.all;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onFilter(value)}
+                  className={cn(
+                    'flex flex-shrink-0 items-center gap-1 rounded-pill px-2.5 py-1.5 text-[10px] font-black transition',
+                    filter === value
+                      ? 'bg-bv text-white'
+                      : 'border border-line bg-bg-deep text-slate-300 hover:text-white',
+                  )}
+                >
+                  {label}
+                  <span className={cn(
+                    'rounded-pill px-1.5 py-0.5 text-[9px]',
+                    filter === value ? 'bg-white/20' : 'bg-black/20',
+                  )}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="relative mt-1.5">
+            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs">🔍</span>
+            <input
+              value={search}
+              onChange={(e) => onSearch(e.target.value)}
+              placeholder="학생·업적 검색"
+              className="h-9 w-full rounded-card-sm border border-line bg-bg-deep pl-8 pr-2.5 text-xs font-bold text-white placeholder:text-slate-500 focus:border-bv/60 focus:outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="lg:max-h-[calc(100vh-260px)] lg:min-h-[520px] lg:overflow-y-auto">
+          {isLoading ? (
+            <div className="flex justify-center py-12"><LoadingSpinner size="md" /></div>
+          ) : isError ? (
+            <div className="p-3">
+              <HelperLoadError
+                title="신청 목록을 불러오지 못했습니다"
+                message={errorMessage(error)}
+                onRetry={onRetry}
+              />
+            </div>
+          ) : items.length === 0 ? (
+            <div className="px-4 py-12 text-center">
+              <div className="text-3xl">{filter === 'TODO' ? '🎉' : '🔎'}</div>
+              <div className="mt-2 text-sm font-black text-white">
+                {filter === 'TODO' ? '검토 대기 신청이 없습니다' : '조건에 맞는 신청이 없습니다'}
+              </div>
+              <div className="mt-1 text-[11px] font-bold text-slate-400">검색어나 필터를 바꿔보세요.</div>
+            </div>
+          ) : (
+            <div className="p-1.5">
+              {items.map((item) => (
+                <QueueRow
+                  key={item.application_id}
+                  item={item}
+                  selected={item.application_id === selectedApplicationId}
+                  onClick={() => onSelect(item.application_id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </aside>
+
+      <section className="overflow-hidden rounded-card-lg border border-line bg-bg-card lg:min-h-[520px]">
+        {selectedItem ? (
+          <ReviewDetailPanel
+            key={selectedItem.application_id}
+            item={selectedItem}
+            onOpenRecord={onOpenRecord}
+            onSaved={onSaved}
+          />
+        ) : (
+          <div className="flex min-h-[520px] items-center justify-center p-6 text-center">
+            <div>
+              <div className="text-4xl">👈</div>
+              <div className="mt-3 font-display text-lg text-white">검토할 신청을 선택하세요</div>
+              <p className="mt-1 text-xs font-bold text-slate-400">왼쪽 목록에서 한 건을 누르면 이곳에서 바로 검토할 수 있습니다.</p>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
 
-function HelperReviewCard({ item }: { item: AchievementHelperQueueItem }) {
+function QueueRow({ item, selected, onClick }: { item: AchievementHelperQueueItem; selected: boolean; onClick: () => void }) {
+  const evidence = queueEvidenceMeta(item);
+  return (
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileTap={{ scale: 0.99 }}
+      className={cn(
+        'mb-1.5 w-full rounded-card-md border px-2.5 py-2 text-left transition last:mb-0',
+        selected
+          ? 'border-bv/70 bg-bv/10 shadow-sm'
+          : 'border-line/80 bg-bg-deep/55 hover:border-bv/35 hover:bg-bg-deep',
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 truncate text-xs font-black text-white">{item.student_name}</div>
+        <span className={cn('flex-shrink-0 rounded-pill px-2 py-0.5 text-[9px] font-black', evidence.className)}>
+          {evidence.label}
+        </span>
+      </div>
+      <div className="mt-1 flex items-baseline gap-1.5">
+        <span className="min-w-0 flex-1 truncate text-[12px] font-black text-slate-100">{item.achievement_name}</span>
+        <span className="flex-shrink-0 font-mono text-[9px] font-bold text-bv-100">{item.achievement_uid}</span>
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-[10px] font-bold text-slate-400">{evidence.summary}</span>
+        <span className="flex-shrink-0 text-[9px] font-bold text-slate-500">{formatRelativeTime(item.created_at)}</span>
+      </div>
+      {item.my_recommendation && (
+        <div className={cn(
+          'mt-1 text-[9px] font-black',
+          item.my_recommendation === 'APPROVE' ? 'text-success' : 'text-danger',
+        )}>
+          {item.my_recommendation === 'APPROVE' ? '✓ 승인 추천 완료' : '✕ 반려 추천 완료'}
+        </div>
+      )}
+    </motion.button>
+  );
+}
+
+function ReviewDetailPanel({
+  item,
+  onOpenRecord,
+  onSaved,
+}: {
+  item: AchievementHelperQueueItem;
+  onOpenRecord: (target: HelperRecordTarget) => void;
+  onSaved: (applicationId: number) => void;
+}) {
   const queryClient = useQueryClient();
   const studentId = useStudentId();
   const { call, isLoading } = useRpcCall();
   const [memo, setMemo] = useState(item.my_memo ?? '');
+  const evidenceMeta = queueEvidenceMeta(item);
 
-  // 같은 application card가 유지된 채 서버 데이터만 갱신되는 경우에도 메모를 최신값으로 맞춘다.
   useEffect(() => {
     setMemo(item.my_memo ?? '');
   }, [item.application_id, item.my_memo, item.my_recommended_at]);
@@ -265,144 +500,168 @@ function HelperReviewCard({ item }: { item: AchievementHelperQueueItem }) {
             ? '❌ 반려 추천 저장'
             : '추천 취소',
         successDescription: recommendation ? '선생님 검토 큐에 추천 결과가 표시됩니다.' : undefined,
-        onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['achievement-helper-queue', studentId] }),
+        onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: ['achievement-helper-queue', studentId] });
+          if (recommendation) onSaved(item.application_id);
+        },
       },
     );
   };
 
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={cn(
-        'rounded-card-lg border bg-bg-card p-4',
-        item.my_recommendation === 'APPROVE'
-          ? 'border-success/45'
-          : item.my_recommendation === 'REJECT'
-            ? 'border-danger/45'
-            : 'border-line',
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="rounded-pill bg-bv/10 px-2 py-0.5 text-2xs font-black text-bv-100">{item.grade}</span>
-            <span className="rounded-pill bg-bg-deep px-2 py-0.5 text-[10px] font-black text-slate-200">
-              {item.evaluation_type === 'QUANTITATIVE' ? '📊 정량' : '📋 정성'}
-            </span>
-            <span className="font-mono text-[11px] font-black text-bv-100">{item.achievement_uid}</span>
+    <div className="lg:max-h-[calc(100vh-260px)] lg:overflow-y-auto">
+      <div className="border-b border-line px-4 py-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="rounded-pill bg-bv/10 px-2 py-0.5 text-[10px] font-black text-bv-100">{item.grade}</span>
+              <VerificationModeBadge mode={item.verification_mode} />
+              <span className="font-mono text-[10px] font-black text-slate-400">{item.achievement_uid}</span>
+            </div>
+            <h2 className="mt-1 font-display text-xl text-white">{item.achievement_name}</h2>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-bold text-slate-300">
+              <span>신청자 <b className="text-white">{item.student_name}</b></span>
+              <span title={formatAbsoluteTime(item.created_at)}>신청 {formatRelativeTime(item.created_at)}</span>
+            </div>
           </div>
-          <h3 className="mt-1 font-display text-lg text-white">{item.achievement_name}</h3>
-          <div className="mt-0.5 text-xs font-black text-slate-200">
-            신청자 · <span className="text-white">{item.student_name}</span>
-          </div>
-          <div className="mt-0.5 text-[11px] font-bold text-white/80" title={formatAbsoluteTime(item.created_at)}>
-            신청 {formatRelativeTime(item.created_at)} · {formatAbsoluteTime(item.created_at)}
-          </div>
-        </div>
-        <RecommendationBadge item={item} />
-      </div>
-
-      <div className="mt-3 rounded-card-sm border border-line bg-bg-deep p-3">
-        <div className="text-2xs font-black uppercase tracking-wider text-white/90">달성 조건</div>
-        <div className="mt-1 text-sm font-bold leading-relaxed text-white/90">{item.condition_text}</div>
-      </div>
-
-      <div className="mt-2 rounded-card-sm border border-line bg-bg-deep p-3">
-        <div className="text-2xs font-black uppercase tracking-wider text-white/90">학생이 제출한 증빙 · 설명</div>
-        <div className="mt-1 whitespace-pre-wrap break-words text-sm font-semibold leading-relaxed text-white/90">
-          {item.evidence_text || '(증빙 없음)'}
+          <span className={cn('rounded-pill px-2.5 py-1 text-[10px] font-black', evidenceMeta.className)}>
+            {evidenceMeta.label}
+          </span>
         </div>
       </div>
 
-      <SystemEvidence evidence={item.system_evidence} evaluationType={item.evaluation_type} />
-
-      <div className="mt-3">
-        <div className="mb-1 flex items-end justify-between gap-2">
-          <label htmlFor={`helper-memo-${item.application_id}`} className="text-2xs font-black uppercase tracking-wider text-white/90">
-            선생님에게 남길 판단 근거 · 메모
-          </label>
-          <span className="text-[10px] font-bold text-white/70">{memo.length}/500</span>
+      <div className="space-y-2.5 p-3.5">
+        <div className="grid gap-2 md:grid-cols-2">
+          <CompactTextBox title="달성 조건" text={item.condition_text} emphasis />
+          <CompactTextBox title="학생 설명" text={item.evidence_text || '제출한 설명이 없습니다.'} />
         </div>
-        <textarea
-          id={`helper-memo-${item.application_id}`}
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-          rows={3}
-          maxLength={500}
-          placeholder="예: 제출한 기록과 조건이 일치함 / 증빙만으로는 조건 충족을 확인하기 어려움"
-          className="input-field w-full resize-y text-sm text-white placeholder:text-slate-400"
-        />
-      </div>
 
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          disabled={isLoading}
-          onClick={() => void recommend('APPROVE')}
-          className={cn(
-            'rounded-card-md px-3 py-2.5 text-sm font-black disabled:cursor-not-allowed disabled:opacity-60',
-            item.my_recommendation === 'APPROVE'
-              ? 'bg-success text-white'
-              : 'border border-success/40 bg-success-bg text-success',
+        <SystemEvidenceCompact evidence={item.system_evidence} evaluationType={item.evaluation_type} />
+
+        <ActionGuide item={item} />
+
+        <div className="rounded-card-md border border-line bg-bg-deep/60 px-3 py-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-wide text-slate-300">📚 관련 기록 확인</div>
+              <div className="mt-0.5 text-[10px] font-bold text-slate-500">이 업적과 직접 연결된 기록만 먼저 확인하세요.</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onOpenRecord({
+                studentId: item.student_id,
+                studentName: item.student_name,
+                suggestedSections: item.record_sections,
+                initialSection: item.record_sections[0] ?? 'OVERVIEW',
+              })}
+              className="rounded-pill border border-bv/35 bg-bv/10 px-2.5 py-1.5 text-[10px] font-black text-bv-100"
+            >
+              전체 기록실
+            </button>
+          </div>
+          {item.record_sections.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {item.record_sections.map((section) => (
+                <button
+                  key={section}
+                  type="button"
+                  onClick={() => onOpenRecord({
+                    studentId: item.student_id,
+                    studentName: item.student_name,
+                    suggestedSections: item.record_sections,
+                    initialSection: section,
+                  })}
+                  className="rounded-pill border border-line bg-bg-card px-2.5 py-1.5 text-[10px] font-black text-slate-200 hover:border-bv/40 hover:text-bv-100"
+                >
+                  {recordSectionLabel(section)}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-2 text-[10px] font-bold text-slate-500">공개 가능한 원기록보다 학생 설명과 선생님의 정성 판단이 중요한 업적입니다.</div>
           )}
-        >
-          ✅ 승인 추천
-        </button>
-        <button
-          type="button"
-          disabled={isLoading}
-          onClick={() => void recommend('REJECT')}
-          className={cn(
-            'rounded-card-md px-3 py-2.5 text-sm font-black disabled:cursor-not-allowed disabled:opacity-60',
-            item.my_recommendation === 'REJECT'
-              ? 'bg-danger text-white'
-              : 'border border-danger/40 bg-danger-bg text-danger',
-          )}
-        >
-          ❌ 반려 추천
-        </button>
-        {item.my_recommendation && (
+        </div>
+
+        <div className="rounded-card-md border border-line bg-bg-deep/60 px-3 py-2.5">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <label htmlFor={`helper-memo-${item.application_id}`} className="text-[10px] font-black text-slate-200">
+              선생님에게 남길 판단 근거
+            </label>
+            <span className="text-[9px] font-bold text-slate-500">{memo.length}/500</span>
+          </div>
+          <textarea
+            id={`helper-memo-${item.application_id}`}
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            rows={2}
+            maxLength={500}
+            placeholder="예: 기록을 확인했으며 조건과 일치함 / 누락 기록이 없어 조건 미충족으로 판단함"
+            className="input-field w-full resize-none text-xs text-white placeholder:text-slate-500"
+          />
+        </div>
+      </div>
+
+      <div className="sticky bottom-0 z-10 border-t border-line bg-bg-card/95 px-3.5 py-3 backdrop-blur">
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            disabled={isLoading}
+            onClick={() => void recommend('APPROVE')}
+            className={cn(
+              'rounded-card-md px-3 py-2.5 text-sm font-black disabled:cursor-not-allowed disabled:opacity-60',
+              item.my_recommendation === 'APPROVE'
+                ? 'bg-success text-white'
+                : 'border border-success/40 bg-success-bg text-success',
+            )}
+          >
+            ✅ 승인 추천
+          </button>
+          <button
+            type="button"
+            disabled={isLoading}
+            onClick={() => void recommend('REJECT')}
+            className={cn(
+              'rounded-card-md px-3 py-2.5 text-sm font-black disabled:cursor-not-allowed disabled:opacity-60',
+              item.my_recommendation === 'REJECT'
+                ? 'bg-danger text-white'
+                : 'border border-danger/40 bg-danger-bg text-danger',
+            )}
+          >
+            ❌ 반려 추천
+          </button>
+        </div>
+        {item.my_recommendation ? (
           <button
             type="button"
             disabled={isLoading}
             onClick={() => void recommend('')}
-            className="btn-secondary col-span-2 !py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-2 w-full rounded-card-sm border border-line bg-bg-deep px-3 py-1.5 text-[10px] font-black text-slate-300 disabled:opacity-60"
           >
             현재 추천 취소
           </button>
+        ) : (
+          <div className="mt-1.5 text-center text-[9px] font-bold text-slate-500">추천 저장 후 다음 검토 대기 신청으로 자동 이동합니다.</div>
         )}
       </div>
-    </motion.article>
-  );
-}
-
-function RecommendationBadge({ item }: { item: AchievementHelperQueueItem }) {
-  if (!item.my_recommendation) {
-    return (
-      <span className="flex-shrink-0 rounded-pill border border-warning/25 bg-warning/5 px-2.5 py-1 text-[10px] font-black text-warning">
-        검토 대기
-      </span>
-    );
-  }
-
-  const approve = item.my_recommendation === 'APPROVE';
-  return (
-    <div className="flex flex-shrink-0 flex-col items-end gap-0.5">
-      <span className={cn(
-        'rounded-pill px-2.5 py-1 text-[10px] font-black',
-        approve ? 'bg-success-bg text-success' : 'bg-danger-bg text-danger',
-      )}>
-        {approve ? '✅ 승인 추천 완료' : '❌ 반려 추천 완료'}
-      </span>
-      {item.my_recommended_at && (
-        <span className="text-[9px] font-bold text-slate-200">{formatRelativeTime(item.my_recommended_at)}</span>
-      )}
     </div>
   );
 }
 
-function SystemEvidence({
+function CompactTextBox({ title, text, emphasis = false }: { title: string; text: string; emphasis?: boolean }) {
+  return (
+    <div className={cn(
+      'rounded-card-md border px-3 py-2.5',
+      emphasis ? 'border-bv/25 bg-bv/5' : 'border-line bg-bg-deep/60',
+    )}>
+      <div className="text-[10px] font-black uppercase tracking-wide text-slate-300">{title}</div>
+      <div className={cn('mt-1 whitespace-pre-wrap break-words text-xs font-bold leading-relaxed', emphasis ? 'text-white' : 'text-slate-200')}>
+        {text}
+      </div>
+    </div>
+  );
+}
+
+function SystemEvidenceCompact({
   evidence,
   evaluationType,
 }: {
@@ -411,12 +670,10 @@ function SystemEvidence({
 }) {
   if (!evidence) {
     return (
-      <div className="mt-2 rounded-card-sm border border-warning/20 bg-warning/5 p-3">
-        <div className="text-2xs font-black uppercase tracking-wider text-warning">📋 직접 확인 필요</div>
-        <div className="mt-1 text-xs font-semibold text-slate-200">
-          {evaluationType === 'QUANTITATIVE'
-            ? '이 정량 업적에는 아직 서버 판단 근거가 연결되지 않았습니다. 정량 기준을 연결하면 현재값과 목표값이 여기에 표시됩니다.'
-            : '정성 업적은 제출 내용과 실제 활동을 보고 판단해주세요.'}
+      <div className="rounded-card-md border border-warning/25 bg-warning/5 px-3 py-2.5">
+        <div className="text-[11px] font-black text-warning">📋 시스템 자동판정 없음 · 직접 확인 필요</div>
+        <div className="mt-0.5 text-[10px] font-bold text-slate-300">
+          {evaluationType === 'QUANTITATIVE' ? '관련 원기록과 신청 설명을 직접 비교하세요.' : '정성 업적은 학생 설명과 실제 활동을 확인하세요.'}
         </div>
       </div>
     );
@@ -424,11 +681,9 @@ function SystemEvidence({
 
   if (evidence.error || evidence.available === false) {
     return (
-      <div className="mt-2 rounded-card-sm border border-warning/20 bg-warning/5 p-3">
-        <div className="text-2xs font-black uppercase tracking-wider text-warning">📋 자동 검증 실패 · 직접 확인</div>
-        <div className="mt-1 text-xs font-semibold text-slate-200">
-          {evidence.error || '자동 근거를 계산하지 못했습니다.'}
-        </div>
+      <div className="rounded-card-md border border-warning/25 bg-warning/5 px-3 py-2.5">
+        <div className="text-[11px] font-black text-warning">📋 자동 검증 실패 · 직접 확인</div>
+        <div className="mt-0.5 text-[10px] font-bold text-slate-300">{evidence.error || '자동 근거를 계산하지 못했습니다.'}</div>
       </div>
     );
   }
@@ -436,84 +691,159 @@ function SystemEvidence({
   const normalized = normalizeEvidence(evidence);
   if (!normalized) {
     return (
-      <div className="mt-2 rounded-card-sm border border-warning/20 bg-warning/5 p-3 text-xs font-bold text-warning">
-        {evaluationType === 'QUANTITATIVE'
-          ? '📋 현재 판단에 사용할 정량값을 계산하지 못했습니다. 제출 내용과 실제 기록을 직접 확인해주세요.'
-          : '📋 저장된 평가 자료가 있지만 도우미 판단에 필요한 안전한 항목은 없습니다. 제출 내용을 직접 확인해주세요.'}
+      <div className="rounded-card-md border border-warning/25 bg-warning/5 px-3 py-2.5 text-[11px] font-black text-warning">
+        📋 안전하게 표시할 수 있는 자동 근거가 없습니다. 관련 기록을 직접 확인하세요.
       </div>
     );
   }
 
-  const result = normalized.result;
-  const resultLabel = result === 'PASS'
-    ? 'PASS · 조건 충족'
-    : result === 'FAIL'
-      ? 'FAIL · 조건 미충족'
-      : result === 'BORDERLINE'
-        ? '경계값 · 직접 확인'
-        : result || '참고';
-
+  const meta = evidenceResultMeta(normalized.result);
   return (
-    <div className={cn(
-      'mt-2 rounded-card-sm border p-3',
-      result === 'PASS'
-        ? 'border-success/25 bg-success-bg/40'
-        : result === 'FAIL'
-          ? 'border-danger/25 bg-danger-bg/40'
-          : 'border-warning/25 bg-warning-bg/30',
-    )}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-2xs font-black uppercase tracking-wider text-white/90">📊 시스템 검증 근거</div>
-        <span className={cn(
-          'text-xs font-black',
-          result === 'PASS' ? 'text-success' : result === 'FAIL' ? 'text-danger' : 'text-warning',
-        )}>
-          {resultLabel}
-        </span>
+    <div className={cn('rounded-card-md border px-3 py-2.5', meta.panelClassName)}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-[10px] font-black uppercase tracking-wide text-slate-200">📊 시스템 참고값</div>
+        <span className={cn('rounded-pill px-2 py-0.5 text-[10px] font-black', meta.badgeClassName)}>{meta.label}</span>
       </div>
 
-      <div className="mt-2 grid grid-cols-2 gap-2 text-xs font-bold">
-        <EvidenceCell label="실측값" value={displayValue(normalized.measuredValue)} />
-        <EvidenceCell
+      <div className="mt-2 flex flex-wrap items-stretch gap-2">
+        <EvidenceMini label="실측값" value={displayValue(normalized.measuredValue)} />
+        <EvidenceMini
           label="조건값"
           value={`${normalized.op ? `${normalized.op} ` : ''}${displayValue(normalized.targetValue)}`.trim() || '-'}
         />
+        {normalized.details.slice(0, 2).map((detail, index) => (
+          <EvidenceMini key={`${detail.label}-${index}`} label={detail.label} value={displayDetailValue(detail.value)} />
+        ))}
       </div>
 
-      {normalized.details.length > 0 && (
-        <div className="mt-2 grid grid-cols-1 gap-2 text-xs font-bold sm:grid-cols-2">
-          {normalized.details.map((detail, index) => (
-            <EvidenceCell
-              key={`${detail.label}-${index}`}
-              label={detail.label}
-              value={displayDetailValue(detail.value)}
-            />
-          ))}
-        </div>
-      )}
-
-      {normalized.note && (
-        <div className="mt-2 rounded-card-sm border border-line/70 bg-bg-deep/50 px-2.5 py-2 text-[10px] font-semibold leading-relaxed text-slate-200">
-          💡 {normalized.note}
-        </div>
-      )}
-
-      {normalized.snapshotAt && (
-        <div className="mt-2 text-[10px] font-bold text-slate-200">
-          기준 시각 · {formatAbsoluteTime(normalized.snapshotAt)}
-        </div>
+      {(normalized.details.length > 2 || normalized.note || normalized.snapshotAt) && (
+        <details className="mt-2 rounded-card-sm border border-line/60 bg-black/10 px-2.5 py-1.5">
+          <summary className="cursor-pointer text-[10px] font-black text-slate-300">계산 근거 자세히 보기</summary>
+          {normalized.details.length > 2 && (
+            <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+              {normalized.details.slice(2).map((detail, index) => (
+                <EvidenceMini key={`${detail.label}-extra-${index}`} label={detail.label} value={displayDetailValue(detail.value)} />
+              ))}
+            </div>
+          )}
+          {normalized.note && <div className="mt-2 text-[10px] font-semibold leading-relaxed text-slate-300">💡 {normalized.note}</div>}
+          {normalized.snapshotAt && <div className="mt-1 text-[9px] font-bold text-slate-500">기준 시각 · {formatAbsoluteTime(normalized.snapshotAt)}</div>}
+        </details>
       )}
     </div>
   );
 }
 
-function EvidenceCell({ label, value }: { label: string; value: string }) {
+function EvidenceMini({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-card-sm bg-bg-deep/70 p-2">
-      <div className="text-[10px] font-black text-bv-100">{label}</div>
-      <div className="mt-0.5 break-words text-white">{value}</div>
+    <div className="min-w-[120px] flex-1 rounded-card-sm bg-bg-deep/65 px-2.5 py-2">
+      <div className="text-[9px] font-black text-bv-100">{label}</div>
+      <div className="mt-0.5 break-words text-xs font-black text-white">{value}</div>
     </div>
   );
+}
+
+function ActionGuide({ item }: { item: AchievementHelperQueueItem }) {
+  const normalized = item.system_evidence ? normalizeEvidence(item.system_evidence) : null;
+  const result = normalized?.result?.toUpperCase() ?? '';
+  const text = result === 'PASS'
+    ? '시스템 참고값은 조건 충족으로 표시됩니다. 관련 기록이 실제 조건과 맞는지 빠르게 확인한 뒤 추천하세요.'
+    : result === 'FAIL'
+      ? '시스템 참고값은 조건 미충족으로 표시됩니다. 계산에서 빠진 기록이 없는지만 확인한 뒤 추천하세요.'
+      : result === 'BORDERLINE'
+        ? '일부 조건은 도우미에게 공개되지 않거나 자동판정이 어렵습니다. 공개된 기록만 확인하고 메모를 남기세요.'
+        : item.verification_mode === 'TEACHER_JUDGMENT'
+          ? '이 업적은 선생님의 정성 판단이 중요합니다. 사실관계만 확인하고 가치 판단은 선생님에게 맡기세요.'
+          : '자동으로 확정하기 어려운 업적입니다. 관련 기록에서 조건에 필요한 사실만 확인하세요.';
+
+  return (
+    <div className="rounded-card-md border border-bv/20 bg-bv/5 px-3 py-2 text-[11px] font-bold leading-relaxed text-slate-200">
+      <span className="text-bv-100">💡 도우미가 확인할 것</span> · {text}
+      {item.helper_note ? <div className="mt-1 text-[10px] font-semibold text-slate-400">검증 가이드: {item.helper_note}</div> : null}
+    </div>
+  );
+}
+
+function VerificationModeBadge({ mode }: { mode: AchievementHelperQueueItem['verification_mode'] }) {
+  const meta = mode === 'SYSTEM_RECORD'
+    ? { label: '🧮 기록 검증', className: 'border-success/25 bg-success-bg/30 text-success' }
+    : mode === 'PARTIAL_PRIVATE'
+      ? { label: '🔐 일부 교사 확인', className: 'border-warning/25 bg-warning/5 text-warning' }
+      : { label: '👩‍🏫 교사 판단', className: 'border-line bg-bg-deep text-slate-200' };
+  return <span className={cn('rounded-pill border px-2 py-0.5 text-[9px] font-black', meta.className)}>{meta.label}</span>;
+}
+
+function recordSectionLabel(section: AchievementHelperQueueItem['record_sections'][number]): string {
+  const labels: Record<AchievementHelperQueueItem['record_sections'][number], string> = {
+    OVERVIEW: '🧭 종합',
+    ECONOMY: '💰 경제',
+    P2P: '🤝 개인거래',
+    AUCTION: '🔨 경매',
+    ARCADE: '🕹️ 아케이드',
+    GUILD: '🛡️ 길드',
+    SHARDS: '💎 편린',
+    DAILY: '✅ 일퀘·출결',
+    ACCESS: '🕒 접속',
+    DIMENSION: '🌌 차원관문',
+    ACHIEVEMENTS: '🏆 업적',
+  };
+  return labels[section];
+}
+
+function queueEvidenceMeta(item: AchievementHelperQueueItem): { label: string; summary: string; className: string } {
+  if (item.my_recommendation) {
+    return item.my_recommendation === 'APPROVE'
+      ? { label: '승인 추천', summary: '검토 완료', className: 'bg-success-bg text-success' }
+      : { label: '반려 추천', summary: '검토 완료', className: 'bg-danger-bg text-danger' };
+  }
+
+  const normalized = item.system_evidence ? normalizeEvidence(item.system_evidence) : null;
+  const result = normalized?.result?.toUpperCase() ?? '';
+  const measured = normalized ? displayValue(normalized.measuredValue) : '-';
+  const target = normalized
+    ? `${normalized.op ? `${normalized.op} ` : ''}${displayValue(normalized.targetValue)}`.trim()
+    : '';
+  const summary = normalized && (measured !== '-' || target)
+    ? `${measured}${target ? ` / ${target}` : ''}`
+    : item.verification_mode === 'TEACHER_JUDGMENT'
+      ? '선생님 정성 판단 필요'
+      : '원기록 확인 필요';
+
+  if (result === 'PASS') return { label: 'PASS', summary, className: 'bg-success-bg text-success' };
+  if (result === 'FAIL') return { label: 'FAIL', summary, className: 'bg-danger-bg text-danger' };
+  if (result === 'BORDERLINE') return { label: '부분 확인', summary, className: 'bg-warning/10 text-warning' };
+  if (item.verification_mode === 'TEACHER_JUDGMENT') return { label: '교사 판단', summary, className: 'bg-bv/10 text-bv-100' };
+  return { label: 'REVIEW', summary, className: 'bg-warning/10 text-warning' };
+}
+
+function evidenceResultMeta(result: string) {
+  const upper = result.toUpperCase();
+  if (upper === 'PASS') {
+    return {
+      label: 'PASS · 조건 충족',
+      panelClassName: 'border-success/25 bg-success-bg/30',
+      badgeClassName: 'bg-success-bg text-success',
+    };
+  }
+  if (upper === 'FAIL') {
+    return {
+      label: 'FAIL · 조건 미충족',
+      panelClassName: 'border-danger/25 bg-danger-bg/30',
+      badgeClassName: 'bg-danger-bg text-danger',
+    };
+  }
+  if (upper === 'BORDERLINE') {
+    return {
+      label: '부분 확인 필요',
+      panelClassName: 'border-warning/25 bg-warning/5',
+      badgeClassName: 'bg-warning/10 text-warning',
+    };
+  }
+  return {
+    label: 'REVIEW · 직접 확인',
+    panelClassName: 'border-warning/25 bg-warning/5',
+    badgeClassName: 'bg-warning/10 text-warning',
+  };
 }
 
 function normalizeEvidence(evidence: AchievementHelperSystemEvidence) {

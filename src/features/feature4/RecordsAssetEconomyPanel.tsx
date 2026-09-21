@@ -60,6 +60,7 @@ const SOURCE_LABELS: Record<string, { emoji: string; label: string }> = {
   ASSIGNMENT_SUBMIT: { emoji: '📝', label: '과제 제출' },
   ASSIGNMENT_EXCELLENCE: { emoji: '🌟', label: '과제 우수' },
   ACHIEVEMENT_RECOGNITION: { emoji: '🏆', label: '업적 보상' },
+  ACHIEVEMENT_REWARD: { emoji: '🏆', label: '업적 달성 보상' },
   PRIMARY_JOB_WAGE: { emoji: '💼', label: '1인1역 급여' },
   GUILD_MISSION_REWARD: { emoji: '🛡️', label: '길드 보상' },
   TEACHER_GRANT: { emoji: '🎁', label: '교사 지급' },
