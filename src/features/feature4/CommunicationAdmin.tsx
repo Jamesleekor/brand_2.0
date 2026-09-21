@@ -9,28 +9,34 @@ import { formatRelativeTime } from '@/lib/utils/format';
 import { feature4QueryError } from '@/lib/feature4_debug';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
 
-type SentMailRow = {
-  id: number;
+type DispatchRecipient = {
+  message_id: number;
+  student_id: number;
+  student_name: string | null;
+  brand_name: string | null;
+  is_read: boolean;
+  read_at: string | null;
+};
+
+type SentDispatch = {
   dispatch_uid: string;
   title: string;
   body: string;
   message_type: string;
-  recipient_id: number;
-  is_read: boolean;
-  read_at: string | null;
-  recalled_at: string | null;
   created_at: string;
-  recipient?: { name?: string | null; brand_name?: string | null } | null;
+  recalled_at: string | null;
+  recipient_count: number;
+  read_count: number;
+  recipients: DispatchRecipient[] | null;
 };
 
-type SentDispatch = {
-  dispatchUid: string;
+type OtherMailRow = {
+  id: number;
   title: string;
-  body: string;
-  messageType: string;
-  createdAt: string;
-  recalledAt: string | null;
-  recipients: SentMailRow[];
+  message_type: string;
+  recipient_id: number;
+  created_at: string;
+  recipient?: { name?: string | null; brand_name?: string | null } | null;
 };
 
 export default function CommunicationAdmin() {
@@ -65,24 +71,32 @@ export default function CommunicationAdmin() {
     queryKey: ['f4a-admin-recent', classroomId],
     enabled: !!classroomId,
     queryFn: async () => {
-      const [mRes, aRes] = await Promise.all([
-        supabase
-          .from('mail_messages')
-          .select('id,dispatch_uid,title,body,message_type,recipient_id,is_read,read_at,recalled_at,created_at,recipient:students!recipient_id(name,brand_name)')
-          .eq('classroom_id', classroomId!)
-          .eq('sender_type', 'TEACHER')
-          .order('created_at', { ascending: false })
-          .limit(500),
+      const [dispatchResult, aRes, otherRes] = await Promise.all([
+        feature4Rpc.listMailDispatches(supabase, { p_classroom_id: classroomId!, p_limit: 100 }),
         supabase
           .from('global_alerts')
           .select('id,message,emoji,created_at')
           .eq('classroom_id', classroomId!)
           .order('created_at', { ascending: false })
           .limit(12),
+        supabase
+          .from('mail_messages')
+          .select('id,title,message_type,recipient_id,created_at,recipient:students!recipient_id(name,brand_name)')
+          .eq('classroom_id', classroomId!)
+          .eq('message_type', 'P2P_NOTE')
+          .order('created_at', { ascending: false })
+          .limit(50),
       ]);
-      if (mRes.error) throw feature4QueryError('F4A', 'teacher-recent-mail', mRes.error);
+      if (dispatchResult.success === false) {
+        throw new Error(dispatchResult.error);
+      }
       if (aRes.error) throw feature4QueryError('F4A', 'teacher-recent-alerts', aRes.error);
-      return { mail: (mRes.data ?? []) as SentMailRow[], alerts: aRes.data ?? [] };
+      if (otherRes.error) throw feature4QueryError('F4A', 'teacher-p2p-mail-log', otherRes.error);
+      return {
+        dispatches: (dispatchResult.data ?? []) as SentDispatch[],
+        alerts: aRes.data ?? [],
+        otherMail: (otherRes.data ?? []) as OtherMailRow[],
+      };
     },
   });
 
@@ -94,29 +108,28 @@ export default function CommunicationAdmin() {
     return () => { void supabase.removeChannel(mail); void supabase.removeChannel(alerts); };
   }, [classroomId, qc]);
 
-  const dispatches = useMemo(() => groupDispatches(recent.data?.mail ?? []), [recent.data?.mail]);
+  const dispatches = recent.data?.dispatches ?? [];
   const openDispatch = useMemo(
-    () => dispatches.find((dispatch) => dispatch.dispatchUid === openDispatchUid) ?? null,
+    () => dispatches.find((dispatch) => dispatch.dispatch_uid === openDispatchUid) ?? null,
     [dispatches, openDispatchUid],
   );
   const allIds = (students.data ?? []).map((s: any) => s.id);
 
   const recall = (dispatch: SentDispatch) => {
-    if (!classroomId || dispatch.recalledAt) return;
-    const readCount = dispatch.recipients.filter((r) => r.is_read).length;
+    if (!classroomId || dispatch.recalled_at) return;
     const confirmed = window.confirm(
-      `이 우편을 회수하시겠습니까?\n\n대상 ${dispatch.recipients.length}명 중 ${readCount}명이 이미 읽었습니다.\n회수하면 학생 받은편지함에서 이 우편이 사라집니다.`,
+      `이 우편을 회수하시겠습니까?\n\n대상 ${dispatch.recipient_count}명 중 ${dispatch.read_count}명이 이미 읽었습니다.\n회수하면 학생 받은편지함에서 이 우편이 사라집니다.`,
     );
     if (!confirmed) return;
 
     void call(
       () => feature4Rpc.recallMailDispatch(supabase, {
         p_classroom_id: classroomId,
-        p_dispatch_uid: dispatch.dispatchUid,
+        p_dispatch_uid: dispatch.dispatch_uid,
       }),
       {
         successTitle: '우편을 회수했어요',
-        successDescription: `${dispatch.recipients.length}명의 받은편지함에서 숨김 처리되었습니다.`,
+        successDescription: `${dispatch.recipient_count}명의 받은편지함에서 숨김 처리되었습니다.`,
         onSuccess: () => {
           void qc.invalidateQueries({ queryKey: ['f4a-admin-recent', classroomId] });
           void qc.invalidateQueries({ queryKey: ['f4a-mail'] });
@@ -178,13 +191,15 @@ export default function CommunicationAdmin() {
           </section>
         </div>
 
+        <SentMailHistory
+          dispatches={dispatches}
+          onOpen={(dispatchUid) => setOpenDispatchUid(dispatchUid)}
+          onRecall={recall}
+          isLoading={recent.isLoading}
+        />
+
         <div className="grid lg:grid-cols-2 gap-4">
-          <SentMailHistory
-            dispatches={dispatches}
-            onOpen={(dispatchUid) => setOpenDispatchUid(dispatchUid)}
-            onRecall={recall}
-            isLoading={recent.isLoading}
-          />
+          <OtherMailTable rows={recent.data?.otherMail ?? []} />
           <Recent title="최근 알림" rows={(recent.data?.alerts ?? []).map((a: any) => ({ id: a.id, title: `${a.emoji || '🔔'} ${a.message}`, meta: formatRelativeTime(a.created_at) }))} />
         </div>
       </div>
@@ -200,7 +215,7 @@ export default function CommunicationAdmin() {
 }
 
 function Header() {
-  return <div><h1 className="font-display text-2xl text-brand-gradient">📬 소통 운영 <span className="text-xs text-text-secondary">F4A</span></h1><p className="text-sm text-text-secondary font-bold mt-1">우편과 전역 알림을 한 곳에서 관리합니다.</p></div>;
+  return <div><h1 className="font-display text-2xl text-brand-gradient">📬 소통 운영 <span className="text-xs text-text-secondary">F4A</span></h1><p className="text-sm text-text-secondary font-bold mt-1">교사가 직접 보낸 우편의 내용과 학생별 읽음 여부를 발송 건 단위로 관리합니다.</p></div>;
 }
 
 function SentMailHistory({
@@ -217,39 +232,61 @@ function SentMailHistory({
   return (
     <section className="bg-bg-card border border-line rounded-card-lg p-4">
       <div className="flex items-center justify-between gap-3 mb-3">
-        <h2 className="font-display text-base">발송한 우편</h2>
+        <div>
+          <h2 className="font-display text-base">내가 보낸 우편</h2>
+          <p className="text-2xs text-text-muted mt-1">같은 시점에 여러 학생에게 보낸 우편은 한 건으로 묶어 표시합니다.</p>
+        </div>
         <span className="text-2xs text-text-muted font-bold">최근 {dispatches.length}건</span>
       </div>
       {isLoading ? <LoadingSpinner /> : !dispatches.length ? (
-        <p className="text-xs text-text-secondary">기록 없음</p>
+        <p className="text-xs text-text-secondary">발송 기록 없음</p>
       ) : (
-        <div className="space-y-2 max-h-[540px] overflow-y-auto pr-1">
-          {dispatches.map((dispatch) => {
-            const readCount = dispatch.recipients.filter((r) => r.is_read).length;
-            const recalled = Boolean(dispatch.recalledAt);
-            return (
-              <div key={dispatch.dispatchUid} className="bg-bg-deep rounded-card-sm border border-line p-3">
-                <button onClick={() => onOpen(dispatch.dispatchUid)} className="w-full text-left">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-extrabold text-text-primary truncate">{dispatch.title}</div>
-                      <div className="text-xs text-text-secondary mt-1">
-                        {formatRelativeTime(dispatch.createdAt)} · 읽음 {readCount}/{dispatch.recipients.length}
+        <div className="overflow-x-auto border border-line rounded-card-md">
+          <table className="w-full min-w-[760px] text-xs">
+            <thead className="bg-bg-deep text-text-secondary">
+              <tr>
+                <th className="text-left px-3 py-2.5 font-black w-[150px]">발송일</th>
+                <th className="text-left px-3 py-2.5 font-black">제목</th>
+                <th className="text-center px-3 py-2.5 font-black w-[90px]">수신</th>
+                <th className="text-center px-3 py-2.5 font-black w-[120px]">읽음</th>
+                <th className="text-center px-3 py-2.5 font-black w-[90px]">상태</th>
+                <th className="text-right px-3 py-2.5 font-black w-[150px]">관리</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dispatches.map((dispatch) => {
+                const recalled = Boolean(dispatch.recalled_at);
+                const unread = Math.max(0, dispatch.recipient_count - dispatch.read_count);
+                return (
+                  <tr key={dispatch.dispatch_uid} className="border-t border-line hover:bg-bg-deep/70 transition-colors">
+                    <td className="px-3 py-3 text-text-secondary whitespace-nowrap">{formatDateTimeCompact(dispatch.created_at)}</td>
+                    <td className="px-3 py-3 min-w-0">
+                      <button className="text-left w-full" onClick={() => onOpen(dispatch.dispatch_uid)}>
+                        <div className="font-extrabold text-text-primary truncate max-w-[620px]">{dispatch.title}</div>
+                        <div className="text-2xs text-text-muted truncate max-w-[620px] mt-0.5">{dispatch.body}</div>
+                      </button>
+                    </td>
+                    <td className="px-3 py-3 text-center font-bold">{dispatch.recipient_count}명</td>
+                    <td className="px-3 py-3 text-center">
+                      <div className="font-black text-success">{dispatch.read_count}/{dispatch.recipient_count}</div>
+                      {unread > 0 && <div className="text-2xs text-text-muted mt-0.5">미확인 {unread}명</div>}
+                    </td>
+                    <td className="px-3 py-3 text-center">
+                      <span className={`text-2xs font-black px-2 py-1 rounded-full ${recalled ? 'bg-danger/15 text-danger' : 'bg-success/15 text-success'}`}>
+                        {recalled ? '회수됨' : '발송됨'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex justify-end gap-1.5">
+                        <button onClick={() => onOpen(dispatch.dispatch_uid)} className="btn-secondary text-xs">상세</button>
+                        {!recalled && <button onClick={() => onRecall(dispatch)} className="btn-secondary text-xs text-danger">회수</button>}
                       </div>
-                    </div>
-                    <span className={`shrink-0 text-2xs font-black px-2 py-1 rounded-full ${recalled ? 'bg-danger/15 text-danger' : 'bg-success/15 text-success'}`}>
-                      {recalled ? '회수됨' : '발송됨'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-text-muted truncate mt-2">{dispatch.body}</p>
-                </button>
-                <div className="flex justify-end gap-2 mt-2">
-                  <button onClick={() => onOpen(dispatch.dispatchUid)} className="btn-secondary text-xs">상세 보기</button>
-                  {!recalled && <button onClick={() => onRecall(dispatch)} className="btn-secondary text-xs text-danger">회수</button>}
-                </div>
-              </div>
-            );
-          })}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </section>
@@ -268,9 +305,10 @@ function SentMailDetailModal({
   onRecall: (dispatch: SentDispatch) => void;
 }) {
   if (!dispatch) return null;
-  const readCount = dispatch.recipients.filter((r) => r.is_read).length;
-  const recalled = Boolean(dispatch.recalledAt);
-  const recipients = [...dispatch.recipients].sort((a, b) => recipientLabel(a).localeCompare(recipientLabel(b), 'ko'));
+  const recalled = Boolean(dispatch.recalled_at);
+  const recipients = [...(dispatch.recipients ?? [])].sort((a, b) => recipientLabel(a).localeCompare(recipientLabel(b), 'ko'));
+  const readRecipients = recipients.filter((r) => r.is_read);
+  const unreadRecipients = recipients.filter((r) => !r.is_read);
 
   return (
     <Modal isOpen={Boolean(dispatch)} onClose={onClose} title="발송 우편 상세" emoji="✉️" size="lg">
@@ -278,14 +316,14 @@ function SentMailDetailModal({
         <div>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-2xs text-text-muted font-bold">{formatDateTime(dispatch.createdAt)}</div>
+              <div className="text-2xs text-text-muted font-bold">{formatDateTime(dispatch.created_at)}</div>
               <h3 className="font-display text-xl text-brand-gradient mt-1">{dispatch.title}</h3>
             </div>
             <span className={`shrink-0 text-xs font-black px-2.5 py-1 rounded-full ${recalled ? 'bg-danger/15 text-danger' : 'bg-success/15 text-success'}`}>
               {recalled ? '회수됨' : '발송됨'}
             </span>
           </div>
-          {dispatch.recalledAt && <div className="text-xs text-danger font-bold mt-2">회수 시각: {formatDateTime(dispatch.recalledAt)}</div>}
+          {dispatch.recalled_at && <div className="text-xs text-danger font-bold mt-2">회수 시각: {formatDateTime(dispatch.recalled_at)}</div>}
         </div>
 
         <div className="bg-bg-deep border border-line rounded-card-md p-4">
@@ -293,25 +331,15 @@ function SentMailDetailModal({
           <p className="text-sm leading-relaxed whitespace-pre-wrap text-text-primary">{dispatch.body}</p>
         </div>
 
-        <div>
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <h4 className="font-display text-base">읽음 현황</h4>
-            <span className="text-xs font-black text-brand-primary">{readCount} / {dispatch.recipients.length}명 확인</span>
-          </div>
-          <div className="space-y-1.5 max-h-72 overflow-y-auto">
-            {recipients.map((recipient) => (
-              <div key={recipient.id} className="flex items-center justify-between gap-3 bg-bg-deep rounded-card-sm border border-line px-3 py-2.5">
-                <div className="min-w-0">
-                  <div className="text-sm font-extrabold truncate">{recipientLabel(recipient)}</div>
-                  {recipient.recipient?.brand_name && <div className="text-2xs text-text-muted truncate">{recipient.recipient.brand_name}</div>}
-                </div>
-                <div className="text-right shrink-0">
-                  <div className={`text-xs font-black ${recipient.is_read ? 'text-success' : 'text-text-muted'}`}>{recipient.is_read ? '✓ 읽음' : '미확인'}</div>
-                  {recipient.read_at && <div className="text-2xs text-text-muted mt-0.5">{formatDateTime(recipient.read_at)}</div>}
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="grid grid-cols-3 gap-2">
+          <Metric label="전체 수신" value={`${dispatch.recipient_count}명`} />
+          <Metric label="읽음" value={`${dispatch.read_count}명`} emphasis="success" />
+          <Metric label="미확인" value={`${Math.max(0, dispatch.recipient_count - dispatch.read_count)}명`} emphasis="warning" />
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-3">
+          <RecipientList title={`✓ 읽은 학생 ${readRecipients.length}명`} recipients={readRecipients} read />
+          <RecipientList title={`○ 미확인 학생 ${unreadRecipients.length}명`} recipients={unreadRecipients} read={false} />
         </div>
 
         {!recalled && (
@@ -324,42 +352,71 @@ function SentMailDetailModal({
   );
 }
 
+function Metric({ label, value, emphasis }: { label: string; value: string; emphasis?: 'success' | 'warning' }) {
+  const cls = emphasis === 'success' ? 'text-success' : emphasis === 'warning' ? 'text-warning' : 'text-text-primary';
+  return <div className="bg-bg-deep border border-line rounded-card-md p-3 text-center"><div className="text-2xs text-text-muted font-bold">{label}</div><div className={`font-display text-lg mt-1 ${cls}`}>{value}</div></div>;
+}
+
+function RecipientList({ title, recipients, read }: { title: string; recipients: DispatchRecipient[]; read: boolean }) {
+  return (
+    <div className="border border-line rounded-card-md overflow-hidden">
+      <div className="bg-bg-deep px-3 py-2.5 text-xs font-black">{title}</div>
+      <div className="max-h-64 overflow-y-auto">
+        {!recipients.length ? <div className="p-3 text-xs text-text-muted">해당 학생 없음</div> : recipients.map((recipient) => (
+          <div key={recipient.message_id} className="flex items-center justify-between gap-3 px-3 py-2.5 border-t border-line first:border-t-0">
+            <div className="min-w-0">
+              <div className="text-sm font-extrabold truncate">{recipientLabel(recipient)}</div>
+              {recipient.brand_name && <div className="text-2xs text-text-muted truncate">{recipient.brand_name}</div>}
+            </div>
+            <div className={`text-right shrink-0 text-xs font-black ${read ? 'text-success' : 'text-text-muted'}`}>
+              {read && recipient.read_at ? formatDateTime(recipient.read_at) : '미확인'}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OtherMailTable({ rows }: { rows: OtherMailRow[] }) {
+  return (
+    <section className="bg-bg-card border border-line rounded-card-lg p-4">
+      <div className="mb-3">
+        <h2 className="font-display text-base">거래 우편 기록</h2>
+        <p className="text-2xs text-text-muted mt-1">학생 간 서비스 거래 등 P2P 관련 우편입니다. 교사 발송 이력과 분리해 표시합니다.</p>
+      </div>
+      {!rows.length ? <p className="text-xs text-text-secondary">거래 우편 기록 없음</p> : (
+        <div className="max-h-72 overflow-auto border border-line rounded-card-md">
+          <table className="w-full min-w-[520px] text-xs">
+            <thead className="bg-bg-deep text-text-secondary sticky top-0">
+              <tr><th className="text-left px-3 py-2 font-black">시각</th><th className="text-left px-3 py-2 font-black">제목</th><th className="text-left px-3 py-2 font-black">수신자</th></tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => <tr key={row.id} className="border-t border-line"><td className="px-3 py-2 whitespace-nowrap text-text-muted">{formatDateTimeCompact(row.created_at)}</td><td className="px-3 py-2 font-bold truncate max-w-[280px]">{row.title}</td><td className="px-3 py-2 whitespace-nowrap">{row.recipient?.name || `학생 #${row.recipient_id}`}</td></tr>)}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function Recent({ title, rows }: { title: string; rows: { id: number; title: string; meta: string }[] }) {
   return <section className="bg-bg-card border border-line rounded-card-lg p-4"><h2 className="font-display text-base mb-2">{title}</h2>{!rows.length ? <p className="text-xs text-text-secondary">기록 없음</p> : <div className="space-y-2">{rows.map((r) => <div key={r.id} className="bg-bg-deep rounded-card-sm p-2.5"><div className="text-xs font-bold truncate text-text-primary">{r.title}</div><div className="text-xs text-text-secondary mt-1">{r.meta}</div></div>)}</div>}</section>;
 }
 
-function groupDispatches(rows: SentMailRow[]): SentDispatch[] {
-  const grouped = new Map<string, SentDispatch>();
-  for (const row of rows) {
-    const key = row.dispatch_uid || `LEGACY_${row.id}`;
-    const existing = grouped.get(key);
-    if (existing) {
-      existing.recipients.push(row);
-      if (new Date(row.created_at).getTime() < new Date(existing.createdAt).getTime()) existing.createdAt = row.created_at;
-      if (!existing.recalledAt && row.recalled_at) existing.recalledAt = row.recalled_at;
-      continue;
-    }
-    grouped.set(key, {
-      dispatchUid: key,
-      title: row.title,
-      body: row.body,
-      messageType: row.message_type,
-      createdAt: row.created_at,
-      recalledAt: row.recalled_at,
-      recipients: [row],
-    });
-  }
-  return [...grouped.values()]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 30);
-}
-
-function recipientLabel(row: SentMailRow) {
-  return row.recipient?.name || `학생 #${row.recipient_id}`;
+function recipientLabel(row: DispatchRecipient) {
+  return row.student_name || `학생 #${row.student_id}`;
 }
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('ko-KR', {
     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function formatDateTimeCompact(value: string) {
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
   }).format(new Date(value));
 }

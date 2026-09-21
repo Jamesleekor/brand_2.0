@@ -58,6 +58,15 @@ const MEMBER_OFFSETS = [
   { x: 0, y: 27 },
 ];
 
+const RAID_LOBBY_BG_CLOSED =
+  'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/Raid/bg/Raid_bg01_gate-closed.webp';
+const RAID_LOBBY_BG_OPENED =
+  'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/Raid/bg/Raid_bg02_gate-opened.webp';
+
+function raidLobbyBackground(status: RaidStatus) {
+  return status === 'LOBBY_OPEN' ? RAID_LOBBY_BG_CLOSED : RAID_LOBBY_BG_OPENED;
+}
+
 export default function RaidLobbyPage() {
   const params = useParams<{ raidId: string }>();
   const navigate = useNavigate();
@@ -286,10 +295,18 @@ export default function RaidLobbyPage() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#06101c] text-white">
       <div
+        className="pointer-events-none absolute inset-0 bg-cover bg-center bg-no-repeat transition-[background-image] duration-700 xl:right-[330px]"
+        style={{
+  backgroundImage: `url(${raidLobbyBackground(snapshot.raid.status)})`,
+  transform: 'translate(60px, 80px) scale(1.02)',
+  transformOrigin: 'center',
+}}
+      />
+      <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(circle at 50% 18%, rgba(56,189,248,0.18), transparent 28%), radial-gradient(circle at 50% 72%, rgba(168,85,247,0.14), transparent 34%), linear-gradient(180deg, #081424 0%, #07111f 48%, #050b14 100%)',
+            'linear-gradient(180deg, rgba(3,8,17,0.28) 0%, rgba(3,8,17,0.10) 42%, rgba(3,8,17,0.48) 100%), radial-gradient(circle at 50% 52%, transparent 0%, rgba(3,8,17,0.10) 48%, rgba(3,8,17,0.42) 100%)',
         }}
       />
 

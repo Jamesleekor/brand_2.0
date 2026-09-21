@@ -34,6 +34,10 @@ export const F4A = {
     p_classroom_id: PositiveInt,
     p_dispatch_uid: z.string().trim().min(1).max(96),
   }),
+  listMailDispatches: z.object({
+    p_classroom_id: PositiveInt,
+    p_limit: z.number().int().min(1).max(500).default(100),
+  }),
   broadcastAlert: z.object({
     p_classroom_id: PositiveInt,
     p_message: z.string().trim().min(1).max(1000),
