@@ -169,7 +169,7 @@ export function HelperRecordModal({ target, onClose }: { target: HelperRecordTar
   const suggested = new Set(target?.suggestedSections ?? []);
 
   return (
-    <Modal isOpen={Boolean(target)} onClose={onClose} title={`${target?.studentName ?? ''} · 업적 검증 기록`} emoji="📚" size="full">
+    <Modal isOpen={Boolean(target)} onClose={onClose} title={`${target?.studentName ?? ''} · 업적 검증 기록`} emoji="📚" size="wide">
       <div className="space-y-3">
         <div className="rounded-card-md border border-warning/20 bg-warning/5 px-3 py-2 text-[11px] font-bold leading-relaxed text-slate-200">
           읽기 전용입니다. 평점·리뷰와 공식 평가·활동 증명은 이 기록실에서도 노출되지 않습니다.
@@ -181,7 +181,7 @@ export function HelperRecordModal({ target, onClose }: { target: HelperRecordTar
           </div>
         )}
 
-        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="sticky top-0 z-20 -mx-1 flex gap-1.5 overflow-x-auto scrollbar-hide rounded-card-md border border-line/70 bg-bg-base/95 px-1 py-2 shadow-sm backdrop-blur-card">
           {SECTIONS.map((item) => (
             <button
               key={item.value}
@@ -226,6 +226,7 @@ function RecordSectionView({ record }: { record: AchievementHelperStudentRecord 
   if (record.section === 'ARCADE') return <ArcadeRecordView record={record} />;
   if (record.section === 'GUILD') return <GuildRecordView record={record} />;
   if (record.section === 'SHARDS') return <ShardsRecordView record={record} />;
+  if (record.section === 'ACHIEVEMENTS') return <AchievementsRecordView record={record} />;
 
   const entries = Object.entries(record.data ?? {});
   return (
@@ -263,7 +264,7 @@ function OverviewRecordView({ record }: { record: AchievementHelperStudentRecord
   return (
     <div className="space-y-3">
       {record.privacy && <PrivacyNotice text={record.privacy} />}
-      <section className="rounded-card-lg border border-line bg-bg-card p-3">
+      <section className="max-w-[920px] rounded-card-lg border border-line bg-bg-card p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <div className="text-sm font-black text-white">검증용 핵심 요약</div>
@@ -271,9 +272,9 @@ function OverviewRecordView({ record }: { record: AchievementHelperStudentRecord
           </div>
           <span className="rounded-pill border border-bv/25 bg-bv/10 px-2.5 py-1 text-[9px] font-black text-bv-100">자산 비공개</span>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-3 flex flex-wrap gap-2">
           {metrics.map((metric) => (
-            <div key={metric.label} className="rounded-card-md border border-line/70 bg-bg-deep px-3 py-2.5">
+            <div key={metric.label} className="w-[136px] flex-none rounded-card-md border border-line/70 bg-bg-deep px-3 py-2.5">
               <div className="text-[9px] font-black text-slate-400">{metric.label}</div>
               <div className="mt-0.5 text-base font-black text-white">{metric.value}</div>
               <div className="mt-0.5 text-[9px] font-bold text-slate-500">{metric.sub}</div>
@@ -310,7 +311,7 @@ function EconomyRecordView({ record }: { record: AchievementHelperStudentRecord 
     <div className="space-y-3">
       {record.privacy && <PrivacyNotice text={record.privacy} />}
 
-      <section className="rounded-card-lg border border-line bg-bg-card p-3">
+      <section className="max-w-[920px] rounded-card-lg border border-line bg-bg-card p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <div className="text-sm font-black text-white">경제 활동 요약</div>
@@ -318,9 +319,9 @@ function EconomyRecordView({ record }: { record: AchievementHelperStudentRecord 
           </div>
           <span className="rounded-pill border border-bv/25 bg-bv/10 px-2.5 py-1 text-[9px] font-black text-bv-100">검증용 집계</span>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-3 flex flex-wrap gap-2">
           {summaryMetrics.map((metric) => (
-            <div key={metric.label} className="rounded-card-md border border-line/70 bg-bg-deep px-3 py-2">
+            <div key={metric.label} className="w-[136px] flex-none rounded-card-md border border-line/70 bg-bg-deep px-3 py-2">
               <div className="text-[9px] font-black text-slate-400">{metric.label}</div>
               <div className="mt-0.5 text-sm font-black text-white">{metric.value}</div>
             </div>
@@ -328,7 +329,7 @@ function EconomyRecordView({ record }: { record: AchievementHelperStudentRecord 
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+      <div className="grid max-w-[920px] grid-cols-1 gap-3 xl:grid-cols-[minmax(0,450px)_minmax(0,450px)]">
         <CompactPanel title="저축 기록" count={deposits.length + installments.length} empty="저축 이용 기록이 없습니다.">
           <div className="divide-y divide-line/60">
             {deposits.map((item, index) => <SavingsRow key={`deposit-${index}`} item={item} kind="예금" />)}
@@ -377,6 +378,180 @@ function EconomyRecordView({ record }: { record: AchievementHelperStudentRecord 
   );
 }
 
+function AchievementsRecordView({ record }: { record: AchievementHelperStudentRecord }) {
+  const data = record.data ?? {};
+  const earned = arrayValue(data.earned);
+  const applications = arrayValue(data.applications);
+  const monthlyMvp = arrayValue(data.monthly_mvp);
+
+  const gradeCounts = earned.reduce<Record<string, number>>((acc, item) => {
+    const grade = textValue(recordValue(item).grade) || '기타';
+    acc[grade] = (acc[grade] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const approved = applications.filter((item) => textValue(recordValue(item).status).toUpperCase() === 'APPROVED').length;
+  const rejected = applications.filter((item) => textValue(recordValue(item).status).toUpperCase() === 'REJECTED').length;
+  const pending = applications.filter((item) => {
+    const status = textValue(recordValue(item).status).toUpperCase();
+    return status !== 'APPROVED' && status !== 'REJECTED' && status !== 'CANCELLED';
+  }).length;
+
+  return (
+    <div className="space-y-3">
+      {record.privacy && <PrivacyNotice text={record.privacy} />}
+
+      <section className="max-w-[920px] rounded-card-lg border border-line bg-bg-card p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-sm font-black text-white">업적 기록 요약</div>
+            <div className="mt-0.5 text-[10px] font-bold text-slate-400">
+              보유 업적과 신청 결과를 빠르게 확인합니다. 공개되지 않은 히든 업적은 표시되지 않습니다.
+            </div>
+          </div>
+          <span className="rounded-pill border border-bv/25 bg-bv/10 px-2.5 py-1 text-[9px] font-black text-bv-100">검증용 기록</span>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          <SummaryMetric label="보유 업적" value={`${earned.length}개`} />
+          <SummaryMetric label="희귀" value={`${gradeCounts['희귀'] ?? 0}개`} />
+          <SummaryMetric label="유니크" value={`${gradeCounts['유니크'] ?? 0}개`} />
+          <SummaryMetric label="에픽" value={`${gradeCounts['에픽'] ?? 0}개`} />
+          <SummaryMetric label="히든" value={`${gradeCounts['히든'] ?? 0}개`} />
+          <SummaryMetric label="승인 신청" value={`${approved}건`} />
+          <SummaryMetric label="반려 신청" value={`${rejected}건`} />
+          <SummaryMetric label="검토 중" value={`${pending}건`} />
+          <SummaryMetric label="월간 MVP" value={`${monthlyMvp.length}회`} />
+        </div>
+      </section>
+
+      <AchievementsEarnedPanel rows={earned} />
+
+      <div className="grid max-w-[920px] grid-cols-1 gap-3 xl:grid-cols-[minmax(0,560px)_minmax(0,340px)]">
+        <ExpandableRowsPanel
+          title="업적 신청 이력"
+          rows={applications}
+          empty="업적 신청 이력이 없습니다."
+          initialCount={10}
+          renderRow={(item, index) => <AchievementApplicationRow key={index} item={item} />}
+        />
+        <ExpandableRowsPanel
+          title="월간 MVP 기록"
+          rows={monthlyMvp}
+          empty="월간 MVP 기록이 없습니다."
+          initialCount={8}
+          renderRow={(item, index) => <AchievementMvpRow key={index} item={item} />}
+        />
+      </div>
+    </div>
+  );
+}
+
+function AchievementsEarnedPanel({ rows }: { rows: unknown[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? rows : rows.slice(0, 16);
+
+  return (
+    <CompactPanel title="획득 업적" count={rows.length} empty="획득한 업적이 없습니다.">
+      <div className="overflow-x-auto">
+        <div className="min-w-[560px] max-w-[780px]">
+          <div className="grid grid-cols-[88px_minmax(180px,300px)_80px_92px] items-center gap-3 border-b border-line/70 bg-bg-deep/70 px-3 py-2 text-[9px] font-black text-slate-400">
+            <div>업적 ID</div>
+            <div>업적</div>
+            <div>등급</div>
+            <div>달성일</div>
+          </div>
+          <div className="divide-y divide-line/60">
+            {visible.map((item, index) => <AchievementEarnedRow key={index} item={item} />)}
+          </div>
+        </div>
+      </div>
+      {rows.length > 16 && (
+        <ExpandButton expanded={expanded} hiddenCount={rows.length - 16} onClick={() => setExpanded((value) => !value)} />
+      )}
+    </CompactPanel>
+  );
+}
+
+function AchievementEarnedRow({ item }: { item: unknown }) {
+  const row = recordValue(item);
+  const grade = textValue(row.grade);
+  return (
+    <div className="grid grid-cols-[88px_minmax(180px,300px)_80px_92px] items-center gap-3 px-3 py-2.5">
+      <div className="truncate text-[9px] font-black text-slate-500">{textValue(row.achievement_uid) || '-'}</div>
+      <div className="truncate text-xs font-black text-white">{textValue(row.name) || '업적'}</div>
+      <div><AchievementGradeBadge grade={grade} /></div>
+      <div className="text-[9px] font-bold text-slate-400">{shortDate(row.achieved_at)}</div>
+    </div>
+  );
+}
+
+function AchievementApplicationRow({ item }: { item: unknown }) {
+  const row = recordValue(item);
+  const status = textValue(row.status).toUpperCase();
+  return (
+    <div className="grid max-w-[540px] grid-cols-[minmax(180px,320px)_92px] items-center justify-start gap-4 px-3 py-2.5">
+      <div className="min-w-0">
+        <div className="truncate text-xs font-black text-white">{textValue(row.name) || textValue(row.achievement_uid) || '업적 신청'}</div>
+        <div className="mt-0.5 truncate text-[9px] font-bold text-slate-400">
+          {textValue(row.achievement_uid) || '-'} · 신청 {shortDate(row.created_at)}
+          {row.evaluated_at ? ` · 처리 ${shortDate(row.evaluated_at)}` : ''}
+        </div>
+      </div>
+      <div className="text-right">
+        <AchievementApplicationStatus status={status} />
+      </div>
+    </div>
+  );
+}
+
+function AchievementMvpRow({ item }: { item: unknown }) {
+  const row = recordValue(item);
+  return (
+    <div className="grid max-w-[320px] grid-cols-[minmax(150px,220px)_auto] items-center justify-start gap-3 px-3 py-2.5">
+      <div>
+        <div className="text-xs font-black text-white">{textValue(row.period_label) || textValue(row.year_month) || 'MVP'}</div>
+        <div className="mt-0.5 text-[9px] font-bold text-slate-400">{textValue(row.title) || textValue(row.theme) || '월간 MVP 기록'}</div>
+      </div>
+      <div className="text-[10px] font-black text-gold">{row.is_winner === false ? '후보' : 'MVP'}</div>
+    </div>
+  );
+}
+
+function AchievementGradeBadge({ grade }: { grade: string }) {
+  const normalized = grade.trim();
+  const tone =
+    normalized === '히든'
+      ? 'border-violet-400/25 bg-violet-400/10 text-violet-200'
+      : normalized === '에픽'
+        ? 'border-warning/25 bg-warning/10 text-warning'
+        : normalized === '유니크'
+          ? 'border-bv/30 bg-bv/10 text-bv-100'
+          : 'border-line bg-bg-deep text-slate-300';
+
+  return (
+    <span className={cn('inline-flex rounded-pill border px-2 py-0.5 text-[9px] font-black', tone)}>
+      {normalized || '-'}
+    </span>
+  );
+}
+
+function AchievementApplicationStatus({ status }: { status: string }) {
+  const label =
+    status === 'APPROVED' ? '승인'
+      : status === 'REJECTED' ? '반려'
+        : status === 'CANCELLED' ? '취소'
+          : '검토 중';
+  const tone =
+    status === 'APPROVED'
+      ? 'border-success/25 bg-success/10 text-success'
+      : status === 'REJECTED'
+        ? 'border-danger/25 bg-danger/10 text-danger'
+        : 'border-line bg-bg-deep text-slate-300';
+
+  return <span className={cn('inline-flex rounded-pill border px-2 py-1 text-[9px] font-black', tone)}>{label}</span>;
+}
+
 function P2PRecordView({ record }: { record: AchievementHelperStudentRecord }) {
   const data = record.data ?? {};
   const transfers = arrayValue(data.transfers);
@@ -396,7 +571,7 @@ function P2PRecordView({ record }: { record: AchievementHelperStudentRecord }) {
     <div className="space-y-3">
       {record.privacy && <PrivacyNotice text={record.privacy} />}
 
-      <section className="rounded-card-lg border border-line bg-bg-card p-3">
+      <section className="max-w-[920px] rounded-card-lg border border-line bg-bg-card p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <div className="text-sm font-black text-white">개인거래 요약</div>
@@ -407,7 +582,7 @@ function P2PRecordView({ record }: { record: AchievementHelperStudentRecord }) {
           <span className="rounded-pill border border-warning/25 bg-warning/5 px-2.5 py-1 text-[9px] font-black text-warning">평점·리뷰 비공개</span>
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+        <div className="mt-3 flex flex-wrap gap-2">
           <SummaryMetric label="보낸 송금" value={`${sentTransfers.length}건`} />
           <SummaryMetric label="받은 송금" value={`${receivedTransfers.length}건`} />
           <SummaryMetric label="서비스 판매" value={`${soldServices.length}건`} />
@@ -445,7 +620,7 @@ function P2PTransferRow({ item }: { item: unknown }) {
   const quantity = numberValue(row.quantity);
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5">
+    <div className="grid max-w-[700px] grid-cols-[minmax(240px,520px)_120px] items-center justify-start gap-4 px-3 py-2.5">
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
           <span className={cn(
@@ -481,7 +656,7 @@ function P2PServiceOrderRow({ item }: { item: unknown }) {
   const quantity = Math.max(numberValue(row.quantity), 1);
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5">
+    <div className="grid max-w-[700px] grid-cols-[minmax(240px,520px)_120px] items-center justify-start gap-4 px-3 py-2.5">
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
           <span className={cn(
@@ -527,14 +702,14 @@ function DailyRecordView({ record }: { record: AchievementHelperStudentRecord })
     <div className="space-y-3">
       {record.privacy && <PrivacyNotice text={record.privacy} />}
 
-      <section className="rounded-card-lg border border-line bg-bg-card p-3">
+      <section className="max-w-[920px] rounded-card-lg border border-line bg-bg-card p-3">
         <div>
           <div className="text-sm font-black text-white">일퀘·출결 요약</div>
           <div className="mt-0.5 text-[10px] font-bold text-slate-400">
             날짜별 기록을 한 줄로 합쳐 출석·1인1역·청소·준비물 상태를 빠르게 확인합니다.
           </div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+        <div className="mt-3 flex flex-wrap gap-2">
           <SummaryMetric label="출석" value={`${attendancePresent}일`} />
           <SummaryMetric label="결석" value={`${attendanceAbsent}일`} />
           <SummaryMetric label="현재 연속출석" value={`${currentStreak}일`} />
@@ -543,7 +718,7 @@ function DailyRecordView({ record }: { record: AchievementHelperStudentRecord })
           <SummaryMetric label="청소 통과" value={`${cleaningPassDays}일`} />
         </div>
 
-        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="mt-2 flex flex-wrap gap-2">
           <DailyJobSummary
             label="현재 1인1역"
             value={latestPrimaryJob ? textValue(recordValue(latestPrimaryJob).job_name) || '역할명 없음' : '배정 기록 없음'}
@@ -559,7 +734,7 @@ function DailyRecordView({ record }: { record: AchievementHelperStudentRecord })
 
       <DailyHistoryPanel rows={dailyRows} />
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+      <div className="grid max-w-[920px] grid-cols-1 gap-3 xl:grid-cols-[minmax(0,450px)_minmax(0,450px)]">
         <ExpandableRowsPanel
           title="1인1역 이력"
           rows={primaryJobs}
@@ -689,7 +864,7 @@ function DailyStatusCell({ result }: { result: DailyResult }) {
 
 function DailyJobSummary({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-card-md border border-line/70 bg-bg-deep px-3 py-2.5">
+    <div className="w-[280px] max-w-full flex-none rounded-card-md border border-line/70 bg-bg-deep px-3 py-2.5">
       <div className="text-[9px] font-black text-slate-400">{label}</div>
       <div className="mt-0.5 truncate text-xs font-black text-white" title={value}>{value}</div>
       {sub && <div className="mt-0.5 text-[9px] font-bold text-slate-500">{sub}</div>}
@@ -701,7 +876,7 @@ function PrimaryJobHistoryRow({ item }: { item: unknown }) {
   const row = recordValue(item);
   const active = row.is_active === true && !row.released_at;
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5">
+    <div className="grid max-w-[700px] grid-cols-[minmax(240px,520px)_120px] items-center justify-start gap-4 px-3 py-2.5">
       <div className="min-w-0">
         <div className="truncate text-xs font-black text-white">{textValue(row.job_name) || '1인1역'}</div>
         <div className="mt-0.5 text-[9px] font-bold text-slate-400">
@@ -722,7 +897,7 @@ function SecondaryJobHistoryRow({ item }: { item: unknown }) {
   const row = recordValue(item);
   const active = row.is_active === true && !row.released_at;
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5">
+    <div className="grid max-w-[700px] grid-cols-[minmax(240px,520px)_120px] items-center justify-start gap-4 px-3 py-2.5">
       <div className="min-w-0">
         <div className="truncate text-xs font-black text-white">{textValue(row.job_name) || '2차직업'}</div>
         <div className="mt-0.5 text-[9px] font-bold text-slate-400">
@@ -789,12 +964,12 @@ function AuctionRecordView({ record }: { record: AchievementHelperStudentRecord 
     <div className="space-y-3">
       {record.privacy && <PrivacyNotice text={record.privacy} />}
 
-      <section className="rounded-card-lg border border-line bg-bg-card p-3">
+      <section className="max-w-[920px] rounded-card-lg border border-line bg-bg-card p-3">
         <div>
           <div className="text-sm font-black text-white">경매 활동 요약</div>
           <div className="mt-0.5 text-[10px] font-bold text-slate-400">같은 상품에서 여러 번 입찰한 기록은 한 줄로 묶었습니다.</div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-3 flex flex-wrap gap-2">
           <SummaryMetric label="참여 회차" value={`${rounds}회`} />
           <SummaryMetric label="입찰 상품" value={`${bidGroups.length}개`} />
           <SummaryMetric label="낙찰" value={`${wins.length}개`} />
@@ -824,7 +999,7 @@ function AuctionRecordView({ record }: { record: AchievementHelperStudentRecord 
 function AuctionWinRow({ item }: { item: unknown }) {
   const row = recordValue(item);
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5">
+    <div className="grid max-w-[700px] grid-cols-[minmax(240px,520px)_120px] items-center justify-start gap-4 px-3 py-2.5">
       <div className="min-w-0">
         <div className="truncate text-xs font-black text-white">{textValue(row.item_name) || '경매 상품'}</div>
         <div className="mt-0.5 text-[9px] font-bold text-slate-400">
@@ -842,7 +1017,7 @@ function AuctionWinRow({ item }: { item: unknown }) {
 function AuctionBidSummaryRow({ item }: { item: unknown }) {
   const row = recordValue(item);
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5">
+    <div className="grid max-w-[700px] grid-cols-[minmax(240px,520px)_120px] items-center justify-start gap-4 px-3 py-2.5">
       <div className="min-w-0">
         <div className="truncate text-xs font-black text-white">{textValue(row.itemName) || '경매 상품'}</div>
         <div className="mt-0.5 text-[9px] font-bold text-slate-400">
@@ -887,12 +1062,12 @@ function ArcadeRecordView({ record }: { record: AchievementHelperStudentRecord }
     <div className="space-y-3">
       {record.privacy && <PrivacyNotice text={record.privacy} />}
 
-      <section className="rounded-card-lg border border-line bg-bg-card p-3">
+      <section className="max-w-[920px] rounded-card-lg border border-line bg-bg-card p-3">
         <div>
           <div className="text-sm font-black text-white">아케이드 요약</div>
           <div className="mt-0.5 text-[10px] font-bold text-slate-400">월간 순위와 인증 기록을 먼저 보고, 필요할 때 최근 플레이를 펼쳐보세요.</div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <div className="mt-3 flex flex-wrap gap-2">
           <SummaryMetric label="공식 플레이" value={`${verifiedRuns.length}회`} />
           <SummaryMetric label="플레이 게임" value={`${gameCount}종`} />
           <SummaryMetric label="월 TOP10" value={`${top10Count}회`} />
@@ -934,7 +1109,7 @@ function ArcadeRankRow({ item }: { item: unknown }) {
   const row = recordValue(item);
   const rank = numberValue(row.rank);
   return (
-    <div className="grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5">
+    <div className="grid max-w-[700px] grid-cols-[48px_minmax(220px,430px)_110px] items-center justify-start gap-3 px-3 py-2.5">
       <div className={cn(
         'text-center font-display text-lg',
         rank === 1 ? 'text-gold' : rank <= 3 ? 'text-bv-100' : 'text-white',
@@ -954,7 +1129,7 @@ function ArcadeVerificationRow({ item, attempts }: { item: unknown; attempts: un
   const row = recordValue(item);
   const success = row.success === true;
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-2.5">
+    <div className="grid max-w-[560px] grid-cols-[minmax(220px,420px)_100px] justify-start gap-4 px-3 py-2.5">
       <div className="min-w-0">
         <div className="truncate text-xs font-black text-white">{textValue(row.game_code) || '게임'} · {textValue(row.period) || '인증 기간'}</div>
         <div className="mt-0.5 text-[9px] font-bold text-slate-400">
@@ -990,7 +1165,7 @@ function ArcadeRunRow({ item }: { item: unknown }) {
   const row = recordValue(item);
   const status = textValue(row.status).toUpperCase();
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5">
+    <div className="grid max-w-[700px] grid-cols-[minmax(240px,520px)_120px] items-center justify-start gap-4 px-3 py-2.5">
       <div className="min-w-0">
         <div className="truncate text-xs font-black text-white">{textValue(row.game_name) || textValue(row.game_code) || '아케이드'}</div>
         <div className="mt-0.5 text-[9px] font-bold text-slate-400">
@@ -1027,7 +1202,7 @@ function GuildRecordView({ record }: { record: AchievementHelperStudentRecord })
     <div className="space-y-3">
       {record.privacy && <PrivacyNotice text={record.privacy} />}
 
-      <section className="rounded-card-lg border border-line bg-bg-card p-3">
+      <section className="max-w-[920px] rounded-card-lg border border-line bg-bg-card p-3">
         <div>
           <div className="text-sm font-black text-white">길드 활동 요약</div>
           <div className="mt-0.5 text-[10px] font-bold text-slate-400">현재 소속과 공식 월간 기록을 먼저 보여줍니다.</div>
@@ -1063,7 +1238,7 @@ function GuildRecordView({ record }: { record: AchievementHelperStudentRecord })
         />
       )}
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+      <div className="grid max-w-[920px] grid-cols-1 gap-3 xl:grid-cols-[minmax(0,450px)_minmax(0,450px)]">
         <ExpandableRowsPanel
           title="길드 미션 참여"
           rows={missions}
@@ -1094,7 +1269,7 @@ function GuildRecordView({ record }: { record: AchievementHelperStudentRecord })
 function CurrentGuildCard({ item }: { item: unknown }) {
   const row = recordValue(item);
   return (
-    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-card-md border border-bv/25 bg-bv/5 px-3 py-2.5">
+    <div className="mt-3 flex max-w-[560px] flex-wrap items-center gap-x-8 gap-y-2 rounded-card-md border border-bv/25 bg-bv/5 px-3 py-2.5">
       <div>
         <div className="text-[9px] font-black text-slate-400">현재 소속</div>
         <div className="mt-0.5 text-sm font-black text-white">{textValue(row.guild_name) || '-'}</div>
@@ -1110,7 +1285,7 @@ function CurrentGuildCard({ item }: { item: unknown }) {
 function GuildClosedSnapshotRow({ item }: { item: unknown }) {
   const row = recordValue(item);
   return (
-    <div className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5">
+    <div className="grid max-w-[700px] grid-cols-[76px_minmax(220px,430px)_110px] items-center justify-start gap-3 px-3 py-2.5">
       <div className="text-[10px] font-black text-slate-400">{textValue(row.year_month) || '-'}</div>
       <div className="min-w-0">
         <div className="truncate text-xs font-black text-white">{textValue(row.guild_name) || '길드'}</div>
@@ -1129,7 +1304,7 @@ function GuildClosedSnapshotRow({ item }: { item: unknown }) {
 function GuildMonthlyRow({ item }: { item: unknown }) {
   const row = recordValue(item);
   return (
-    <div className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2.5">
+    <div className="grid max-w-[700px] grid-cols-[76px_minmax(220px,430px)_110px] items-center justify-start gap-3 px-3 py-2.5">
       <div className="text-[10px] font-black text-slate-400">{textValue(row.year_month) || '-'}</div>
       <div className="min-w-0">
         <div className="truncate text-xs font-black text-white">{textValue(row.guild_name) || '길드'}</div>
@@ -1180,7 +1355,7 @@ function GuildMembershipRow({ item }: { item: unknown }) {
   const row = recordValue(item);
   const active = row.left_at == null || row.left_at === '';
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5">
+    <div className="grid max-w-[700px] grid-cols-[minmax(240px,520px)_120px] items-center justify-start gap-4 px-3 py-2.5">
       <div className="min-w-0">
         <div className="truncate text-xs font-black text-white">{textValue(row.guild_name) || '길드'}</div>
         <div className="mt-0.5 text-[9px] font-bold text-slate-400">{guildElementLabel(textValue(row.element))} · 시즌 {numberValue(row.season_id)}</div>
@@ -1209,12 +1384,12 @@ function ShardsRecordView({ record }: { record: AchievementHelperStudentRecord }
     <div className="space-y-3">
       {record.privacy && <PrivacyNotice text={record.privacy} />}
 
-      <section className="rounded-card-lg border border-line bg-bg-card p-3">
+      <section className="max-w-[920px] rounded-card-lg border border-line bg-bg-card p-3">
         <div>
           <div className="text-sm font-black text-white">편린 수집 요약</div>
           <div className="mt-0.5 text-[10px] font-bold text-slate-400">보유 종수와 완성 콜렉션을 한눈에 확인합니다.</div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-3 flex flex-wrap gap-2">
           <SummaryMetric label="보유 편린" value={`${owned.length}종`} />
           <SummaryMetric label="완성 콜렉션" value={`${collections.length}종`} />
           <SummaryMetric label="획득 경로" value={`${acquisitionSources}종`} />
@@ -1233,11 +1408,11 @@ function CollectionsPanel({ rows }: { rows: unknown[] }) {
   const visible = expanded ? rows : rows.slice(0, 8);
   return (
     <CompactPanel title="완성 콜렉션" count={rows.length} empty="완성한 콜렉션이 없습니다.">
-      <div className="grid grid-cols-1 gap-2 p-2 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="flex flex-wrap gap-2 p-2">
         {visible.map((item, index) => {
           const row = recordValue(item);
           return (
-            <div key={index} className="rounded-card-md border border-line/70 bg-bg-deep px-3 py-2.5">
+            <div key={index} className="w-[220px] max-w-full flex-none rounded-card-md border border-line/70 bg-bg-deep px-3 py-2.5">
               <div className="truncate text-xs font-black text-white">{textValue(row.name) || textValue(row.collection_uid) || '콜렉션'}</div>
               <div className="mt-0.5 text-[9px] font-bold text-slate-400">{textValue(row.collection_uid) || '-'} · 편린 {numberValue(row.member_count)}종</div>
             </div>
@@ -1256,11 +1431,11 @@ function OwnedShardsPanel({ rows }: { rows: unknown[] }) {
   const visible = expanded ? rows : rows.slice(0, 16);
   return (
     <CompactPanel title="보유 편린" count={rows.length} empty="보유한 편린이 없습니다.">
-      <div className="grid grid-cols-2 gap-1.5 p-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <div className="flex flex-wrap gap-1.5 p-2">
         {visible.map((item, index) => {
           const row = recordValue(item);
           return (
-            <div key={index} className="min-w-0 rounded-card-sm border border-line/70 bg-bg-deep px-2.5 py-2">
+            <div key={index} className="w-[176px] max-w-full flex-none rounded-card-sm border border-line/70 bg-bg-deep px-2.5 py-2">
               <div className="truncate text-[11px] font-black text-white">{textValue(row.name) || textValue(row.character_uid) || '편린'}</div>
               <div className="mt-0.5 truncate text-[9px] font-bold text-bv-100">{textValue(row.epithet) || textValue(row.character_uid) || '-'}</div>
               <div className="mt-1 flex items-center justify-between gap-1 text-[8px] font-bold text-slate-500">
@@ -1280,7 +1455,7 @@ function OwnedShardsPanel({ rows }: { rows: unknown[] }) {
 
 function SummaryMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-card-md border border-line/70 bg-bg-deep px-3 py-2">
+    <div className="w-[136px] flex-none rounded-card-md border border-line/70 bg-bg-deep px-3 py-2">
       <div className="text-[9px] font-black text-slate-400">{label}</div>
       <div className="mt-0.5 truncate text-sm font-black text-white">{value}</div>
     </div>
@@ -1336,7 +1511,7 @@ function CompactPanel({
   children: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-card-lg border border-line bg-bg-card">
+    <section className="w-full max-w-[780px] overflow-hidden rounded-card-lg border border-line bg-bg-card">
       <div className="flex items-center justify-between border-b border-line/70 px-3 py-2.5">
         <div className="text-xs font-black text-white">{title}</div>
         <span className="rounded-pill bg-bg-deep px-2 py-0.5 text-[9px] font-black text-slate-300">{count}건</span>
@@ -1380,7 +1555,7 @@ function EconomyRowsPanel({
 function SavingsRow({ item, kind }: { item: unknown; kind: '예금' | '적금' }) {
   const row = recordValue(item);
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 px-3 py-2.5">
+    <div className="grid max-w-[560px] grid-cols-[minmax(220px,420px)_100px] justify-start gap-x-4 gap-y-1 px-3 py-2.5">
       <div className="min-w-0">
         <div className="truncate text-xs font-black text-white">{textValue(row.product_name) || `${kind} 상품`}</div>
         <div className="mt-0.5 text-[9px] font-bold text-slate-400">{kind} · {shortDate(row.start_date)} → {shortDate(row.maturity_date)}</div>
@@ -1399,7 +1574,7 @@ function SavingsRow({ item, kind }: { item: unknown; kind: '예금' | '적금' }
 function LoanRow({ item }: { item: unknown }) {
   const row = recordValue(item);
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-3 py-2.5">
+    <div className="grid max-w-[560px] grid-cols-[minmax(220px,420px)_100px] justify-start gap-4 px-3 py-2.5">
       <div>
         <div className="text-xs font-black text-white">{shortDate(row.executed_at)} 이용</div>
         <div className="mt-0.5 text-[9px] font-bold text-slate-400">만기 {shortDate(row.due_date)} · 주간 금리 {percentText(row.weekly_interest_rate)}</div>
@@ -1417,7 +1592,7 @@ function MarketRow({ item }: { item: unknown }) {
   const event = textValue(row.event_type);
   const total = row.total_gold == null ? null : numberValue(row.total_gold);
   return (
-    <div className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 text-[10px]">
+    <div className="grid max-w-[700px] grid-cols-[84px_minmax(220px,420px)_110px] items-center justify-start gap-3 px-3 py-2 text-[10px]">
       <div className="font-bold text-slate-400">{shortDateTime(row.created_at)}</div>
       <div className="min-w-0">
         <div className="truncate font-black text-white">{textValue(row.item_name) || '-'}</div>
@@ -1433,7 +1608,7 @@ function TransactionRow({ item }: { item: unknown }) {
   const amount = numberValue(row.amount);
   const token = textValue(row.token) || '-';
   return (
-    <div className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2 text-[10px]">
+    <div className="grid max-w-[700px] grid-cols-[84px_minmax(220px,420px)_110px] items-center justify-start gap-3 px-3 py-2 text-[10px]">
       <div className="font-bold text-slate-400">{shortDateTime(row.created_at)}</div>
       <div className="min-w-0">
         <div className="truncate font-black text-white">{sourceTypeLabel(textValue(row.source_type))}</div>

@@ -21,7 +21,7 @@ interface ModalProps {
   title: string;
   emoji?: string;
   children: ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'full';
+  size?: 'sm' | 'md' | 'lg' | 'wide' | 'full';
 }
 
 export function Modal({ 
@@ -31,6 +31,8 @@ export function Modal({
     sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-lg',
+    wide: 'max-w-[1180px] !max-h-[86dvh]',
+
     full: 'max-w-[calc(100%-32px)] h-[calc(100dvh-32px)]',
   }[size];
   
