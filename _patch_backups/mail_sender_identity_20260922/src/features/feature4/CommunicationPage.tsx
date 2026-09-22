@@ -55,7 +55,7 @@ export default function CommunicationPage() {
 function MailTab({studentId,classroomId}:{studentId:number|null;classroomId:number|null}) {
   const qc=useQueryClient(); const {call}=useRpcCall(); const [openId,setOpenId]=useState<number|null>(null);
   const q=useQuery({queryKey:['f4a-mail',studentId],enabled:!!studentId,queryFn:async()=>{
-    const {data,error}=await supabase.from('mail_messages').select('id,title,body,sender_type,sender_name,message_type,is_read,created_at').eq('recipient_id',studentId!).is('recalled_at',null).order('created_at',{ascending:false}).limit(100); if(error) throw feature4QueryError('F4A','mail-list',error); return data??[];
+    const {data,error}=await supabase.from('mail_messages').select('id,title,body,sender_type,message_type,is_read,created_at').eq('recipient_id',studentId!).is('recalled_at',null).order('created_at',{ascending:false}).limit(100); if(error) throw feature4QueryError('F4A','mail-list',error); return data??[];
   }});
   const selected=useMemo(()=>q.data?.find((m:any)=>m.id===openId),[q.data,openId]);
   useEffect(()=>{
@@ -76,19 +76,9 @@ function MailTab({studentId,classroomId}:{studentId:number|null;classroomId:numb
   },[selected?.id]);
   if(q.isLoading) return <CenterLoad/>;
   if(q.isError) return <Feature4ErrorPanel domain="F4A" error={q.error} onRetry={()=>void q.refetch()} />;
-  if(selected) return <div className="glass-card p-4"><button onClick={()=>setOpenId(null)} className="text-xs text-brand-primary font-bold mb-4">← 목록</button><div className="text-2xs font-black mb-1"><span className="text-[#9FE8D8]">{mailSenderName(selected)}</span><span className="text-[#F3EBD3]/70"> · {formatRelativeTime(selected.created_at)}</span></div><h2 className="font-display text-lg text-brand-gradient mb-3">{selected.title}</h2><p className="text-sm leading-relaxed whitespace-pre-wrap">{selected.body}</p></div>;
+  if(selected) return <div className="glass-card p-4"><button onClick={()=>setOpenId(null)} className="text-xs text-brand-primary font-bold mb-4">← 목록</button><div className="text-2xs text-text-muted mb-1">{selected.sender_type} · {formatRelativeTime(selected.created_at)}</div><h2 className="font-display text-lg text-brand-gradient mb-3">{selected.title}</h2><p className="text-sm leading-relaxed whitespace-pre-wrap">{selected.body}</p></div>;
   if(!q.data?.length) return <EmptyState emoji="📭" title="받은 우편이 없어요"/>;
-  return <div className="space-y-2">{q.data.map((m:any)=><motion.button whileTap={{scale:.98}} key={m.id} onClick={()=>setOpenId(m.id)} className={cn('w-full text-left p-3.5 rounded-card-md border',m.is_read?'bg-bg-deep border-line':'bg-bg-card border-line-brand')}><div className="flex justify-between gap-2"><span className="text-sm font-extrabold truncate">{m.title}</span>{!m.is_read&&<span className="w-2 h-2 bg-brand-primary rounded-full mt-1.5"/>}</div><div className="text-xs text-[#F3EBD3]/75 truncate mt-1">{m.body}</div><div className="text-2xs font-bold mt-1"><span className="text-[#9FE8D8]">{mailSenderName(m)}</span><span className="text-[#F3EBD3]/65"> · {formatRelativeTime(m.created_at)}</span></div></motion.button>)}</div>;
-}
-
-function mailSenderName(message: { sender_type?: string | null; sender_name?: string | null }) {
-  const explicit = message.sender_name?.trim();
-  if (explicit) return explicit;
-  if (message.sender_type === 'TEACHER') return 'B.R.A.N.D 운영국';
-  if (message.sender_type === 'SYSTEM') return 'B.R.A.N.D 시스템';
-  if (message.sender_type === 'GUARD') return '수호대';
-  if (message.sender_type === 'STUDENT') return '학생';
-  return 'B.R.A.N.D 운영국';
+  return <div className="space-y-2">{q.data.map((m:any)=><motion.button whileTap={{scale:.98}} key={m.id} onClick={()=>setOpenId(m.id)} className={cn('w-full text-left p-3.5 rounded-card-md border',m.is_read?'bg-bg-deep border-line':'bg-bg-card border-line-brand')}><div className="flex justify-between gap-2"><span className="text-sm font-extrabold truncate">{m.title}</span>{!m.is_read&&<span className="w-2 h-2 bg-brand-primary rounded-full mt-1.5"/>}</div><div className="text-xs text-text-muted truncate mt-1">{m.body}</div><div className="text-2xs text-text-muted mt-1">{formatRelativeTime(m.created_at)}</div></motion.button>)}</div>;
 }
 
 function AlertsTab({studentId,classroomId}:{studentId:number|null;classroomId:number|null}) {

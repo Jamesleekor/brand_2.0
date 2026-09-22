@@ -26,7 +26,6 @@ export const F4A = {
   sendMail: z.object({
     p_classroom_id: PositiveInt,
     p_recipient_ids: z.array(PositiveInt).min(1, '수신자를 선택해주세요').max(100),
-    p_sender_name: z.string().trim().min(1, '발송인을 입력해주세요').max(60),
     p_title: z.string().trim().min(1).max(200),
     p_body: z.string().trim().min(1).max(5000),
     p_message_type: z.enum(['INFO','ACHIEVEMENT','ACHIEVEMENT_REJECT','REWARD','WARNING','PENALTY','DEPOSIT_MATURITY','LOAN_REMINDER','AUCTION_RESULT','TEACHER_MESSAGE','JOB_APPROVAL','COSMETIC_GIFT','P2P_NOTE','OTHER']).default('TEACHER_MESSAGE'),

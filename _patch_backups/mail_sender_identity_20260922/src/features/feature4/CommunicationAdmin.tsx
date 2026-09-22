@@ -9,23 +9,6 @@ import { formatRelativeTime } from '@/lib/utils/format';
 import { feature4QueryError } from '@/lib/feature4_debug';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
 
-
-const DEFAULT_MAIL_SENDER = 'B.R.A.N.D 운영국';
-const MAIL_SENDER_PRESETS = [
-  DEFAULT_MAIL_SENDER,
-  'B.R.A.N.D 길드관리국',
-  'B.R.A.N.D 아케이드관리국',
-  'B.R.A.N.D 시장관리국',
-  'B.R.A.N.D 금융관리국',
-  'B.R.A.N.D 기록관리국',
-  'B.R.A.N.D 업적관리국',
-  'B.R.A.N.D 자산관리국',
-  'B.R.A.N.D 차원관리국',
-  'B.R.A.N.D 레이드관리국',
-  'B.R.A.N.D 편린원정대',
-  'B.R.A.N.D 월간 MVP 선정위원회',
-] as const;
-
 type DispatchRecipient = {
   message_id: number;
   student_id: number;
@@ -37,7 +20,6 @@ type DispatchRecipient = {
 
 type SentDispatch = {
   dispatch_uid: string;
-  sender_name: string;
   title: string;
   body: string;
   message_type: string;
@@ -62,7 +44,6 @@ export default function CommunicationAdmin() {
   const qc = useQueryClient();
   const { call, isLoading } = useRpcCall();
   const [selected, setSelected] = useState<number[]>([]);
-  const [senderName, setSenderName] = useState(DEFAULT_MAIL_SENDER);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [alert, setAlert] = useState('');
@@ -189,25 +170,9 @@ export default function CommunicationAdmin() {
                 </div>
               </div>
             )}
-            <div className="grid sm:grid-cols-[minmax(220px,0.9fr)_minmax(0,1.4fr)] gap-2 mb-2">
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-2xs font-black text-[#9FE8D8]">발송인</span>
-                <input
-                  list="brand-mail-sender-presets"
-                  maxLength={60}
-                  value={senderName}
-                  onChange={(e) => setSenderName(e.target.value)}
-                  className="input-field w-full pl-[62px] font-bold text-[#CFFBF1]"
-                  aria-label="우편 발송인"
-                />
-                <datalist id="brand-mail-sender-presets">
-                  {MAIL_SENDER_PRESETS.map((preset) => <option key={preset} value={preset} />)}
-                </datalist>
-              </div>
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" maxLength={200} className="input-field w-full" />
-            </div>
-            <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="내용" maxLength={5000} className="input-field w-full min-h-32 mb-2" />
-            <button disabled={isLoading || !selected.length || !senderName.trim() || !title.trim() || !body.trim()} onClick={() => call(() => feature4Rpc.sendMail(supabase, { p_classroom_id: classroomId!, p_recipient_ids: selected, p_sender_name: senderName, p_title: title, p_body: body, p_message_type: 'TEACHER_MESSAGE' }), { successTitle: '우편을 발송했어요', successDescription: `${senderName.trim()} · ${selected.length}명`, onSuccess: () => { setTitle(''); setBody(''); void qc.invalidateQueries({ queryKey: ['f4a-admin-recent'] }); } })} className="btn-primary w-full">
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" className="input-field w-full mb-2" />
+            <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="내용" className="input-field w-full min-h-32 mb-2" />
+            <button disabled={isLoading || !selected.length} onClick={() => call(() => feature4Rpc.sendMail(supabase, { p_classroom_id: classroomId!, p_recipient_ids: selected, p_title: title, p_body: body, p_message_type: 'TEACHER_MESSAGE' }), { successTitle: '우편을 발송했어요', successDescription: `${selected.length}명`, onSuccess: () => { setTitle(''); setBody(''); void qc.invalidateQueries({ queryKey: ['f4a-admin-recent'] }); } })} className="btn-primary w-full">
               선택 학생에게 발송
             </button>
           </section>
@@ -297,11 +262,8 @@ function SentMailHistory({
                     <td className="px-3 py-3 text-text-secondary whitespace-nowrap">{formatDateTimeCompact(dispatch.created_at)}</td>
                     <td className="px-3 py-3 min-w-0">
                       <button className="text-left w-full" onClick={() => onOpen(dispatch.dispatch_uid)}>
-                        <div className="flex items-center gap-2 min-w-0 max-w-[620px]">
-                          <span className="shrink-0 text-2xs font-black text-[#9FE8D8]">{dispatch.sender_name || DEFAULT_MAIL_SENDER}</span>
-                          <span className="font-extrabold text-text-primary truncate">{dispatch.title}</span>
-                        </div>
-                        <div className="text-2xs text-[#F3EBD3]/65 truncate max-w-[620px] mt-0.5">{dispatch.body}</div>
+                        <div className="font-extrabold text-text-primary truncate max-w-[620px]">{dispatch.title}</div>
+                        <div className="text-2xs text-text-muted truncate max-w-[620px] mt-0.5">{dispatch.body}</div>
                       </button>
                     </td>
                     <td className="px-3 py-3 text-center font-bold">{dispatch.recipient_count}명</td>
@@ -354,7 +316,7 @@ function SentMailDetailModal({
         <div>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-2xs font-black"><span className="text-[#9FE8D8]">{dispatch.sender_name || DEFAULT_MAIL_SENDER}</span><span className="text-[#F3EBD3]/65"> · {formatDateTime(dispatch.created_at)}</span></div>
+              <div className="text-2xs text-text-muted font-bold">{formatDateTime(dispatch.created_at)}</div>
               <h3 className="font-display text-xl text-brand-gradient mt-1">{dispatch.title}</h3>
             </div>
             <span className={`shrink-0 text-xs font-black px-2.5 py-1 rounded-full ${recalled ? 'bg-danger/15 text-danger' : 'bg-success/15 text-success'}`}>

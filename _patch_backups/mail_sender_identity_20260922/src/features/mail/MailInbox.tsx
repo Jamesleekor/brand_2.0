@@ -34,7 +34,7 @@ interface MailMessage {
 
 const SENDER_CONFIG = {
   SYSTEM:  { icon: '🤖', label: '시스템',    color: 'text-bv' },
-  TEACHER: { icon: '🏛️', label: 'B.R.A.N.D 운영국', color: 'text-[#9FE8D8]' },
+  TEACHER: { icon: '👩‍🏫', label: '선생님',   color: 'text-gold' },
   GUARD:   { icon: '🛡️', label: '수호대',    color: 'text-crystal' },
   STUDENT: { icon: '👤', label: '학생',      color: 'text-text-primary' },
 } as const;
@@ -60,7 +60,7 @@ export function MailInbox({ isOpen, onClose }: MailInboxProps) {
       const { data } = await supabase
         .from('mail_messages')
         .select(`
-          id, sender_type, sender_id, sender_name, title, body, message_type, is_read, created_at,
+          id, sender_type, sender_id, title, body, message_type, is_read, created_at,
           sender:students!sender_id(name, brand_name)
         `)
         .eq('recipient_id', studentId)
@@ -72,7 +72,7 @@ export function MailInbox({ isOpen, onClose }: MailInboxProps) {
         id: m.id,
         senderType: m.sender_type,
         senderId: m.sender_id,
-        senderName: m.sender_name?.trim() || m.sender?.brand_name || m.sender?.name || null,
+        senderName: m.sender?.brand_name || m.sender?.name || null,
         title: m.title,
         body: m.body,
         messageType: m.message_type,
@@ -222,10 +222,13 @@ function MailDetail({ message, onBack }: { message: MailMessage; onBack: () => v
           {sender.icon}
         </div>
         <div>
-          <div className={cn('text-sm font-black tracking-wide', sender.color)}>
+          <div className={cn('text-2xs font-black uppercase tracking-widest mb-0.5', sender.color)}>
+            {sender.label}
+          </div>
+          <div className="text-sm font-bold text-text-primary">
             {message.senderName || sender.label}
           </div>
-          <div className="text-2xs text-[#F3EBD3]/65 mt-0.5">
+          <div className="text-2xs text-text-muted mt-0.5">
             {formatRelativeTime(message.createdAt)}
           </div>
         </div>
