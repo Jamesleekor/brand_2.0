@@ -75,7 +75,7 @@ export function EconomicActionsPanel({
         <ActionCard
           emoji="↗️"
           label="송금"
-          description="친구에게 GOLD"
+          description="서비스 마켓 이용"
           disabled={isLoading || !wallet || !!assetFreeze}
           onClick={() => setActiveModal("TRANSFER")}
         />
@@ -102,8 +102,8 @@ export function EconomicActionsPanel({
         />
       </div>
 
-      {activeModal === "TRANSFER" && wallet && (
-        <TransferModal wallet={wallet} onClose={() => setActiveModal(null)} />
+      {activeModal === "TRANSFER" && (
+        <DirectTransferDisabledModal onClose={() => setActiveModal(null)} />
       )}
       {activeModal === "EXCHANGE" && wallet && (
         <ExchangeModal wallet={wallet} onClose={() => setActiveModal(null)} />
@@ -149,6 +149,30 @@ function ActionCard({
   );
 }
 
+function DirectTransferDisabledModal({
+  onClose,
+}: {
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="직접 송금 비활성화"
+      emoji="↗️"
+      size="sm"
+    >
+      <div className="space-y-4">
+        <div className="rounded-card-md border border-brand-primary/25 bg-brand-primary/5 p-4 text-sm font-bold leading-6 text-text-primary">
+          2차 직업 서비스와 관련된 거래는 서비스 마켓을 통해 이용하세요
+        </div>
+        <button onClick={onClose} className="btn-primary w-full">
+          확인
+        </button>
+      </div>
+    </Modal>
+  );
+}
 function TransferModal({
   wallet,
   onClose,
