@@ -154,6 +154,11 @@ export default function DashboardPage() {
       supabase.channel(`dashboard:student-achievements:${studentId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'student_achievements', filter: `student_id=eq.${studentId}` }, invalidate)
         .subscribe(),
+      supabase.channel(`dashboard:credit:${studentId}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'credit_scores', filter: `student_id=eq.${studentId}` }, () => {
+          void queryClient.invalidateQueries({ queryKey: ['dashboard-credit-summary', studentId] });
+        })
+        .subscribe(),
       // 4.1 migration이 아직 적용되지 않은 DB에서는 이 채널만 실패할 수 있다.
       // 핵심 알림 채널과 분리했기 때문에 우편/퀘스트 실시간 갱신은 계속 동작한다.
       supabase.channel(`dashboard:quest-requests:${studentId}`)
@@ -190,6 +195,9 @@ export default function DashboardPage() {
   
   // 부가 데이터 조회 (병렬)
   const { data: dashboardData } = useDashboardData(studentId, classroomId);
+  const creditSummaryQuery = useDashboardCreditSummary(studentId);
+  const homeCreditGrade = creditSummaryQuery.data?.grade ?? dashboardData?.creditGrade ?? 'B';
+  const homeCreditScore = creditSummaryQuery.data?.score ?? dashboardData?.creditScore ?? 500;
   const homeCustomizationQuery = useHomePersonalization(studentId);
   const emergencyQuest = dashboardData?.emergencyQuest ?? null;
 
@@ -341,8 +349,8 @@ export default function DashboardPage() {
             hiddenCount={dashboardData?.hiddenCount ?? 0}
           />
           <CreditCard
-            grade={dashboardData?.creditGrade ?? 'B'}
-            score={dashboardData?.creditScore ?? 500}
+            grade={homeCreditGrade}
+            score={homeCreditScore}
           />
           <PrimaryJobCard
             jobName={dailyQuestAccessQuery.data?.job_name ?? null}
@@ -354,7 +362,7 @@ export default function DashboardPage() {
       <div className="relative z-10 mx-4 mt-2 grid grid-cols-2 gap-2 lg:hidden">
         <TierCard tier={liveTier} currentBv={wallet?.bv ?? 0} nextBv={liveNextTier?.bvFrom ?? (wallet?.bv ?? 0)} />
         <AchievementCard earned={dashboardData?.achievementsEarned ?? 0} total={dashboardData?.achievementsTotal ?? 0} epicCount={dashboardData?.epicCount ?? 0} hiddenCount={dashboardData?.hiddenCount ?? 0} />
-        <CreditCard grade={dashboardData?.creditGrade ?? 'B'} score={dashboardData?.creditScore ?? 500} />
+        <CreditCard grade={homeCreditGrade} score={homeCreditScore} />
         <PrimaryJobCard jobName={dailyQuestAccessQuery.data?.job_name ?? null} dailyWage={dailyQuestAccessQuery.data?.daily_wage ?? null} />
       </div>
       
@@ -843,6 +851,52 @@ function useDashboardData(
     },
     enabled: studentId !== null && classroomId !== null,
     staleTime: 1000 * 60 * 2,  // 2분 캐시
+  });
+}
+
+type DashboardCreditGrade = DashboardData['creditGrade'];
+
+interface DashboardCreditSummary {
+  grade: DashboardCreditGrade;
+  score: number;
+  asOfDate: string | null;
+}
+
+function useDashboardCreditSummary(studentId: number | null) {
+  return useQuery<DashboardCreditSummary>({
+    queryKey: ['dashboard-credit-summary', studentId],
+    enabled: studentId !== null,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    retry: 1,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('student_get_my_credit_summary');
+      if (error) throw error;
+
+      const raw = data as {
+        grade?: unknown;
+        total_score?: unknown;
+        as_of_date?: unknown;
+      } | null;
+
+      const grade = String(raw?.grade ?? '');
+      const allowedGrades: DashboardCreditGrade[] = ['S', 'A+', 'A', 'B+', 'B', 'C', 'D'];
+      if (!allowedGrades.includes(grade as DashboardCreditGrade)) {
+        throw new Error('신용등급 응답이 올바르지 않습니다.');
+      }
+
+      const score = Number(raw?.total_score);
+      if (!Number.isFinite(score)) {
+        throw new Error('신용점수 응답이 올바르지 않습니다.');
+      }
+
+      return {
+        grade: grade as DashboardCreditGrade,
+        score,
+        asOfDate: raw?.as_of_date == null ? null : String(raw.as_of_date),
+      };
+    },
   });
 }
 
