@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 
 import { LoadingSpinner } from '@/components/shared/components';
 import { resolveAssetUrl } from '@/lib/assets/asset_urls';
@@ -40,7 +41,32 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   const bgmRef = useRef<HTMLAudioElement | null>(null);
   const bgmSourceRef = useRef<string | null>(null);
   const sfxRef = useRef<HTMLAudioElement | null>(null);
+  const sfxSourceRef = useRef<string | null>(null);
   const startedRef = useRef(false);
+
+  // DG_VN_FULLSCREEN_AUDIO_FIX_V1
+  // Rendered through document.body below, so ancestor transforms/stacking contexts
+  // cannot leave the normal web app visible around the VN.
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscroll = document.body.style.overscrollBehavior;
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+    window.addEventListener('keydown', handleEscape, true);
+
+    return () => {
+      window.removeEventListener('keydown', handleEscape, true);
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscroll;
+    };
+  }, [onClose]);
 
   const scriptQuery = useQuery({
     queryKey: ['dimensional-gate-story-script', story.episode_id],
@@ -109,30 +135,130 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
     return () => window.clearInterval(timer);
   }, [current?.cut_order]);
 
+  const requestPlay = useCallback((audio: HTMLAudioElement | null, label: 'BGM' | 'SFX') => {
+    if (!audio) return;
+    try {
+      const pending = audio.play();
+      if (pending) {
+        void pending.catch((error) => {
+          if ((error as { name?: string } | null)?.name === 'AbortError') return;
+          console.warn(`[DimensionalGateVN] ${label} playback blocked; retrying on the next user gesture.`, error);
+        });
+      }
+    } catch (error) {
+      console.warn(`[DimensionalGateVN] ${label} playback failed.`, error);
+    }
+  }, []);
+
   const applyBgmCommand = useCallback((raw: string | null | undefined) => {
     const command = parseBgmCommand(raw);
     if (command.kind === 'hold') return;
 
     if (command.kind === 'stop') {
-      if (bgmSourceRef.current === BGM_STOP_KEY && !bgmRef.current) return;
-      bgmRef.current?.pause();
-      bgmRef.current = null;
+      const audio = bgmRef.current;
+      if (audio) {
+        audio.pause();
+        try { audio.currentTime = 0; } catch { /* no-op */ }
+      }
       bgmSourceRef.current = BGM_STOP_KEY;
       return;
     }
 
-    // Compare the original logical source string, not HTMLAudioElement.src. Browsers
-    // percent-encode Korean filenames in audio.src, which previously made the same
-    // track look different on every cut and restarted it from 0:00.
-    if (bgmSourceRef.current === command.url && bgmRef.current) return;
-    bgmRef.current?.pause();
-    const audio = new Audio(resolveAssetUrl(command.url, 'icon'));
+    // Reuse one HTMLAudioElement for the whole VN. Once the student has interacted
+    // with the VN and this element is allowed to play, later track changes are much
+    // less likely to be rejected by browser autoplay policy.
+    let audio = bgmRef.current;
+    if (!audio) {
+      audio = new Audio();
+      audio.preload = 'auto';
+      audio.loop = true;
+      bgmRef.current = audio;
+    }
+
+    if (bgmSourceRef.current === command.url) {
+      audio.volume = muted ? 0 : 0.45;
+      if (!muted && audio.paused) requestPlay(audio, 'BGM');
+      return;
+    }
+
+    audio.pause();
+    audio.src = resolveAssetUrl(command.url, 'icon');
     audio.loop = true;
     audio.volume = muted ? 0 : 0.45;
-    bgmRef.current = audio;
     bgmSourceRef.current = command.url;
-    void audio.play().catch(() => undefined);
-  }, [muted]);
+    audio.load();
+    if (!muted) requestPlay(audio, 'BGM');
+  }, [muted, requestPlay]);
+
+  const applySfxCommand = useCallback((raw: string | null | undefined, cutOrder: number) => {
+    const value = String(raw ?? '').trim();
+    if (!value) return;
+
+    if (value === '-' || value.toLowerCase() === 'none') {
+      const audio = sfxRef.current;
+      if (audio) {
+        audio.pause();
+        try { audio.currentTime = 0; } catch { /* no-op */ }
+      }
+      sfxSourceRef.current = null;
+      return;
+    }
+
+    const logicalKey = `${cutOrder}:${value}`;
+    if (sfxSourceRef.current === logicalKey && sfxRef.current) return;
+
+    let audio = sfxRef.current;
+    if (!audio) {
+      audio = new Audio();
+      audio.preload = 'auto';
+      sfxRef.current = audio;
+    }
+
+    audio.pause();
+    audio.src = resolveAssetUrl(value, 'icon');
+    audio.loop = false;
+    audio.volume = muted ? 0 : 0.7;
+    sfxSourceRef.current = logicalKey;
+    audio.load();
+    if (!muted) requestPlay(audio, 'SFX');
+  }, [muted, requestPlay]);
+
+  // Chrome/Edge may reject play() started from a React effect after async story
+  // loading. Pointer interaction retries the SAME media element synchronously in
+  // the user's gesture, which satisfies the autoplay gate without a second modal.
+  const resumeActiveAudio = useCallback(() => {
+    if (muted) return;
+    const bgm = bgmRef.current;
+    if (bgm?.paused && bgmSourceRef.current && bgmSourceRef.current !== BGM_STOP_KEY) {
+      bgm.volume = 0.45;
+      requestPlay(bgm, 'BGM');
+    }
+    const sfx = sfxRef.current;
+    if (sfx?.paused && !sfx.ended && sfxSourceRef.current) {
+      sfx.volume = 0.7;
+      requestPlay(sfx, 'SFX');
+    }
+  }, [muted, requestPlay]);
+
+  const toggleMuted = useCallback(() => {
+    const nextMuted = !muted;
+    setMuted(nextMuted);
+
+    if (nextMuted) {
+      bgmRef.current?.pause();
+      sfxRef.current?.pause();
+      return;
+    }
+
+    if (bgmRef.current && bgmSourceRef.current && bgmSourceRef.current !== BGM_STOP_KEY) {
+      bgmRef.current.volume = 0.45;
+      requestPlay(bgmRef.current, 'BGM');
+    }
+    if (sfxRef.current && !sfxRef.current.ended && sfxSourceRef.current) {
+      sfxRef.current.volume = 0.7;
+      requestPlay(sfxRef.current, 'SFX');
+    }
+  }, [muted, requestPlay]);
 
   useEffect(() => {
     if (!script || !current) return;
@@ -142,8 +268,8 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
       return;
     }
 
-    // Empty BGM cell means HOLD: keep the previously playing music. Only the first
-    // cut falls back to the episode default when no explicit cue exists yet.
+    // Empty/non-playable BGM cell means HOLD. On the first cut only, use the
+    // episode default track. Descriptive legacy notes are already parsed as HOLD.
     if (index === 0) applyBgmCommand(script.default_bgm_url);
   }, [applyBgmCommand, current?.bgm_url, current?.cut_order, index, script]);
 
@@ -153,25 +279,17 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   }, [muted]);
 
   useEffect(() => {
-    const raw = current?.sfx_url?.trim();
-    if (!raw) return;
-    if (raw === '-' || raw.toLowerCase() === 'none') {
-      sfxRef.current?.pause();
-      sfxRef.current = null;
-      return;
-    }
-    sfxRef.current?.pause();
-    const audio = new Audio(resolveAssetUrl(raw, 'icon'));
-    audio.volume = muted ? 0 : 0.7;
-    sfxRef.current = audio;
-    void audio.play().catch(() => undefined);
-  }, [current?.cut_order, current?.sfx_url]);
+    if (!current) return;
+    applySfxCommand(current.sfx_url, current.cut_order);
+  }, [applySfxCommand, current?.cut_order, current?.sfx_url]);
 
   useEffect(() => () => {
     bgmRef.current?.pause();
     bgmRef.current = null;
     bgmSourceRef.current = null;
     sfxRef.current?.pause();
+    sfxRef.current = null;
+    sfxSourceRef.current = null;
   }, []);
 
   const complete = useCallback(async () => {
@@ -200,13 +318,31 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
     void queryClient.invalidateQueries({ queryKey: ['dimensional-gate-gallery', character.character_id] });
   }, [character.character_id, ended, previewMode, queryClient, saving, script]);
 
+  const primeAudioForIndex = useCallback((targetIndex: number) => {
+    if (!script) return;
+    const target = cuts[targetIndex];
+    if (!target) return;
+
+    const command = parseBgmCommand(target.bgm_url);
+    if (command.kind !== 'hold') {
+      applyBgmCommand(target.bgm_url);
+    } else if (!bgmRef.current && bgmSourceRef.current !== BGM_STOP_KEY) {
+      const effective = effectiveBgmCommandAt(cuts, targetIndex, script.default_bgm_url);
+      if (effective != null) applyBgmCommand(effective);
+    }
+
+    applySfxCommand(target.sfx_url, target.cut_order);
+  }, [applyBgmCommand, applySfxCommand, cuts, script]);
+
   const goToIndex = useCallback((next: number) => {
     if (next >= cuts.length) {
       void complete();
       return;
     }
-    setIndex(Math.max(0, next));
-  }, [complete, cuts.length]);
+    const safeNext = Math.max(0, next);
+    primeAudioForIndex(safeNext);
+    setIndex(safeNext);
+  }, [complete, cuts.length, primeAudioForIndex]);
 
   const advance = useCallback(() => {
     if (!current || saving || ended || epilogueRun) return;
@@ -313,9 +449,11 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   const isNarration = current.cut_type === 'NARRATION' || isCg;
   const progress = Math.round(((index + 1) / Math.max(cuts.length, 1)) * 100);
 
-  return (
+  return createPortal(
     <div
-      className={cn('dg-vn-root fixed inset-0 z-[100] overflow-hidden bg-[#050610] text-white', effects.includes('shake') && 'dg-vn-shake')}
+      className={cn('dg-vn-root fixed inset-0 overflow-hidden bg-[#050610] text-white', effects.includes('shake') && 'dg-vn-shake')}
+      style={{ position: 'fixed', inset: 0, width: '100vw', height: '100dvh', maxWidth: 'none', maxHeight: 'none', zIndex: 2147483000 }}
+      onPointerDown={resumeActiveAudio}
       onClick={advance}
     >
       <AnimatePresence mode="popLayout">
@@ -348,13 +486,15 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
         />
       )}
 
-      <header className="absolute inset-x-0 top-0 z-20 flex items-center gap-3 p-3 sm:p-4" onClick={(event) => event.stopPropagation()}>
-        <button type="button" onClick={onClose} className="rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-xs font-black backdrop-blur">✕</button>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[10px] font-black text-white/65">{script.episode_no}편 · {script.title}{previewMode ? ' · 교사 QA' : ''}</div>
-          <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-violet-300/80" style={{ width: `${progress}%` }} /></div>
+      <header className="absolute inset-x-0 top-0 z-20 flex items-start justify-between p-3 sm:p-4" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={onClose} className="rounded-full border border-white/15 bg-black/45 px-3 py-1.5 text-xs font-black backdrop-blur">✕</button>
+          <div className="rounded-full border border-white/15 bg-black/45 px-3 py-1.5 text-[11px] font-black text-white/80 shadow-lg backdrop-blur">
+            진행률 {progress}%
+          </div>
+          {previewMode && <div className="rounded-full border border-amber-200/25 bg-black/45 px-2.5 py-1.5 text-[9px] font-black text-amber-100 backdrop-blur">교사 QA</div>}
         </div>
-        <button type="button" onClick={() => setMuted((value) => !value)} className="rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-xs font-black backdrop-blur">{muted ? '🔇' : '🔊'}</button>
+        <button type="button" onClick={toggleMuted} className="rounded-full border border-white/15 bg-black/45 px-3 py-1.5 text-xs font-black backdrop-blur">{muted ? '🔇' : '🔊'}</button>
       </header>
 
       {previewMode && (
@@ -389,9 +529,9 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
           </div>
         </motion.div>
       ) : (
-        <div className="absolute inset-x-0 bottom-0 z-20 p-3 pb-5 sm:p-6 sm:pb-8">
+        <div className="absolute inset-x-0 bottom-0 z-20 p-3 pb-4 sm:p-5 sm:pb-6">
           <div className={cn(
-            'mx-auto min-h-[142px] max-w-4xl rounded-[20px] border border-white/15 bg-[#090b17]/88 p-4 shadow-2xl backdrop-blur-md sm:min-h-[156px] sm:p-5',
+            'mx-auto w-full max-w-[780px] min-h-[118px] rounded-[18px] border border-white/15 bg-[#090b17]/88 p-4 shadow-2xl backdrop-blur-md sm:min-h-[128px] sm:p-5',
             isNarration && 'bg-black/62 text-center',
           )}>
             <div
@@ -403,7 +543,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
             >
               {current.speaker || '\u00A0'}
             </div>
-            <div className={cn('min-h-[4.5rem] whitespace-pre-wrap text-[17px] font-semibold leading-8 text-white sm:text-[19px] sm:leading-9', isNarration && 'font-serif leading-9')}>
+            <div className={cn('min-h-[3.5rem] whitespace-pre-wrap text-[20px] font-semibold leading-[1.65] text-white sm:text-[22px] sm:leading-[1.65]', isNarration && 'font-serif')}>
               <SoftTypedText key={`body-${current.cut_order}`} text={current.content ?? ''} visibleCount={currentVisibleCharCount} />
             </div>
 
@@ -463,7 +603,8 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
           이야기 완료 기록에 실패했습니다. 다시 마지막 장면을 눌러 주세요. ({saveError})
         </div>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
