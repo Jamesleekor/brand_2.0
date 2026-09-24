@@ -220,19 +220,12 @@ function InstancePanel({
 
           <div className="px-3 pb-3 space-y-2">
             {row.submissions.map((s: any) => {
-  // BRAND_PATCH_GUILD3_SUBMITTER_NAME_V3
-  const submitterName =
-    row.participants.find(
-      (p: any) =>
-        Number(p?.participant?.student_id) === Number(s.submitted_by_student_id),
-    )?.participant?.student_name_at_snapshot?.trim() ||
-    ('Student #' + String(s.submitted_by_student_id));
               const href = safeExternalHref(s.reference_url);
 
               return (
                 <div key={s.id} className="rounded bg-bg-card p-2 text-xs">
                   <b>
-                    {submitterName} &middot; {s.submission_scope} · revision {s.revision_number}
+                    {s.submission_scope} · revision {s.revision_number}
                   </b>
 
                   <div className="mt-1 whitespace-pre-wrap">{s.content}</div>
