@@ -9,7 +9,7 @@ export interface DailyQuestReportSummaryRef {
   id: number;
   status: DailyQuestReportStatus;
   quest_date: string;
-  manager_student_id: number;
+  manager_student_id: number | null;
 }
 
 export interface DailyQuestManagerAccess {
@@ -61,7 +61,7 @@ export interface DailyQuestManagerBoard {
     id: number;
     classroom_id: number;
     quest_date: string;
-    manager_student_id: number;
+    manager_student_id: number | null;
     status: DailyQuestReportStatus;
     submitted_at: string | null;
     return_reason: string | null;
@@ -88,7 +88,7 @@ export interface DailyQuestTeacherBoard {
     id: number;
     quest_date: string;
     status: DailyQuestReportStatus;
-    manager_student_id: number;
+    manager_student_id: number | null;
     submitted_at: string | null;
     returned_at: string | null;
     return_reason: string | null;
@@ -109,6 +109,63 @@ export interface DailyQuestTeacherBoard {
   server_now?: string;
 }
 
+export interface DailyQuestTeacherDayState {
+  quest_date: string;
+  today: string;
+  cutover_date: string;
+  report_exists: boolean;
+  report_id: number | null;
+  report_status: DailyQuestReportStatus | null;
+  manager_student_id: number | null;
+  can_create: boolean;
+  is_legacy_archive: boolean;
+  has_legacy_archive: boolean;
+  legacy_entry_count: number;
+  create_block_reason: string | null;
+  read_only_legacy: boolean;
+  legacy_rewards_already_applied: boolean;
+}
+
+export interface DailyQuestLegacyEntry {
+  legacy_id: number;
+  source_row: number | null;
+  source_timestamp_local: string | null;
+  occurred_at: string | null;
+  bv_delta: number;
+  gold_delta: number;
+  parsed_tax: number;
+  memo: string | null;
+}
+
+export interface DailyQuestLegacyStudent {
+  student_id: number;
+  student_name: string;
+  brand_name: string | null;
+  entry_count: number;
+  total_bv: number;
+  total_gold: number;
+  parsed_tax_total: number;
+  entries: DailyQuestLegacyEntry[];
+}
+
+export interface DailyQuestLegacyArchive {
+  mode: 'LEGACY_ARCHIVE' | 'NOT_LEGACY';
+  quest_date: string;
+  cutover_date: string;
+  read_only: boolean;
+  rewards_already_applied: boolean;
+  source?: string;
+  detail_level?: string;
+  summary: {
+    entry_count: number;
+    student_count: number;
+    total_bv: number;
+    total_gold: number;
+    parsed_tax_total: number;
+  };
+  students: DailyQuestLegacyStudent[];
+}
+
 export interface DailyQuestMutationResult {
   success: true;
   report_id?: number;
@@ -119,6 +176,10 @@ export interface DailyQuestMutationResult {
   settled_at?: string;
   reason?: string;
   already_settled?: boolean;
+  already_exists?: boolean;
+  teacher_created?: boolean;
+  manager_missing?: boolean;
+  manager_student_id?: number | null;
   pass_check_count?: number;
   all_clear_student_count?: number;
 }
@@ -155,6 +216,15 @@ export const dailyQuestS3Rpc = {
 
   submitManagerReport: (supabase: SupabaseClient, reportId: number) =>
     callRpc<DailyQuestMutationResult>(supabase, 'daily_quest_manager_submit', { p_report_id: reportId }),
+
+  getTeacherDayState: (supabase: SupabaseClient, date?: string | null) =>
+    callRpc<DailyQuestTeacherDayState>(supabase, 'teacher_get_daily_quest_day_state', { p_date: date || null }),
+
+  createTeacherReport: (supabase: SupabaseClient, date?: string | null) =>
+    callRpc<DailyQuestMutationResult>(supabase, 'teacher_create_daily_quest_report', { p_date: date || null }),
+
+  getLegacyArchive: (supabase: SupabaseClient, date?: string | null) =>
+    callRpc<DailyQuestLegacyArchive>(supabase, 'teacher_get_legacy_daily_quest_archive', { p_date: date || null }),
 
   getTeacherBoard: (supabase: SupabaseClient, date?: string | null) =>
     callRpc<DailyQuestTeacherBoard>(supabase, 'teacher_get_daily_quest_settlement_board', { p_date: date || null }),
