@@ -9,7 +9,6 @@ import {
   finalizeMvpFoundationSession,
   getMvpFoundationSession,
   getMvpFoundationStudentDetail,
-  importMvpFoundationInputs,
   listMvpFoundationSessions,
   saveMvpFoundationInput,
   updateMvpFoundationSession,
@@ -19,13 +18,6 @@ import {
   type MvpFoundationStudentDetail,
   type MvpFoundationStudentRow,
 } from '@/lib/rpc/mvp_foundation_rpc';
-import {
-  downloadMvpExchange,
-  parseMvpExchangeFile,
-  type MvpExchangeFormat,
-  type MvpImportPreview,
-} from '@/lib/mvp/mvp_exchange';
-
 
 const GRADES: readonly MvpFoundationGrade[] = ['S+', 'S', 'A+', 'A', 'B'];
 
@@ -127,7 +119,6 @@ export default function MvpFoundationAdmin() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [assessmentStudent, setAssessmentStudent] = useState<MvpFoundationStudentRow | null>(null);
   const [detailStudent, setDetailStudent] = useState<MvpFoundationStudentRow | null>(null);
-  const [importPreview, setImportPreview] = useState<MvpImportPreview | null>(null);
 
   const sessionsQuery = useQuery({
     queryKey: ['mvp-foundation-sessions'],
@@ -257,38 +248,6 @@ export default function MvpFoundationAdmin() {
     await saveRowInput(row, { ...inputFromRow(row), is_preliminary_candidate: !row.is_preliminary_candidate });
   });
 
-
-  const handleExport = async (format: MvpExchangeFormat) => {
-    if (!board?.calculated) return;
-    setMessage(null);
-    try {
-      await downloadMvpExchange(board, format);
-    } catch (error) {
-      setMessage({ type: 'error', text: `내보내기에 실패했습니다: ${errorMessage(error)}` });
-    }
-  };
-
-  const handleImportFile = async (file: File) => {
-    if (!board || !isDraft) return;
-    setMessage(null);
-    try {
-      const preview = await parseMvpExchangeFile(file, board);
-      setImportPreview(preview);
-    } catch (error) {
-      setMessage({ type: 'error', text: `가져오기 파일을 읽지 못했습니다: ${errorMessage(error)}` });
-    }
-  };
-
-  const handleApplyImport = () => {
-    if (!selectedSessionId || !importPreview?.valid || !importPreview.payload || importPreview.changed_count === 0) return;
-    const success = `${importPreview.changed_count}명의 교사 입력을 적용했습니다. 예선 후보 ${importPreview.candidate_count}명.`;
-    void run('import', async () => {
-      await importMvpFoundationInputs(supabase, selectedSessionId, importPreview.payload);
-      setImportPreview(null);
-      await invalidate();
-    }, success);
-  };
-
   const handleFinalize = () => {
     if (!selectedSessionId || !board) return;
     if (!canFinalize) {
@@ -374,33 +333,6 @@ export default function MvpFoundationAdmin() {
                     <p className="text-2xs font-bold text-text-muted">기본 정렬은 평가기간 획득 BV입니다. 종합 MVP 점수는 자동 계산하지 않습니다.</p>
                   </div>
                   <div className="ml-auto flex flex-wrap gap-2">
-                    <details className="relative">
-                      <summary className="flex h-9 cursor-pointer list-none items-center rounded-card-md border border-line px-3 text-xs font-black text-white hover:border-line-brand/50">
-                        ↓ 내보내기
-                      </summary>
-                      <div className="absolute right-0 z-30 mt-1 w-40 overflow-hidden rounded-card-md border border-line bg-bg-base p-1 shadow-2xl">
-                        <button type="button" onClick={() => void handleExport('xlsx')} className="w-full rounded px-3 py-2 text-left text-xs font-black text-white hover:bg-brand-primary/15">Excel (.xlsx)</button>
-                        <button type="button" onClick={() => void handleExport('tsv')} className="w-full rounded px-3 py-2 text-left text-xs font-black text-white hover:bg-brand-primary/15">TSV (.tsv)</button>
-                      </div>
-                    </details>
-                    {isDraft ? (
-                      <label className="flex h-9 cursor-pointer items-center rounded-card-md border border-line px-3 text-xs font-black text-white hover:border-line-brand/50">
-                        ↑ 가져오기
-                        <input
-                          type="file"
-                          accept=".xlsx,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/tab-separated-values"
-                          className="hidden"
-                          onChange={(event) => {
-                            const file = event.currentTarget.files?.[0];
-                            event.currentTarget.value = '';
-                            if (file) void handleImportFile(file);
-                          }}
-                        />
-                      </label>
-                    ) : (
-                      <button type="button" disabled title="확정된 회차는 가져올 수 없습니다." className="h-9 rounded-card-md border border-line px-3 text-xs font-black text-white opacity-35">↑ 가져오기</button>
-                    )}
-
                     <button type="button" onClick={() => setFilter('ALL')} className={filter === 'ALL' ? 'btn-primary h-9 px-3 text-xs' : 'h-9 rounded-card-md border border-line px-3 text-xs font-black text-text-secondary'}>전체 {board.students.length}</button>
                     <button type="button" onClick={() => setFilter('CANDIDATES')} className={filter === 'CANDIDATES' ? 'btn-primary h-9 px-3 text-xs' : 'h-9 rounded-card-md border border-line px-3 text-xs font-black text-text-secondary'}>예선 진출 {candidateCount}</button>
                     <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="학생 검색" className="h-9 w-28 rounded-card-md border border-line bg-bg-deep px-2 text-xs font-bold text-white" />
@@ -446,101 +378,7 @@ export default function MvpFoundationAdmin() {
         }, `${assessmentStudent.student_name} 학생의 수업평가를 저장했습니다.`);
       }} />}
       {detailStudent && selectedSessionId && <StudentDetailModal sessionId={selectedSessionId} row={detailStudent} onClose={() => setDetailStudent(null)} />}
-      {importPreview && board && (
-        <ImportPreviewModal
-          preview={importPreview}
-          busy={busy === 'import'}
-          onClose={() => setImportPreview(null)}
-          onApply={handleApplyImport}
-        />
-      )}
-
     </TeacherShell>
-  );
-}
-
-
-function ImportPreviewModal({ preview, busy, onClose, onApply }: {
-  preview: MvpImportPreview;
-  busy: boolean;
-  onClose: () => void;
-  onApply: () => void;
-}) {
-  const changedRows = preview.rows.filter((row) => row.has_changes);
-  return (
-    <ModalShell
-      title="MVP 데이터 가져오기 미리보기"
-      subtitle={`${preview.file_name} · ${preview.format.toUpperCase()} · 자동 통계는 변경되지 않습니다.`}
-      onClose={onClose}
-      wide
-    >
-      <div className="space-y-4">
-        <div className="grid gap-2 sm:grid-cols-4">
-          <MiniStat label="검증 상태" value={preview.valid ? '정상' : '오류 있음'} />
-          <MiniStat label="변경 학생" value={`${preview.changed_count}명`} />
-          <MiniStat label="변경 없음" value={`${preview.unchanged_count}명`} />
-          <MiniStat label="예선 후보" value={`${preview.candidate_count}명`} />
-        </div>
-
-        {preview.errors.length > 0 && (
-          <section className="rounded-card-md border border-danger/40 bg-danger/10 p-3">
-            <h3 className="mb-2 text-xs font-black text-danger">가져오기를 적용할 수 없습니다.</h3>
-            <div className="space-y-1 text-[11px] font-bold leading-relaxed text-white">
-              {preview.errors.map((error, index) => <div key={`${index}-${error}`}>• {error}</div>)}
-            </div>
-          </section>
-        )}
-
-        {preview.valid && changedRows.length === 0 && (
-          <div className="rounded-card-md border border-success/35 bg-success/10 px-3 py-3 text-xs font-black text-success">
-            현재 회차와 동일합니다. 적용할 변경사항이 없습니다.
-          </div>
-        )}
-
-        {preview.valid && changedRows.length > 0 && (
-          <section className="overflow-hidden rounded-card-md border border-line">
-            <div className="border-b border-line bg-bg-deep px-3 py-2 text-xs font-black text-white">
-              변경 예정 · {changedRows.length}명
-            </div>
-            <div className="max-h-[46vh] overflow-y-auto">
-              <table className="w-full text-left text-[11px]">
-                <thead className="sticky top-0 bg-bg-base text-white">
-                  <tr><th className="px-3 py-2">학생</th><th className="px-3 py-2">변경 항목</th><th className="px-3 py-2">후보</th><th className="px-3 py-2">평가</th></tr>
-                </thead>
-                <tbody className="divide-y divide-line/70">
-                  {changedRows.map((row) => (
-                    <tr key={row.student_id}>
-                      <td className="px-3 py-2 font-black text-white">{row.student_name}</td>
-                      <td className="px-3 py-2 font-bold text-brand-secondary">{row.changed_fields.join(' · ')}</td>
-                      <td className="px-3 py-2 font-black text-white">{row.next.is_preliminary_candidate ? 'Y' : 'N'}</td>
-                      <td className="px-3 py-2 font-bold text-white">
-                        {[row.next.preparation_responsibility_grade, row.next.participation_listening_grade, row.next.assignment_performance_grade, row.next.improvement_growth_grade].map((value) => value ?? '-').join(' / ')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
-
-        <div className="rounded-card-md border border-warning/30 bg-warning/5 px-3 py-2 text-[10px] font-bold leading-relaxed text-white">
-          가져오기는 예선 후보, 4개 수업평가, 비고만 수정합니다. BV·성장률·일일퀘스트·업적·길드점수 등 자동 산출 데이터는 파일 내용과 관계없이 공식 DB 기록을 유지합니다.
-        </div>
-
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="h-9 rounded-card-md border border-line px-4 text-xs font-black text-white">닫기</button>
-          <button
-            type="button"
-            disabled={!preview.valid || preview.changed_count === 0 || busy}
-            onClick={onApply}
-            className="btn-primary h-9 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {busy ? '적용 중…' : `변경 ${preview.changed_count}명 적용`}
-          </button>
-        </div>
-      </div>
-    </ModalShell>
   );
 }
 

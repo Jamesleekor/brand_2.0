@@ -331,7 +331,7 @@ function RankingList({ type, collectionMode }: { type: RankingType; collectionMo
       const startingGroup = firstBattleByStudentId.get(row.student_id) ?? null;
       return {
         ...visualIdentity(row),
-        metric: <span className={row.weekly_delta >= 0 ? 'text-bv-100' : 'text-danger'}>최근 7일 {signedNumber(row.weekly_delta)} BV</span>,
+        metric: <span className={row.weekly_delta >= 0 ? 'text-bv-100' : 'text-danger'}><span className="block whitespace-nowrap sm:inline">최근 7일</span>{' '}<span className="inline-block whitespace-nowrap">{signedNumber(row.weekly_delta)} BV</span></span>,
         groupBanner: startingGroup ? battleLabel(startingGroup) : undefined,
         privateDetail: row.exact_bv === null ? undefined : <>내 BV {formatNumber(row.exact_bv)}</>,
       };

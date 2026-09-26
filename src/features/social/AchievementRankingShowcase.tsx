@@ -178,7 +178,7 @@ function SectionHeading({
       <h2 id={id} className="mt-1 font-display text-lg sm:text-xl font-black text-white">
         {title}
       </h2>
-      {description && <p className="mt-1 text-xs sm:text-[13px] font-bold text-slate-300">{description}</p>}
+      {description && <p className="mt-1 break-keep text-xs sm:text-[13px] font-bold text-slate-300">{description}</p>}
     </div>
   );
 }
@@ -321,25 +321,27 @@ function TopTenCard({
     <motion.article
       whileHover={{ y: -2 }}
       className={cn(
-        'relative flex min-h-[252px] flex-col items-center rounded-card-lg border border-gold/15 bg-[linear-gradient(160deg,rgba(255,217,61,0.055),rgba(15,11,26,0.94)_40%,rgba(177,151,252,0.045))] px-3 pb-3 pt-4 text-center',
+        'relative rounded-card-lg border border-gold/15 bg-[linear-gradient(160deg,rgba(255,217,61,0.055),rgba(15,11,26,0.94)_40%,rgba(177,151,252,0.045))] px-3 py-3 sm:flex sm:min-h-[252px] sm:flex-col sm:items-center sm:pb-3 sm:pt-4 sm:text-center',
         item.isMe && 'border-gold/40 bg-gold/[0.07]',
       )}
     >
-      <div className="absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-xl border border-gold/25 bg-gold/[0.08] font-display text-sm font-black text-gold-200">{rank}</div>
-      <RankAvatar item={item} size="top10" />
-      <div className="mt-3 flex w-full flex-col items-center gap-1.5">
-        <GuildNameBadge guildName={item.guildName} guildLogoUrl={item.guildLogoUrl} variant="ranking" className="max-w-full !text-[12px]" />
-        {achievementTitle?.title ? (
-          <AchievementTitleBadge title={achievementTitle.title} grade={achievementTitle.grade} prominent className="max-w-full !px-2.5 !py-1 !text-[12px]" />
-        ) : (
-          <span className="rounded-pill border border-line bg-bg-deep px-2.5 py-1 text-[12px] font-bold text-slate-400">칭호 미장착</span>
-        )}
-        <div className="flex min-w-0 items-center justify-center gap-1.5">
-          <span className="text-[19px] font-black text-white sm:text-xl">{item.name}</span>
-          {item.isMe && <MeBadge />}
+      <div className="flex min-w-0 items-center gap-2.5 sm:contents">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-gold/25 bg-gold/[0.08] font-display text-sm font-black text-gold-200 sm:absolute sm:left-3 sm:top-3">{rank}</div>
+        <RankAvatar item={item} size="top10" />
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-1 sm:mt-3 sm:w-full sm:flex-none sm:items-center sm:gap-1.5">
+          <GuildNameBadge guildName={item.guildName} guildLogoUrl={item.guildLogoUrl} variant="ranking" className="max-w-full !text-[12px]" />
+          {achievementTitle?.title ? (
+            <AchievementTitleBadge title={achievementTitle.title} grade={achievementTitle.grade} prominent className="max-w-full !px-2.5 !py-1 !text-[12px]" />
+          ) : (
+            <span className="rounded-pill border border-line bg-bg-deep px-2.5 py-1 text-[12px] font-bold text-slate-400">칭호 미장착</span>
+          )}
+          <div className="flex min-w-0 items-center gap-1.5 sm:justify-center">
+            <span className="truncate text-[17px] font-black text-white sm:text-xl">{item.name}</span>
+            {item.isMe && <MeBadge />}
+          </div>
         </div>
       </div>
-      <div className="mt-auto w-full border-t border-white/[0.07] pt-3 font-mono text-base font-black text-success">{formatNumber(item.value)}개</div>
+      <div className="mt-2 w-full border-t border-white/[0.07] pt-2 text-right font-mono text-base font-black text-success sm:mt-auto sm:pt-3 sm:text-center">{formatNumber(item.value)}개</div>
     </motion.article>
   );
 }
@@ -433,7 +435,7 @@ const AVATAR_SIZE_CLASS: Record<AvatarSize, string> = {
   champion: 'h-[78px] w-[78px] sm:h-[112px] sm:w-[112px] lg:h-[138px] lg:w-[138px]',
   podium: 'h-[62px] w-[62px] sm:h-[88px] sm:w-[88px] lg:h-[108px] lg:w-[108px]',
   elite: 'h-16 w-16 sm:h-[72px] sm:w-[72px]',
-  top10: 'h-[68px] w-[68px] sm:h-[76px] sm:w-[76px]',
+  top10: 'h-12 w-12 sm:h-[76px] sm:w-[76px]',
   standard: 'h-12 w-12 sm:h-14 sm:w-14',
 };
 

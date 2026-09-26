@@ -247,37 +247,6 @@ export async function getMvpFoundationStudentDetail(
   };
 }
 
-
-export interface MvpFoundationImportResult {
-  saved: boolean;
-  session_id: number;
-  row_count: number;
-  changed_count: number;
-  unchanged_count: number;
-  candidate_count: number;
-}
-
-export async function importMvpFoundationInputs(
-  supabase: SupabaseClient,
-  sessionId: number,
-  payload: unknown,
-): Promise<MvpFoundationImportResult> {
-  const { data, error } = await supabase.rpc('teacher_import_mvp_foundation_inputs', {
-    p_session_id: sessionId,
-    p_payload: payload,
-  });
-  if (error) throw error;
-  const raw = (data ?? {}) as Record<string, unknown>;
-  return {
-    saved: Boolean(raw.saved),
-    session_id: n(raw.session_id),
-    row_count: n(raw.row_count),
-    changed_count: n(raw.changed_count),
-    unchanged_count: n(raw.unchanged_count),
-    candidate_count: n(raw.candidate_count),
-  };
-}
-
 export async function finalizeMvpFoundationSession(supabase: SupabaseClient, sessionId: number): Promise<void> {
   const { error } = await supabase.rpc('teacher_finalize_mvp_foundation_session', { p_session_id: sessionId });
   if (error) throw error;
