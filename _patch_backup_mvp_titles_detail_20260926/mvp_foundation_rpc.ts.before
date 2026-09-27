@@ -47,9 +47,6 @@ export interface MvpFoundationStudentRow {
   participation_listening_grade: MvpFoundationGrade | null;
   assignment_performance_grade: MvpFoundationGrade | null;
   improvement_growth_grade: MvpFoundationGrade | null;
-  specialty_english: boolean;
-  specialty_science: boolean;
-  specialty_pe: boolean;
   notes: string | null;
   input_updated_at?: string | null;
 }
@@ -80,9 +77,6 @@ export interface MvpFoundationInputState {
   participation_listening_grade: MvpFoundationGrade | null;
   assignment_performance_grade: MvpFoundationGrade | null;
   improvement_growth_grade: MvpFoundationGrade | null;
-  specialty_english: boolean;
-  specialty_science: boolean;
-  specialty_pe: boolean;
   notes: string | null;
 }
 
@@ -154,9 +148,6 @@ function normalizeStudent(row: Record<string, unknown>): MvpFoundationStudentRow
     participation_listening_grade: (row.participation_listening_grade ?? null) as MvpFoundationGrade | null,
     assignment_performance_grade: (row.assignment_performance_grade ?? null) as MvpFoundationGrade | null,
     improvement_growth_grade: (row.improvement_growth_grade ?? null) as MvpFoundationGrade | null,
-    specialty_english: Boolean(row.specialty_english),
-    specialty_science: Boolean(row.specialty_science),
-    specialty_pe: Boolean(row.specialty_pe),
     notes: row.notes == null ? null : String(row.notes),
     input_updated_at: row.input_updated_at == null ? null : String(row.input_updated_at),
   };
@@ -224,7 +215,7 @@ export async function saveMvpFoundationInput(
   supabase: SupabaseClient,
   input: { sessionId: number; studentId: number } & MvpFoundationInputState,
 ): Promise<number> {
-  const { data, error } = await supabase.rpc('teacher_save_mvp_foundation_input_v2', {
+  const { data, error } = await supabase.rpc('teacher_save_mvp_foundation_input', {
     p_session_id: input.sessionId,
     p_student_id: input.studentId,
     p_is_preliminary_candidate: input.is_preliminary_candidate,
@@ -232,9 +223,6 @@ export async function saveMvpFoundationInput(
     p_participation_listening_grade: input.participation_listening_grade,
     p_assignment_performance_grade: input.assignment_performance_grade,
     p_improvement_growth_grade: input.improvement_growth_grade,
-    p_specialty_english: input.specialty_english,
-    p_specialty_science: input.specialty_science,
-    p_specialty_pe: input.specialty_pe,
     p_notes: input.notes,
   });
   if (error) throw error;
@@ -274,7 +262,7 @@ export async function importMvpFoundationInputs(
   sessionId: number,
   payload: unknown,
 ): Promise<MvpFoundationImportResult> {
-  const { data, error } = await supabase.rpc('teacher_import_mvp_foundation_inputs_v2', {
+  const { data, error } = await supabase.rpc('teacher_import_mvp_foundation_inputs', {
     p_session_id: sessionId,
     p_payload: payload,
   });
