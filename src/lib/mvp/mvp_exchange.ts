@@ -588,7 +588,10 @@ async function buildXlsxBlob(board: MvpFoundationBoard): Promise<Blob> {
     { name: 'xl/worksheets/sheet3.xml', content: worksheetXml(infoRows, [28, 40, 40], { freezeRow: 1 }) },
   ];
 
-  return new Blob([zipStore(files)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const xlsxBytes = zipStore(files);
+  const xlsxBuffer = new ArrayBuffer(xlsxBytes.byteLength);
+  new Uint8Array(xlsxBuffer).set(xlsxBytes);
+  return new Blob([xlsxBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
 type ZipInput = { name: string; content: string | Uint8Array };
@@ -710,7 +713,9 @@ function listZipEntries(data: Uint8Array): ZipEntry[] {
 
 async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
   if (typeof DecompressionStream === 'undefined') throw new Error('이 브라우저는 압축된 XLSX 읽기를 지원하지 않습니다. 최신 Chrome/Edge를 사용해주세요.');
-  const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  const inflateBuffer = new ArrayBuffer(data.byteLength);
+  new Uint8Array(inflateBuffer).set(data);
+  const stream = new Blob([inflateBuffer]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
