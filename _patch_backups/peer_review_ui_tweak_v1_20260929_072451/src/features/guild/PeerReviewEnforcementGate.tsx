@@ -163,7 +163,7 @@ export function PeerReviewEnforcementGate({ children }: { children: ReactNode })
         <div className="glass-card w-full max-w-md p-6 text-center border border-danger/40">
           <div className="text-5xl animate-pulse">🚨</div>
           <h1 className="font-display text-xl mt-3">운영 제한 상태 확인 중</h1>
-          <p className="text-sm text-white/75 mt-2">동료평가 미완료 여부와 누적 페널티 상태를 확인하고 있습니다.</p>
+          <p className="text-sm text-text-secondary mt-2">동료평가 미완료 여부와 누적 페널티 상태를 확인하고 있습니다.</p>
         </div>
       </div>
     );
@@ -175,7 +175,7 @@ export function PeerReviewEnforcementGate({ children }: { children: ReactNode })
         <div className="glass-card w-full max-w-md p-6 text-center border border-danger/60 shadow-2xl">
           <div className="text-5xl">⚠️</div>
           <h1 className="font-display text-xl mt-3">운영 제한 확인 실패</h1>
-          <p className="text-sm text-white/75 mt-2 leading-6">
+          <p className="text-sm text-text-secondary mt-2 leading-6">
             필수 절차 확인이 완료될 때까지 B.R.A.N.D 이용이 제한됩니다.
             <br />
             이 상태에서는 우회 이용이 허용되지 않습니다.
@@ -201,7 +201,7 @@ export function PeerReviewEnforcementGate({ children }: { children: ReactNode })
                 <span>최종 경고 · B.R.A.N.D ACCESS RESTRICTED</span>
               </div>
               <h1 className="font-display text-2xl sm:text-3xl mt-3 text-danger">동료평가 미완료로 인한 운영 제한</h1>
-              <p className="text-sm text-white/75 mt-3 leading-6">
+              <p className="text-sm text-text-secondary mt-3 leading-6">
                 필수 동료평가가 완료되지 않아 현재 계정은 <b className="text-white">전 기능 차단</b> 상태입니다.
                 <br />
                 이 화면은 동료평가를 완료하기 전까지 해제되지 않습니다.
@@ -231,7 +231,7 @@ export function PeerReviewEnforcementGate({ children }: { children: ReactNode })
                 <h2 className="font-display text-xl mt-2 text-white">
                   {warning?.hasPenaltyStarted ? '자산 동결 발효 중 · 추가 페널티 진행 중' : '유예 시간 진행 중 · 첫 페널티 예정'}
                 </h2>
-                <div className="mt-3 space-y-2 text-sm leading-6 text-white/80">
+                <div className="mt-3 space-y-2 text-sm leading-6 text-text-secondary">
                   <p>
                     <b className="text-white">현재 상태:</b> 동료평가 미완료로 인해 이미 B.R.A.N.D 전 기능이 차단되었습니다.
                   </p>
@@ -246,7 +246,7 @@ export function PeerReviewEnforcementGate({ children }: { children: ReactNode })
               <div className="rounded-card-md border border-danger/60 bg-bg-deep px-4 py-4 min-w-[220px]">
                 <div className="text-2xs font-black tracking-[0.16em] text-danger">COUNTDOWN</div>
                 <div className="font-display text-3xl mt-2 text-danger">{warning?.countdown}</div>
-                <div className="mt-2 text-xs font-bold text-white/75">
+                <div className="mt-2 text-xs font-bold text-text-secondary">
                   {warning?.hasPenaltyStarted ? '다음 추가 페널티까지 남은 시간' : '첫 페널티까지 남은 시간'}
                 </div>
                 <div className="mt-4 rounded-card-md border border-danger/40 bg-danger/10 px-3 py-2 text-xs font-black text-danger">
@@ -259,10 +259,10 @@ export function PeerReviewEnforcementGate({ children }: { children: ReactNode })
           <div className="rounded-card-lg border border-line bg-bg-deep p-4 sm:p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-xs font-black tracking-[0.14em] text-white/65">미완료 회차</div>
+                <div className="text-xs font-black tracking-[0.14em] text-text-muted">INCOMPLETE ROUNDS</div>
                 <h3 className="font-display text-lg mt-1">미완료 동료평가 대상</h3>
               </div>
-              <div className="text-xs font-bold text-white/75">
+              <div className="text-xs font-bold text-text-secondary">
                 필수 {payload.required_count} · 완료 {payload.submitted_count} · 미완료 <span className="text-danger font-black">{payload.missing_count}</span>
               </div>
             </div>
@@ -273,7 +273,7 @@ export function PeerReviewEnforcementGate({ children }: { children: ReactNode })
                   <div key={round.round_id} className="flex flex-col gap-2 rounded-card-md border border-line bg-bg-card px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <div className="font-black text-white truncate">{round.mission_title || `동료평가 #${round.round_id}`}</div>
-                      <div className="mt-1 text-xs text-white/65">{round.guild_name || '길드 정보 없음'}</div>
+                      <div className="mt-1 text-xs text-text-muted">{round.guild_name || '길드 정보 없음'}</div>
                     </div>
                     <div className="shrink-0 text-sm font-black text-danger">미완료 {missing}건</div>
                   </div>
@@ -291,7 +291,7 @@ export function PeerReviewEnforcementGate({ children }: { children: ReactNode })
             </button>
           </div>
 
-          <button type="button" className="w-full text-xs text-white/60 hover:text-white/85 py-1" onClick={() => void logout()}>
+          <button type="button" className="w-full text-xs text-text-muted hover:text-text-secondary py-1" onClick={() => void logout()}>
             로그아웃
           </button>
         </div>
@@ -309,7 +309,7 @@ function DangerStat({ label, value, accent = 'warning' }: { label: string; value
 
   return (
     <div className={`rounded-card-md border px-3 py-3 ${tone}`}>
-      <div className="text-2xs font-black tracking-[0.12em] text-white/80">{label}</div>
+      <div className="text-2xs font-black tracking-[0.12em] text-text-muted">{label}</div>
       <div className="font-display text-xl mt-1 break-words">{value}</div>
     </div>
   );
