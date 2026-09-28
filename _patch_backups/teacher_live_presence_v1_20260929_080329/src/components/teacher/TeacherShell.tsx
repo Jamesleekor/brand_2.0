@@ -9,7 +9,6 @@ import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore, useCurrentStudent } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
-import { TeacherPresenceSummary } from '@/components/teacher/TeacherPresenceSummary';
 
 interface TeacherShellProps {
   children: ReactNode;
@@ -126,7 +125,6 @@ function TeacherTopBar() {
           </Link>
         </div>
         <div className="flex items-center gap-3">
-          <TeacherPresenceSummary />
           <div className="hidden text-right sm:block">
             <div className="text-xs font-extrabold text-text-primary">{teacher?.studentName ?? '선생님'}</div>
             <div className="text-2xs font-bold text-text-muted">{teacher?.classroomName ?? ''}</div>
