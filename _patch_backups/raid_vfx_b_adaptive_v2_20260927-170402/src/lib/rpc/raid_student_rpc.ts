@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RpcResult } from './student_rpc';
-import type { RaidVisualConfigV1 } from '@/features/raid/visual/raidVisualTypes';
 
 export type RaidElement = 'FIRE' | 'WATER' | 'WIND' | 'EARTH' | 'LIGHT' | 'DARK';
 export type RaidStatus =
@@ -188,7 +187,6 @@ export interface RaidBattleState {
       phase_no: number;
       image_url: string | null;
       loop_video_url: string | null;
-      visual: RaidVisualConfigV1 | null;
     } | null;
   };
   combat: RaidCombatState;

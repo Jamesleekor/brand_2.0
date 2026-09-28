@@ -1,5 +1,4 @@
 export type RaidVisualStateVideoTrigger = 'GROGGY' | 'ENRAGE' | 'BOTH';
-export type RaidVisualPlaybackState = 'IDLE' | 'ACTION' | 'STATE';
 
 export interface RaidVisualMediaConfig {
   action_video_url: string | null;

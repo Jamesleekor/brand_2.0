@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RpcResult } from './student_rpc';
-import type { RaidVisualConfigV1 } from '@/features/raid/visual/raidVisualTypes';
 
 export type RaidElement = 'FIRE' | 'WATER' | 'WIND' | 'EARTH' | 'LIGHT' | 'DARK';
 export type RaidStatus =
@@ -173,7 +172,7 @@ export interface TeacherRaidBroadcastState {
     id: number; title: string; boss_name: string; boss_element: RaidElement; status: RaidStatus;
     max_hp: number; current_hp: number; hp_ratio: number; damage_coefficient: number;
     lobby_open_at: string | null; starts_at: string | null; ends_at: string | null; completed_at: string | null; end_reason: string | null;
-    phase: { id: number; phase_no: number; image_url: string | null; loop_video_url: string | null; visual: RaidVisualConfigV1 | null } | null;
+    phase: { id: number; phase_no: number; image_url: string | null; loop_video_url: string | null } | null;
   };
   combat: {
     barrier_enabled: boolean; barrier_max_hp: number; barrier_current_hp: number; barrier_ratio: number;

@@ -15,8 +15,6 @@ import {
 } from '@/lib/rpc/raid_admin_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
-import { RaidBossVisualStage } from '@/features/raid/visual/RaidBossVisualStage';
-import { useRaidVisualState } from '@/features/raid/visual/useRaidVisualState';
 import { RaidBroadcastAudioEngine } from './RaidBroadcastAudio';
 
 
@@ -519,32 +517,39 @@ export default function RaidBroadcastPage() {
 }
 
 function BroadcastBossMedia({ state }: { state: TeacherRaidBroadcastState }) {
-  const phase = state.raid.phase;
-  const bossAttack = state.combat.boss_attack;
-  const bossAttackTelegraph =
-    state.raid.status === 'ACTIVE' &&
-    bossAttack != null &&
-    bossAttack.seconds_until_next_attack != null &&
-    Number(bossAttack.seconds_until_next_attack) <= Number(bossAttack.telegraph_seconds ?? 0);
-  const playbackState = useRaidVisualState({
-    visual: phase?.visual ?? null,
-    groggyActive: Boolean(state.combat.groggy_active),
-    enrageActive: Boolean(state.combat.enrage_active),
-    activePatternType: state.combat.active_pattern?.pattern_type ?? null,
-    bossAttackTelegraph,
-  });
+  const image = state.raid.phase?.image_url ?? '';
+  const video = state.raid.phase?.loop_video_url ?? '';
+  const animatedImage = /\.(?:webp|gif|apng)(?:$|[?#])/i.test(video);
+  const [videoFailed, setVideoFailed] = useState(false);
+
+  useEffect(() => setVideoFailed(false), [video]);
 
   return (
-    <RaidBossVisualStage
-      bossName={state.raid.boss_name}
-      imageUrl={phase?.image_url}
-      idleVideoUrl={phase?.loop_video_url}
-      visual={phase?.visual ?? null}
-      playbackState={playbackState}
-      className="z-0"
-    />
+    <div className="absolute inset-0 z-0">
+      {video && animatedImage ? (
+        <img src={video} alt={state.raid.boss_name} className="h-full w-full object-cover" />
+      ) : video && !videoFailed ? (
+        <video
+          src={video}
+          poster={image || undefined}
+          muted
+          loop
+          autoPlay
+          playsInline
+          preload="auto"
+          onError={() => setVideoFailed(true)}
+          className="h-full w-full object-cover"
+        />
+      ) : image ? (
+        <img src={image} alt={state.raid.boss_name} className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(30,64,175,0.28),rgba(2,4,10,1)_68%)] text-[120px]">👾</div>
+      )}
+    </div>
   );
-}function BarrierBroadcastHud({ state, percent }: { state: TeacherRaidBroadcastState; percent: number }) {
+}
+
+function BarrierBroadcastHud({ state, percent }: { state: TeacherRaidBroadcastState; percent: number }) {
   const combat = state.combat;
   const tone = barrierTone(combat.barrier_state);
   return (

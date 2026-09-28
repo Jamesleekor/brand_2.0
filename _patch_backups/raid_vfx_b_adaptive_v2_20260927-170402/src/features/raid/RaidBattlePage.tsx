@@ -19,8 +19,6 @@ import {
 import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
 import { RaidResultModal } from '@/features/raid/RaidResultModal';
-import { RaidBossVisualStage } from '@/features/raid/visual/RaidBossVisualStage';
-import { useRaidVisualState } from '@/features/raid/visual/useRaidVisualState';
 import {
   useRaidTapBatcher,
   type RaidTapBatcherDiagnostics,
@@ -568,8 +566,6 @@ export default function RaidBattlePage() {
           state={state}
           enabled={battleEnabled}
           onPointerDown={handleBossPointerDown}
-          groggyActive={groggyActive}
-          bossAttackTelegraph={bossAttackTelegraph}
         />
 
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.34),transparent_23%,transparent_70%,rgba(0,0,0,0.52))]" />
@@ -794,23 +790,20 @@ function BossViewport({
   state,
   enabled,
   onPointerDown,
-  groggyActive,
-  bossAttackTelegraph,
 }: {
   state: RaidBattleState;
   enabled: boolean;
   onPointerDown: (event: PointerEvent<HTMLDivElement>) => void;
-  groggyActive: boolean;
-  bossAttackTelegraph: boolean;
 }) {
   const phase = state.raid.phase;
-  const playbackState = useRaidVisualState({
-    visual: phase?.visual ?? null,
-    groggyActive,
-    enrageActive: Boolean(state.combat?.enrage_active),
-    activePatternType: state.combat?.active_pattern?.pattern_type ?? null,
-    bossAttackTelegraph,
-  });
+  const image = phase?.image_url ?? '';
+  const video = phase?.loop_video_url ?? '';
+  const animatedImage = /\.(?:webp|gif|apng)(?:$|[?#])/i.test(video);
+  const [videoFailed, setVideoFailed] = useState(false);
+
+  useEffect(() => {
+    setVideoFailed(false);
+  }, [video]);
 
   return (
     <div
@@ -824,13 +817,38 @@ function BossViewport({
       )}
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >
-      <RaidBossVisualStage
-        bossName={state.raid.boss_name}
-        imageUrl={phase?.image_url}
-        idleVideoUrl={phase?.loop_video_url}
-        visual={phase?.visual ?? null}
-        playbackState={playbackState}
-      />    </div>
+      {video && animatedImage ? (
+        <img
+          src={video}
+          alt={state.raid.boss_name}
+          className="pointer-events-none h-full w-full object-cover"
+          draggable={false}
+        />
+      ) : video && !videoFailed ? (
+        <video
+          src={video}
+          poster={image || undefined}
+          muted
+          loop
+          autoPlay
+          playsInline
+          preload="auto"
+          onError={() => setVideoFailed(true)}
+          className="pointer-events-none h-full w-full object-cover"
+        />
+      ) : image ? (
+        <img
+          src={image}
+          alt={state.raid.boss_name}
+          className="pointer-events-none h-full w-full object-cover"
+          draggable={false}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_center,rgba(88,28,135,0.35),rgba(2,6,23,1)_60%)] text-8xl">
+          👾
+        </div>
+      )}
+    </div>
   );
 }
 
