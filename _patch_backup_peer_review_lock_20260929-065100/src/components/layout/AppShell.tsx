@@ -11,7 +11,6 @@ import { useEffect, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/auth_store';
 import { FontThemeProvider } from '@/features/font/FontThemeProvider';
-import { PeerReviewEnforcementGate } from '@/features/guild/PeerReviewEnforcementGate';
 import { supabase } from '@/lib/supabase/client';
 
 // =====================================================================
@@ -57,9 +56,7 @@ export function ProtectedRoute({ children, requireTeacher = false }: ProtectedRo
   }
   
   if (!requireTeacher && !context.isTeacher) {
-    return <FontThemeProvider supabase={supabase} studentId={context.studentId}>
-        <PeerReviewEnforcementGate>{children}</PeerReviewEnforcementGate>
-      </FontThemeProvider>;
+    return <FontThemeProvider supabase={supabase} studentId={context.studentId}>{children}</FontThemeProvider>;
   }
   return <>{children}</>;
 }
