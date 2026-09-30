@@ -13,7 +13,7 @@ import type { AuctionSuperPassState, LiveAuctionItem } from './types';
 
 export default function StudentAuctionView() {
   const studentId = useStudentId();
-  const { wallet } = useWallet();
+  const { wallet, refetch: refetchWallet } = useWallet();
   const { state, auction, items, currentItem, recentBids, superPass, isLoading, refetch } = useLiveAuctionState(false);
   const { call, isLoading: isSubmitting } = useRpcCall();
   const showToast = useToastStore((s) => s.show);
@@ -22,6 +22,7 @@ export default function StudentAuctionView() {
   const superPassResolveKeyRef = useRef('');
   const lastOwnSuperPassRef = useRef<{ roundId: number; itemId: number; attempt: number } | null>(null);
   const passOutcomeNotifiedRef = useRef(new Set<number>());
+  const walletSyncedResultRef = useRef(new Set<string>());
 
   const countdown = useAuctionCountdown(
     state?.server_now,
@@ -49,11 +50,26 @@ export default function StudentAuctionView() {
     if (finalizeKeyRef.current === key) return;
     finalizeKeyRef.current = key;
 
-    void call(
-      () => studentRpc.finalizeLiveAuctionItemIfExpired(supabase, { p_item_id: currentItem.id }),
-      { silent: true, onSuccess: () => void refetch() },
-    );
-  }, [call, countdown.isExpired, countdown.isPaused, currentItem, refetch]);
+    const scheduleRetry = () => {
+      window.setTimeout(() => {
+        if (finalizeKeyRef.current !== key) return;
+        finalizeKeyRef.current = '';
+        void refetch();
+      }, 3000);
+    };
+
+    void studentRpc
+      .finalizeLiveAuctionItemIfExpired(supabase, { p_item_id: currentItem.id })
+      .then((result) => {
+        if (!result.success) {
+          scheduleRetry();
+          return;
+        }
+        void refetch();
+        if (result.data?.status === 'NOT_EXPIRED') scheduleRetry();
+      })
+      .catch(scheduleRetry);
+  }, [countdown.isExpired, countdown.isPaused, currentItem, refetch]);
 
   useEffect(() => {
     if (!currentItem || superPass?.status !== 'APPLYING' || !superPassCountdown.isExpired) return;
@@ -61,11 +77,48 @@ export default function StudentAuctionView() {
     if (superPassResolveKeyRef.current === key) return;
     superPassResolveKeyRef.current = key;
 
-    void call(
-      () => studentRpc.resolveAuctionSuperPassPhaseIfExpired(supabase, { p_item_id: currentItem.id }),
-      { silent: true, onSuccess: () => void refetch() },
-    );
-  }, [call, currentItem, refetch, superPass, superPassCountdown.isExpired]);
+    const scheduleRetry = () => {
+      window.setTimeout(() => {
+        if (superPassResolveKeyRef.current !== key) return;
+        superPassResolveKeyRef.current = '';
+        void refetch();
+      }, 3000);
+    };
+
+    void studentRpc
+      .resolveAuctionSuperPassPhaseIfExpired(supabase, { p_item_id: currentItem.id })
+      .then((result) => {
+        if (!result.success) {
+          scheduleRetry();
+          return;
+        }
+        void refetch();
+        if (result.data?.status === 'NOT_EXPIRED') scheduleRetry();
+      })
+      .catch(scheduleRetry);
+  }, [currentItem, refetch, superPass, superPassCountdown.isExpired]);
+
+  useEffect(() => {
+    if (!studentId) return;
+
+    for (const item of items) {
+      if (item.final_status !== 'SOLD' || item.result?.winner_student_id !== studentId) continue;
+      const syncKey = `${studentId}:${item.id}`;
+      if (walletSyncedResultRef.current.has(syncKey)) continue;
+
+      // Realtime wallet UPDATE is the fast path. This explicit fetch is the fallback
+      // after authoritative auction settlement, so a missed Realtime event cannot
+      // leave the displayed GOLD stale. Failed fetches are allowed to retry.
+      walletSyncedResultRef.current.add(syncKey);
+      void refetchWallet()
+        .then((result) => {
+          if (result.isError) walletSyncedResultRef.current.delete(syncKey);
+        })
+        .catch(() => {
+          walletSyncedResultRef.current.delete(syncKey);
+        });
+    }
+  }, [items, refetchWallet, studentId]);
 
   useEffect(() => {
     if (currentItem && superPass && (superPass.current_student_applied || superPass.current_student_priority_eligible)) {

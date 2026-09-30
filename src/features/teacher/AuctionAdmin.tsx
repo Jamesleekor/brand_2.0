@@ -59,22 +59,54 @@ export default function AuctionAdmin() {
     const key = `${currentItem.id}:${currentItem.bidding_ends_at}`;
     if (finalizeKeyRef.current === key) return;
     finalizeKeyRef.current = key;
-    void call(
-      () => studentRpc.finalizeLiveAuctionItemIfExpired(supabase, { p_item_id: currentItem.id }),
-      { silent: true, onSuccess: () => void refetch() },
-    );
-  }, [call, countdown.isExpired, countdown.isPaused, currentItem, refetch]);
+
+    const scheduleRetry = () => {
+      window.setTimeout(() => {
+        if (finalizeKeyRef.current !== key) return;
+        finalizeKeyRef.current = '';
+        void refetch();
+      }, 3000);
+    };
+
+    void studentRpc
+      .finalizeLiveAuctionItemIfExpired(supabase, { p_item_id: currentItem.id })
+      .then((result) => {
+        if (!result.success) {
+          scheduleRetry();
+          return;
+        }
+        void refetch();
+        if (result.data?.status === 'NOT_EXPIRED') scheduleRetry();
+      })
+      .catch(scheduleRetry);
+  }, [countdown.isExpired, countdown.isPaused, currentItem, refetch]);
 
   useEffect(() => {
     if (!currentItem || superPass?.status !== 'APPLYING' || !superPassCountdown.isExpired) return;
     const key = `${superPass.round_id}:${superPass.application_ends_at}`;
     if (superPassResolveKeyRef.current === key) return;
     superPassResolveKeyRef.current = key;
-    void call(
-      () => studentRpc.resolveAuctionSuperPassPhaseIfExpired(supabase, { p_item_id: currentItem.id }),
-      { silent: true, onSuccess: () => void refetch() },
-    );
-  }, [call, currentItem, refetch, superPass, superPassCountdown.isExpired]);
+
+    const scheduleRetry = () => {
+      window.setTimeout(() => {
+        if (superPassResolveKeyRef.current !== key) return;
+        superPassResolveKeyRef.current = '';
+        void refetch();
+      }, 3000);
+    };
+
+    void studentRpc
+      .resolveAuctionSuperPassPhaseIfExpired(supabase, { p_item_id: currentItem.id })
+      .then((result) => {
+        if (!result.success) {
+          scheduleRetry();
+          return;
+        }
+        void refetch();
+        if (result.data?.status === 'NOT_EXPIRED') scheduleRetry();
+      })
+      .catch(scheduleRetry);
+  }, [currentItem, refetch, superPass, superPassCountdown.isExpired]);
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ['live-auction-state', classroomId] });

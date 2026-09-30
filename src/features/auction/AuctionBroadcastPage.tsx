@@ -29,9 +29,26 @@ export default function AuctionBroadcastPage() {
     const key = `${currentItem.id}:${currentItem.bidding_ends_at}`;
     if (finalizeKeyRef.current === key) return;
     finalizeKeyRef.current = key;
+
+    const scheduleRetry = () => {
+      window.setTimeout(() => {
+        if (finalizeKeyRef.current !== key) return;
+        finalizeKeyRef.current = '';
+        void refetch();
+      }, 3000);
+    };
+
     void studentRpc
       .finalizeLiveAuctionItemIfExpired(supabase, { p_item_id: currentItem.id })
-      .then(() => refetch());
+      .then((result) => {
+        if (!result.success) {
+          scheduleRetry();
+          return;
+        }
+        void refetch();
+        if (result.data?.status === 'NOT_EXPIRED') scheduleRetry();
+      })
+      .catch(scheduleRetry);
   }, [countdown.isExpired, countdown.isPaused, currentItem, refetch]);
 
   useEffect(() => {
@@ -39,9 +56,26 @@ export default function AuctionBroadcastPage() {
     const key = `${superPass.round_id}:${superPass.application_ends_at}`;
     if (superPassResolveKeyRef.current === key) return;
     superPassResolveKeyRef.current = key;
+
+    const scheduleRetry = () => {
+      window.setTimeout(() => {
+        if (superPassResolveKeyRef.current !== key) return;
+        superPassResolveKeyRef.current = '';
+        void refetch();
+      }, 3000);
+    };
+
     void studentRpc
       .resolveAuctionSuperPassPhaseIfExpired(supabase, { p_item_id: currentItem.id })
-      .then(() => refetch());
+      .then((result) => {
+        if (!result.success) {
+          scheduleRetry();
+          return;
+        }
+        void refetch();
+        if (result.data?.status === 'NOT_EXPIRED') scheduleRetry();
+      })
+      .catch(scheduleRetry);
   }, [currentItem, refetch, superPass, superPassCountdown.isExpired]);
 
 
