@@ -609,7 +609,14 @@ function PortraitStage({
         aria-hidden="true"
         className="absolute left-1/2 top-[-34px] h-[130px] w-[160px] -translate-x-1/2 rounded-[50%] bg-[radial-gradient(ellipse,rgba(255,232,176,0.13),transparent_70%)] blur-xl"
       />
-      <div className="relative aspect-[9/13] overflow-hidden rounded-t-[92px] rounded-b-[24px] border border-white/18 bg-black/60 shadow-[0_18px_36px_rgba(0,0,0,0.34)]">
+      <div
+        className="relative aspect-[9/13] overflow-hidden rounded-t-[92px] rounded-b-[24px] border border-white/18 bg-black/60 shadow-[0_18px_36px_rgba(0,0,0,0.34)]"
+        style={{
+          clipPath: portrait.flip
+            ? 'inset(0 round 92px 92px 24px 24px)'
+            : undefined,
+        }}
+      >
         <img
           src={portrait.imageUrl}
           alt={`${row.period_label} 월간 MVP ${row.winner_display_name}`}
