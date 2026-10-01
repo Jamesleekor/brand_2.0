@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import type { LiveAuctionItem, LiveAuctionState } from './types';
+
 
 export function useLiveAuctionState(includeScheduled = false) {
   const classroomId = useClassroomId();
