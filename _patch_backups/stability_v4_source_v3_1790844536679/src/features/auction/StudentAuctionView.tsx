@@ -14,7 +14,8 @@ import type { AuctionSuperPassState, LiveAuctionItem } from './types';
 
 export default function StudentAuctionView() {
   const studentId = useStudentId();
-  const { wallet, refetch: refetchWallet } = useWallet();  const { isStateDelayed, state, auction, items, currentItem, recentBids, superPass, isLoading, refetch } = useLiveAuctionState(false);
+  const { wallet, refetch: refetchWallet } = useWallet();
+  const { state, auction, items, currentItem, recentBids, superPass, isLoading, refetch } = useLiveAuctionState(false);
   const { call, isLoading: isSubmitting } = useRpcCall();
   const showToast = useToastStore((s) => s.show);
   const auctionSubmitRef = useRef(false);
@@ -127,8 +128,8 @@ export default function StudentAuctionView() {
   const availableGold = Math.max(0, (wallet?.gold ?? 0) - reservedGold);
   const isApplyingSuperPass = superPass?.status === 'APPLYING';
   const isPriorityBidding = superPass?.status === 'PRIORITY_BIDDING';
-  const canBid = Boolean(    !isStateDelayed &&
-      currentItem &&
+  const canBid = Boolean(
+    currentItem &&
       studentId &&
       currentItem.bidding_ends_at &&
       !isApplyingSuperPass &&
@@ -138,7 +139,8 @@ export default function StudentAuctionView() {
       !amTopBidder,
   );
 
-  const placeBid = async (quick: boolean) => {    if (!canBid || !currentItem || !studentId || auctionSubmitRef.current) return;
+  const placeBid = async (quick: boolean) => {
+    if (!currentItem || !studentId || auctionSubmitRef.current) return;
     auctionSubmitRef.current = true;
     try {
     const amount = quick ? null : Number(bidAmount);
@@ -159,7 +161,8 @@ export default function StudentAuctionView() {
     } finally { auctionSubmitRef.current = false; }
   };
 
-  const applySuperPass = async () => {    if (isStateDelayed || superPassCountdown.isExpired || !currentItem || auctionSubmitRef.current) return;
+  const applySuperPass = async () => {
+    if (!currentItem || auctionSubmitRef.current) return;
     auctionSubmitRef.current = true;
     try {
     await call(
@@ -187,9 +190,10 @@ export default function StudentAuctionView() {
     );
   }
 
-  const completedItems = items.filter((item) => item.final_status !== null);  return (
+  const completedItems = items.filter((item) => item.final_status !== null);
+
+  return (
     <div className="space-y-3">
-      {isStateDelayed && <p role="status" className="rounded-card-md border border-warning/40 bg-warning/10 p-3 text-sm font-black text-warning">서버 동기화 지연 · 최신 최고가와 시간을 확인하는 동안 입찰을 잠시 멈춥니다.</p>}
       <div className="rounded-card-md border border-gold/30 bg-gold/10 px-3 py-2.5 flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-black text-gold">🔨 {auction.round_number}회차 실시간 경매</p>
@@ -218,8 +222,8 @@ export default function StudentAuctionView() {
               />
             </div>
           ) : (
-            <CurrentAuctionCard              item={currentItem}
-              isStateDelayed={isStateDelayed}
+            <CurrentAuctionCard
+              item={currentItem}
               remainingSeconds={countdown.remainingSeconds}
               isPaused={countdown.isPaused}
               bidAmount={bidAmount}
@@ -233,7 +237,8 @@ export default function StudentAuctionView() {
               onCustomBid={() => void placeBid(false)}
               recentBids={recentBids.filter((bid) => bid.auction_item_id === currentItem.id).slice(0, 6)}
               superPass={superPass}
-              superPassRemainingSeconds={superPassCountdown.remainingSeconds}              superPassExpired={isStateDelayed || superPassCountdown.isExpired}
+              superPassRemainingSeconds={superPassCountdown.remainingSeconds}
+              superPassExpired={superPassCountdown.isExpired}
               walletGold={wallet?.gold ?? 0}
               onApplySuperPass={() => void applySuperPass()}
             />
@@ -289,7 +294,6 @@ function AuctionSequence({ items, currentItemId }: { items: LiveAuctionItem[]; c
 
 interface CurrentAuctionCardProps {
   item: LiveAuctionItem;
-  isStateDelayed: boolean;
   remainingSeconds: number;
   isPaused: boolean;
   bidAmount: number | '';
@@ -317,7 +321,8 @@ interface CurrentAuctionCardProps {
 }
 
 function CurrentAuctionCard(props: CurrentAuctionCardProps) {
-  const {    item, isStateDelayed, remainingSeconds, isPaused, bidAmount, setBidAmount, quickAmount,
+  const {
+    item, remainingSeconds, isPaused, bidAmount, setBidAmount, quickAmount,
     canBid, amTopBidder, availableGold, isSubmitting, onQuickBid, onCustomBid, recentBids,
     superPass, superPassRemainingSeconds, superPassExpired, walletGold, onApplySuperPass,
   } = props;
@@ -367,7 +372,7 @@ function CurrentAuctionCard(props: CurrentAuctionCardProps) {
             'font-mono text-3xl font-black tabular-nums',
             isPaused ? 'text-warning' : (superPass?.status === 'APPLYING' ? superPassRemainingSeconds : remainingSeconds) <= 5 ? 'text-danger animate-pulse' : 'text-brand-glow',
           )}>
-            {isPaused ? 'PAUSE' : (isStateDelayed ? '동기화 지연' : (superPass?.status === 'APPLYING' ? superPassRemainingSeconds : remainingSeconds) <= 0 ? '마감 확인 중' : formatAuctionTime(superPass?.status === 'APPLYING' ? superPassRemainingSeconds : remainingSeconds))}
+            {isPaused ? 'PAUSE' : formatAuctionTime(superPass?.status === 'APPLYING' ? superPassRemainingSeconds : remainingSeconds)}
           </p>
         </div>
       </div>

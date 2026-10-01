@@ -53,11 +53,8 @@ export default function TeacherArcadePage() {
   const [isLoadingVerification, setIsLoadingVerification] = useState(false);
   const [verificationActionId, setVerificationActionId] = useState<string | null>(null);
 
-  const query = useQuery({    queryKey: ['teacher-arcade', classroomId, selectedGameCode],
-    staleTime: 30_000,
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+  const query = useQuery({
+    queryKey: ['teacher-arcade', classroomId, selectedGameCode],
     enabled: Boolean(classroomId),
     queryFn: async () => {
       const [periods, seasons, games, students, testAccess] = await Promise.all([

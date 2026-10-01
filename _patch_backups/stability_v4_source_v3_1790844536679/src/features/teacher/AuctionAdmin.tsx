@@ -22,7 +22,8 @@ function rpcErrorMessage(result: unknown, fallback = '서버가 요청을 처리
 
 export default function AuctionAdmin() {
   const classroomId = useClassroomId();
-  const queryClient = useQueryClient();  const { isStateDelayed, state, auction, items, currentItem, recentBids, superPass, isLoading, isError, error, refetch } = useLiveAuctionState(true);
+  const queryClient = useQueryClient();
+  const { state, auction, items, currentItem, recentBids, superPass, isLoading, isError, error, refetch } = useLiveAuctionState(true);
   const { call, isLoading: isMutating } = useRpcCall();
   const showToast = useToastStore((s) => s.show);
   const [createOpen, setCreateOpen] = useState(false);
@@ -257,8 +258,8 @@ export default function AuctionAdmin() {
             </section>
 
             {currentItem && (
-              <TeacherCurrentItem                item={currentItem}
-                isStateDelayed={isStateDelayed}
+              <TeacherCurrentItem
+                item={currentItem}
                 remainingSeconds={countdown.remainingSeconds}
                 isPaused={countdown.isPaused}
                 recentBids={recentBids.filter((bid) => bid.auction_item_id === currentItem.id)}
@@ -441,10 +442,11 @@ export default function AuctionAdmin() {
   );
 }
 
-function TeacherCurrentItem({  item, isStateDelayed, remainingSeconds, isPaused, recentBids, superPass, superPassRemainingSeconds, isMutating,
+function TeacherCurrentItem({
+  item, remainingSeconds, isPaused, recentBids, superPass, superPassRemainingSeconds, isMutating,
   onPause, onResume, onCloseNow, onFail, onCloseSuperPassApplication,
-}: {  item: LiveAuctionItem;
-  isStateDelayed: boolean;
+}: {
+  item: LiveAuctionItem;
   remainingSeconds: number;
   isPaused: boolean;
   recentBids: Array<{ id: number; student_name: string; brand_name: string | null; bid_amount: number }>;
@@ -491,7 +493,7 @@ function TeacherCurrentItem({  item, isStateDelayed, remainingSeconds, isPaused,
           <div className="bg-bg-deep/60 border border-line rounded-card-md p-3 text-center">
             <p className="text-2xs text-text-muted font-bold">{superPass?.status === 'APPLYING' ? '신청 마감' : '남은 시간'}</p>
             <p className={cn('font-mono text-2xl font-black', isPaused ? 'text-warning' : (superPass?.status === 'APPLYING' ? superPassRemainingSeconds : remainingSeconds) <= 5 ? 'text-danger' : 'text-brand-glow')}>
-              {isPaused ? 'PAUSE' : (isStateDelayed ? '동기화 지연' : (superPass?.status === 'APPLYING' ? superPassRemainingSeconds : remainingSeconds) <= 0 ? '마감 확인 중' : formatAuctionTime(superPass?.status === 'APPLYING' ? superPassRemainingSeconds : remainingSeconds))}
+              {isPaused ? 'PAUSE' : formatAuctionTime(superPass?.status === 'APPLYING' ? superPassRemainingSeconds : remainingSeconds)}
             </p>
           </div>
         </div>

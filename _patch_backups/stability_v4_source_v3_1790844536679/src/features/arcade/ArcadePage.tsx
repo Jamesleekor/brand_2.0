@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader, LoadingSpinner } from '@/components/shared/components';
 import { FocusReactionGame, type FocusPlaySummary } from '@/features/arcade/FocusReactionGame';
@@ -42,17 +42,14 @@ export default function ArcadePage() {
   const [bootstrap, setBootstrap] = useState<ArcadeRunBootstrap | null>(null);
   const [result, setResult] = useState<ArcadeRunSubmissionResult | null>(null);
   const [playSummary, setPlaySummary] = useState<FocusPlaySummary | PureReactionPlaySummary | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);  const [isCreatingRun, setIsCreatingRun] = useState(false);
-  const creatingRunRef = useRef(false);
-  const verificationRequestRef = useRef<{ sessionId: number; key: string } | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isCreatingRun, setIsCreatingRun] = useState(false);
   const [isResultRankingUpdating, setIsResultRankingUpdating] = useState(false);
-  const [tikatukaOpen, setTikatukaOpen] = useState(false);  const arcadeQuery = useQuery({
+  const [tikatukaOpen, setTikatukaOpen] = useState(false);
+
+  const arcadeQuery = useQuery({
     queryKey: ['arcade', 'catalog', classroomId],
     enabled: Boolean(classroomId),
-    staleTime: 60_000,
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
     queryFn: async () => {
       const [games, periods] = await Promise.all([
         supabase.from('arcade_games').select('id,code,internal_name,is_active,available_from,available_until').order('id'),
@@ -68,13 +65,11 @@ export default function ArcadePage() {
   const selectedPeriod = visiblePeriods.find((period) => period.id === selectedPeriodId) ?? visiblePeriods[0] ?? null;
   const playableGames = (arcadeQuery.data?.games ?? []).filter((entry) => entry.is_active && ['focus_reaction_01', 'pure_reaction_02'].includes(entry.code));
   const isRakarukaSelected = selectedGameCode === RAKARUKA_CODE;
-  const game = isRakarukaSelected ? null : (playableGames.find((entry) => entry.code === selectedGameCode) ?? playableGames[0] ?? null);  const gameAccessQuery = useQuery({
+  const game = isRakarukaSelected ? null : (playableGames.find((entry) => entry.code === selectedGameCode) ?? playableGames[0] ?? null);
+
+  const gameAccessQuery = useQuery({
     queryKey: ['arcade', 'game-access', studentId, game?.code],
-    enabled: Boolean(!bootstrap && !isCreatingRun && !isRakarukaSelected && game && studentId),
-    staleTime: 15_000,
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    enabled: Boolean(!isRakarukaSelected && game && studentId),
     queryFn: async () => {
       const rpc = await arcadeStudentRpc.getGameAccess(supabase, { p_game_code: game!.code });
       if (rpc.success === false) throw new Error(arcadeErrorMessage(rpc));
@@ -86,26 +81,22 @@ export default function ArcadePage() {
   const dailyAttemptUsed = gameAccessQuery.data?.daily_attempt_used ?? null;
   const dailyAttemptRemaining = gameAccessQuery.data?.daily_attempt_remaining ?? null;
   const dailyAttemptDisplayUsed = dailyAttemptLimit !== null && dailyAttemptUsed !== null ? Math.min(dailyAttemptUsed, dailyAttemptLimit) : dailyAttemptUsed;
-  const dailyAttemptExhausted = game?.code === 'pure_reaction_02' && dailyAttemptLimit !== null && dailyAttemptRemaining !== null && dailyAttemptRemaining <= 0;  const verificationQuery = useQuery({
+  const dailyAttemptExhausted = game?.code === 'pure_reaction_02' && dailyAttemptLimit !== null && dailyAttemptRemaining !== null && dailyAttemptRemaining <= 0;
+
+  const verificationQuery = useQuery({
     queryKey: ['arcade', 'verification-state', studentId, game?.code],
-    enabled: Boolean(!bootstrap && !isCreatingRun && !isRakarukaSelected && game && studentId),
-    staleTime: 15_000,
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    enabled: Boolean(!isRakarukaSelected && game && studentId),
     queryFn: async () => {
       const rpc = await arcadeStudentRpc.getVerificationState(supabase, { p_game_code: game!.code });
       if (rpc.success === false) throw new Error(arcadeErrorMessage(rpc));
       return rpc.data;
     },
   });
-  const verificationState = verificationQuery.data ?? null;  const leaderboardQuery = useQuery({
+  const verificationState = verificationQuery.data ?? null;
+
+  const leaderboardQuery = useQuery({
     queryKey: ['arcade', 'leaderboard', studentId, selectedPeriod?.id, game?.code],
-    enabled: Boolean(!bootstrap && !isCreatingRun && !isRakarukaSelected && studentId && selectedPeriod && game),
-    staleTime: 15_000,
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    enabled: Boolean(!isRakarukaSelected && studentId && selectedPeriod && game),
     queryFn: async () => {
       const rpc = await arcadeStudentRpc.getLeaderboard(supabase, { p_game_code: game!.code, p_period_id: selectedPeriod!.id });
       if (rpc.success === false) throw new Error(arcadeErrorMessage(rpc));
@@ -119,64 +110,50 @@ export default function ArcadePage() {
     setResult(null);
     setPlaySummary(null);
     setActionError(null);
-  };  const startGame = async () => {
-    if (!game || !selectedPeriod || bootstrap || creatingRunRef.current) return;
-    creatingRunRef.current = true;
+  };
+
+  const startGame = async () => {
+    if (!game || !selectedPeriod) return;
     setActionError(null);
     setResult(null);
     setPlaySummary(null);
     setIsResultRankingUpdating(false);
     setIsCreatingRun(true);
-    try {
-      const rpc = await arcadeStudentRpc.createRun(supabase, { p_game_code: game.code });
-      if (rpc.success === false) {
-        setActionError(arcadeErrorMessage(rpc));
-        return;
-      }
-      setBootstrap(rpc.data);
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : '게임 준비 상태를 확인하지 못했습니다.');
-    } finally {
-      creatingRunRef.current = false;
-      setIsCreatingRun(false);
+    const rpc = await arcadeStudentRpc.createRun(supabase, { p_game_code: game.code });
+    setIsCreatingRun(false);
+    if (rpc.success === false) {
+      setActionError(arcadeErrorMessage(rpc));
+      await gameAccessQuery.refetch();
+      return;
     }
+    void gameAccessQuery.refetch();
+    setBootstrap(rpc.data);
   };
 
   const startVerificationGame = async (state: ArcadeVerificationState) => {
-    if (!state.available || !state.session_id || !state.can_attempt || bootstrap || creatingRunRef.current) return;
-    creatingRunRef.current = true;
-    const request = verificationRequestRef.current?.sessionId === state.session_id
-      ? verificationRequestRef.current
-      : { sessionId: state.session_id, key: crypto.randomUUID() };
-    verificationRequestRef.current = request;
+    if (!state.available || !state.session_id || !state.can_attempt || bootstrap) return;
     setActionError(null);
     setResult(null);
     setPlaySummary(null);
     setIsResultRankingUpdating(false);
     setIsCreatingRun(true);
-    try {
-      const rpc = await arcadeStudentRpc.createVerificationRun(supabase, {
-        p_session_id: state.session_id,
-        p_idempotency_key: request.key,
-      });
-      if (rpc.success === false) {
-        setActionError(arcadeErrorMessage(rpc));
-        return;
-      }
-      verificationRequestRef.current = null;
-      if (state.period_id) setSelectedPeriodId(state.period_id);
-      setBootstrap(rpc.data);
-    } catch (error) {
-      setActionError(error instanceof Error ? error.message : '인증 준비 상태를 확인하지 못했습니다.');
-    } finally {
-      creatingRunRef.current = false;
-      setIsCreatingRun(false);
+    const rpc = await arcadeStudentRpc.createVerificationRun(supabase, { p_session_id: state.session_id, p_idempotency_key: crypto.randomUUID() });
+    setIsCreatingRun(false);
+    if (rpc.success === false) {
+      setActionError(arcadeErrorMessage(rpc));
+      await verificationQuery.refetch();
+      return;
     }
+    if (state.period_id) setSelectedPeriodId(state.period_id);
+    setBootstrap(rpc.data);
+    await verificationQuery.refetch();
   };
 
-const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPlaySummary | PureReactionPlaySummary) => {
+  const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPlaySummary | PureReactionPlaySummary) => {
     setResult({ ...nextResult, is_prerelease_test: bootstrap?.is_prerelease_test ?? false });
-    setPlaySummary(summary);if (bootstrap?.is_prerelease_test) return;
+    setPlaySummary(summary);
+    if (bootstrap?.run_context === 'VERIFICATION') void queryClient.invalidateQueries({ queryKey: ['arcade', 'verification-state'] });
+    if (bootstrap?.is_prerelease_test) return;
     setIsResultRankingUpdating(true);
     void Promise.all([
       queryClient.invalidateQueries({ queryKey: ['arcade', 'leaderboard'] }),

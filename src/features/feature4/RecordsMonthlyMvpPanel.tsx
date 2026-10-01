@@ -13,6 +13,9 @@ import { supabase } from '@/lib/supabase/client';
 type PortraitSpec = {
   imageUrl: string;
   flip?: boolean;
+  fit?: 'contain' | 'cover';
+  scale?: number;
+  objectPosition?: string;
   accent: 'silver' | 'gold' | 'rose' | 'cyan';
 };
 
@@ -56,6 +59,8 @@ const PORTRAITS_2023: Record<string, PortraitSpec> = {
   '최나연': {
     imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/mvp/2023/2023MVP_Nayeon-Choi.webp',
     accent: 'gold',
+    fit: 'cover',
+    scale: 1.08,
   },
   '이가온': {
     imageUrl: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/mvp/2023/2023MVP_Gaon-Lee.webp',
@@ -76,6 +81,7 @@ const PORTRAITS_2026: Record<string, PortraitSpec> = {
     imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/May_MVP.png',
     accent: 'rose',
     flip: true,
+    fit: 'cover',
   },
   '6:류은우': {
     imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/June_MVP.png',
@@ -608,9 +614,17 @@ function PortraitStage({
           src={portrait.imageUrl}
           alt={`${row.period_label} 월간 MVP ${row.winner_display_name}`}
           className={[
-            'h-full w-full object-contain object-center',
-            portrait.flip ? '-scale-x-100' : '',
+            'h-full w-full',
+            portrait.fit === 'cover' ? 'object-cover' : 'object-contain',
           ].join(' ')}
+          style={{
+            objectPosition: portrait.objectPosition ?? '50% 50%',
+            transform:
+              portrait.flip || portrait.scale
+                ? `${portrait.flip ? 'scaleX(-1) ' : ''}scale(${portrait.scale ?? 1})`
+                : undefined,
+            transformOrigin: 'center',
+          }}
           loading="lazy"
         />
         <div aria-hidden="true" className="absolute inset-x-0 top-0 h-[22%] bg-gradient-to-b from-black/38 to-transparent" />

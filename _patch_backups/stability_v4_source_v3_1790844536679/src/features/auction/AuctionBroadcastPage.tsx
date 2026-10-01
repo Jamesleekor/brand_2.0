@@ -7,7 +7,8 @@ import { formatNumber } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { formatAuctionTime, useAuctionCountdown, useLiveAuctionState, useServerDeadlineCountdown } from './useLiveAuction';
 
-export default function AuctionBroadcastPage() {  const { isStateDelayed, state, auction, items, currentItem, recentBids, superPass, isLoading, refetch } = useLiveAuctionState(false);
+export default function AuctionBroadcastPage() {
+  const { state, auction, items, currentItem, recentBids, superPass, isLoading, refetch } = useLiveAuctionState(false);
   const bidSound = useAuctionBidSound(currentItem);
   const countdown = useAuctionCountdown(
     state?.server_now,
@@ -83,8 +84,8 @@ export default function AuctionBroadcastPage() {  const { isStateDelayed, state,
             {bidSound.enabled ? '🔊 입찰음 켜짐' : '🔇 입찰음 켜기'}
           </button>
           {bidSound.audioError && <p role="status" className="text-amber-200 text-sm">{bidSound.audioError}</p>}
-        </div>      </header>
-      {isStateDelayed && <p role="status" className="text-warning text-lg font-black mb-3">서버 동기화 지연 · 표시된 최고가와 시간이 최신인지 확인 중입니다.</p>}
+        </div>
+      </header>
 
       {!auction ? (
         <div className="h-[75vh] flex flex-col items-center justify-center border border-line rounded-card-lg bg-bg-card">
@@ -193,11 +194,10 @@ export default function AuctionBroadcastPage() {  const { isStateDelayed, state,
               <div className="p-5 text-center">
                 <p className="text-sm text-text-muted font-bold mb-1">{superPass?.status === 'APPLYING' ? '신청 마감' : '남은 시간'}</p>
                 <p className={cn(
-                  'font-mono font-black tabular-nums mt-1',
-                  isStateDelayed || (superPass?.status === 'APPLYING' ? superPassCountdown.remainingSeconds : countdown.remainingSeconds) <= 0 ? 'text-2xl' : 'text-6xl',
+                  'font-mono text-6xl font-black tabular-nums mt-1',
                   countdown.isPaused ? 'text-warning' : (superPass?.status === 'APPLYING' ? superPassCountdown.remainingSeconds : countdown.remainingSeconds) <= 5 ? 'text-danger animate-pulse' : 'text-brand-glow',
                 )}>
-                  {countdown.isPaused ? 'PAUSE' : (isStateDelayed ? '동기화 지연' : (superPass?.status === 'APPLYING' ? superPassCountdown.remainingSeconds : countdown.remainingSeconds) <= 0 ? '마감 확인 중' : formatAuctionTime(superPass?.status === 'APPLYING' ? superPassCountdown.remainingSeconds : countdown.remainingSeconds))}
+                  {countdown.isPaused ? 'PAUSE' : formatAuctionTime(superPass?.status === 'APPLYING' ? superPassCountdown.remainingSeconds : countdown.remainingSeconds)}
                 </p>
               </div>
             </div>

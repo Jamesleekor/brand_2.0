@@ -5,26 +5,21 @@ import { useClassroomId } from '@/stores/auth_store';
 import type { LiveAuctionItem, LiveAuctionState } from './types';
 
 
-type AuctionQueryState = LiveAuctionState & { receivedAtMs?: number; requestDurationMs?: number };
 export function useLiveAuctionState(includeScheduled = false) {
   const classroomId = useClassroomId();
   // AUCTION_EMERGENCY_POLLING_V1: avoid Postgres Changes fan-out during live bidding.
-  const [pollMs] = useState(() => (includeScheduled ? 1_500 : 2_500) + Math.floor(Math.random() * 500));  // AUCTION_SYNC_HEALTH_V2
-  const [healthTick, setHealthTick] = useState(() => Date.now());
-  useEffect(() => {
-    const timer = window.setInterval(() => setHealthTick(Date.now()), 1_000);
-    return () => window.clearInterval(timer);
-  }, []);
-  const query = useQuery<AuctionQueryState>({
+  const [pollMs] = useState(() => (includeScheduled ? 1_500 : 2_500) + Math.floor(Math.random() * 500));
+
+  const query = useQuery<LiveAuctionState>({
     queryKey: ['live-auction-state', classroomId, includeScheduled],
     queryFn: async () => {
-      if (!classroomId) return { server_now: new Date().toISOString(), auction: null };      const startedAtMs = Date.now();
+      if (!classroomId) return { server_now: new Date().toISOString(), auction: null };
       const { data, error } = await supabase.rpc('get_live_auction_state', {
         p_classroom_id: classroomId,
         p_include_scheduled: includeScheduled,
       });
-      if (error) throw new Error(error.message);      const receivedAtMs = Date.now();
-      return { ...(data as LiveAuctionState), receivedAtMs, requestDurationMs: receivedAtMs - startedAtMs };
+      if (error) throw new Error(error.message);
+      return data as LiveAuctionState;
     },
     enabled: classroomId !== null,
     refetchInterval: pollMs,
@@ -35,9 +30,8 @@ export function useLiveAuctionState(includeScheduled = false) {
     staleTime: 1_000,
   });
 
-  const refetch = useCallback(() => query.refetch({ cancelRefetch: false }), [query.refetch]);  const isStateDelayed = query.isError || !query.data?.receivedAtMs
-    || healthTick - query.data.receivedAtMs > 6_000
-    || (query.data.requestDurationMs ?? Infinity) > 2_000;
+  const refetch = useCallback(() => query.refetch({ cancelRefetch: false }), [query.refetch]);
+
   const items = query.data?.items ?? [];
   const currentItem = useMemo(
     () => items.find((item) => item.is_current) ?? null,
@@ -46,7 +40,6 @@ export function useLiveAuctionState(includeScheduled = false) {
 
   return {
     ...query,
-    isStateDelayed,
     refetch,
     classroomId,
     state: query.data ?? null,

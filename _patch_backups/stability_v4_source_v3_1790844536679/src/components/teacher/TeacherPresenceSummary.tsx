@@ -118,13 +118,8 @@ export function TeacherPresenceSummary() {
   }, []);
 
   useEffect(() => {
-    if (!classroomId) return;    // AUCTION_RECOVERY_SUSPEND_PRESENCE_V2
-    const presenceTemporarilySuspended = true;
-    if (presenceTemporarilySuspended) {
-      setConnectionState('ERROR');
-      setOnline(new Map());
-      return;
-    }
+    if (!classroomId) return;
+
     const topic = `brand:classroom:${classroomId}:presence`;
     const channel = supabase.channel(topic, { config: { private: true } });
     channelRef.current = channel;
@@ -217,7 +212,7 @@ export function TeacherPresenceSummary() {
         aria-label="학생 실시간 접속 현황"
       >
         <span className={cn('h-2 w-2 rounded-full', connectionState === 'LIVE' ? 'bg-success animate-pulse' : connectionState === 'ERROR' ? 'bg-danger' : 'bg-text-muted')} />
-        <span>{connectionState === 'ERROR' ? '접속 기록 보기' : `실시간 접속 ${onlineCount}명`}</span>
+        <span>실시간 접속 {onlineCount}명</span>
         <span className="hidden text-text-muted lg:inline">/ {roster.length}</span>
       </button>
 
@@ -242,7 +237,7 @@ export function TeacherPresenceSummary() {
               <div className="mb-3 rounded-card-md border border-danger/30 bg-danger-bg px-3 py-2 text-xs font-bold text-danger">{rosterError}</div>
             )}
             {connectionState === 'ERROR' && (
-              <div className="mb-3 rounded-card-md border border-warning/30 bg-warning-bg px-3 py-2 text-xs font-bold text-warning">경매 연결 복구를 위해 실시간 접속 표시를 잠시 중단했습니다. 마지막 접속 기록은 계속 확인할 수 있습니다.</div>
+              <div className="mb-3 rounded-card-md border border-warning/30 bg-warning-bg px-3 py-2 text-xs font-bold text-warning">실시간 채널 연결에 문제가 있습니다. 마지막 접속 기록은 계속 확인할 수 있습니다.</div>
             )}
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">

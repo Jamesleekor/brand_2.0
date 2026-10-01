@@ -40,9 +40,8 @@ export function StudentPresenceTracker({ children }: StudentPresenceTrackerProps
     void publish();
   }, [location.pathname, publish]);
 
-  useEffect(() => {    // AUCTION_RECOVERY_SUSPEND_PRESENCE_V2: stop failing private joins during recovery.
-    const presenceTemporarilySuspended = true;
-    if (presenceTemporarilySuspended || !studentId || !classroomId) return;
+  useEffect(() => {
+    if (!studentId || !classroomId) return;
 
     const topic = `brand:classroom:${classroomId}:presence`;
     const channel = supabase.channel(topic, {
