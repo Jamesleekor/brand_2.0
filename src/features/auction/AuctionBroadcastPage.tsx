@@ -1,3 +1,4 @@
+import { useAuctionBidSound } from './useAuctionBidSound';
 import { useAuctionExpiryActions } from '@/features/auction/useAuctionExpiryActions';
 import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -8,6 +9,7 @@ import { formatAuctionTime, useAuctionCountdown, useLiveAuctionState, useServerD
 
 export default function AuctionBroadcastPage() {
   const { state, auction, items, currentItem, recentBids, superPass, isLoading, refetch } = useLiveAuctionState(false);
+  const bidSound = useAuctionBidSound(currentItem);
   const countdown = useAuctionCountdown(
     state?.server_now,
     currentItem,
@@ -76,6 +78,13 @@ export default function AuctionBroadcastPage() {
         >
           ⛶ 전체 화면
         </button>
+        <div className="flex flex-col items-end gap-2">
+          <button type="button" onClick={() => void bidSound.toggleSound()} aria-pressed={bidSound.enabled}
+            className="px-4 py-2 rounded-card-md border border-gold/40 bg-bg-card text-sm font-black text-gold">
+            {bidSound.enabled ? '🔊 입찰음 켜짐' : '🔇 입찰음 켜기'}
+          </button>
+          {bidSound.audioError && <p role="status" className="text-amber-200 text-sm">{bidSound.audioError}</p>}
+        </div>
       </header>
 
       {!auction ? (
