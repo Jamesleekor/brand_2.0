@@ -140,15 +140,15 @@ const PORTRAITS_2023: Record<string, PortraitSpec> = {
 
 const PORTRAITS_2026: Record<string, PortraitSpec> = {
   '3': {
-    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/All-Time-MVP-Winners/2026-March-MVP.webp',
+    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/March_MVP.png',
     accent: 'silver', fit: 'cover', objectPosition: '50% 43%'
   },
   '4': {
-    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/All-Time-MVP-Winners/2026-April-MVP.webp',
+    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/April_MVP.png',
     accent: 'gold', fit: 'cover', objectPosition: '50% 48%'
   },
   '5': {
-    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/All-Time-MVP-Winners/2026-May-MVP.webp',
+    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/May_MVP.png',
     accent: 'rose', fit: 'cover', objectPosition: '50% 43%'
   },
   '6': {
@@ -156,7 +156,7 @@ const PORTRAITS_2026: Record<string, PortraitSpec> = {
     accent: 'cyan', fit: 'cover', objectPosition: '50% 44%'
   },
   '7': {
-    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/All-Time-MVP-Winners/2026-July-MVP.webp',
+    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/July_MVP.png',
     accent: 'gold', fit: 'cover', objectPosition: '50% 45%'
   },
   '9': {
@@ -1010,16 +1010,11 @@ function ArchiveEntrance({
             const is2026 = year === 2026;
 
             return (
-              <button
+              <a
                 key={year}
-                type="button"
-                aria-label={`${year} 월간 MVP 전시관으로 이동`}
-                onClick={() => {
-                  const target = document.getElementById(`monthly-mvp-${year}`);
-                  target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
+                href={`#monthly-mvp-${year}`}
                 className={[
-                  'group relative w-full cursor-pointer overflow-hidden rounded-[22px] border px-4 py-4 text-left transition duration-200 hover:-translate-y-0.5',
+                  'group relative overflow-hidden rounded-[22px] border px-4 py-4 transition duration-200 hover:-translate-y-0.5',
                   is2026
                     ? 'border-sky-200/20 bg-[linear-gradient(135deg,rgba(58,79,130,0.20),rgba(11,13,25,0.78))] hover:border-sky-100/34'
                     : 'border-amber-200/20 bg-[linear-gradient(135deg,rgba(116,78,41,0.18),rgba(18,13,17,0.80))] hover:border-amber-100/34',
@@ -1058,7 +1053,7 @@ function ArchiveEntrance({
                     <Crown className="h-5 w-5" strokeWidth={1.45} />
                   </div>
                 </div>
-              </button>
+              </a>
             );
           })}
         </div>
