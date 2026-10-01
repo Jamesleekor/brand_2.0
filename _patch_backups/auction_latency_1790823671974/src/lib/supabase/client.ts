@@ -29,7 +29,6 @@ function requestUrl(input: RequestInfo | URL): string {
 
 function isCriticalRestRequest(url: string): boolean {
   return [
-    '/rest/v1/rpc/get_current_user_context',
     '/rest/v1/rpc/student_submit_focus_reaction_01_run',
     '/rest/v1/rpc/student_submit_pure_reaction_02_run',
     '/rest/v1/rpc/student_create_arcade_verification_run',
@@ -47,17 +46,7 @@ function acquireBackgroundRestSlot(): Promise<void> {
     backgroundRestInFlight += 1
     return Promise.resolve()
   }
-  return new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      const index = backgroundRestWaiters.indexOf(waiter)
-      if (index !== -1) {
-        backgroundRestWaiters.splice(index, 1)
-        reject(new Error('배경 요청이 지연되었습니다. 잠시 후 다시 확인해주세요.'))
-      }
-    }, 8_000)
-    const waiter = () => { clearTimeout(timer); resolve() }
-    backgroundRestWaiters.push(waiter)
-  })
+  return new Promise<void>((resolve) => backgroundRestWaiters.push(resolve))
 }
 
 function releaseBackgroundRestSlot() {
@@ -70,37 +59,15 @@ function releaseBackgroundRestSlot() {
   backgroundRestInFlight = Math.max(0, backgroundRestInFlight - 1)
 }
 
-async function boundedRestFetch(input: RequestInfo | URL, init: RequestInit | undefined, timeoutMs: number): Promise<Response> {
-  const controller = new AbortController()
-  const sourceSignal = init?.signal ?? (input instanceof Request ? input.signal : undefined)
-  const forwardAbort = () => controller.abort(sourceSignal?.reason)
-  if (sourceSignal?.aborted) forwardAbort()
-  else sourceSignal?.addEventListener('abort', forwardAbort, { once: true })
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    return await fetch(input, { ...init, signal: controller.signal })
-  } catch (error) {
-    if (controller.signal.aborted && !sourceSignal?.aborted) {
-      throw new Error('서버 응답이 지연되었습니다. 처리 결과를 먼저 확인한 뒤 다시 시도해주세요.')
-    }
-    throw error
-  } finally {
-    clearTimeout(timer)
-    sourceSignal?.removeEventListener('abort', forwardAbort)
-  }
-}
-
 const guardedFetch: typeof fetch = async (input, init) => {
   const url = requestUrl(input)
-  if (url.includes('/auth/v1/')) return boundedRestFetch(input, init, 20_000)
-  if (!url.includes('/rest/v1/')) return fetch(input, init)
-  // AUCTION_EMERGENCY_PRIORITY_V1: control/login calls bypass background queue.
-  if (/\/rest\/v1\/rpc\/[^/?]*auction[^/?]*(?:[?]|$)/.test(url) || isCriticalRestRequest(url)) {
-    return boundedRestFetch(input, init, 15_000)
+  if (!url.includes('/rest/v1/') || isCriticalRestRequest(url)) {
+    return fetch(input, init)
   }
+
   await acquireBackgroundRestSlot()
   try {
-    return await boundedRestFetch(input, init, 12_000)
+    return await fetch(input, init)
   } finally {
     releaseBackgroundRestSlot()
   }

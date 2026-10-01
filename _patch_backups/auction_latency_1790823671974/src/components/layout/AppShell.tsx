@@ -26,7 +26,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, requireTeacher = false }: ProtectedRouteProps) {
   const location = useLocation();
-  const { session, context, error, isInitialized, initialize } = useAuthStore();
+  const { session, context, isInitialized, initialize } = useAuthStore();
   
   useEffect(() => {
     initialize();
@@ -37,20 +37,6 @@ export function ProtectedRoute({ children, requireTeacher = false }: ProtectedRo
     return <FullPageLoader />;
   }
   
-  // APP_CONNECTION_RECOVERY_V1: never erase a valid session because its context read timed out.
-  if (session && !context && error) {
-    return <div className="app-container min-h-screen flex items-center justify-center">
-      <div className="p-6 text-center space-y-4 max-w-md">
-        <h1 className="text-xl font-bold text-amber-100">서버 연결이 지연되고 있습니다</h1>
-        <p className="text-sm text-amber-100">{error}</p>
-        <button type="button" className="btn-primary" onClick={() => {
-          useAuthStore.setState({ isInitialized: false, error: null });
-          void initialize();
-        }}>다시 연결</button>
-      </div>
-    </div>;
-  }
-
   // 미인증 → 로그인으로
   if (!session || !context) {
     return <Navigate to="/login" state={{ from: location }} replace />;

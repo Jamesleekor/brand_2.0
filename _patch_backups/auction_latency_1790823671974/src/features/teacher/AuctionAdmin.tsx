@@ -1,4 +1,3 @@
-import { useAuctionExpiryActions } from '@/features/auction/useAuctionExpiryActions';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { EmptyState, LoadingSpinner, Modal, useRpcCall } from '@/components/shared/components';
@@ -40,7 +39,8 @@ export default function AuctionAdmin() {
     // 버튼 클릭은 절대 조용히 실패하지 않는다. 학급 컨텍스트 검증은 모달 내부에서 한다.
     setCreateOpen(true);
   };
-  const criticalBusyRef = useRef(false);
+  const finalizeKeyRef = useRef('');
+  const superPassResolveKeyRef = useRef('');
 
   const countdown = useAuctionCountdown(
     state?.server_now,
@@ -54,21 +54,63 @@ export default function AuctionAdmin() {
     superPass?.status === 'APPLYING' ? superPass.application_ends_at : null,
   );
 
-  useAuctionExpiryActions({
-    itemId: currentItem?.id ?? null,
-    bidDeadline: currentItem?.bidding_ends_at ?? null,
-    bidExpired: countdown.isExpired,
-    paused: countdown.isPaused || Boolean(auction?.paused_at),
-    roundId: superPass?.round_id ?? null,
-    applicationDeadline: superPass?.application_ends_at ?? null,
-    applicationExpired: superPassCountdown.isExpired,
-    applying: superPass?.status === 'APPLYING',
-    operatingPanel: true,
-    refresh: refetch,
-  });
+  useEffect(() => {
+    if (!currentItem || !countdown.isExpired || countdown.isPaused) return;
+    const key = `${currentItem.id}:${currentItem.bidding_ends_at}`;
+    if (finalizeKeyRef.current === key) return;
+    finalizeKeyRef.current = key;
+
+    const scheduleRetry = () => {
+      window.setTimeout(() => {
+        if (finalizeKeyRef.current !== key) return;
+        finalizeKeyRef.current = '';
+        void refetch();
+      }, 3000);
+    };
+
+    void studentRpc
+      .finalizeLiveAuctionItemIfExpired(supabase, { p_item_id: currentItem.id })
+      .then((result) => {
+        if (!result.success) {
+          scheduleRetry();
+          return;
+        }
+        void refetch();
+        if (result.data?.status === 'NOT_EXPIRED') scheduleRetry();
+      })
+      .catch(scheduleRetry);
+  }, [countdown.isExpired, countdown.isPaused, currentItem, refetch]);
+
+  useEffect(() => {
+    if (!currentItem || superPass?.status !== 'APPLYING' || !superPassCountdown.isExpired) return;
+    const key = `${superPass.round_id}:${superPass.application_ends_at}`;
+    if (superPassResolveKeyRef.current === key) return;
+    superPassResolveKeyRef.current = key;
+
+    const scheduleRetry = () => {
+      window.setTimeout(() => {
+        if (superPassResolveKeyRef.current !== key) return;
+        superPassResolveKeyRef.current = '';
+        void refetch();
+      }, 3000);
+    };
+
+    void studentRpc
+      .resolveAuctionSuperPassPhaseIfExpired(supabase, { p_item_id: currentItem.id })
+      .then((result) => {
+        if (!result.success) {
+          scheduleRetry();
+          return;
+        }
+        void refetch();
+        if (result.data?.status === 'NOT_EXPIRED') scheduleRetry();
+      })
+      .catch(scheduleRetry);
+  }, [currentItem, refetch, superPass, superPassCountdown.isExpired]);
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ['live-auction-state', classroomId] }, { cancelRefetch: false });
+    void queryClient.invalidateQueries({ queryKey: ['live-auction-state', classroomId] });
+    void queryClient.invalidateQueries({ queryKey: ['teacher-dashboard'] });
     void queryClient.invalidateQueries({ queryKey: ['auction-history', classroomId] });
   };
 
@@ -90,8 +132,7 @@ export default function AuctionAdmin() {
     rpc: () => Promise<any>,
     successTitle: string,
   ): Promise<boolean> => {
-    if (criticalBusyRef.current) return false;
-    criticalBusyRef.current = true;
+    if (criticalBusy) return false;
     setCriticalBusy(true);
     setAuctionActionError(null);
     try {
@@ -103,8 +144,7 @@ export default function AuctionAdmin() {
         return false;
       }
       showToast({ title: successTitle, variant: 'success' });
-      // Server success releases the control immediately; a slow read must not hold this modal open.
-      void refetch();
+      await refetch();
       invalidate();
       return true;
     } catch (error) {
@@ -113,7 +153,6 @@ export default function AuctionAdmin() {
       showToast({ title: `${label} 오류`, description: message, variant: 'error' });
       return false;
     } finally {
-      criticalBusyRef.current = false;
       setCriticalBusy(false);
     }
   };
@@ -143,7 +182,7 @@ export default function AuctionAdmin() {
             {auction?.status === 'IN_PROGRESS' && (
               <button
                 type="button"
-                onClick={() => (() => { const url = new URL(window.location.href); url.hash = '/teacher/auction/screen'; window.open(url.href, '_blank', 'noopener,noreferrer'); })()}
+                onClick={() => window.open('/teacher/auction/screen', '_blank', 'noopener,noreferrer')}
                 className="btn-secondary"
               >
                 🖥️ 중계 화면

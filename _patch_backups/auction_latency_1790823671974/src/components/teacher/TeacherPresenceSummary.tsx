@@ -164,9 +164,6 @@ export function TeacherPresenceSummary() {
           sync();
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           setConnectionState('ERROR');
-          // AUCTION_EMERGENCY_STOP_PRESENCE_RETRY_V1
-          channelRef.current = null;
-          void supabase.removeChannel(channel);
         }
       });
 

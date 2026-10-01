@@ -75,10 +75,6 @@ interface AuthState {
 // 스토어 생성
 // =====================================================================
 
-// APP_CONNECTION_RECOVERY_V1: one session restoration and listener installation at a time.
-let authInitializationInFlight = false;
-let authStateUnsubscribe: (() => void) | null = null;
-
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   user: null,
@@ -91,8 +87,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // initialize — 앱 시작 시 한 번 호출 (세션 복원)
   // ---------------------------------------------------------------
   initialize: async () => {
-    if (get().isInitialized || authInitializationInFlight) return;
-    authInitializationInFlight = true;
+    if (get().isInitialized) return;
 
     set({ isLoading: true });
     installAccessVisibilityListener();
@@ -117,14 +112,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // 비밀번호를 다시 입력하지 않은 persisted session 복원도 실제 접속이다.
           if (context.studentId) void recordAppAccessEvent(supabase, 'SESSION_RESTORE');
         } catch (e) {
-          // A network timeout does not prove that the stored session expired.
+          // 컨텍스트 조회 실패 → 세션 만료된 것으로 간주
+          await supabase.auth.signOut();
           set({
-            session: data.session,
-            user: data.session.user,
+            session: null,
+            user: null,
             context: null,
             isLoading: false,
             isInitialized: true,
-            error: e instanceof Error ? e.message : '서버 연결을 다시 확인해주세요.',
+            error: null,
           });
         }
       } else {
@@ -136,13 +132,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // 3. 세션 변경 자동 구독 (토큰 갱신·로그아웃 감지)
-      authStateUnsubscribe?.();
-      authStateUnsubscribe = onAuthStateChange(supabase, async (newSession) => {
+      onAuthStateChange(supabase, async (newSession) => {
         if (newSession) {
-          if (get().session?.user.id === newSession.user.id && get().context) {
-            set({ session: newSession, user: newSession.user });
-            return;
-          }
           try {
             const context = await getCurrentUserContext(supabase);
             set({
@@ -173,8 +164,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isInitialized: true,
         error: e instanceof Error ? e.message : '초기화 실패',
       });
-    } finally {
-      authInitializationInFlight = false;
     }
   },
 

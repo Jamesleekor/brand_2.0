@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import type { LiveAuctionItem, LiveAuctionState } from './types';
 
 export function useLiveAuctionState(includeScheduled = false) {
   const classroomId = useClassroomId();
-  // AUCTION_EMERGENCY_POLLING_V1: avoid Postgres Changes fan-out during live bidding.
-  const [pollMs] = useState(() => (includeScheduled ? 1_500 : 2_500) + Math.floor(Math.random() * 500));
+  const queryClient = useQueryClient();
 
   const query = useQuery<LiveAuctionState>({
     queryKey: ['live-auction-state', classroomId, includeScheduled],
@@ -21,15 +20,37 @@ export function useLiveAuctionState(includeScheduled = false) {
       return data as LiveAuctionState;
     },
     enabled: classroomId !== null,
-    refetchInterval: pollMs,
-    refetchIntervalInBackground: false,
-    retry: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchInterval: 10_000,
     staleTime: 1_000,
   });
 
-  const refetch = useCallback(() => query.refetch({ cancelRefetch: false }), [query.refetch]);
+  useEffect(() => {
+    if (!classroomId) return;
+    const invalidate = () => {
+      queryClient.invalidateQueries({ queryKey: ['live-auction-state', classroomId] });
+    };
+
+    const makeChannel = (suffix: string, table: string, filter?: string) => {
+      const config: { event: '*'; schema: 'public'; table: string; filter?: string } = { event: '*', schema: 'public', table };
+      if (filter) config.filter = filter;
+      return supabase.channel(`live-auction-${suffix}-${classroomId}`)
+        .on('postgres_changes', config, invalidate)
+        .subscribe();
+    };
+    // 테이블별 채널 격리: publication 하나가 빠져도 나머지 경매 갱신은 계속 작동한다.
+    const channels = [
+      makeChannel('auctions', 'auctions', `classroom_id=eq.${classroomId}`),
+      makeChannel('items', 'auction_items'),
+      makeChannel('bids', 'auction_bids'),
+      makeChannel('results', 'auction_results'),
+      makeChannel('failures', 'auction_failures'),
+      makeChannel('super-pass-rounds', 'auction_super_pass_rounds', `classroom_id=eq.${classroomId}`),
+    ];
+
+    return () => {
+      channels.forEach((channel) => { void supabase.removeChannel(channel); });
+    };
+  }, [classroomId, queryClient]);
 
   const items = query.data?.items ?? [];
   const currentItem = useMemo(
@@ -39,7 +60,6 @@ export function useLiveAuctionState(includeScheduled = false) {
 
   return {
     ...query,
-    refetch,
     classroomId,
     state: query.data ?? null,
     auction: query.data?.auction ?? null,

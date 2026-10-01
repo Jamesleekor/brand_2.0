@@ -1,4 +1,3 @@
-import { useAuctionExpiryActions } from '@/features/auction/useAuctionExpiryActions';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { EmptyState, LoadingSpinner, useRpcCall } from '@/components/shared/components';
@@ -18,8 +17,9 @@ export default function StudentAuctionView() {
   const { state, auction, items, currentItem, recentBids, superPass, isLoading, refetch } = useLiveAuctionState(false);
   const { call, isLoading: isSubmitting } = useRpcCall();
   const showToast = useToastStore((s) => s.show);
-  const auctionSubmitRef = useRef(false);
   const [bidAmount, setBidAmount] = useState<number | ''>('');
+  const finalizeKeyRef = useRef('');
+  const superPassResolveKeyRef = useRef('');
   const lastOwnSuperPassRef = useRef<{ roundId: number; itemId: number; attempt: number } | null>(null);
   const passOutcomeNotifiedRef = useRef(new Set<number>());
   const walletSyncedResultRef = useRef(new Set<string>());
@@ -44,18 +44,59 @@ export default function StudentAuctionView() {
     setBidAmount(Math.max(currentItem.current_price + 1, Math.ceil(currentItem.current_price * 1.1)));
   }, [currentItem?.id, currentItem?.current_price]);
 
-  useAuctionExpiryActions({
-    itemId: currentItem?.id ?? null,
-    bidDeadline: currentItem?.bidding_ends_at ?? null,
-    bidExpired: countdown.isExpired,
-    paused: countdown.isPaused || Boolean(auction?.paused_at),
-    roundId: superPass?.round_id ?? null,
-    applicationDeadline: superPass?.application_ends_at ?? null,
-    applicationExpired: superPassCountdown.isExpired,
-    applying: superPass?.status === 'APPLYING',
-    operatingPanel: false,
-    refresh: refetch,
-  });
+  useEffect(() => {
+    if (!currentItem || !countdown.isExpired || countdown.isPaused) return;
+    const key = `${currentItem.id}:${currentItem.bidding_ends_at}`;
+    if (finalizeKeyRef.current === key) return;
+    finalizeKeyRef.current = key;
+
+    const scheduleRetry = () => {
+      window.setTimeout(() => {
+        if (finalizeKeyRef.current !== key) return;
+        finalizeKeyRef.current = '';
+        void refetch();
+      }, 3000);
+    };
+
+    void studentRpc
+      .finalizeLiveAuctionItemIfExpired(supabase, { p_item_id: currentItem.id })
+      .then((result) => {
+        if (!result.success) {
+          scheduleRetry();
+          return;
+        }
+        void refetch();
+        if (result.data?.status === 'NOT_EXPIRED') scheduleRetry();
+      })
+      .catch(scheduleRetry);
+  }, [countdown.isExpired, countdown.isPaused, currentItem, refetch]);
+
+  useEffect(() => {
+    if (!currentItem || superPass?.status !== 'APPLYING' || !superPassCountdown.isExpired) return;
+    const key = `${superPass.round_id}:${superPass.application_ends_at}`;
+    if (superPassResolveKeyRef.current === key) return;
+    superPassResolveKeyRef.current = key;
+
+    const scheduleRetry = () => {
+      window.setTimeout(() => {
+        if (superPassResolveKeyRef.current !== key) return;
+        superPassResolveKeyRef.current = '';
+        void refetch();
+      }, 3000);
+    };
+
+    void studentRpc
+      .resolveAuctionSuperPassPhaseIfExpired(supabase, { p_item_id: currentItem.id })
+      .then((result) => {
+        if (!result.success) {
+          scheduleRetry();
+          return;
+        }
+        void refetch();
+        if (result.data?.status === 'NOT_EXPIRED') scheduleRetry();
+      })
+      .catch(scheduleRetry);
+  }, [currentItem, refetch, superPass, superPassCountdown.isExpired]);
 
   useEffect(() => {
     if (!studentId) return;
@@ -140,9 +181,7 @@ export default function StudentAuctionView() {
   );
 
   const placeBid = async (quick: boolean) => {
-    if (!currentItem || !studentId || auctionSubmitRef.current) return;
-    auctionSubmitRef.current = true;
-    try {
+    if (!currentItem || !studentId) return;
     const amount = quick ? null : Number(bidAmount);
     await call(
       () =>
@@ -158,13 +197,10 @@ export default function StudentAuctionView() {
         onSuccess: () => void refetch(),
       },
     );
-    } finally { auctionSubmitRef.current = false; }
   };
 
   const applySuperPass = async () => {
-    if (!currentItem || auctionSubmitRef.current) return;
-    auctionSubmitRef.current = true;
-    try {
+    if (!currentItem) return;
     await call(
       () => studentRpc.applyAuctionSuperPass(supabase, { p_item_id: currentItem.id }),
       {
@@ -173,7 +209,6 @@ export default function StudentAuctionView() {
         onSuccess: () => void refetch(),
       },
     );
-    } finally { auctionSubmitRef.current = false; }
   };
 
   if (isLoading) {
