@@ -4,9 +4,14 @@ import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import type { LiveAuctionItem, LiveAuctionState } from './types';
 
+const AUCTION_REALTIME_REFRESH_MIN_MS = 750;
+const AUCTION_REALTIME_JITTER_MS = 150;
+
 export function useLiveAuctionState(includeScheduled = false) {
   const classroomId = useClassroomId();
   const queryClient = useQueryClient();
+  const refreshTimerRef = useRef<number | null>(null);
+  const lastRefreshAtRef = useRef(0);
 
   const query = useQuery<LiveAuctionState>({
     queryKey: ['live-auction-state', classroomId, includeScheduled],
@@ -21,34 +26,85 @@ export function useLiveAuctionState(includeScheduled = false) {
     },
     enabled: classroomId !== null,
     refetchInterval: 10_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     staleTime: 1_000,
   });
 
   useEffect(() => {
     if (!classroomId) return;
-    const invalidate = () => {
-      queryClient.invalidateQueries({ queryKey: ['live-auction-state', classroomId] });
+
+    let disposed = false;
+
+    const invalidateNow = () => {
+      refreshTimerRef.current = null;
+      if (disposed) return;
+
+      lastRefreshAtRef.current = Date.now();
+      void queryClient.invalidateQueries({ queryKey: ['live-auction-state', classroomId] });
     };
 
-    const makeChannel = (suffix: string, table: string, filter?: string) => {
-      const config: { event: '*'; schema: 'public'; table: string; filter?: string } = { event: '*', schema: 'public', table };
-      if (filter) config.filter = filter;
-      return supabase.channel(`live-auction-${suffix}-${classroomId}`)
-        .on('postgres_changes', config, invalidate)
-        .subscribe();
+    const scheduleInvalidate = () => {
+      if (disposed) return;
+
+      const elapsed = Date.now() - lastRefreshAtRef.current;
+      const baseWait = Math.max(0, AUCTION_REALTIME_REFRESH_MIN_MS - elapsed);
+
+      if (baseWait === 0 && refreshTimerRef.current === null) {
+        invalidateNow();
+        return;
+      }
+
+      if (refreshTimerRef.current !== null) return;
+
+      const jitter = Math.floor(Math.random() * AUCTION_REALTIME_JITTER_MS);
+      refreshTimerRef.current = window.setTimeout(invalidateNow, baseWait + jitter);
     };
-    // 테이블별 채널 격리: publication 하나가 빠져도 나머지 경매 갱신은 계속 작동한다.
-    const channels = [
-      makeChannel('auctions', 'auctions', `classroom_id=eq.${classroomId}`),
-      makeChannel('items', 'auction_items'),
-      makeChannel('bids', 'auction_bids'),
-      makeChannel('results', 'auction_results'),
-      makeChannel('failures', 'auction_failures'),
-      makeChannel('super-pass-rounds', 'auction_super_pass_rounds', `classroom_id=eq.${classroomId}`),
-    ];
+
+    // One Realtime channel per auction page. A successful bid emits both a bid
+    // INSERT and an item UPDATE; throttling collapses that burst into at most one
+    // state refresh every ~0.75s per client instead of one RPC per event/table.
+    const channel = supabase
+      .channel(`live-auction:${classroomId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'auctions', filter: `classroom_id=eq.${classroomId}` },
+        scheduleInvalidate,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'auction_items' },
+        scheduleInvalidate,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'auction_bids' },
+        scheduleInvalidate,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'auction_results' },
+        scheduleInvalidate,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'auction_failures' },
+        scheduleInvalidate,
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'auction_super_pass_rounds', filter: `classroom_id=eq.${classroomId}` },
+        scheduleInvalidate,
+      )
+      .subscribe();
 
     return () => {
-      channels.forEach((channel) => { void supabase.removeChannel(channel); });
+      disposed = true;
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+      void supabase.removeChannel(channel);
     };
   }, [classroomId, queryClient]);
 
