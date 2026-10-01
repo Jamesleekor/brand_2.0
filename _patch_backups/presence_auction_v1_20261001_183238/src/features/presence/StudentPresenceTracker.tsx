@@ -1,12 +1,8 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/auth_store';
-import { fetchPresenceTrackingState } from '@/lib/supabase/presence_tracking';
-
-// PRESENCE_MANUAL_TOGGLE_V1: 선생님이 켰는지 1분마다 확인 (1행 조회, 매우 가벼움)
-const PRESENCE_STATE_POLL_MS = 60_000;
 
 interface StudentPresenceTrackerProps {
   children: ReactNode;
@@ -27,27 +23,6 @@ export function StudentPresenceTracker({ children }: StudentPresenceTrackerProps
   const studentId = context?.studentId ?? null;
   const classroomId = context?.classroomId ?? null;
 
-  // PRESENCE_MANUAL_TOGGLE_V1: 기본 OFF. 선생님이 켰을 때만 접속을 알린다.
-  const [presenceEnabled, setPresenceEnabled] = useState(false);
-
-  useEffect(() => {
-    if (!studentId || !classroomId) return;
-    let disposed = false;
-    const check = async () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
-      const state = await fetchPresenceTrackingState(supabase);
-      if (!disposed) setPresenceEnabled(state.enabled);
-    };
-    // 로그인 직후 몰림을 피하려고 첫 확인을 3~15초 사이로 흩어 둔다.
-    const first = window.setTimeout(() => void check(), 3_000 + Math.floor(Math.random() * 12_000));
-    const timer = window.setInterval(() => void check(), PRESENCE_STATE_POLL_MS + Math.floor(Math.random() * 10_000));
-    return () => {
-      disposed = true;
-      window.clearTimeout(first);
-      window.clearInterval(timer);
-    };
-  }, [classroomId, studentId]);
-
   const publish = useCallback(async () => {
     const channel = channelRef.current;
     if (!channel || !subscribedRef.current || !studentId) return;
@@ -65,9 +40,8 @@ export function StudentPresenceTracker({ children }: StudentPresenceTrackerProps
     void publish();
   }, [location.pathname, publish]);
 
-  useEffect(() => {    // AUCTION_RECOVERY_SUSPEND_PRESENCE_V2 → PRESENCE_MANUAL_TOGGLE_V1:
-    // 선생님이 켜지 않았으면 채널에 접속하지 않는다. (실패 시 재시도하지 않는 기존 동작은 유지)
-    const presenceTemporarilySuspended = !presenceEnabled;
+  useEffect(() => {    // AUCTION_RECOVERY_SUSPEND_PRESENCE_V2: stop failing private joins during recovery.
+    const presenceTemporarilySuspended = true;
     if (presenceTemporarilySuspended || !studentId || !classroomId) return;
 
     const topic = `brand:classroom:${classroomId}:presence`;
@@ -106,7 +80,7 @@ export function StudentPresenceTracker({ children }: StudentPresenceTrackerProps
       void channel.untrack();
       void supabase.removeChannel(channel);
     };
-  }, [classroomId, presenceEnabled, publish, studentId]);
+  }, [classroomId, publish, studentId]);
 
   return <>{children}</>;
 }

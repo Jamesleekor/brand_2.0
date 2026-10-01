@@ -3,7 +3,6 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
-import { fetchPresenceTrackingState, setPresenceTracking } from '@/lib/supabase/presence_tracking';
 
 type RosterStudent = {
   student_id: number;
@@ -32,8 +31,6 @@ type OnlineStudent = {
 };
 
 const ROSTER_REFRESH_MS = 60_000;
-// PRESENCE_MANUAL_TOGGLE_V1: 한 번 켜면 이 시간 뒤 자동으로 꺼진다.
-const PRESENCE_ON_MINUTES = 10;
 
 function toStudentId(value: unknown): number | null {
   const n = Number(value);
@@ -92,35 +89,10 @@ export function TeacherPresenceSummary() {
   const [open, setOpen] = useState(false);
   const [roster, setRoster] = useState<RosterStudent[]>([]);
   const [online, setOnline] = useState<Map<number, OnlineStudent>>(new Map());
-  const [connectionState, setConnectionState] = useState<'OFF' | 'CONNECTING' | 'LIVE' | 'ERROR'>('OFF');
+  const [connectionState, setConnectionState] = useState<'CONNECTING' | 'LIVE' | 'ERROR'>('CONNECTING');
   const [rosterError, setRosterError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const channelRef = useRef<RealtimeChannel | null>(null);
-  // PRESENCE_MANUAL_TOGGLE_V1: 기본 OFF. 선생님이 버튼으로 켤 때만 실시간 연결.
-  const [enabledUntil, setEnabledUntil] = useState<string | null>(null);
-  const [toggleBusy, setToggleBusy] = useState(false);
-  const [toggleError, setToggleError] = useState<string | null>(null);
-  const presenceOn = enabledUntil !== null && new Date(enabledUntil).getTime() > nowMs;
-
-  const loadTrackingState = useCallback(async () => {
-    const state = await fetchPresenceTrackingState(supabase);
-    setEnabledUntil(state.enabled ? state.enabledUntil : null);
-  }, []);
-
-  const changeTracking = useCallback(async (enabled: boolean) => {
-    if (!classroomId || toggleBusy) return;
-    setToggleBusy(true);
-    setToggleError(null);
-    try {
-      const state = await setPresenceTracking(supabase, classroomId, enabled, PRESENCE_ON_MINUTES);
-      setNowMs(Date.now());
-      setEnabledUntil(state.enabled ? state.enabledUntil : null);
-    } catch (e) {
-      setToggleError(e instanceof Error ? e.message : '설정을 바꾸지 못했습니다.');
-    } finally {
-      setToggleBusy(false);
-    }
-  }, [classroomId, toggleBusy]);
 
   const loadRoster = useCallback(async () => {
     if (!classroomId) return;
@@ -146,10 +118,10 @@ export function TeacherPresenceSummary() {
   }, []);
 
   useEffect(() => {
-    if (!classroomId) return;    // AUCTION_RECOVERY_SUSPEND_PRESENCE_V2 → PRESENCE_MANUAL_TOGGLE_V1
-    const presenceTemporarilySuspended = !presenceOn;
+    if (!classroomId) return;    // AUCTION_RECOVERY_SUSPEND_PRESENCE_V2
+    const presenceTemporarilySuspended = true;
     if (presenceTemporarilySuspended) {
-      setConnectionState('OFF');
+      setConnectionState('ERROR');
       setOnline(new Map());
       return;
     }
@@ -207,27 +179,11 @@ export function TeacherPresenceSummary() {
       channelRef.current = null;
       void supabase.removeChannel(channel);
     };
-  }, [classroomId, presenceOn]);
+  }, [classroomId]);
 
   useEffect(() => {
     if (open) void loadRoster();
   }, [loadRoster, open]);
-
-  // PRESENCE_MANUAL_TOGGLE_V1: 처음 한 번 + 패널을 열 때 켜짐 여부 확인
-  useEffect(() => {
-    void loadTrackingState();
-  }, [loadTrackingState]);
-  useEffect(() => {
-    if (open) void loadTrackingState();
-  }, [loadTrackingState, open]);
-
-  // 켜져 있는 동안 남은 시간 표시/자동 꺼짐을 위해 시계를 조금 더 자주 갱신
-  useEffect(() => {
-    if (!enabledUntil) return;
-    const msLeft = new Date(enabledUntil).getTime() - Date.now();
-    const offTimer = window.setTimeout(() => setNowMs(Date.now()), Math.max(0, msLeft) + 500);
-    return () => window.clearTimeout(offTimer);
-  }, [enabledUntil]);
 
   const rosterIds = useMemo(() => new Set(roster.map((s) => s.student_id)), [roster]);
   const onlineCount = useMemo(
@@ -261,7 +217,7 @@ export function TeacherPresenceSummary() {
         aria-label="학생 실시간 접속 현황"
       >
         <span className={cn('h-2 w-2 rounded-full', connectionState === 'LIVE' ? 'bg-success animate-pulse' : connectionState === 'ERROR' ? 'bg-danger' : 'bg-text-muted')} />
-        <span>{connectionState === 'ERROR' || connectionState === 'OFF' ? '접속 기록 보기' : `실시간 접속 ${onlineCount}명`}</span>
+        <span>{connectionState === 'ERROR' ? '접속 기록 보기' : `실시간 접속 ${onlineCount}명`}</span>
         <span className="hidden text-text-muted lg:inline">/ {roster.length}</span>
       </button>
 
@@ -271,9 +227,7 @@ export function TeacherPresenceSummary() {
             <div>
               <div className="font-display text-base text-white">학생 실시간 접속 현황</div>
               <div className="mt-0.5 text-[10px] font-bold text-text-secondary">
-                {presenceOn
-                  ? `실시간 확인 켜짐 · ${Math.max(1, Math.ceil((new Date(enabledUntil as string).getTime() - nowMs) / 60_000))}분 뒤 자동으로 꺼짐`
-                  : '실시간 확인 꺼짐 · 마지막 B.R.A.N.D 접속 기록 표시'}
+                Presence 실시간 연결 · 오프라인은 마지막 B.R.A.N.D 접속 기록 표시
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -287,32 +241,8 @@ export function TeacherPresenceSummary() {
             {rosterError && (
               <div className="mb-3 rounded-card-md border border-danger/30 bg-danger-bg px-3 py-2 text-xs font-bold text-danger">{rosterError}</div>
             )}
-            {/* PRESENCE_MANUAL_TOGGLE_V1: 수동 켜기/끄기 */}
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-card-md border border-line bg-bg-card px-3 py-2">
-              <div className="text-xs font-bold text-text-secondary">
-                {presenceOn
-                  ? '학생 화면이 1분 안에 차례로 표시됩니다. 경매·아케이드 같은 실시간 활동 중에는 꺼 두세요.'
-                  : `켜면 ${PRESENCE_ON_MINUTES}분 동안 학생들의 현재 접속 화면을 확인할 수 있습니다. (기본 꺼짐)`}
-              </div>
-              <button
-                type="button"
-                disabled={toggleBusy || !classroomId}
-                onClick={() => void changeTracking(!presenceOn)}
-                className={cn(
-                  'shrink-0 rounded-pill border px-3 py-1 text-xs font-black transition-colors disabled:opacity-50',
-                  presenceOn
-                    ? 'border-danger/35 bg-danger-bg text-danger'
-                    : 'border-success/35 bg-success-bg text-success',
-                )}
-              >
-                {toggleBusy ? '처리 중…' : presenceOn ? '실시간 확인 끄기' : `실시간 확인 켜기 (${PRESENCE_ON_MINUTES}분)`}
-              </button>
-            </div>
-            {toggleError && (
-              <div className="mb-3 rounded-card-md border border-danger/30 bg-danger-bg px-3 py-2 text-xs font-bold text-danger">{toggleError}</div>
-            )}
             {connectionState === 'ERROR' && (
-              <div className="mb-3 rounded-card-md border border-warning/30 bg-warning-bg px-3 py-2 text-xs font-bold text-warning">실시간 연결에 실패했습니다. 마지막 접속 기록은 계속 확인할 수 있습니다. 잠시 후 끄고 다시 켜 보세요.</div>
+              <div className="mb-3 rounded-card-md border border-warning/30 bg-warning-bg px-3 py-2 text-xs font-bold text-warning">경매 연결 복구를 위해 실시간 접속 표시를 잠시 중단했습니다. 마지막 접속 기록은 계속 확인할 수 있습니다.</div>
             )}
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
