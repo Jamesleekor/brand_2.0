@@ -26,7 +26,8 @@ export function HomeServiceAdStrip() {
       if (error) throw new Error(error.message);
       return new Map<number, string>((data ?? []).map((row) => [Number(row.id), row.name]));
     },
-    staleTime: 60_000,
+    staleTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const query = useQuery({
@@ -37,8 +38,8 @@ export function HomeServiceAdStrip() {
       if ('error' in result) throw new Error(result.error);
       return result.data;
     },
-    staleTime: 10_000,
-    refetchInterval: 30_000,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {

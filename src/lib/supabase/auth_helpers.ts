@@ -278,11 +278,21 @@ export function onAuthStateChange(
   supabase: SupabaseClient,
   callback: (session: Session | null) => void
 ): () => void {
-  const { data } = supabase.auth.onAuthStateChange((event, session) => {
-    callback(session);
+  const pending = new Set<ReturnType<typeof setTimeout>>();
+  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Supabase auth callback must return immediately; defer app async work.
+    const timer = setTimeout(() => {
+      pending.delete(timer);
+      callback(session);
+    }, 0);
+    pending.add(timer);
   });
-  
-  return () => data.subscription.unsubscribe();
+
+  return () => {
+    pending.forEach((timer) => clearTimeout(timer));
+    pending.clear();
+    data.subscription.unsubscribe();
+  };
 }
 
 /**

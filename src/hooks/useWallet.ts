@@ -59,7 +59,8 @@ export function useWallet() {
       };
     },
     enabled: studentId !== null,
-    staleTime: 1000 * 30,  // 30초 (Realtime이 갱신해줄 거라)
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
   });
   
   // 2. Realtime 구독 — wallet 변경 시 즉시 갱신

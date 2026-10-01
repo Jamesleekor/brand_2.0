@@ -175,8 +175,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       const result = await loginStudentApi(supabase, params);
-      await recordTrustedLoginEvent(supabase, 'LOGIN_SUCCESS');
-      await recordAppAccessEvent(supabase, 'EXPLICIT_LOGIN');
+      void recordTrustedLoginEvent(supabase, 'LOGIN_SUCCESS');
+      void recordAppAccessEvent(supabase, 'EXPLICIT_LOGIN');
       set({
         session: result.session,
         user: result.user,
@@ -201,7 +201,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     try {
       const result = await loginTeacherApi(supabase, params);
-      await recordTrustedLoginEvent(supabase, 'LOGIN_SUCCESS');
+      void recordTrustedLoginEvent(supabase, 'LOGIN_SUCCESS');
       set({
         session: result.session,
         user: result.user,

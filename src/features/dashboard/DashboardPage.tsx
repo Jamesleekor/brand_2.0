@@ -68,8 +68,9 @@ export default function DashboardPage() {
       const result = await newbieSupportRpc.studentSummary(supabase);
       return result.success ? result.data : null;
     },
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
   const dailyQuestAccessQuery = useQuery({
     queryKey: ['daily-quest-s3-home-access', studentId],
@@ -79,8 +80,9 @@ export default function DashboardPage() {
       if (!result.success) return null;
       return result.data;
     },
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
   
   // 모달 상태
@@ -95,20 +97,10 @@ export default function DashboardPage() {
     setHomeCustomizeOpen(true);
   };
 
-  // Feature4B 안전망: pg_cron이 지연/비활성 상태여도 학급 화면 진입 시
-  // 이미 종료 시각이 지난 비상사태만 멱등적으로 정리한다.
-  useEffect(() => {
-    if (!classroomId) return;
-    let cancelled = false;
-    void feature4Rpc.finalizeExpiredEmergencies(supabase, { p_classroom_id: classroomId }).then((result) => {
-      if (!cancelled && result.success && result.data > 0) {
-        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      }
-    });
-    return () => { cancelled = true; };
-  }, [classroomId, queryClient]);
+  // Expired emergencies are finalized once per minute by DB pg_cron.
+  // Avoid duplicate write/lock work on every student home entry.
 
-  // Feature 4.1.1: 홈 Realtime은 테이블별 채널을 분리한다.
+// Feature 4.1.1: 홈 Realtime은 테이블별 채널을 분리한다.
   // 선택 기능의 테이블 하나가 아직 migration/schema-cache에 없어도
   // 우편·돌발퀘스트 등 다른 실시간 갱신이 함께 죽지 않도록 하는 안정화 조치다.
   useEffect(() => {
@@ -156,7 +148,7 @@ export default function DashboardPage() {
         .subscribe(),
       supabase.channel(`dashboard:credit:${studentId}`)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'credit_scores', filter: `student_id=eq.${studentId}` }, () => {
-          void queryClient.invalidateQueries({ queryKey: ['dashboard-credit-summary', studentId] });
+          void queryClient.invalidateQueries({ queryKey: ['dashboard', studentId, classroomId] });
         })
         .subscribe(),
       // 4.1 migration이 아직 적용되지 않은 DB에서는 이 채널만 실패할 수 있다.
@@ -195,9 +187,9 @@ export default function DashboardPage() {
   
   // 부가 데이터 조회 (병렬)
   const { data: dashboardData } = useDashboardData(studentId, classroomId);
-  const creditSummaryQuery = useDashboardCreditSummary(studentId);
-  const homeCreditGrade = creditSummaryQuery.data?.grade ?? dashboardData?.creditGrade ?? 'B';
-  const homeCreditScore = creditSummaryQuery.data?.score ?? dashboardData?.creditScore ?? 500;
+  // Home uses the daily credit_scores snapshot; detailed real-time calculation stays off the hot path.
+  const homeCreditGrade = dashboardData?.creditGrade ?? 'B';
+  const homeCreditScore = dashboardData?.creditScore ?? 500;
   const homeCustomizationQuery = useHomePersonalization(studentId);
   const emergencyQuest = dashboardData?.emergencyQuest ?? null;
 
@@ -854,63 +846,18 @@ function useDashboardData(
   });
 }
 
-type DashboardCreditGrade = DashboardData['creditGrade'];
-
-interface DashboardCreditSummary {
-  grade: DashboardCreditGrade;
-  score: number;
-  asOfDate: string | null;
-}
-
-function useDashboardCreditSummary(studentId: number | null) {
-  return useQuery<DashboardCreditSummary>({
-    queryKey: ['dashboard-credit-summary', studentId],
-    enabled: studentId !== null,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-    refetchOnWindowFocus: true,
-    retry: 1,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('student_get_my_credit_summary');
-      if (error) throw error;
-
-      const raw = data as {
-        grade?: unknown;
-        total_score?: unknown;
-        as_of_date?: unknown;
-      } | null;
-
-      const grade = String(raw?.grade ?? '');
-      const allowedGrades: DashboardCreditGrade[] = ['S', 'A+', 'A', 'B+', 'B', 'C', 'D'];
-      if (!allowedGrades.includes(grade as DashboardCreditGrade)) {
-        throw new Error('신용등급 응답이 올바르지 않습니다.');
-      }
-
-      const score = Number(raw?.total_score);
-      if (!Number.isFinite(score)) {
-        throw new Error('신용점수 응답이 올바르지 않습니다.');
-      }
-
-      return {
-        grade: grade as DashboardCreditGrade,
-        score,
-        asOfDate: raw?.as_of_date == null ? null : String(raw.as_of_date),
-      };
-    },
-  });
-}
-
 function useHomePersonalization(studentId: number | null) {
   return useQuery<HomePersonalization>({
     queryKey: ['home-customization', studentId],
     enabled: studentId !== null,
-    staleTime: 30_000,
-    retry: 1,
     queryFn: async () => {
       const result = await homePersonalizationRpc.get(supabase);
       if (result.success === false) throw new Error(result.error);
       return result.data;
     },
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 }
 

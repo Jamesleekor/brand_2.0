@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/auth_store';
@@ -35,8 +35,9 @@ type GateState =
   | { kind: 'error'; message: string };
 
 const PEER_REVIEW_PATH = '/guild/peer-review';
-const RECHECK_INTERVAL_MS = 15_000;
-
+const CLEAR_RECHECK_INTERVAL_MS = 5 * 60_000;
+const BLOCKED_RECHECK_INTERVAL_MS = 5 * 60_000;
+const FOCUS_RECHECK_MIN_MS = 60_000;
 function toInt(value: unknown): number {
   const n = Number(value ?? 0);
   return Number.isFinite(n) ? Math.trunc(n) : 0;
@@ -96,20 +97,34 @@ export function PeerReviewEnforcementGate({ children }: { children: ReactNode })
   const logout = useAuthStore((s) => s.logout);
   const [state, setState] = useState<GateState>({ kind: 'checking' });
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const inFlightRef = useRef(false);
+  const lastCheckAtRef = useRef(0);
 
   const isPeerReviewPage = location.pathname === PEER_REVIEW_PATH;
 
   const check = useCallback(async (showLoader = false) => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    lastCheckAtRef.current = Date.now();
     if (showLoader) setState({ kind: 'checking' });
 
-    const { data, error } = await supabase.rpc('student_get_peer_review_enforcement_status');
-    if (error) {
-      setState({ kind: 'error', message: error.message || '동료평가 운영 제한 상태를 확인하지 못했습니다.' });
-      return;
-    }
+    try {
+      const { data, error } = await supabase.rpc('student_get_peer_review_enforcement_status');
+      if (error) {
+        setState({ kind: 'error', message: error.message || '동료평가 운영 제한 상태를 확인하지 못했습니다.' });
+        return;
+      }
 
-    const payload = parsePayload(data);
-    setState(payload.active ? { kind: 'blocked', payload } : { kind: 'clear' });
+      const payload = parsePayload(data);
+      setState(payload.active ? { kind: 'blocked', payload } : { kind: 'clear' });
+    } catch (error) {
+      setState({
+        kind: 'error',
+        message: error instanceof Error ? error.message : '동료평가 운영 제한 상태를 확인하지 못했습니다.',
+      });
+    } finally {
+      inFlightRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
@@ -117,17 +132,28 @@ export function PeerReviewEnforcementGate({ children }: { children: ReactNode })
       setState({ kind: 'clear' });
       return;
     }
-
     void check(true);
-    const intervalId = window.setInterval(() => void check(false), RECHECK_INTERVAL_MS);
-    const onFocus = () => void check(false);
+  }, [check, isPeerReviewPage]);
+
+  useEffect(() => {
+    if (isPeerReviewPage || state.kind === 'checking' || state.kind === 'error') return;
+
+    const intervalMs = state.kind === 'blocked'
+      ? BLOCKED_RECHECK_INTERVAL_MS
+      : CLEAR_RECHECK_INTERVAL_MS;
+    const intervalId = window.setInterval(() => void check(false), intervalMs);
+    const onFocus = () => {
+      if (Date.now() - lastCheckAtRef.current >= FOCUS_RECHECK_MIN_MS) {
+        void check(false);
+      }
+    };
     window.addEventListener('focus', onFocus);
 
     return () => {
       window.clearInterval(intervalId);
       window.removeEventListener('focus', onFocus);
     };
-  }, [check, isPeerReviewPage]);
+  }, [check, isPeerReviewPage, state.kind]);
 
   useEffect(() => {
     if (state.kind !== 'blocked') return;

@@ -19,7 +19,6 @@ export function useActiveEmergencies() {
   const query = useQuery<ActiveEmergency[]>({
     queryKey: ['active-emergencies', classroomId],
     enabled: classroomId !== null,
-    staleTime: 15_000,
     queryFn: async () => {
       if (!classroomId) return [];
       const { data, error } = await supabase
@@ -34,6 +33,8 @@ export function useActiveEmergencies() {
         (row) => !row.scheduled_end_at || new Date(row.scheduled_end_at).getTime() > now,
       );
     },
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {

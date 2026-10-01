@@ -148,8 +148,9 @@ function BakeryMenuPill() {
       if (result.success === false) throw new Error(result.error);
       return result.data;
     },
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    refetchOnWindowFocus: false,
     retry: 1,
   });
 
@@ -166,9 +167,9 @@ function EconomyGuardMenuPill() {
       if (result.success === false) throw new Error(result.error);
       return result.data;
     },
-    staleTime: 30_000,
-    refetchInterval: 60_000,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    refetchOnWindowFocus: false,
     retry: 1,
   });
 
