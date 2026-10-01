@@ -144,9 +144,10 @@ export interface ArcadeVerificationState {
   period_name?: string;
   period_status?: 'VERIFICATION' | 'READY_TO_FINALIZE';
   session_id?: number;
-  session_status?: 'ACTIVE' | 'COMPLETED' | 'RESET' | 'OVERRIDDEN';
-  provisional_score?: number;
-  verification_threshold?: number;
+  session_status?: 'ACTIVE' | 'COMPLETED' | 'RESET' | 'OVERRIDDEN';  has_provisional_record?: boolean;
+
+  provisional_score?: number | null;
+  verification_threshold?: number | null;
   threshold_percent?: number;
   max_attempts?: number;
   used_attempts?: number;
@@ -163,9 +164,10 @@ export interface ArcadeVerificationOverviewRow {
   rank: number | null;
   student_id: number;
   student_name: string;
-  brand_name: string | null;
-  provisional_score: number;
-  provisional_source_run_id: number;
+  brand_name: string | null;  has_provisional_record: boolean;
+
+  provisional_score: number | null;
+  provisional_source_run_id: number | null;
   current_official_score: number | null;
   current_source_run_id: number | null;
   session_id: number | null;
@@ -277,7 +279,7 @@ export function arcadeErrorMessage(error: { type: string; code?: string; error: 
     P0195: '학생 로그인 정보를 확인하지 못했어요.',
     P0196: '게임 정보가 올바르지 않아요.',
     P0197: '아직 이 게임을 플레이할 수 있는 기간이 아니에요.',
-    P0198: '게임 규칙을 준비하지 못했어요. 선생님께 알려주세요.',
+    P0198: '게임 규칙을 준비하지 못했어요. 운영국에 알려주세요.',
     P0199: '내 게임 기록을 찾을 수 없어요.',
     P0200: '이 게임은 지금 시작할 수 없어요.',
     P0201: '5초 준비 시간이 끝난 뒤 시작할 수 있어요.',
@@ -291,7 +293,7 @@ export function arcadeErrorMessage(error: { type: string; code?: string; error: 
     P0216: '이미 확정되어 수정할 수 없는 기간이에요.',
     P0217: '먼저 기간을 활성화해주세요.',
     P0218: '기간이 끝난 뒤에만 월간 순위를 확정할 수 있어요.',
-    P0220: '확정된 월간 순위 데이터가 완전하지 않아요. 선생님에게 알려주세요.',
+    P0220: '확정된 월간 순위 데이터가 완전하지 않아요. 운영국에 알려주세요.',
     P0221: '테스트할 학생을 선택해주세요.',
     P0222: '테스트 허용 상태를 확인해주세요.',
     P0223: '현재 테스트할 수 있는 게임을 찾지 못했어요.',
@@ -306,7 +308,7 @@ export function arcadeErrorMessage(error: { type: string; code?: string; error: 
     P0256: '인증 대상 월간 기간을 찾지 못했어요.',
     P0257: '기록 인증은 월간 기간에서만 사용할 수 있어요.',
     P0258: '현재 기간 상태에서는 기록을 동결할 수 없어요.',
-    P0259: '이미 동결 데이터가 있어 안전하게 진행할 수 없어요. 선생님에게 알려주세요.',
+    P0259: '이미 동결 데이터가 있어 안전하게 진행할 수 없어요. 운영국에 알려주세요.',
     P0260: '이 게임의 동결된 인증 설정을 찾지 못했어요.',
     P0261: '현재 기간은 기록 인증을 진행할 수 있는 상태가 아니에요.',
     P0262: '이미 공식 인증 결과가 확정된 학생이에요.',
@@ -317,8 +319,8 @@ export function arcadeErrorMessage(error: { type: string; code?: string; error: 
     P0267: '선택한 보정 기록은 이 학생·게임·기간의 공식 기록으로 사용할 수 없어요.',
     P0268: '진행 중인 인증 플레이를 먼저 종료하거나 기술 취소해주세요.',
     P0269: '남은 인증 기회가 없거나 다른 인증 플레이가 진행 중이에요.',
-    P0270: '현재 Top 10 인증 대상이 아니에요.',
-    P0271: '현재 Top 10 인증이 모두 끝나지 않아 최종 확정할 수 없어요.',
+    P0270: '현재 공인 기록 인증 대상이 아니에요.',
+    P0271: '현재 Top 10 인증이 끝나지 않았거나 진행 중인 인증 세션이 있어 최종 확정할 수 없어요.',
     P0272: '최근 시작된 일반 Arcade 플레이가 끝난 뒤 기록을 동결해주세요.',
     P0273: '이 기록은 이미 동결된 잠정 source라 일반 무효화할 수 없어요. 기록 인증 보정을 사용해주세요.',
     P0274: '오늘 순수 반응속도 도전 50회를 모두 사용했어요. 내일 00:00에 다시 도전할 수 있어요.',
