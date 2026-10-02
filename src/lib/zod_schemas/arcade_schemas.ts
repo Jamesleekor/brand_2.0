@@ -151,6 +151,13 @@ export const TeacherArcadeVerificationOverviewSchema = z.object({
 });
 export type TeacherArcadeVerificationOverviewInput = z.infer<typeof TeacherArcadeVerificationOverviewSchema>;
 
+export const TeacherForceCloseArcadeGameVerificationSchema = z.object({
+  p_period_id: PositiveId,
+  p_game_code: ArcadeGameCodeSchema,
+  p_reason: z.string().trim().min(2, '강제 종료 사유는 2자 이상이어야 합니다.').max(500),
+});
+export type TeacherForceCloseArcadeGameVerificationInput = z.infer<typeof TeacherForceCloseArcadeGameVerificationSchema>;
+
 export const TeacherStartArcadeVerificationSessionSchema = z.object({
   p_period_id: PositiveId,
   p_game_code: ArcadeGameCodeSchema,

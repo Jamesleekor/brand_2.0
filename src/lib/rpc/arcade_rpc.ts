@@ -193,6 +193,12 @@ export interface ArcadeVerificationOverview {
   period_status: 'VERIFICATION' | 'READY_TO_FINALIZE' | 'FINALIZED';
   period_name: string;
   game_code: string;
+  game_ready: boolean;
+  game_missing_count: number;
+  game_active_session_count: number;
+  game_verification_closed: boolean;
+  game_verification_closed_at: string | null;
+  game_verification_close_reason: string | null;
   rows: ArcadeVerificationOverviewRow[];
 }
 
@@ -252,6 +258,8 @@ export const arcadeTeacherRpc = {
     safeArcadeRpc<ArcadeSchemas.TeacherFreezeArcadeMonthlyPeriodInput, Record<string, unknown>>(client, 'teacher_freeze_arcade_monthly_period', ArcadeSchemas.TeacherFreezeArcadeMonthlyPeriodSchema, input),
   getVerificationOverview: (client: SupabaseClient, input: ArcadeSchemas.TeacherArcadeVerificationOverviewInput) =>
     safeArcadeRpc<ArcadeSchemas.TeacherArcadeVerificationOverviewInput, ArcadeVerificationOverview>(client, 'teacher_get_arcade_verification_overview', ArcadeSchemas.TeacherArcadeVerificationOverviewSchema, input),
+  forceCloseGameVerification: (client: SupabaseClient, input: ArcadeSchemas.TeacherForceCloseArcadeGameVerificationInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherForceCloseArcadeGameVerificationInput, Record<string, unknown>>(client, 'teacher_force_close_arcade_game_verification', ArcadeSchemas.TeacherForceCloseArcadeGameVerificationSchema, input),
   startVerificationSession: (client: SupabaseClient, input: ArcadeSchemas.TeacherStartArcadeVerificationSessionInput) =>
     safeArcadeRpc<ArcadeSchemas.TeacherStartArcadeVerificationSessionInput, Record<string, unknown>>(client, 'teacher_start_arcade_verification_session', ArcadeSchemas.TeacherStartArcadeVerificationSessionSchema, input),
   endVerificationSession: (client: SupabaseClient, input: ArcadeSchemas.TeacherEndArcadeVerificationSessionInput) =>
@@ -324,6 +332,8 @@ export function arcadeErrorMessage(error: { type: string; code?: string; error: 
     P0272: '최근 시작된 일반 Arcade 플레이가 끝난 뒤 기록을 동결해주세요.',
     P0273: '이 기록은 이미 동결된 잠정 source라 일반 무효화할 수 없어요. 기록 인증 보정을 사용해주세요.',
     P0274: '오늘 순수 반응속도 도전 50회를 모두 사용했어요. 내일 00:00에 다시 도전할 수 있어요.',
+    P0277: '이 게임의 공인 인증은 이미 마감되었어요.',
+    P0278: '게임 인증 강제 종료 중 해결되지 않은 보상권 기록이 남았어요. 인증 현황을 새로고침한 뒤 다시 시도해주세요.',
   };
   if (messages[error.code ?? '']) return messages[error.code ?? ''];
   if (error.type === 'VALIDATION') return error.error;

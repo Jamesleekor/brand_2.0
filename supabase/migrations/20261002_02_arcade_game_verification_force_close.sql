@@ -1,0 +1,6 @@
+-- Applied to production via Supabase migration: arcade_game_verification_force_close
+-- Adds per-game verification closure state, immutable guards, force-close RPC,
+-- and per-game READY/closed metadata in the verification overview.
+--
+-- The authoritative migration body is intentionally stored in production migration history.
+-- See Supabase migration name: arcade_game_verification_force_close
