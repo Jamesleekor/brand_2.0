@@ -16,6 +16,12 @@ export const OverrideSchema = z.object({
 });
 export type OverrideInput = z.infer<typeof OverrideSchema>;
 
+export const ArcadeForceReadySchema = z.object({
+  p_year_month: YearMonth,
+  p_reason: Reason,
+});
+export type ArcadeForceReadyInput = z.infer<typeof ArcadeForceReadySchema>;
+
 export const TerritoryConfigSchema = z.object({
   p_season_id: Id,
   p_slot_no: z.number().int().min(1).max(3),

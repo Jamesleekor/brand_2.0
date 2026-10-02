@@ -14,8 +14,8 @@ const currentYearMonth = () => {
 const num = (value: unknown) => Number(value ?? 0).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
 const dt = (value?: string | null) => value ? new Date(value).toLocaleString('ko-KR') : '-';
 const readinessLabel: Record<string, string> = {
-  guild_count: '길드 수', roster_context: '학생 소속', session: '길드 세션', teacher_observation: '길드 기여 기록',
-  mission: 'Guild3 미션', peer: 'Guild4 동료평가', arcade: 'Arcade', official_mission_gs: '공식 Mission GS',
+  guild_count: '길드 수', guild2_summary: 'Guild2 점수 집계', roster_context: '학생 소속', session: '길드 세션',
+  teacher_observation: '길드 기여 기록', mission: 'Guild3 미션', peer: 'Guild4 동료평가', arcade: 'Arcade',
   compensation_config: '4인 길드 보정 설정', territories: '정복 영토',
 };
 const stateLabel: Record<string, string> = { OPEN: '마감 전', REOPENED: '재오픈', FINALIZED: 'FINAL' };
@@ -82,6 +82,12 @@ function Dashboard({ data, yearMonth, busy, run, refresh }: { data: Guild5Teache
     if (!active && !window.confirm(`${component}를 OVERRIDDEN 상태로 월 마감에 포함할까요?\n0점으로 강제하는 기능이 아니라 현재 계산 가능한 값을 snapshot합니다.`)) return;
     run(active ? `${component} override를 해제했어요` : `${component} override를 적용했어요`, () => guild5TeacherRpc.setOverride(supabase, { p_year_month: yearMonth, p_component: component, p_enabled: !active, p_reason: reason }));
   };
+  const forceArcadeReady = () => {
+    const reason = window.prompt('Arcade 인증을 더 기다리지 않고 현재 동결 기록으로 월간 랭킹과 Guild2 보너스를 확정하는 사유를 입력하세요.', '')?.trim() ?? '';
+    if (reason.length < 2) return;
+    if (!window.confirm(`Arcade를 현재 기록으로 강제 확정할까요?\n완료된 공인 인증 결과는 유지하고, 미인증 학생은 기록 동결 시점의 점수를 사용합니다.\nArcade 월간 snapshot이 FINALIZED되어 되돌릴 수 없습니다.`)) return;
+    run('Arcade를 현재 기록으로 확정했어요', () => guild5TeacherRpc.forceArcadeReady(supabase, { p_year_month: yearMonth, p_reason: reason }));
+  };
   const finalize = () => {
     if (!preview.can_finalize) return;
     if (window.confirm(`${yearMonth} 월간 GS를 FINAL로 확정할까요?\n학생/길드 점수와 순위가 snapshot되고 Guild3/4 정정이 잠깁니다.`)) run('월간 마감을 FINAL로 확정했어요', () => guild5TeacherRpc.finalize(supabase, { p_year_month: yearMonth }));
@@ -104,7 +110,7 @@ function Dashboard({ data, yearMonth, busy, run, refresh }: { data: Guild5Teache
 
     <section className="glass-card p-4 space-y-4">
       <div className="flex flex-wrap justify-between gap-3"><div><h2 className="font-display text-xl">월 마감 Preview</h2><p className="text-xs text-text-secondary mt-1">상태 <b className={closureState === 'FINALIZED' ? 'text-success' : closureState === 'REOPENED' ? 'text-warning' : 'text-bv'}>{stateLabel[closureState] ?? closureState}</b> · {preview.can_finalize ? '모든 필수 source 준비 완료' : '아직 마감 차단 항목이 있습니다.'}</p></div><div className="flex flex-wrap gap-2"><button className="btn-secondary" disabled={busy} onClick={refresh}>↻ 새로고침</button>{closureState !== 'FINALIZED' && <button className="btn-primary" disabled={busy || !preview.can_finalize} onClick={finalize}>🏁 FINALIZE</button>}{closureState === 'FINALIZED' && <button className="btn-secondary" disabled={busy || Boolean(data.season_lock)} onClick={reopen}>↩ REOPEN</button>}</div></div>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">{Object.entries(preview.readiness ?? {}).map(([key, item]) => <ReadinessCard key={key} label={readinessLabel[key] ?? key} item={item} onOverride={key === 'mission' ? () => changeOverride('MISSION') : key === 'peer' ? () => changeOverride('PEER') : undefined} busy={busy}/>)}</div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">{Object.entries(preview.readiness ?? {}).map(([key, item]) => <ReadinessCard key={key} label={readinessLabel[key] ?? key} item={item} onOverride={key === 'mission' ? () => changeOverride('MISSION') : key === 'peer' ? () => changeOverride('PEER') : undefined} onAction={key === 'arcade' && item.status !== 'READY' && closureState !== 'FINALIZED' ? forceArcadeReady : undefined} actionLabel={key === 'arcade' ? '현재 기록으로 강제 확정' : undefined} busy={busy}/>)}</div>
       {Number((preview.readiness?.guild_count as any)?.count ?? 0) < 5 && <p className="text-xs text-warning">현재 활성 길드는 {String((preview.readiness?.guild_count as any)?.count ?? 0)}개입니다. 시스템은 최소 3개부터 마감 가능하지만 실제 운영 권장은 5개입니다.</p>}
     </section>
 
@@ -122,11 +128,11 @@ function Dashboard({ data, yearMonth, busy, run, refresh }: { data: Guild5Teache
   </>;
 }
 
-function ReadinessCard({ label, item, onOverride, busy }: { label: string; item: any; onOverride?: () => void; busy: boolean }) {
+function ReadinessCard({ label, item, onOverride, onAction, actionLabel, busy }: { label: string; item: any; onOverride?: () => void; onAction?: () => void; actionLabel?: string; busy: boolean }) {
   const status = String(item?.status ?? 'NOT_READY');
   const cls = status === 'READY' ? 'text-success border-success/25 bg-success/5' : status === 'OVERRIDDEN' ? 'text-warning border-warning/25 bg-warning/5' : 'text-danger border-danger/25 bg-danger/5';
   const detail = Object.entries(item ?? {}).filter(([k]) => !['status', 'override_reason', 'raw_ready'].includes(k)).slice(0, 2).map(([k, v]) => `${k}: ${String(v)}`).join(' · ');
-  return <div className={`rounded-card-md border p-3 ${cls}`}><div className="text-xs font-black text-text-secondary">{label}</div><div className="font-display mt-1">{status}</div>{detail && <div className="text-[10px] text-text-muted mt-1 break-all">{detail}</div>}{item?.override_reason && <div className="text-[10px] text-warning mt-1">사유: {item.override_reason}</div>}{onOverride && <button className="text-[10px] underline mt-2" disabled={busy} onClick={onOverride}>{status === 'OVERRIDDEN' ? 'override 해제' : '긴급 override'}</button>}</div>;
+  return <div className={`rounded-card-md border p-3 ${cls}`}><div className="text-xs font-black text-text-secondary">{label}</div><div className="font-display mt-1">{status}</div>{detail && <div className="text-[10px] text-text-muted mt-1 break-all">{detail}</div>}{item?.override_reason && <div className="text-[10px] text-warning mt-1">사유: {item.override_reason}</div>}<div className="flex flex-wrap gap-3">{onOverride && <button className="text-[10px] underline mt-2" disabled={busy} onClick={onOverride}>{status === 'OVERRIDDEN' ? 'override 해제' : '긴급 override'}</button>}{onAction && <button className="text-[10px] underline mt-2" disabled={busy} onClick={onAction}>{actionLabel ?? '실행'}</button>}</div></div>;
 }
 
 function territoryInitial(data: Guild5TeacherDashboard) {
@@ -146,10 +152,10 @@ function TerritoryConfig({ data, drafts, setDrafts, busy, run }: { data: Guild5T
 
 function GuildDraftTable({ rows }: { rows: Array<Record<string, any>> }) {
   if (!rows.length) return <EmptyState emoji="📊" title="Guild2 월간 초안이 없습니다" description="점수 다시 계산 후 마감 Preview를 새로고침하세요."/>;
-  return <div className="overflow-x-auto"><table className="w-full text-xs"><thead className="text-text-muted border-b border-line"><tr><Th>길드</Th><Th>인원</Th><Th>개인 합</Th><Th>Mission GS</Th><Th>보정</Th><Th>기타 조정</Th><Th>Draft GS</Th></tr></thead><tbody>{rows.map((r) => <tr key={r.guild_id} className="border-b border-line/50"><Td>{r.guild_name}</Td><Td>{r.roster_count}</Td><Td>{num(r.individual_subtotal)}</Td><Td>{num(r.official_mission_gs)}</Td><Td>{num(r.compensation_amount)}</Td><Td>{num(r.manual_adjustment_total)}</Td><Td><b className="text-gold">{num(r.draft_gs_total)}</b></Td></tr>)}</tbody></table></div>;
+  return <div className="overflow-x-auto"><table className="w-full text-xs"><thead className="text-text-muted border-b border-line"><tr><Th>길드</Th><Th>인원</Th><Th>개인 합</Th><Th>미션 길드점수</Th><Th>보정</Th><Th>기타 조정</Th><Th>Draft GS</Th></tr></thead><tbody>{rows.map((r) => <tr key={r.guild_id} className="border-b border-line/50"><Td>{r.guild_name}</Td><Td>{r.roster_count}</Td><Td>{num(r.individual_subtotal)}</Td><Td>{num(r.official_mission_gs)}</Td><Td>{num(r.compensation_amount)}</Td><Td>{num(r.manual_adjustment_total)}</Td><Td><b className="text-gold">{num(r.draft_gs_total)}</b></Td></tr>)}</tbody></table></div>;
 }
 function FinalRanking({ rows }: { rows: Array<Record<string, any>> }) {
-  return <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-2">{rows.map((r) => <div key={r.guild_id} className={`rounded-card-md border p-3 ${Number(r.rank_position) <= 3 ? 'border-gold/30 bg-gold/5' : 'border-line bg-bg-deep'}`}><div className="text-xs font-black text-text-muted">{r.rank_position}위</div><div className="font-black mt-1 truncate">{r.guild_name_at_close}</div><div className="font-display text-xl text-gold mt-2">{num(r.total_gs)} GS</div><div className="text-[10px] text-text-muted mt-1">BV {num(r.roster_bv_sum)} · Mission {num(r.official_mission_gs)}</div></div>)}</div>;
+  return <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-2">{rows.map((r) => <div key={r.guild_id} className={`rounded-card-md border p-3 ${Number(r.rank_position) <= 3 ? 'border-gold/30 bg-gold/5' : 'border-line bg-bg-deep'}`}><div className="text-xs font-black text-text-muted">{r.rank_position}위</div><div className="font-black mt-1 truncate">{r.guild_name_at_close}</div><div className="font-display text-xl text-gold mt-2">{num(r.total_gs)} GS</div><div className="text-[10px] text-text-muted mt-1">BV {num(r.roster_bv_sum)} · 미션 길드점수 {num(r.official_mission_gs)}</div></div>)}</div>;
 }
 function Conquest({ data, busy, run, activeTurn, territories, usedTerritoryIds }: { data: Guild5TeacherDashboard; busy:boolean; run:(label:string,fn:()=>Promise<any>)=>void; activeTurn:any; territories:Array<Record<string,any>>; usedTerritoryIds:Set<number> }) {
   const currentVersionId = Number(data.closure?.current_version_id ?? 0);

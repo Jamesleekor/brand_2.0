@@ -56,6 +56,7 @@ export const guild5TeacherRpc = {
   dashboard: (c: SupabaseClient, input: S.YearMonthInput) => call<S.YearMonthInput, Guild5TeacherDashboard>(c, 'teacher_get_guild5_dashboard', S.YearMonthSchema, input),
   preview: (c: SupabaseClient, input: S.YearMonthInput) => call<S.YearMonthInput, Guild5ClosePreview>(c, 'teacher_get_guild5_close_preview', S.YearMonthSchema, input),
   setOverride: (c: SupabaseClient, input: S.OverrideInput) => call<S.OverrideInput, Guild5ClosePreview>(c, 'teacher_set_guild5_override', S.OverrideSchema, input),
+  forceArcadeReady: (c: SupabaseClient, input: S.ArcadeForceReadyInput) => call<S.ArcadeForceReadyInput, Record<string, any>>(c, 'teacher_force_finalize_arcade_month_for_guild5', S.ArcadeForceReadySchema, input),
   setTerritory: (c: SupabaseClient, input: S.TerritoryConfigInput) => call<S.TerritoryConfigInput, Array<Record<string, any>>>(c, 'teacher_set_guild5_territory_v2', S.TerritoryConfigSchema, input),
   finalize: (c: SupabaseClient, input: S.YearMonthInput) => call<S.YearMonthInput, Record<string, any>>(c, 'teacher_finalize_guild5_month', S.YearMonthSchema, input),
   reopen: (c: SupabaseClient, input: S.ReopenInput) => call<S.ReopenInput, Record<string, any>>(c, 'teacher_reopen_guild5_month', S.ReopenSchema, input),
