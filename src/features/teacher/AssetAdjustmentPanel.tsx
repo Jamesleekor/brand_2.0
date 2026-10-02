@@ -37,33 +37,6 @@ interface LastAdjustment {
   arrearAmount?: number;
 }
 
-interface AssetArrearDetail {
-  arrear_id: number;
-  reason: string;
-  assessed_amount: number;
-  paid_amount: number;
-  outstanding_amount: number;
-  status: 'UNPAID' | 'PARTIAL';
-  created_at: string;
-}
-
-interface AssetArrearStudent {
-  student_id: number;
-  student_name: string;
-  brand_name: string | null;
-  current_gold: number;
-  arrear_count: number;
-  outstanding_total: number;
-  details: AssetArrearDetail[];
-}
-
-interface AssetArrearsState {
-  classroom_id: number;
-  student_count: number;
-  total_outstanding: number;
-  students: AssetArrearStudent[];
-}
-
 const isValidAmount = (value: number) => Number.isInteger(value) && value >= 1 && value <= 10_000_000;
 const isValidNonNegativeAmount = (value: number) => Number.isInteger(value) && value >= 0 && value <= 10_000_000;
 
@@ -81,8 +54,6 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [lastAdjustment, setLastAdjustment] = useState<LastAdjustment | null>(null);
   const [taxRateInput, setTaxRateInput] = useState('10');
-  const [collectingArrearStudentId, setCollectingArrearStudentId] = useState<number | null>(null);
-  const [arrearNotice, setArrearNotice] = useState<{ kind: 'success' | 'warning' | 'error'; text: string } | null>(null);
 
   const adjustmentConfigQuery = useQuery({
     queryKey: ['teacher-asset-adjustment-config', classroomId],
@@ -100,50 +71,6 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
     const rate = adjustmentConfigQuery.data?.income_tax_rate_percent;
     if (rate !== undefined && rate !== null) setTaxRateInput(String(rate));
   }, [adjustmentConfigQuery.data?.income_tax_rate_percent]);
-
-  const assetArrearsQuery = useQuery<AssetArrearsState>({
-    queryKey: ['teacher-asset-arrears', classroomId],
-    queryFn: async () => {
-      if (!classroomId) {
-        return { classroom_id: 0, student_count: 0, total_outstanding: 0, students: [] };
-      }
-
-      const { data, error } = await supabase.rpc('teacher_get_asset_arrears_state', {
-        p_classroom_id: classroomId,
-      });
-      if (error) throw new Error(error.message);
-
-      const raw = data as any;
-      return {
-        classroom_id: Number(raw?.classroom_id ?? classroomId),
-        student_count: Number(raw?.student_count ?? 0),
-        total_outstanding: Number(raw?.total_outstanding ?? 0),
-        students: Array.isArray(raw?.students)
-          ? raw.students.map((student: any) => ({
-              student_id: Number(student?.student_id ?? 0),
-              student_name: String(student?.student_name ?? ''),
-              brand_name: student?.brand_name ? String(student.brand_name) : null,
-              current_gold: Number(student?.current_gold ?? 0),
-              arrear_count: Number(student?.arrear_count ?? 0),
-              outstanding_total: Number(student?.outstanding_total ?? 0),
-              details: Array.isArray(student?.details)
-                ? student.details.map((detail: any) => ({
-                    arrear_id: Number(detail?.arrear_id ?? 0),
-                    reason: String(detail?.reason ?? ''),
-                    assessed_amount: Number(detail?.assessed_amount ?? 0),
-                    paid_amount: Number(detail?.paid_amount ?? 0),
-                    outstanding_amount: Number(detail?.outstanding_amount ?? 0),
-                    status: detail?.status === 'PARTIAL' ? 'PARTIAL' : 'UNPAID',
-                    created_at: String(detail?.created_at ?? ''),
-                  }))
-                : [],
-            }))
-          : [],
-      };
-    },
-    enabled: classroomId !== null,
-    staleTime: 5_000,
-  });
 
   const studentsQuery = useQuery<AssetStudent[]>({
     queryKey: ['teacher-asset-students', classroomId],
@@ -284,52 +211,8 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
       queryClient.invalidateQueries({ queryKey: ['profile-detail'] }),
       queryClient.invalidateQueries({ queryKey: ['rankings'] }),
       queryClient.invalidateQueries({ queryKey: ['student-asset-arrears'] }),
-      queryClient.invalidateQueries({ queryKey: ['teacher-asset-arrears'] }),
       queryClient.invalidateQueries({ queryKey: ['teacher-asset-adjustment-config'] }),
     ]);
-  };
-
-  const handleCollectAssetArrears = async (student: AssetArrearStudent) => {
-    if (!classroomId || collectingArrearStudentId !== null) return;
-
-    const confirmed = window.confirm(
-      `${student.student_name} 학생의 일반 미납금을 지금 징수할까요?\n\n` +
-      `현재 미납 ${formatNumber(student.outstanding_total)} GOLD · 현재 보유 ${formatNumber(student.current_gold)} GOLD\n` +
-      '경매 최고입찰액과 균형발전 분담금 예약분은 건드리지 않고, 사용 가능한 GOLD에서 오래된 미납부터 징수합니다.'
-    );
-    if (!confirmed) return;
-
-    setCollectingArrearStudentId(student.student_id);
-    setArrearNotice(null);
-
-    try {
-      const { data, error } = await supabase.rpc('teacher_collect_student_asset_arrears', {
-        p_classroom_id: classroomId,
-        p_student_id: student.student_id,
-      });
-      if (error) throw new Error(error.message);
-
-      const result = data as any;
-      const collected = Number(result?.collected_total ?? 0);
-      const remaining = Number(result?.remaining_outstanding ?? student.outstanding_total);
-      const availableBefore = Number(result?.available_gold_before ?? 0);
-
-      setArrearNotice({
-        kind: collected > 0 ? 'success' : 'warning',
-        text: collected > 0
-          ? `${student.student_name} · ${formatNumber(collected)} GOLD 징수 · 남은 미납 ${formatNumber(remaining)} GOLD`
-          : `${student.student_name} · 현재 징수 가능한 GOLD가 없습니다. 사용 가능 잔액 ${formatNumber(availableBefore)} GOLD`,
-      });
-
-      await invalidate();
-    } catch (error) {
-      setArrearNotice({
-        kind: 'error',
-        text: error instanceof Error ? error.message : '미납 징수에 실패했습니다.',
-      });
-    } finally {
-      setCollectingArrearStudentId(null);
-    }
   };
 
   const handleConfirm = async () => {
@@ -556,99 +439,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
           <button type="button" onClick={() => setConfirmOpen(true)} disabled={!canOpenConfirm} className={cn('w-full py-3 rounded-card-md text-sm font-black transition-all', operation === 'GRANT' ? 'btn-primary' : 'btn-danger', !canOpenConfirm && 'opacity-50 cursor-not-allowed')}>
             {isSubmitting ? '처리 중...' : `${selectedStudents.length}명 ${operation === 'GRANT' ? '지급' : '차감'} 확인`}
           </button>
-          <p className="text-xs text-text-secondary font-bold leading-relaxed break-keep">다중 처리는 한 DB 작업으로 처리됩니다. 지급 GOLD는 소득세 반영 후 일반 미납이 있으면 오래된 미납부터 자동상환되고, 남은 금액만 지갑에 적립됩니다. 차감액이 잔액을 넘으면 부족분은 미납 벌금으로 남습니다.</p>
-        </div>
-      </div>
-
-      <div className="border-t border-line p-4 bg-bg-deep/40">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="font-display text-base text-white tracking-tight">🧾 일반 미납금 관리</h3>
-            <p className="mt-1 text-xs font-bold text-text-secondary break-keep">
-              GOLD 수입이 발생하면 오래된 일반 미납부터 자동상환됩니다. 아래 버튼은 이미 지갑에 남아 있는 GOLD를 지금 징수할 때 사용합니다.
-            </p>
-          </div>
-          <div className={cn(
-            'self-start rounded-pill border px-3 py-1.5 text-xs font-black',
-            (assetArrearsQuery.data?.total_outstanding ?? 0) > 0
-              ? 'border-danger/30 bg-danger-bg text-danger'
-              : 'border-success/30 bg-success-bg text-success'
-          )}>
-            {(assetArrearsQuery.data?.total_outstanding ?? 0) > 0
-              ? `총 미납 ${formatNumber(assetArrearsQuery.data?.total_outstanding ?? 0)}G · ${assetArrearsQuery.data?.student_count ?? 0}명`
-              : '미납 없음'}
-          </div>
-        </div>
-
-        {arrearNotice && (
-          <div className={cn(
-            'mt-3 rounded-card-md border px-3 py-2 text-xs font-extrabold',
-            arrearNotice.kind === 'success' && 'border-success/30 bg-success-bg text-success',
-            arrearNotice.kind === 'warning' && 'border-warning/30 bg-warning-bg text-warning',
-            arrearNotice.kind === 'error' && 'border-danger/30 bg-danger-bg text-danger'
-          )}>
-            {arrearNotice.text}
-          </div>
-        )}
-
-        {assetArrearsQuery.isLoading ? (
-          <div className="py-8 flex justify-center"><LoadingSpinner size="md" /></div>
-        ) : assetArrearsQuery.isError ? (
-          <div className="mt-3 rounded-card-md border border-danger/40 bg-danger-bg p-3 text-xs font-bold text-danger">
-            미납 현황을 불러오지 못했습니다: {assetArrearsQuery.error instanceof Error ? assetArrearsQuery.error.message : '알 수 없는 오류'}
-          </div>
-        ) : (assetArrearsQuery.data?.students.length ?? 0) === 0 ? (
-          <div className="mt-3 rounded-card-md border border-success/20 bg-success-bg/40 p-4 text-sm font-bold text-success">
-            ✅ 현재 남아 있는 일반 GOLD 미납이 없습니다.
-          </div>
-        ) : (
-          <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {assetArrearsQuery.data?.students.map((student) => (
-              <div key={student.student_id} className="rounded-card-md border border-line bg-bg-card p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-extrabold text-text-primary">
-                      {student.student_name}{student.brand_name ? ` (${student.brand_name})` : ''}
-                    </p>
-                    <p className="mt-1 text-xs font-bold text-text-secondary">
-                      현재 {formatNumber(student.current_gold)}G · 미납 {formatNumber(student.outstanding_total)}G · {student.arrear_count}건
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void handleCollectAssetArrears(student)}
-                    disabled={collectingArrearStudentId !== null || student.current_gold <= 0}
-                    className="btn-danger shrink-0 px-3 py-2 text-xs disabled:opacity-50"
-                  >
-                    {collectingArrearStudentId === student.student_id ? '징수 중…' : '미납 지금 징수'}
-                  </button>
-                </div>
-
-                <details className="mt-2 rounded-card-md border border-line bg-bg-deep">
-                  <summary className="cursor-pointer px-3 py-2 text-xs font-black text-text-secondary hover:text-text-primary">
-                    오래된 순 미납 내역 보기
-                  </summary>
-                  <div className="divide-y divide-line">
-                    {student.details.map((detail) => (
-                      <div key={detail.arrear_id} className="px-3 py-2 text-xs font-bold text-text-secondary">
-                        <div className="flex justify-between gap-3">
-                          <span className="min-w-0 truncate text-text-primary">{detail.reason}</span>
-                          <span className="shrink-0 text-danger">{formatNumber(detail.outstanding_amount)}G 미납</span>
-                        </div>
-                        <div className="mt-1">
-                          부과 {formatNumber(detail.assessed_amount)}G · 납부 {formatNumber(detail.paid_amount)}G · {detail.status === 'PARTIAL' ? '일부 납부' : '미납'}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-3 rounded-card-md border border-line bg-bg-card/70 p-3 text-xs font-bold leading-relaxed text-text-secondary">
-          자동상환은 새로 들어오는 GOLD 범위에서만 실행됩니다. 수동징수는 경매 최고입찰 예약금과 균형발전 분담금 예약분을 보존한 뒤 남는 GOLD만 사용합니다.
+          <p className="text-xs text-text-secondary font-bold leading-relaxed break-keep">다중 처리는 한 DB 작업으로 처리됩니다. 지급 골드는 소득세가 자동 반영되고, 차감액이 잔액을 넘으면 부족분은 미납 벌금으로 남습니다.</p>
         </div>
       </div>
 
