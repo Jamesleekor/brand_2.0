@@ -126,8 +126,9 @@ export default function SavingsBankAdmin() {
         <h1 className="mt-1 font-display text-2xl text-brand-gradient">🏦 은행 운영</h1>
         <p className="mt-1 text-sm font-bold text-text-secondary">상품 설정부터 현재 예금, 전체 가입 이력까지 한 화면에서 관리합니다. 기존 학생 계약은 가입 당시 snapshot을 유지합니다.</p>
       </div>
-      <div className="flex flex-wrap gap-2">
-        <button className="btn-secondary" disabled={actionLoading} onClick={() => void processMatured()}>⏱ 만기 예금 일괄 정산</button>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="rounded-pill border border-success/30 bg-success-bg px-3 py-2 text-[10px] font-black text-success">⚙️ 자동 정산 ON · 만기일 00:00 KST 이후 최대 5분</span>
+        <button className="btn-secondary" title="자동 정산 실패 시에만 사용하는 복구용 기능입니다." disabled={actionLoading} onClick={() => void processMatured()}>↻ 수동 재정산</button>
         {tab === 'PRODUCTS' && <button className="btn-primary" onClick={() => setDraft(freshDraft())}>＋ 새 예금상품</button>}
       </div>
     </div>
