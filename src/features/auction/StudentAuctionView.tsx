@@ -14,7 +14,7 @@ import type { AuctionSuperPassState, LiveAuctionItem } from './types';
 
 export default function StudentAuctionView() {
   const studentId = useStudentId();
-  const { wallet, refetch: refetchWallet } = useWallet();  const { isStateDelayed, state, auction, items, currentItem, recentBids, superPass, isLoading, refetch } = useLiveAuctionState(false, true); // AUCTION_STUDENT_LIGHT_MODE_V1
+  const { wallet, refetch: refetchWallet } = useWallet();  const { isStateDelayed, state, auction, items, currentItem, recentBids, superPass, isLoading, refetch } = useLiveAuctionState(false);
   const { call, isLoading: isSubmitting } = useRpcCall();
   const showToast = useToastStore((s) => s.show);
   const auctionSubmitRef = useRef(false);

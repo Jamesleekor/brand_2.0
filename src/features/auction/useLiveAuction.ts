@@ -6,7 +6,7 @@ import type { LiveAuctionItem, LiveAuctionState } from './types';
 
 
 type AuctionQueryState = LiveAuctionState & { receivedAtMs?: number; requestDurationMs?: number };
-export function useLiveAuctionState(includeScheduled = false, lightMode = false) {
+export function useLiveAuctionState(includeScheduled = false) {
   const classroomId = useClassroomId();
   // AUCTION_EMERGENCY_POLLING_V1: avoid Postgres Changes fan-out during live bidding.
   const [pollMs] = useState(() => (includeScheduled ? 1_500 : 2_500) + Math.floor(Math.random() * 500));  // AUCTION_SYNC_HEALTH_V2
@@ -22,8 +22,6 @@ export function useLiveAuctionState(includeScheduled = false, lightMode = false)
       const { data, error } = await supabase.rpc('get_live_auction_state', {
         p_classroom_id: classroomId,
         p_include_scheduled: includeScheduled,
-        // AUCTION_STUDENT_LIGHT_MODE_V1: student screen requests light mode
-        ...(lightMode ? { p_light_mode: true } : {}),
       });
       if (error) throw new Error(error.message);      const receivedAtMs = Date.now();
       return { ...(data as LiveAuctionState), receivedAtMs, requestDurationMs: receivedAtMs - startedAtMs };
