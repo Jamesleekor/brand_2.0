@@ -1,3 +1,7 @@
+// DEPRECATED HISTORICAL SOURCE ONLY.
+// Production uses ../dimensional-gate-ai-chat/index.ts (OpenAI Responses API).
+// Do not deploy this Anthropic-era function as the active Dimensional Gate chat endpoint.
+
 // =============================================================================
 // B.R.A.N.D 2.0 — Dimensional Gate AI Chat
 // JWT-protected Edge Function. The browser never receives the AI provider key.
