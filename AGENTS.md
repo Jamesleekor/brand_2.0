@@ -1,8 +1,8 @@
 # AGENTS.md — B.R.A.N.D 2.0 Repository Rules
 
 > 이 파일은 B.R.A.N.D 2.0 저장소에서 작업하는 Codex/AI 개발자가 가장 먼저 읽어야 하는 프로젝트 규칙이다.
-> 마지막 갱신: 2026-09-03
-> 현재 기준선: Guild 1 COMPLETE / Guild 2 설계 확정 후 구현 대기
+> 마지막 갱신: 2026-10-03
+> 현재 기준선: B.R.A.N.D 2.0 production 운영 중 / Guild 1~5 구현·운영 중
 
 ---
 
@@ -11,7 +11,7 @@
 문서 간 내용이 충돌할 경우 아래 순서를 따른다.
 
 1. `AGENTS.md`
-2. `docs/BRAND_CURRENT_STATE_2026-08-12.md`
+2. `docs/BRAND_CURRENT_STATE_2026-10-03.md`
 3. 현재 작업 중인 기능 SPEC (`docs/GUILD2_SPEC.md` 등)
 4. `00_BRAND_완벽이해하기*.md`
 5. 과거 HANDOFF / BLUEPRINT / 구현 기록 / 오래된 migration 주석
@@ -29,7 +29,7 @@
 
 B.R.A.N.D는 단순한 학급 경제 앱이 아니다.
 
-**초등학교 5학년 한 반 24명이 1년 동안 살아가는 하나의 세계**다.
+**초등학교 한 학급이 1년 동안 살아가는 하나의 세계**다.
 
 경제·관리 기능은 세계를 지탱하는 하부구조이며, 설계 결정은 다음 순서로 생각한다.
 
@@ -389,9 +389,13 @@ production legacy에서 확인된 사항:
 
 # 12. Guild 2
 
-Guild 2의 authoritative specification:
+Guild 2는 이미 production에 구현·운영 중이다.
+
+도메인 규칙의 authoritative specification:
 
 `docs/GUILD2_SPEC.md`
+
+단, 현재 함수 signature·테이블·운영 동작은 production DB가 source of truth다. 수정 전 live `pg_proc` / schema를 반드시 확인한다.
 
 과거 코드의 다음 항목은 **새 공식의 source of truth가 아니다.**
 
