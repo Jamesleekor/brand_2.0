@@ -34,6 +34,10 @@ function isCriticalRestRequest(url: string): boolean {
     '/rest/v1/rpc/student_submit_pure_reaction_02_run',
     '/rest/v1/rpc/student_create_arcade_verification_run',
     '/rest/v1/rpc/student_begin_arcade_run',
+    // RAID_V15_FAST_PATH_V1: combat submissions/ticks already have client + server backpressure.
+    // They must not wait behind ordinary background REST reads.
+    '/rest/v1/rpc/submit_raid_tap_batch',
+    '/rest/v1/rpc/raid_combat_tick',
     '/rest/v1/rpc/place_live_auction_bid',
     '/rest/v1/rpc/teacher_start_live_auction',
     '/rest/v1/rpc/teacher_start_live_auction_item',
