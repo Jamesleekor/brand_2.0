@@ -42,6 +42,7 @@ import { BrandWorldPanel, BrandWorldSummaryButton } from '@/features/dashboard/B
 import { HomeServiceAdStrip } from '@/features/dashboard/HomeServiceAdStrip';
 import { EmergencyQuestDetailModal, type EmergencyQuestDetail } from '@/features/dashboard/EmergencyQuestDetailModal';
 import { newbieSupportRpc, type NewbieSummary } from '@/lib/rpc/newbie_support_rpc';
+import { expeditionRpc } from '@/lib/rpc/expedition_rpc';
 
 // =====================================================================
 // 메인 컴포넌트
@@ -390,6 +391,25 @@ export default function DashboardPage() {
 
 function FutureHomeShortcuts() {
   const navigate = useNavigate();
+  const expeditionBoardQuery = useQuery({
+    queryKey: ['expedition-board'],
+    queryFn: async () => {
+      const result = await expeditionRpc.board(supabase);
+      if (result.success === false) throw new Error(result.error);
+      return result.data;
+    },
+    staleTime: 5_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+  });
+  const expeditionEnabled = expeditionBoardQuery.data?.enabled === true;
+  const expeditionWeekVisible = expeditionBoardQuery.data?.week != null;
+  const expeditionCaption = expeditionBoardQuery.isLoading
+    ? '확인 중'
+    : expeditionEnabled
+      ? expeditionWeekVisible ? '입장' : '개방 대기'
+      : '준비 중';
+
   const shortcuts = [
     {
       emoji: '🔮',
@@ -408,9 +428,9 @@ function FutureHomeShortcuts() {
     {
       emoji: '🧭',
       label: '편린 원정대',
-      caption: 'COMING SOON',
-      enabled: false,
-      to: null,
+      caption: expeditionCaption,
+      enabled: expeditionEnabled,
+      to: '/characters?tab=expedition',
     },
   ] as const;
 

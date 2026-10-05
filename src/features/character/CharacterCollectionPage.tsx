@@ -11,10 +11,12 @@ import {
   type StudentCharacterCollectionRow,
 } from '@/lib/rpc/character_c2_rpc';
 import { StudentCharacterCollectionsPanel } from './StudentCharacterCollectionsPanel';
-import DimensionalGatePanel from '@/features/character/DimensionalGatePanel';
+import ExpeditionChroniclePanel from './ExpeditionChroniclePanel';
 import { characterS1Rpc, type StudentCharacterRecruitmentRow } from '@/lib/rpc/character_s1_rpc';
+import { expeditionRpc } from '@/lib/rpc/expedition_rpc';
 import { useWallet } from '@/hooks/useWallet';
 import { cn } from '@/lib/utils/cn';
+import { EXPEDITION_ASSETS } from './expedition/expeditionAssets';
 
 // =====================================================================
 // B.R.A.N.D 2.0 — Character Collection C2 + C4-C + S1 + E1-A
@@ -148,25 +150,29 @@ const TIER_FILTERS: Array<{ key: TierFilterKey; label: string }> = [
   { key: '10', label: '최고급형' },
 ];
 
-type CharacterPageTab = 'LIBRARY' | 'COLLECTIONS' | 'DIMENSIONAL_GATE';
+type CharacterPageTab = 'LIBRARY' | 'COLLECTIONS' | 'EXPEDITION';
 
 const PAGE_TABS: Array<{ key: CharacterPageTab; label: string; icon: string; description: string }> = [
   { key: 'LIBRARY', label: '편린 도감', icon: '✦', description: '편린 보유·직접 영입·장착' },
   { key: 'COLLECTIONS', label: '콜렉션', icon: '🧩', description: '조합 진행도·완성 효과·활성 버프' },
-  { key: 'DIMENSIONAL_GATE', label: '차원관문', icon: '🌀', description: '편린 관계·기억·만남 이벤트' },
+  { key: 'EXPEDITION', label: '원정 연대기', icon: '🧭', description: '이번 주 탐사·원정대 편성·흔적 기록' },
 ];
 
 export default function CharacterCollectionPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [tab, setTab] = useState<CharacterPageTab>(() =>
-    searchParams.get('tab') === 'dimensional-gate' ? 'DIMENSIONAL_GATE' : 'LIBRARY'
-  );
+  const [tab, setTab] = useState<CharacterPageTab>(() => {
+    const requestedTab = searchParams.get('tab');
+    if (requestedTab === 'collections') return 'COLLECTIONS';
+    if (requestedTab === 'expedition') return 'EXPEDITION';
+    return 'LIBRARY';
+  });
 
   const changeTab = (nextTab: CharacterPageTab) => {
     setTab(nextTab);
     const nextParams = new URLSearchParams(searchParams);
-    if (nextTab === 'DIMENSIONAL_GATE') nextParams.set('tab', 'dimensional-gate');
-    else nextParams.delete('tab');
+    if (nextTab === 'LIBRARY') nextParams.delete('tab');
+    else if (nextTab === 'COLLECTIONS') nextParams.set('tab', 'collections');
+    else nextParams.set('tab', 'expedition');
     setSearchParams(nextParams, { replace: true });
   };
   const [filter, setFilter] = useState<FilterKey>('ALL');
@@ -180,6 +186,17 @@ export default function CharacterCollectionPage() {
   const recruitmentQuery = useCharacterRecruitmentStore();
   const elementQuery = useCharacterElementProfiles();
   const expeditionProfileQuery = useCharacterExpeditionProfiles();
+  const expeditionBoardQuery = useQuery({
+    queryKey: ['expedition-board'],
+    queryFn: async () => {
+      const result = await expeditionRpc.board(supabase);
+      if (result.success === false) throw new Error(result.error);
+      return result.data;
+    },
+    staleTime: 5_000,
+    refetchOnWindowFocus: true,
+  });
+  const showExpeditionTab = expeditionBoardQuery.data?.enabled === true;
   const characters = collectionQuery.data ?? [];
   const recruitmentById = useMemo(
     () => new Map((recruitmentQuery.data ?? []).map((row) => [row.character_id, row])),
@@ -255,7 +272,7 @@ export default function CharacterCollectionPage() {
       <PageHeader title="편린" emoji="✦" />
 
       <main className="px-4 pt-4 lg:px-5 lg:pt-5">
-        <CharacterPageTabs tab={tab} onChange={changeTab} />
+        <CharacterPageTabs tab={tab} onChange={changeTab} showExpedition={showExpeditionTab} />
 
         {tab === 'LIBRARY' ? (
           <>
@@ -381,7 +398,7 @@ export default function CharacterCollectionPage() {
             }}
           />
         ) : (
-          <DimensionalGatePanel />
+          <ExpeditionChroniclePanel />
         )}
       </main>
 
@@ -429,13 +446,22 @@ function ElementFilterGroup<T extends string>({
 function CharacterPageTabs({
   tab,
   onChange,
+  showExpedition,
 }: {
   tab: CharacterPageTab;
   onChange: (tab: CharacterPageTab) => void;
+  showExpedition: boolean;
 }) {
+  const visibleTabs = showExpedition
+    ? PAGE_TABS
+    : PAGE_TABS.filter((item) => item.key !== 'EXPEDITION');
+
   return (
-    <div className="mb-4 grid grid-cols-3 gap-2 rounded-card-lg border border-line bg-bg-card/90 p-1.5 shadow-card">
-      {PAGE_TABS.map((item) => (
+    <div className={cn(
+      'mb-4 grid gap-2 rounded-card-lg border border-line bg-bg-card/90 p-1.5 shadow-card',
+      showExpedition ? 'grid-cols-3' : 'grid-cols-2',
+    )}>
+      {visibleTabs.map((item) => (
         <button
           key={item.key}
           type="button"
@@ -644,9 +670,15 @@ function CharacterElementLine({
 
   return (
     <div className="mt-2 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-black text-text-primary">
-      <span className="flex-shrink-0">{primary.icon} {profile.primary_points}</span>
-      {secondary && profile.secondary_points > 0 && (
-        <span className="flex-shrink-0">{secondary.icon} {profile.secondary_points}</span>
+      <span className="inline-flex flex-shrink-0 items-center gap-1">
+        <img src={EXPEDITION_ASSETS.element[profile.primary_element]} alt="" className="h-4 w-4 object-contain" decoding="async" />
+        {profile.primary_points}
+      </span>
+      {secondary && profile.secondary_element && profile.secondary_points > 0 && (
+        <span className="inline-flex flex-shrink-0 items-center gap-1">
+          <img src={EXPEDITION_ASSETS.element[profile.secondary_element!]} alt="" className="h-4 w-4 object-contain" decoding="async" />
+          {profile.secondary_points}
+        </span>
       )}
       <span className="truncate rounded-pill border border-line bg-bg-deep/70 px-1.5 py-0.5 text-[9px] text-[#F5E9D4]">
         {getTendencyShortLabel(getElementTendency(profile))}
@@ -656,7 +688,8 @@ function CharacterElementLine({
           'flex-shrink-0 rounded-pill border px-1.5 py-0.5 text-[9px]',
           specialty.className,
         )}>
-          {specialty.icon} {specialty.label}
+          <img src={EXPEDITION_ASSETS.specialty[expeditionProfile!.specialty_code]} alt="" className="mr-1 inline-block h-3.5 w-3.5 object-contain align-[-3px]" decoding="async" />
+          {specialty.label}
         </span>
       )}
     </div>
@@ -1059,7 +1092,8 @@ function CharacterElementPanel({
                   'rounded-pill border px-2 py-0.5 text-[12px]',
                   specialty.className,
                 )}>
-                  {specialty.icon} 원정 특기 · {specialty.label}
+                  <img src={EXPEDITION_ASSETS.specialty[expeditionProfile!.specialty_code]} alt="" className="mr-1 inline-block h-4 w-4 object-contain align-[-3px]" decoding="async" />
+                  원정 특기 · {specialty.label}
                 </span>
               </>
             )}
@@ -1069,13 +1103,21 @@ function CharacterElementPanel({
           <span
             className="inline-flex items-center gap-1 rounded-pill border px-2.5 py-1"
             style={elementChipStyle(primary)}
-          >            <span>{primary.icon} {primary.label} {profile.primary_points}</span>
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <img src={EXPEDITION_ASSETS.element[profile.primary_element]} alt="" className="h-5 w-5 object-contain" decoding="async" />
+              {primary.label} {profile.primary_points}
+            </span>
           </span>
           {secondary && profile.secondary_points > 0 && (
             <span
               className="inline-flex items-center gap-1 rounded-pill border px-2.5 py-1"
               style={elementChipStyle(secondary)}
-            >              <span>{secondary.icon} {secondary.label} {profile.secondary_points}</span>
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <img src={EXPEDITION_ASSETS.element[profile.secondary_element!]} alt="" className="h-5 w-5 object-contain" decoding="async" />
+                {secondary.label} {profile.secondary_points}
+              </span>
             </span>
           )}
         </div>
