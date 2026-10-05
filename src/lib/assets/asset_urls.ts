@@ -48,9 +48,9 @@ const TIER_ICON_FILENAMES: Record<Tier, string> = {
   '세공된 다이아': 'rankicon_diamond2.png',
   '무결 다이아': 'rankicon_diamond3.png',
   '영원의 결정': 'rankicon_diamond4.png',
-  '마스터':      'rankicon_master1.png',
-  '천상의 마스터': 'rankicon_master2.png',
-  '그랜드마스터': 'rankicon_grandmaster.png',
+  '마스터':      'rankicon_Master.png',
+  '천상의 마스터': 'rankicon_Celestial-Master.png',
+  '그랜드마스터': 'rankicon_Grand-Master.png',
 };
 
 /**
