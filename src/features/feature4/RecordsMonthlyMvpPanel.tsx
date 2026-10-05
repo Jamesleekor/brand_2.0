@@ -1643,7 +1643,7 @@ function PremiumPortraitStageV4({
     );
   }
 
-  const localFallback = `/records/mvp/2026/${row.month_no === 9 ? 'September_MVP' : ({3:'March_MVP',4:'April_MVP',5:'May_MVP',6:'June_MVP',7:'July_MVP'} as Record<number,string>)[row.month_no] ?? 'March_MVP'}.webp`;
+  const localFallback = `${import.meta.env.BASE_URL}records/mvp/2026/${row.month_no === 9 ? 'September_MVP' : ({3:'March_MVP',4:'April_MVP',5:'May_MVP',6:'June_MVP',7:'July_MVP'} as Record<number,string>)[row.month_no] ?? 'March_MVP'}.webp`;
 
   return (
     <div

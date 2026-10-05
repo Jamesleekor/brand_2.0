@@ -13,42 +13,44 @@ type MvpPortrait = {
 
 export type MonthlyMvpGalleryVariant = 'login' | 'records';
 
+const MVP_IMAGE_BASE = `${import.meta.env.BASE_URL}records/mvp/2026/`;
+
 const MVP_PORTRAITS: MvpPortrait[] = [
   {
     month: '3월',
     name: '김서영',
-    imageUrl: '/records/mvp/2026/March_MVP.webp',
+    imageUrl: `${MVP_IMAGE_BASE}March_MVP.webp`,
     accent: 'silver',
   },
   {
     month: '4월',
     name: '류은우',
-    imageUrl: '/records/mvp/2026/April_MVP.webp',
+    imageUrl: `${MVP_IMAGE_BASE}April_MVP.webp`,
     accent: 'gold',
   },
   {
     month: '5월',
     name: '한서현',
-    imageUrl: '/records/mvp/2026/May_MVP.webp',
+    imageUrl: `${MVP_IMAGE_BASE}May_MVP.webp`,
     accent: 'rose',
     flip: true,
   },
   {
     month: '6월',
     name: '류은우',
-    imageUrl: '/records/mvp/2026/June_MVP.webp',
+    imageUrl: `${MVP_IMAGE_BASE}June_MVP.webp`,
     accent: 'cyan',
   },
   {
     month: '7월',
     name: '김서영',
-    imageUrl: '/records/mvp/2026/July_MVP.webp',
+    imageUrl: `${MVP_IMAGE_BASE}July_MVP.webp`,
     accent: 'gold',
   },
   {
     month: '9월',
     name: '부희주',
-    imageUrl: '/records/mvp/2026/September_MVP.webp',
+    imageUrl: `${MVP_IMAGE_BASE}September_MVP.webp`,
     accent: 'gold',
   },
 ];
