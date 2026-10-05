@@ -24,3 +24,18 @@ backup_raid_v15_e5_*/
 # Generated config outputs
 /vite.config.js
 /vite.config.d.ts
+
+# Patch installer / rollback artifacts (never commit)
+.brand_patch_backup/
+.brand_patch_backups/
+_patch_backup/
+_patch_backups/
+_patch_backup_*/
+_patch_backups_*/
+.brand_patch_backup_*/
+.brand_patch_backups_*/
+/src.zip
+
+# OS/editor noise
+.DS_Store
+Thumbs.db

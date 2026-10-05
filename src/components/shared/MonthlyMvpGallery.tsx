@@ -17,32 +17,38 @@ const MVP_PORTRAITS: MvpPortrait[] = [
   {
     month: '3월',
     name: '김서영',
-    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/March_MVP.png',
+    imageUrl: '/records/mvp/2026/March_MVP.webp',
     accent: 'silver',
   },
   {
     month: '4월',
     name: '류은우',
-    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/April_MVP.png',
+    imageUrl: '/records/mvp/2026/April_MVP.webp',
     accent: 'gold',
   },
   {
     month: '5월',
     name: '한서현',
-    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/May_MVP.png',
+    imageUrl: '/records/mvp/2026/May_MVP.webp',
     accent: 'rose',
     flip: true,
   },
   {
     month: '6월',
     name: '류은우',
-    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/June_MVP.png',
+    imageUrl: '/records/mvp/2026/June_MVP.webp',
     accent: 'cyan',
   },
   {
     month: '7월',
     name: '김서영',
-    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/July_MVP.png',
+    imageUrl: '/records/mvp/2026/July_MVP.webp',
+    accent: 'gold',
+  },
+  {
+    month: '9월',
+    name: '부희주',
+    imageUrl: '/records/mvp/2026/September_MVP.webp',
     accent: 'gold',
   },
 ];
@@ -141,8 +147,8 @@ export function MonthlyMvpGallery({ variant = 'records' }: { variant?: MonthlyMv
 }
 
 
-const LOGIN_MVP_LEFT = MVP_PORTRAITS.slice(0, 2);
-const LOGIN_MVP_RIGHT = MVP_PORTRAITS.slice(2);
+const LOGIN_MVP_LEFT = MVP_PORTRAITS.filter((mvp) => ['3월', '4월', '9월'].includes(mvp.month));
+const LOGIN_MVP_RIGHT = MVP_PORTRAITS.filter((mvp) => ['5월', '6월', '7월'].includes(mvp.month));
 
 function repeatPortraits(items: MvpPortrait[], minimumItems: number) {
   const output: MvpPortrait[] = [];
