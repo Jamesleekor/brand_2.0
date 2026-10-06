@@ -14,7 +14,6 @@ import ProfilePage from '@/features/profile/ProfilePage';
 import AchievementPage from '@/features/achievement/AchievementPage';
 import AchievementHelperPage from '@/features/achievement/AchievementHelperPage';
 import CharacterCollectionPage from '@/features/character/CharacterCollectionPage';
-import DimensionalGatePage from '@/features/character/DimensionalGatePage';
 import MarketPage from '@/features/market/MarketPage';
 import BakeryPage from '@/features/bakery/BakeryPage';
 import EconomyGuardPage from '@/features/guard/EconomyGuardPage';
@@ -123,7 +122,6 @@ export default function App() {
           path="/characters" 
           element={<AppShell><CharacterCollectionPage /></AppShell>} 
         />
-        <Route path="/dimensional-gate" element={<AppShell><DimensionalGatePage /></AppShell>} />
         <Route path="/cosmetic" element={<Navigate to="/market/cosmetics" replace />} />
         <Route 
           path="/achievement" 

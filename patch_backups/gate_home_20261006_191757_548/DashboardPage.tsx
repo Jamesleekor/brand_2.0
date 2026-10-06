@@ -416,7 +416,7 @@ function FutureHomeShortcuts() {
       label: '차원관문',
       caption: '입장',
       enabled: true,
-      to: '/dimensional-gate',
+      to: '/characters?tab=dimensional-gate',
     },
     {
       emoji: '⚔️',
