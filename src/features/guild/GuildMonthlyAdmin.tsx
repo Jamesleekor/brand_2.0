@@ -236,7 +236,7 @@ function TerritoryConfig({ data, drafts, setDrafts, busy, run }: { data: Guild5T
           )}
         </div>
 
-        <button className="btn-secondary w-full mt-2" disabled={busy || d.name.trim().length < 1 || Boolean(data.season_lock) || Boolean(assignedTurn)} onClick={() => run(`영토 ${d.slot} 설정을 저장했어요`, () => guild5TeacherRpc.setTerritory(supabase, { p_season_id: Number(data.season!.id), p_slot_no: d.slot, p_territory_name: d.name.trim(), p_description: d.description.trim() || null, p_tax_rate_percent: d.taxRatePercent }))}>{assignedTurn ? '점령 확정 후 수정 불가' : '영토 설정 저장'}</button>
+        <button className="btn-secondary w-full mt-2" disabled={busy || d.name.trim().length < 1 || Boolean(data.season_lock) || closureState === 'FINALIZED' || Boolean(assignedTurn)} onClick={() => run(`영토 ${d.slot} 설정을 저장했어요`, () => guild5TeacherRpc.setTerritory(supabase, { p_season_id: Number(data.season!.id), p_slot_no: d.slot, p_territory_name: d.name.trim(), p_description: d.description.trim() || null, p_tax_rate_percent: d.taxRatePercent }))}>{assignedTurn ? '점령 확정 후 수정 불가' : '영토 설정 저장'}</button>
       </div>;
     })}</div>
   </section>;
