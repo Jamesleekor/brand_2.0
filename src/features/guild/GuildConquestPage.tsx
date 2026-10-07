@@ -60,6 +60,9 @@ export default function GuildConquestPage() {
   }, [effectiveMonth]);
 
   const selected = assigned.find((g) => Number(g.guild_id) === selectedGuildId) ?? null;
+  const territoryEconomy = (row?.territory_economy ?? []) as Array<Record<string, any>>;
+  const economyBySlot = new Map(territoryEconomy.map((item) => [Number(item.slot_no), item]));
+  const selectedEconomy = selected ? economyBySlot.get(Number(selected.territory_slot_no)) ?? null : null;
   const selectedLayout = selected ? MARKERS.find((m) => m.slot === Number(selected.territory_slot_no)) ?? null : null;
 
   if (historyQ.isLoading) return <><PageHeader title="점령" emoji="🏰"/><LoadingPage/></>;
@@ -82,6 +85,8 @@ export default function GuildConquestPage() {
       ) : !row ? (
         <EmptyState emoji="🏰" title="아직 점령 결과가 없어요" description="Guild5 월 마감과 상위 3개 길드의 영토 선택이 끝나면 이곳에 월드맵과 점령 기록이 표시됩니다."/>
       ) : <>
+        <TerritoryValueComparison row={row}/>
+
         <section className="relative rounded-card-lg border border-gold/20 bg-bg-deep">
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-t-card-lg border-b border-line bg-bg-card/90 px-4 py-3">
             <div>
@@ -144,6 +149,7 @@ export default function GuildConquestPage() {
               guild={selected}
               layout={selectedLayout}
               yearMonth={row.year_month}
+              economy={selectedEconomy}
               onClose={() => setSelectedGuildId(null)}
             /></div>}
 
@@ -156,6 +162,7 @@ export default function GuildConquestPage() {
             guild={selected}
             layout={selectedLayout}
             yearMonth={row.year_month}
+            economy={selectedEconomy}
             onClose={() => setSelectedGuildId(null)}
             inline
           /></div>}
@@ -167,7 +174,63 @@ export default function GuildConquestPage() {
   </div>;
 }
 
-function TerritoryPopover({ guild, layout, yearMonth, onClose, inline = false }: { guild: Record<string, any>; layout: MarkerLayout; yearMonth: string; onClose: () => void; inline?: boolean }) {
+function TerritoryValueComparison({ row }: { row: any }) {
+  const economy = ((row.territory_economy ?? []) as Array<Record<string, any>>).slice().sort((a, b) => Number(a.slot_no) - Number(b.slot_no));
+  if (!economy.length) return null;
+  const rankings = (row.rankings ?? []) as Array<Record<string, any>>;
+  const occupiedBySlot = new Map<number, string>();
+  rankings.forEach((g) => {
+    const slot = Number(g.territory_slot_no ?? 0);
+    if (slot >= 1 && slot <= 3 && g.territory) occupiedBySlot.set(slot, String(g.guild_name_at_close ?? '점령 완료'));
+  });
+  const revenueOrder = new Map(
+    economy
+      .slice()
+      .sort((a, b) => Number(b.projected_revenue ?? 0) - Number(a.projected_revenue ?? 0))
+      .map((item, index) => [Number(item.slot_no), index + 1]),
+  );
+  const auctionRound = economy.find((item) => item.auction_round_number)?.auction_round_number;
+
+  return <section className="glass-card p-4">
+    <div className="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h2 className="font-display text-lg">💰 영토 가치 비교</h2>
+        <p className="mt-1 text-[11px] text-text-muted">{auctionRound ? `${auctionRound}회차 실제 경매 정산액` : '정산된 기준 경매 없음'} × 지역 세율. 점령 선택을 위한 예상값이며 자동 지급액은 아닙니다.</p>
+      </div>
+    </div>
+    <div className="mt-3 grid gap-2 md:grid-cols-3">
+      {economy.map((item) => {
+        const slot = Number(item.slot_no);
+        const occupier = occupiedBySlot.get(slot);
+        const valueRank = revenueOrder.get(slot);
+        return <div key={slot} className={`rounded-card-md border p-3 ${occupier ? 'border-line bg-bg-deep/70' : 'border-gold/30 bg-gold/5'}`}>
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="text-[10px] font-black text-bv">{item.auction_category}</div>
+              <div className="mt-0.5 font-black text-white">{item.territory_name ?? `영토 ${slot}`}</div>
+            </div>
+            <span className={`rounded-pill px-2 py-1 text-[9px] font-black ${occupier ? 'border border-line text-text-muted' : 'border border-gold/30 bg-gold/10 text-gold'}`}>{occupier ? `${occupier} 점령` : `수익 #${valueRank}`}</span>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <MiniValue label="사용액" value={`${num(item.gross_spend)} G`}/>
+            <MiniValue label="세율" value={pct(item.tax_rate_percent)}/>
+            <MiniValue label="예상 수익" value={`${num(item.projected_revenue)} G`} emphasis/>
+          </div>
+          <div className="mt-2 text-[9px] text-text-muted">정산 {num(item.settled_item_count)}건 · 거점 {slot}</div>
+        </div>;
+      })}
+    </div>
+  </section>;
+}
+
+function MiniValue({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
+  return <div className="rounded-card-sm border border-line bg-bg-card/70 p-2">
+    <div className="text-[9px] font-black text-text-muted">{label}</div>
+    <div className={`mt-0.5 text-xs font-black ${emphasis ? 'text-gold' : 'text-white'}`}>{value}</div>
+  </div>;
+}
+
+function TerritoryPopover({ guild, layout, yearMonth, economy, onClose, inline = false }: { guild: Record<string, any>; layout: MarkerLayout; yearMonth: string; economy?: Record<string, any> | null; onClose: () => void; inline?: boolean }) {
   const overlayStyle: CSSProperties | undefined = inline ? undefined : {
     left: `${layout.popoverX}%`,
     ...(layout.popoverBottom != null
@@ -204,6 +267,8 @@ function TerritoryPopover({ guild, layout, yearMonth, onClose, inline = false }:
       <InfoCell label="FINAL GS" value={`${num(guild.total_gs)} GS`}/>
       <InfoCell label="지역 세율" value={pct(guild.tax_rate_percent)}/>
       <InfoCell label="점령 월" value={yearMonth}/>
+      <InfoCell label="경매 사용액" value={`${num(economy?.gross_spend ?? 0)} G`}/>
+      <InfoCell label="예상 수익" value={`${num(economy?.projected_revenue ?? 0)} G`}/>
     </div>
 
     {guild.territory_description && <p className="mt-3 border-t border-line pt-2 text-[11px] leading-relaxed text-text-secondary">{String(guild.territory_description)}</p>}
