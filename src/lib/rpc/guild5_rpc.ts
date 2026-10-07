@@ -28,12 +28,30 @@ export type Guild5ClosePreview = {
   students: Array<Record<string, any>>;
 };
 
+export type Guild5TerritoryEconomy = {
+  slot_no: number;
+  territory_id?: number | null;
+  territory_name?: string | null;
+  territory_description?: string | null;
+  tax_rate_percent?: number | null;
+  auction_category: '자리' | '1인1역' | '급식순서';
+  auction_id?: number | null;
+  auction_round_number?: number | null;
+  auction_school_year?: number | null;
+  auction_ended_at?: string | null;
+  settled_item_count: number;
+  gross_spend: number;
+  projected_revenue: number;
+  snapshot?: boolean;
+};
+
 export type Guild5TeacherDashboard = {
   preview: Guild5ClosePreview;
   season: Record<string, any> | null;
   season_lock: Record<string, any> | null;
   is_test_fixture?: boolean;
   territories: Array<Record<string, any>>;
+  territory_economy: Guild5TerritoryEconomy[];
   closure: Record<string, any> | null;
   versions: Array<Record<string, any>>;
   guild_snapshots: Array<Record<string, any>>;
@@ -49,6 +67,7 @@ export type Guild5StudentHistory = Array<{
   my_contribution: Record<string, any>;
   my_guild: Record<string, any>;
   territory?: Record<string, any> | null;
+  territory_economy: Guild5TerritoryEconomy[];
   rankings: Array<Record<string, any>>;
 }>;
 
