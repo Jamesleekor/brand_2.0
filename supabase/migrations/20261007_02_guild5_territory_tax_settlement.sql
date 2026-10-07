@@ -52,6 +52,25 @@ CREATE INDEX IF NOT EXISTS ix_guild5_territory_tax_version_slot
 CREATE INDEX IF NOT EXISTS ix_guild5_territory_tax_student
   ON public.guild5_territory_tax_assessments(student_id,assessed_at DESC);
 
+CREATE INDEX IF NOT EXISTS ix_g5_tax_assessment_arrear
+  ON public.guild5_territory_tax_assessments(arrear_id) WHERE arrear_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_g5_tax_assessment_auction
+  ON public.guild5_territory_tax_assessments(auction_id);
+CREATE INDEX IF NOT EXISTS ix_g5_tax_assessment_item
+  ON public.guild5_territory_tax_assessments(auction_item_id);
+CREATE INDEX IF NOT EXISTS ix_g5_tax_assessment_classroom
+  ON public.guild5_territory_tax_assessments(classroom_id);
+CREATE INDEX IF NOT EXISTS ix_g5_tax_assessment_closure
+  ON public.guild5_territory_tax_assessments(closure_id);
+CREATE INDEX IF NOT EXISTS ix_g5_tax_assessment_turn
+  ON public.guild5_territory_tax_assessments(conquest_turn_id);
+CREATE INDEX IF NOT EXISTS ix_g5_tax_assessment_owner_guild
+  ON public.guild5_territory_tax_assessments(owner_guild_id);
+CREATE INDEX IF NOT EXISTS ix_g5_tax_assessment_territory
+  ON public.guild5_territory_tax_assessments(territory_id);
+CREATE INDEX IF NOT EXISTS ix_g5_tax_assessment_transaction
+  ON public.guild5_territory_tax_assessments(transaction_id) WHERE transaction_id IS NOT NULL;
+
 CREATE OR REPLACE FUNCTION public.guild5_assess_auction_result_territory_tax(
   p_auction_result_id integer,
   p_conquest_turn_id bigint,
@@ -361,6 +380,8 @@ DECLARE
   v_slot smallint;
   v_turn_id bigint;
   v_result_id integer;
+  v_classroom_id integer;
+  v_latest_closure public.guild5_month_closures%ROWTYPE;
 BEGIN
   IF NEW.final_status::text<>'SOLD' OR coalesce(OLD.final_status::text,'')='SOLD' THEN
     RETURN NEW;
@@ -374,6 +395,25 @@ BEGIN
   END;
   IF v_slot IS NULL THEN RETURN NEW; END IF;
 
+  SELECT a.classroom_id INTO v_classroom_id
+  FROM public.auctions a
+  WHERE a.id=NEW.auction_id;
+  IF v_classroom_id IS NULL THEN RETURN NEW; END IF;
+
+  -- Only the newest Guild5 month may tax a new auction. If the newest month is
+  -- OPEN/REOPENED, do not fall back to an older finalized month's territory.
+  SELECT c.* INTO v_latest_closure
+  FROM public.guild5_month_closures c
+  WHERE c.classroom_id=v_classroom_id
+  ORDER BY c.year_month DESC,c.id DESC
+  LIMIT 1;
+
+  IF v_latest_closure.id IS NULL
+     OR v_latest_closure.lifecycle_state<>'FINALIZED'
+     OR v_latest_closure.current_version_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
   SELECT r.id INTO v_result_id
   FROM public.auction_results r
   WHERE r.auction_item_id=NEW.id
@@ -382,17 +422,11 @@ BEGIN
   IF v_result_id IS NULL THEN RETURN NEW; END IF;
 
   SELECT ct.id INTO v_turn_id
-  FROM public.auctions a
-  JOIN public.guild5_month_closures c
-    ON c.classroom_id=a.classroom_id
-   AND c.lifecycle_state='FINALIZED'
-  JOIN public.guild5_closure_versions v ON v.id=c.current_version_id
-  JOIN public.guild5_conquest_turns ct
-    ON ct.version_id=v.id
-   AND ct.turn_status IN ('ASSIGNED','AUTO_ASSIGNED')
-   AND ct.territory_slot_no_snapshot=v_slot
-  WHERE a.id=NEW.auction_id
-  ORDER BY c.year_month DESC,v.version_no DESC,ct.id DESC
+  FROM public.guild5_conquest_turns ct
+  WHERE ct.version_id=v_latest_closure.current_version_id
+    AND ct.turn_status IN ('ASSIGNED','AUTO_ASSIGNED')
+    AND ct.territory_slot_no_snapshot=v_slot
+  ORDER BY ct.id DESC
   LIMIT 1;
 
   IF v_turn_id IS NOT NULL THEN
