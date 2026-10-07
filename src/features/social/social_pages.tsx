@@ -103,7 +103,7 @@ export function FriendsPage() {
             <div className="text-sm text-white/75 font-bold mb-2">
               총 {filtered.length}명
             </div>
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               {filtered.map((classmate) => (
                 <FriendCard
                   key={classmate.id}
@@ -120,6 +120,13 @@ export function FriendsPage() {
   );
 }
 
+function getFriendTierLabelClass(tier: Tier): string {
+  if (tier === '마스터') return 'friend-tier-label friend-tier-master';
+  if (tier === '천상의 마스터') return 'friend-tier-label friend-tier-celestial-master';
+  if (tier === '그랜드마스터') return 'friend-tier-label friend-tier-grandmaster';
+  return 'friend-tier-label text-text-secondary';
+}
+
 function FriendCard({ 
   friend,
   achievementTitle,
@@ -133,55 +140,62 @@ function FriendCard({
     <motion.div
       whileTap={{ scale: 0.98 }}
       className={cn(
-        'flex items-center gap-3 px-3.5 py-3 rounded-card-md transition-all hover-lift',
+        'grid min-w-0 grid-cols-[58px_minmax(0,1fr)_auto] items-center gap-3 rounded-card-md px-3.5 py-3.5 transition-all hover-lift sm:px-4',
         friend.isMe
           ? 'bg-gold/8 border border-gold/30'
           : 'bg-bg-card backdrop-blur-card border border-line'
       )}
     >
-      {/* 티어 아이콘 */}
-      <div className="w-12 h-12 flex-shrink-0">
+      {/* 티어 아이콘 — 기존 48px 대비 약 20% 확대 */}
+      <div className="h-[58px] w-[58px] flex-shrink-0">
         <img
           src={getTierIconUrl(friend.tier)}
           alt={friend.tier}
-          className="w-full h-full object-contain"
+          className="h-full w-full object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.28)]"
           onError={(e) => {
             // Fallback: 이모지
             const target = e.target as HTMLImageElement;
-            target.outerHTML = `<div class="w-full h-full flex items-center justify-center text-2xl">${getTierIconEmoji(friend.tier)}</div>`;
+            target.outerHTML = `<div class="w-full h-full flex items-center justify-center text-3xl">${getTierIconEmoji(friend.tier)}</div>`;
           }}
         />
       </div>
       
-      <div className="flex-1 min-w-0">
-        <div className="font-extrabold text-sm text-white min-w-0 flex flex-wrap items-center gap-1.5">
-          <span className="truncate">{friend.brandName || friend.name}</span>
+      <div className="min-w-0">
+        {/* 브랜드명 + 길드 */}
+        <div className="flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-white sm:text-[15px]">
+          <span className="min-w-0 truncate">{friend.brandName || friend.name}</span>
           {friend.isMe && (
-            <span className="text-[9px] font-black text-gold bg-gold/20 px-1.5 py-0.5 rounded-pill">
+            <span className="flex-shrink-0 rounded-pill bg-gold/20 px-1.5 py-0.5 text-[9px] font-black text-gold">
               나
             </span>
           )}
-          <GuildNameBadge guildName={guildName} compact />
+          <GuildNameBadge guildName={guildName} compact className="max-w-[112px] sm:max-w-[140px]" />
         </div>
-        {achievementTitle?.title && (
-          <div className="mt-1.5 flex min-w-0">
-            <AchievementTitleBadge
-              title={achievementTitle.title}
-              grade={achievementTitle.grade}
-              prominent
-              className="max-w-full !px-2.5 !py-1.5 !text-xs sm:!text-sm"
-            />
+
+        {/* 칭호 옆에 학생 이름을 크게 배치 */}
+        {(achievementTitle?.title || friend.brandName) && (
+          <div className="mt-1.5 flex min-w-0 items-center gap-2">
+            {achievementTitle?.title && (
+              <AchievementTitleBadge
+                title={achievementTitle.title}
+                grade={achievementTitle.grade}
+                prominent
+                className="max-w-[58%] !px-2.5 !py-1.5 !text-xs sm:max-w-[220px] sm:!text-sm"
+              />
+            )}
+            {friend.brandName && (
+              <span className="flex-shrink-0 whitespace-nowrap text-[19px] font-black leading-none tracking-[-0.025em] text-white/90 sm:text-[20px]">
+                {friend.name}
+              </span>
+            )}
           </div>
-        )}
-        {friend.brandName && (
-          <div className="text-sm text-white/75 font-bold mt-1">{friend.name}</div>
         )}
       </div>
       
-      <div className="text-right flex-shrink-0">
-        <div className="text-xs font-bold text-text-secondary">
+      <div className="flex min-w-[58px] flex-shrink-0 justify-end text-right sm:min-w-[72px]">
+        <span className={getFriendTierLabelClass(friend.tier)}>
           {friend.tier}
-        </div>
+        </span>
       </div>
     </motion.div>
   );

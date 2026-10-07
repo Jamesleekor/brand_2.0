@@ -251,6 +251,7 @@ function WalletDistributionPanel({ distribution }: { distribution: any }) {
 function QuickActions() {
   const actions = [
     { to: '/teacher/control',   icon: '💳', label: '자산 지급·차감',   color: 'from-bv to-brand-primary' },
+    { to: '/teacher/arrears',   icon: '💸', label: '미납금 관리',       color: 'from-danger to-gold' },
     { to: '/teacher/control',   icon: '🚨', label: '비상사태 관리',     color: 'from-danger to-brand-primary' },
     { to: '/teacher/auction',   icon: '🔨', label: '경매 시작',         color: 'from-gold to-brand-primary' },
     { to: '/teacher/characters', icon: '✦', label: '편린 운영',         color: 'from-crystal to-brand-primary' },
