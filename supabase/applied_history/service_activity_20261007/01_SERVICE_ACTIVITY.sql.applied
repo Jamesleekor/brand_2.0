@@ -1,0 +1,21 @@
+CREATE OR REPLACE FUNCTION public.student_get_service_activity()
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v_student integer:=public.current_student_id(); v_classroom integer;
+BEGIN
+ SELECT classroom_id INTO v_classroom FROM public.students WHERE id=v_student AND transferred_at IS NULL AND role::text='STUDENT';
+ IF v_classroom IS NULL THEN RAISE EXCEPTION '학생 로그인이 필요합니다.' USING ERRCODE='P2C10'; END IF;
+ RETURN coalesce((SELECT jsonb_agg(jsonb_build_object(
+ 'id',o.id,'buyer',o.buyer_student_id=v_student,'peer',CASE WHEN o.buyer_student_id=v_student THEN s.name ELSE b.name END,
+ 'title',o.service_title_snapshot,'request',o.buyer_request,'note',o.buyer_note,'status',o.status,'trade_mode',o.trade_mode,
+ 'amount',o.price_gold_snapshot,'reason',o.status_reason,'quote_note',o.seller_quote_note,'revision',o.current_revision,
+ 'delivery',(SELECT delivery_text FROM public.secondary_job_service_deliveries WHERE order_id=o.id AND revision_no=o.current_revision LIMIT 1),
+ 'updated_at',o.updated_at) ORDER BY o.updated_at DESC,o.id DESC)
+ FROM public.secondary_job_service_orders o JOIN public.students b ON b.id=o.buyer_student_id JOIN public.students s ON s.id=o.seller_student_id
+ WHERE o.classroom_id=v_classroom AND v_student IN(o.buyer_student_id,o.seller_student_id)
+ AND (o.status NOT IN('COMPLETED','REJECTED','CANCELLED') OR o.id IN(
+ SELECT id FROM public.secondary_job_service_orders WHERE classroom_id=v_classroom AND v_student IN(buyer_student_id,seller_student_id)
+ AND status IN('COMPLETED','REJECTED','CANCELLED') AND updated_at>now()-interval '3 days' ORDER BY updated_at DESC LIMIT 20))), '[]'::jsonb);
+END $$;
+REVOKE ALL ON FUNCTION public.student_get_service_activity() FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.student_get_service_activity() TO authenticated,service_role;
+NOTIFY pgrst,'reload schema';

@@ -5,7 +5,6 @@
 // 보호된 라우트 + 학생/교사 분기 적용.
 // =====================================================================
 
-import { ServiceActivityLayout } from '@/features/market/service_activity/ServiceActivityNotifier';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 
 import LoginPage from '@/features/auth/LoginPage';
@@ -108,7 +107,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       
       {/* 학생/공통 보호된 라우트 */}
-      <Route element={<ProtectedRoute><ServiceActivityLayout /></ProtectedRoute>}>
+      <Route element={<ProtectedRoute><Outlet /></ProtectedRoute>}>
         {/* 메인 화면 */}
         <Route 
           path="/home" 

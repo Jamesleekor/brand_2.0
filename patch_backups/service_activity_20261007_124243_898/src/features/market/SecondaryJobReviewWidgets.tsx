@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
 import { Modal, useRpcCall } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
@@ -63,15 +62,6 @@ export function OrderReviewAction({
   const [open,setOpen] = useState(false);
   const [rating,setRating] = useState<number|null>(null);
   const [text,setText] = useState('');
-  const [searchParams,setSearchParams] = useSearchParams();
-  const [inlineError,setInlineError] = useState('');
-  useEffect(()=>{
-    if(Number(searchParams.get('review'))!==orderId || !completed)return;
-    if(!existingReview){setOpen(true);setRating(null);setText('');setInlineError('');}
-    const next=new URLSearchParams(searchParams);next.delete('review');
-    setSearchParams(next,{replace:true});
-  },[searchParams,setSearchParams,orderId,completed,existingReview]);
-
 
   if (!completed) return null;
 
@@ -90,7 +80,6 @@ export function OrderReviewAction({
 
   const submit = async () => {
     if (rating===null || text.trim().length<2) return;
-    setInlineError('');
     await call(()=>secondaryJobServiceReviewStudentRpc.submit(supabase,{
       p_order_id:orderId,
       p_rating:rating,
@@ -99,7 +88,6 @@ export function OrderReviewAction({
       successTitle:'평점과 후기 등록 완료',
       successDescription:'판매자에게는 평점과 후기 내용이 보이지만 작성자 이름은 숨겨집니다.',
       onSuccess:()=>{setOpen(false);setRating(null);setText('');onDone();},
-      onError:(message)=>setInlineError(message),
     });
   };
 
@@ -112,20 +100,19 @@ export function OrderReviewAction({
     <Modal isOpen={open} onClose={()=>setOpen(false)} title={`${serviceTitle} 평가`} emoji="⭐">
       <div className="space-y-4">
         <div>
-          <div className="text-xs font-bold text-amber-50 mb-2">평점 0~10점</div>
+          <div className="text-xs font-bold text-text-secondary mb-2">평점 0~10점</div>
           <div className="grid grid-cols-6 gap-1.5">
             {Array.from({length:11},(_,score)=><button key={score} type="button" onClick={()=>setRating(score)}
-              className={cn('rounded-card-sm border py-2 text-sm font-black',rating===score?'border-gold bg-gold/15 text-gold':'border-line bg-bg-deep text-amber-50')}>{score}</button>)}
+              className={cn('rounded-card-sm border py-2 text-sm font-black',rating===score?'border-gold bg-gold/15 text-gold':'border-line bg-bg-deep text-text-secondary')}>{score}</button>)}
           </div>
         </div>
-        <label className="block"><span className="text-xs font-bold text-amber-50">후기 (2~1000자)</span>
+        <label className="block"><span className="text-xs font-bold text-text-secondary">후기 (2~1000자)</span>
           <textarea rows={5} maxLength={1000} className="input-field w-full mt-1 resize-none" value={text} onChange={(e)=>setText(e.target.value)} placeholder="서비스를 이용한 소감을 남겨주세요." />
         </label>
-        <div className="bg-bg-deep rounded-card-sm p-2.5 text-xs text-amber-50"><b className="text-white">판매자에게는 이 거래의 평점과 후기 내용이 보이지만 작성자 이름은 숨겨집니다.</b> 다른 학생에게는 개별 점수 없이 후기 내용만 보이며, 공식 평균 점수는 유효 평가 5건 이상부터 공개됩니다.</div>
-        <div role="alert" className="text-xs font-bold text-danger">{inlineError}</div>
+        <div className="bg-bg-deep rounded-card-sm p-2.5 text-xs text-text-secondary"><b className="text-white">판매자에게는 이 거래의 평점과 후기 내용이 보이지만 작성자 이름은 숨겨집니다.</b> 다른 학생에게는 개별 점수 없이 후기 내용만 보이며, 공식 평균 점수는 유효 평가 5건 이상부터 공개됩니다.</div>
         <button className="btn-primary w-full" disabled={busy||isLoading||rating===null||text.trim().length<2} onClick={submit}>평점·후기 제출</button>
         {(rating===null||text.trim().length<2) && <div className="text-xs text-warning text-center">평점을 선택하고 후기 2자 이상을 입력하면 제출 버튼이 활성화됩니다.</div>}
-        <div className="text-2xs text-amber-50 text-center">제출 후 학생이 수정하거나 삭제할 수 없습니다.</div>
+        <div className="text-2xs text-text-muted text-center">제출 후 학생이 수정하거나 삭제할 수 없습니다.</div>
       </div>
     </Modal>
   </>;
@@ -137,21 +124,21 @@ export function MySellerReputationCard({ reputation }: { reputation: SellerReput
   const ratingVisible = reputation.rating_count >= 5 && reputation.average_rating !== null;
   return <>
     <div className="bg-bg-card border border-line rounded-card-md p-3 flex flex-wrap items-center justify-between gap-3">
-      <div><div className="text-2xs text-amber-50 font-black">내 판매 평판</div><div className="text-xs text-amber-50 mt-1">유효 평가 {reputation.rating_count}건 · 공개 후기 {reputation.visible_review_count}건</div></div>
+      <div><div className="text-2xs text-text-muted font-black">내 판매 평판</div><div className="text-xs text-text-secondary mt-1">유효 평가 {reputation.rating_count}건 · 공개 후기 {reputation.visible_review_count}건</div></div>
       <div className="flex items-center gap-3">
         <div className="text-right">
           {ratingVisible
             ? <div className="font-display text-lg text-gold">⭐ {Number(reputation.average_rating).toFixed(1)} / 10</div>
-            : <div className="text-xs font-bold text-amber-50">평균 평점은 5건부터 공개</div>}
+            : <div className="text-xs font-bold text-text-secondary">평균 평점은 5건부터 공개</div>}
         </div>
         <button type="button" className="btn-secondary text-xs" disabled={reputation.visible_review_count===0} onClick={()=>setOpen(true)}>내 후기 보기</button>
       </div>
     </div>
     <Modal isOpen={open} onClose={()=>setOpen(false)} title="내 서비스 후기" emoji="💬">
       <div className="space-y-2">
-        <div className="text-xs text-amber-50">작성자 이름은 숨겨집니다. 판매자인 나에게는 각 후기의 개별 평점과 내용이 표시됩니다.</div>
+        <div className="text-xs text-text-secondary">작성자 이름은 숨겨집니다. 판매자인 나에게는 각 후기의 개별 평점과 내용이 표시됩니다.</div>
         {!reputation.reviews.length
-          ? <div className="bg-bg-deep rounded-card-md p-4 text-sm text-amber-50">공개된 후기가 없습니다.</div>
+          ? <div className="bg-bg-deep rounded-card-md p-4 text-sm text-text-muted">공개된 후기가 없습니다.</div>
           : reputation.reviews.map((review,index)=><div key={`${index}-${review.review_text.slice(0,20)}`} className="bg-bg-deep rounded-card-md p-3">
               <div className="text-xs font-black text-gold">{review.rating===null?'⭐ 평점 집계 제외':`⭐ ${review.rating} / 10`}</div>
               <div className="mt-1.5 text-sm text-text-primary whitespace-pre-wrap">“{review.review_text}”</div>

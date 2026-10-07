@@ -83,7 +83,6 @@ export type MyServiceItem = {
 };
 
 export type ServiceOrderPricingFields = {
-  trade_mode?: 'STANDARD' | 'QUICK';
   price_gold: number | null;
   total_price_gold: number | null;
   pricing_mode: S.ServicePricingMode;

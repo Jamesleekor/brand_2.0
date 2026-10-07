@@ -3,7 +3,6 @@
 // I1-B/C: 범용 시장 + 학생 인벤토리 UI 연결
 // =====================================================================
 
-import { useServiceActivity } from '@/features/market/service_activity/useServiceActivity';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { PageHeader } from '@/components/shared/components';
@@ -32,7 +31,6 @@ const TABS: { value: MarketTab; label: string; emoji: string; path: string }[] =
 
 export default function MarketPage() {
   const location = useLocation();
-  const { actionCount } = useServiceActivity();
   const navigate = useNavigate();
   const { hyperinflation, employmentFreeze } = useActiveEmergencies();
 
@@ -66,7 +64,6 @@ export default function MarketPage() {
               )}
             >
               <span>{tab.emoji}</span><span>{tab.label}</span>
-              {tab.value === 'services' && actionCount > 0 && <span className="rounded-pill bg-danger px-1.5 text-white" aria-label={`${actionCount}건 처리 필요`}>{actionCount}</span>}
             </button>
           ))}
         </div>

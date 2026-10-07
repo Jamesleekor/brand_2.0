@@ -39,7 +39,6 @@ import { HomeCustomizationPanel } from '@/features/dashboard/HomeCustomizationPa
 import { homePersonalizationRpc, type HomePersonalization, type HomeShowcaseSlot } from '@/lib/rpc/home_personalization_rpc';
 import { getEquippedCharacterImageUrl, useMyEquippedCharacter } from '@/hooks/useEquippedCharacters';
 import { BrandWorldPanel, BrandWorldSummaryButton } from '@/features/dashboard/BrandWorldPanel';
-import { HomeServiceActivity } from '@/features/market/service_activity/HomeServiceActivity';
 import { HomeServiceAdStrip } from '@/features/dashboard/HomeServiceAdStrip';
 import { EmergencyQuestDetailModal, type EmergencyQuestDetail } from '@/features/dashboard/EmergencyQuestDetailModal';
 import { newbieSupportRpc, type NewbieSummary } from '@/lib/rpc/newbie_support_rpc';
@@ -293,7 +292,6 @@ export default function DashboardPage() {
           )}
 
           {/* H3 학생 P2P 서비스 광고 — 시스템/업무 배너 뒤, 개인화 Stage 앞 */}
-          <HomeServiceActivity />
           <HomeServiceAdStrip />
 
           {/* Home Personalization Stage — fixed 3-slot 편린 전시 */}

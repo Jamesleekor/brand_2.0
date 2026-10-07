@@ -5,8 +5,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { getAppBackRoute } from '@/lib/navigation/back_route';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 import { getUserFriendlyError } from '@/lib/rpc/error_handler';
@@ -91,8 +90,8 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, emoji, onBack, right, hideBack }: PageHeaderProps) {
   const navigate = useNavigate();
-  const location = useLocation();
-  const handleBack = onBack ?? (() => navigate(getAppBackRoute(location.pathname), { replace: true }));
+  // onBack이 없으면 기본으로 브라우저 뒤로가기 (모든 페이지 자동 적용)
+  const handleBack = onBack ?? (() => navigate(-1));
   return (
     <div className="sticky top-0 z-30 bg-bg-base/95 backdrop-blur-card border-b border-line">
       <div className="flex items-center justify-between px-4 py-3">

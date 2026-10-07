@@ -1,0 +1,10 @@
+DO $patch$
+DECLARE v_definition text; v_before text := '''updated_at'',o.updated_at)';
+BEGIN
+ SELECT pg_get_functiondef('public.student_get_service_activity()'::regprocedure) INTO v_definition;
+ IF position('''has_review''' IN v_definition)>0 THEN RAISE EXCEPTION 'Review flag already present; inspect current definition'; END IF;
+ IF (length(v_definition)-length(replace(v_definition,v_before,'')))/length(v_before)<>1 THEN RAISE EXCEPTION 'Unexpected activity function definition'; END IF;
+ v_definition:=replace(v_definition,v_before,'''has_review'',EXISTS(SELECT 1 FROM public.secondary_job_service_reviews r WHERE r.order_id=o.id),''updated_at'',o.updated_at)');
+ EXECUTE v_definition;
+END $patch$;
+NOTIFY pgrst,'reload schema';

@@ -20,8 +20,6 @@ import {
   type ServiceReputation,
 } from '@/lib/rpc/secondary_job_service_review_rpc';
 import { MySellerReputationCard, OrderReviewAction } from '@/features/market/SecondaryJobReviewWidgets';
-import { HomeServiceActivity } from '@/features/market/service_activity/HomeServiceActivity';
-import { QuickServiceEscrowPanel } from '@/features/market/QuickServiceEscrowPanel';
 import { SecondaryJobServiceMarket } from '@/features/market/SecondaryJobServiceMarket';
 import { SERVICE_CATEGORY_OPTIONS } from '@/features/market/secondary_job_service_market_utils';
 import { useClassroomId } from '@/stores/auth_store';
@@ -199,7 +197,6 @@ export default function SecondaryJobServicesPanel() {
   });
 
   const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: ['service-activity'] });
     void queryClient.invalidateQueries({ queryKey: ['secondary-job-service-market'] });
     void queryClient.invalidateQueries({ queryKey: ['secondary-job-service-reputation'] });
     void queryClient.invalidateQueries({ queryKey: ['secondary-job-service-ad-board'] });
@@ -258,8 +255,6 @@ export default function SecondaryJobServicesPanel() {
   if (board.isError || reputationBoard.isError || !data || !reputationData) return <EmptyState emoji="⚠️" title="서비스 마켓을 불러오지 못했어요" description={(board.error instanceof Error ? board.error.message : reputationBoard.error instanceof Error ? reputationBoard.error.message : '잠시 후 다시 시도해주세요.')} />;
 
   return <div className="space-y-4 pb-8">
-    <HomeServiceActivity />
-    <QuickServiceEscrowPanel />
     <div className="bg-bg-card border border-line rounded-card-lg p-4">
       <div className="flex flex-wrap justify-between gap-3">
         <div>
@@ -330,8 +325,8 @@ export default function SecondaryJobServicesPanel() {
         setSearchParams(next,{replace:true});
       }}
     />}
-    {tab==='orders' && <BuyerOrders items={data.my_orders.filter(o => o.trade_mode !== 'QUICK' || o.status === 'COMPLETED' || o.status === 'CANCELLED').sort((a,b)=>Number(['QUOTE_OFFERED','DELIVERED'].includes(b.status))-Number(['QUOTE_OFFERED','DELIVERED'].includes(a.status)))} myReviews={myReviewByOrder} studentNames={studentNames.data ?? new Map()} gold={data.gold} busy={isLoading} onDone={refresh} />}
-    {tab==='sales' && <SellerOrders items={data.my_sales.filter(o => o.trade_mode !== 'QUICK' || o.status === 'COMPLETED' || o.status === 'CANCELLED').sort((a,b)=>Number(['QUOTE_REQUESTED','REQUESTED','ACCEPTED','REVISION_REQUESTED'].includes(b.status))-Number(['QUOTE_REQUESTED','REQUESTED','ACCEPTED','REVISION_REQUESTED'].includes(a.status)))} busy={isLoading} onDone={refresh} />}
+    {tab==='orders' && <BuyerOrders items={data.my_orders} myReviews={myReviewByOrder} studentNames={studentNames.data ?? new Map()} gold={data.gold} busy={isLoading} onDone={refresh} />}
+    {tab==='sales' && <SellerOrders items={data.my_sales} busy={isLoading} onDone={refresh} />}
     {tab==='services' && <MyServices items={data.my_services} jobs={data.active_jobs} reputation={reputationData.my_seller_reputation} adBoard={adBoard.data ?? null} adLoading={adBoard.isLoading} adError={adBoard.isError ? (adBoard.error instanceof Error ? adBoard.error.message : '광고 정보를 불러오지 못했습니다.') : null} busy={isLoading} onDone={refresh} />}
 
     {tab==='services' && data.active_jobs.length===0 && (

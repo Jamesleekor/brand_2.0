@@ -7,7 +7,6 @@
 // BottomNav: 홈·자산·편린·업적·프로필
 // =====================================================================
 
-import { useServiceActivity } from '@/features/market/service_activity/useServiceActivity';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -123,13 +122,12 @@ interface TopMenuRowProps {
 }
 
 export function TopMenuRow({ guildAlertCount = 0 }: TopMenuRowProps) {
-  const { actionCount } = useServiceActivity();
   return (
     <div className="relative z-10 px-4 pt-2.5 flex gap-1.5 justify-end flex-wrap">
       <MenuPill to="/friends" icon="👥" label="친구" />
       <MenuPill to="/guild" icon="⚔️" label="길드" badge={guildAlertCount} />
       <MenuPill to="/arcade" icon="🕹️" label="아케이드" />
-      <MenuPill to="/market" icon="🏪" label="시장" badge={actionCount} />
+      <MenuPill to="/market" icon="🏪" label="시장" />
       <MenuPill to="/bank" icon="🏦" label="은행" />
       <MenuPill to="/market/inventory" icon="🎒" label="가방" />
       <BakeryMenuPill />
