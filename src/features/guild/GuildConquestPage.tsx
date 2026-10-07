@@ -5,7 +5,7 @@ import { EmptyState, LoadingPage, PageHeader } from '@/components/shared/compone
 import { supabase } from '@/lib/supabase/client';
 import { guild5RpcError, guild5StudentRpc } from '@/lib/rpc/guild5_rpc';
 
-const MAP_ASSET = '/assets/guild/conquest-world-map.webp';
+const MAP_ASSET = `${import.meta.env.BASE_URL}assets/guild/conquest-world-map.webp`;
 const num = (value: unknown) => Number(value ?? 0).toLocaleString('ko-KR', { maximumFractionDigits: 2 });
 const pct = (value: unknown) => `${Number(value ?? 5).toLocaleString('ko-KR', { maximumFractionDigits: 2 })}%`;
 
