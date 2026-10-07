@@ -62,7 +62,10 @@ export default function GuildConquestPage() {
   const selected = assigned.find((g) => Number(g.guild_id) === selectedGuildId) ?? null;
   const territoryEconomy = (row?.territory_economy ?? []) as Array<Record<string, any>>;
   const economyBySlot = new Map(territoryEconomy.map((item) => [Number(item.slot_no), item]));
+  const taxSummary = (row?.territory_tax_summary ?? []) as Array<Record<string, any>>;
+  const taxBySlot = new Map(taxSummary.map((item) => [Number(item.slot_no), item]));
   const selectedEconomy = selected ? economyBySlot.get(Number(selected.territory_slot_no)) ?? null : null;
+  const selectedTax = selected ? taxBySlot.get(Number(selected.territory_slot_no)) ?? null : null;
   const selectedLayout = selected ? MARKERS.find((m) => m.slot === Number(selected.territory_slot_no)) ?? null : null;
 
   if (historyQ.isLoading) return <><PageHeader title="점령" emoji="🏰"/><LoadingPage/></>;
@@ -150,6 +153,7 @@ export default function GuildConquestPage() {
               layout={selectedLayout}
               yearMonth={row.year_month}
               economy={selectedEconomy}
+              taxSummary={selectedTax}
               onClose={() => setSelectedGuildId(null)}
             /></div>}
 
@@ -163,6 +167,7 @@ export default function GuildConquestPage() {
             layout={selectedLayout}
             yearMonth={row.year_month}
             economy={selectedEconomy}
+            taxSummary={selectedTax}
             onClose={() => setSelectedGuildId(null)}
             inline
           /></div>}
@@ -178,6 +183,9 @@ function TerritoryValueComparison({ row }: { row: any }) {
   const economy = ((row.territory_economy ?? []) as Array<Record<string, any>>).slice().sort((a, b) => Number(a.slot_no) - Number(b.slot_no));
   if (!economy.length) return null;
   const rankings = (row.rankings ?? []) as Array<Record<string, any>>;
+  const taxBySlot = new Map(
+    ((row.territory_tax_summary ?? []) as Array<Record<string, any>>).map((item) => [Number(item.slot_no), item]),
+  );
   const occupiedBySlot = new Map<number, string>();
   rankings.forEach((g) => {
     const slot = Number(g.territory_slot_no ?? 0);
@@ -194,29 +202,35 @@ function TerritoryValueComparison({ row }: { row: any }) {
   return <section className="glass-card p-4">
     <div className="flex flex-wrap items-start justify-between gap-2">
       <div>
-        <h2 className="font-display text-lg">💰 영토 가치 비교</h2>
-        <p className="mt-1 text-[11px] text-text-muted">{auctionRound ? `${auctionRound}회차 실제 경매 정산액` : '정산된 기준 경매 없음'} × 지역 세율. 점령 선택을 위한 예상값이며 자동 지급액은 아닙니다.</p>
+        <h2 className="font-display text-lg">💰 영토 가치 · 세금 정산</h2>
+        <p className="mt-1 text-[11px] text-text-muted">{auctionRound ? `${auctionRound}회차 실제 경매 정산액` : '정산된 기준 경매 없음'} × 지역 세율로 점령 가치를 비교합니다. 점령 확정 뒤에는 실제 부과·징수·미납액도 표시됩니다.</p>
       </div>
     </div>
     <div className="mt-3 grid gap-2 md:grid-cols-3">
       {economy.map((item) => {
         const slot = Number(item.slot_no);
         const occupier = occupiedBySlot.get(slot);
+        const tax = taxBySlot.get(slot);
         const valueRank = revenueOrder.get(slot);
-        return <div key={slot} className={`rounded-card-md border p-3 ${occupier ? 'border-line bg-bg-deep/70' : 'border-gold/30 bg-gold/5'}`}>
+        return <div key={slot} className={`rounded-card-md border p-3 ${occupier ? 'border-success/25 bg-success/5' : 'border-gold/30 bg-gold/5'}`}>
           <div className="flex items-center justify-between gap-2">
             <div>
               <div className="text-[10px] font-black text-bv">{item.auction_category}</div>
               <div className="mt-0.5 font-black text-white">{item.territory_name ?? `영토 ${slot}`}</div>
             </div>
-            <span className={`rounded-pill px-2 py-1 text-[9px] font-black ${occupier ? 'border border-line text-text-muted' : 'border border-gold/30 bg-gold/10 text-gold'}`}>{occupier ? `${occupier} 점령` : `수익 #${valueRank}`}</span>
+            <span className={`rounded-pill px-2 py-1 text-[9px] font-black ${occupier ? 'border border-success/30 text-success' : 'border border-gold/30 bg-gold/10 text-gold'}`}>{occupier ? `${occupier} 점령` : `예상 #${valueRank}`}</span>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
             <MiniValue label="사용액" value={`${num(item.gross_spend)} G`}/>
             <MiniValue label="세율" value={pct(item.tax_rate_percent)}/>
-            <MiniValue label="예상 수익" value={`${num(item.projected_revenue)} G`} emphasis/>
+            <MiniValue label="예상 세수" value={`${num(item.projected_revenue)} G`} emphasis/>
           </div>
-          <div className="mt-2 text-[9px] text-text-muted">정산 {num(item.settled_item_count)}건 · 거점 {slot}</div>
+          {Number(tax?.assessment_count ?? 0) > 0 && <div className="mt-2 grid grid-cols-3 gap-2">
+            <MiniValue label="실제 부과" value={`${num(tax?.assessed_amount)} G`}/>
+            <MiniValue label="징수" value={`${num(tax?.collected_amount)} G`} emphasis/>
+            <MiniValue label="미납" value={`${num(tax?.outstanding_amount)} G`}/>
+          </div>}
+          <div className="mt-2 text-[9px] text-text-muted">경매 정산 {num(item.settled_item_count)}건 · 거점 {slot}{Number(tax?.assessment_count ?? 0) > 0 ? ` · 영토세 ${num(tax?.assessment_count)}건 부과` : ''}</div>
         </div>;
       })}
     </div>
@@ -230,7 +244,7 @@ function MiniValue({ label, value, emphasis = false }: { label: string; value: s
   </div>;
 }
 
-function TerritoryPopover({ guild, layout, yearMonth, economy, onClose, inline = false }: { guild: Record<string, any>; layout: MarkerLayout; yearMonth: string; economy?: Record<string, any> | null; onClose: () => void; inline?: boolean }) {
+function TerritoryPopover({ guild, layout, yearMonth, economy, taxSummary, onClose, inline = false }: { guild: Record<string, any>; layout: MarkerLayout; yearMonth: string; economy?: Record<string, any> | null; taxSummary?: Record<string, any> | null; onClose: () => void; inline?: boolean }) {
   const overlayStyle: CSSProperties | undefined = inline ? undefined : {
     left: `${layout.popoverX}%`,
     ...(layout.popoverBottom != null
@@ -268,7 +282,9 @@ function TerritoryPopover({ guild, layout, yearMonth, economy, onClose, inline =
       <InfoCell label="지역 세율" value={pct(guild.tax_rate_percent)}/>
       <InfoCell label="점령 월" value={yearMonth}/>
       <InfoCell label="경매 사용액" value={`${num(economy?.gross_spend ?? 0)} G`}/>
-      <InfoCell label="예상 수익" value={`${num(economy?.projected_revenue ?? 0)} G`}/>
+      <InfoCell label="예상 세수" value={`${num(economy?.projected_revenue ?? 0)} G`}/>
+      <InfoCell label="실제 부과" value={`${num(taxSummary?.assessed_amount ?? 0)} G`}/>
+      <InfoCell label="징수 / 미납" value={`${num(taxSummary?.collected_amount ?? 0)} / ${num(taxSummary?.outstanding_amount ?? 0)} G`}/>
     </div>
 
     {guild.territory_description && <p className="mt-3 border-t border-line pt-2 text-[11px] leading-relaxed text-text-secondary">{String(guild.territory_description)}</p>}
