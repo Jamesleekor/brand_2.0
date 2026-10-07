@@ -147,7 +147,36 @@ function territoryInitial(data: Guild5TeacherDashboard) {
 type TerritoryDraft = { slot: number; name: string; description: string; taxRatePercent: number };
 function TerritoryConfig({ data, drafts, setDrafts, busy, run }: { data: Guild5TeacherDashboard; drafts: TerritoryDraft[]; setDrafts: Dispatch<SetStateAction<TerritoryDraft[]>>; busy: boolean; run: (label:string,fn:()=>Promise<any>)=>void }) {
   if (!data.season) return null;
-  return <section className="glass-card p-4"><div className="mb-3"><h2 className="font-display text-xl">🗺️ 정복 영토 3개</h2><p className="text-xs text-text-secondary mt-1">시즌당 정확히 3개를 설정합니다. 1위 → 2위 → 3위 순서로 하나씩 선택합니다. 지역 세율은 점령 정보에 snapshot으로 보존됩니다.</p></div><div className="grid lg:grid-cols-3 gap-3">{drafts.map((d, i) => <div key={d.slot} className="rounded-card-md border border-line bg-bg-deep p-3"><div className="text-xs font-black text-bv">영토 {d.slot} · {territorySlotLabel[d.slot]}</div><input className="input-field w-full mt-2" placeholder="영토 이름" value={d.name} onChange={(e) => setDrafts((rows) => rows.map((x, j) => j === i ? {...x,name:e.target.value} : x))}/><input className="input-field w-full mt-2" placeholder="설명 (선택)" value={d.description} onChange={(e) => setDrafts((rows) => rows.map((x, j) => j === i ? {...x,description:e.target.value} : x))}/><label className="mt-2 block text-[10px] font-black text-text-muted">지역 세율 (%)<input type="number" min={0} max={100} step={0.1} className="input-field w-full mt-1" value={d.taxRatePercent} onChange={(e) => { const next = Number(e.target.value); setDrafts((rows) => rows.map((x, j) => j === i ? {...x,taxRatePercent:Number.isFinite(next)?Math.min(100,Math.max(0,next)):0} : x)); }}/></label><button className="btn-secondary w-full mt-2" disabled={busy || d.name.trim().length < 1 || Boolean(data.season_lock)} onClick={() => run(`영토 ${d.slot} 설정을 저장했어요`, () => guild5TeacherRpc.setTerritory(supabase, { p_season_id: Number(data.season!.id), p_slot_no: d.slot, p_territory_name: d.name.trim(), p_description: d.description.trim() || null, p_tax_rate_percent: d.taxRatePercent }))}>저장</button></div>)}</div></section>;
+  const economyBySlot = new Map((data.territory_economy ?? []).map((row) => [Number(row.slot_no), row]));
+  return <section className="glass-card p-4">
+    <div className="mb-3">
+      <h2 className="font-display text-xl">🗺️ 정복 영토 3개</h2>
+      <p className="text-xs text-text-secondary mt-1">시즌당 정확히 3개를 설정합니다. 1위 → 2위 → 3위 순서로 하나씩 선택합니다. 경매 사용액은 최근 완료된 공통 경매 회차의 실제 정산액이며, 예상 수익은 사용액 × 현재 입력 세율입니다.</p>
+    </div>
+    <div className="grid lg:grid-cols-3 gap-3">{drafts.map((d, i) => {
+      const economy = economyBySlot.get(d.slot);
+      const grossSpend = Number(economy?.gross_spend ?? 0);
+      const projectedRevenue = grossSpend * d.taxRatePercent / 100;
+      return <div key={d.slot} className="rounded-card-md border border-line bg-bg-deep p-3">
+        <div className="text-xs font-black text-bv">영토 {d.slot} · {territorySlotLabel[d.slot]}</div>
+        <input className="input-field w-full mt-2" placeholder="영토 이름" value={d.name} onChange={(e) => setDrafts((rows) => rows.map((x, j) => j === i ? {...x,name:e.target.value} : x))}/>
+        <input className="input-field w-full mt-2" placeholder="설명 (선택)" value={d.description} onChange={(e) => setDrafts((rows) => rows.map((x, j) => j === i ? {...x,description:e.target.value} : x))}/>
+        <label className="mt-2 block text-[10px] font-black text-text-muted">지역 세율 (%)<input type="number" min={0} max={100} step={0.1} className="input-field w-full mt-1" value={d.taxRatePercent} onChange={(e) => { const next = Number(e.target.value); setDrafts((rows) => rows.map((x, j) => j === i ? {...x,taxRatePercent:Number.isFinite(next)?Math.min(100,Math.max(0,next)):0} : x)); }}/></label>
+        <div className="mt-3 rounded-card-md border border-gold/20 bg-gold/5 p-2.5">
+          <div className="flex items-center justify-between gap-2 text-[10px]">
+            <span className="font-black text-gold">{economy?.auction_category ?? '-'}</span>
+            <span className="text-text-muted">{economy?.auction_round_number ? `${economy.auction_round_number}회차 기준` : '기준 경매 없음'}</span>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div><div className="text-[9px] font-black text-text-muted">경매 사용액</div><div className="text-sm font-black text-white">{num(grossSpend)} G</div></div>
+            <div><div className="text-[9px] font-black text-text-muted">예상 영토 수익</div><div className="text-sm font-black text-gold">{num(projectedRevenue)} G</div></div>
+          </div>
+          <div className="mt-1 text-[9px] text-text-muted">정산 {num(economy?.settled_item_count ?? 0)}건 · 실제 자동 지급이 아닌 가치 비교용 계산</div>
+        </div>
+        <button className="btn-secondary w-full mt-2" disabled={busy || d.name.trim().length < 1 || Boolean(data.season_lock)} onClick={() => run(`영토 ${d.slot} 설정을 저장했어요`, () => guild5TeacherRpc.setTerritory(supabase, { p_season_id: Number(data.season!.id), p_slot_no: d.slot, p_territory_name: d.name.trim(), p_description: d.description.trim() || null, p_tax_rate_percent: d.taxRatePercent }))}>저장</button>
+      </div>;
+    })}</div>
+  </section>;
 }
 
 function GuildDraftTable({ rows }: { rows: Array<Record<string, any>> }) {
