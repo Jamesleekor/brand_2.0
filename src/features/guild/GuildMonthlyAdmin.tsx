@@ -70,9 +70,6 @@ function Dashboard({ data, yearMonth, busy, run, refresh }: { data: Guild5Teache
   const closureState = String(data.closure?.lifecycle_state ?? preview.closure_state ?? 'OPEN');
   const currentVersion = data.versions.find((v) => Number(v.id) === Number(data.closure?.current_version_id ?? preview.current_version_id)) ?? data.versions[0];
   const [territoryDrafts, setTerritoryDrafts] = useState(() => territoryInitial(data));
-  const territories = data.territories ?? [];
-  const usedTerritoryIds = new Set<number>((data.conquest_turns ?? []).filter((t) => t.territory_id).map((t) => Number(t.territory_id)));
-  const activeTurn = (data.conquest_turns ?? []).find((t) => t.turn_status === 'ACTIVE');
 
   const changeOverride = (component: 'MISSION' | 'PEER') => {
     const key = component.toLowerCase();
@@ -118,7 +115,7 @@ function Dashboard({ data, yearMonth, busy, run, refresh }: { data: Guild5Teache
 
     <section className="glass-card p-4"><h2 className="font-display text-xl">Guild2 DRAFT 입력값</h2><p className="text-xs text-text-secondary mt-1 mb-3">FINALIZE 시 아래 값이 그대로 snapshot됩니다. 이후 과거 월은 현재 DB로 재계산하지 않습니다.</p><GuildDraftTable rows={preview.guilds ?? []}/></section>
 
-    {closureState === 'FINALIZED' && <section className="glass-card p-4 space-y-4"><div className="flex flex-wrap justify-between gap-3"><div><h2 className="font-display text-xl">🏆 FINAL 결과</h2><p className="text-xs text-text-secondary mt-1">version {currentVersion?.version_no ?? '-'} · 확정 {dt(currentVersion?.finalized_at)} · tie seed 보존</p></div>{currentVersion?.conquest_status === 'RECONQUEST_REQUIRED' && <button className="btn-primary" disabled={busy} onClick={reconquest}>⚔️ 재정복 시작</button>}</div><FinalRanking rows={data.guild_snapshots ?? []}/><Conquest data={data} busy={busy} run={run} activeTurn={activeTurn} territories={territories} usedTerritoryIds={usedTerritoryIds}/></section>}
+    {closureState === 'FINALIZED' && <section className="glass-card p-4 space-y-4"><div className="flex flex-wrap justify-between gap-3"><div><h2 className="font-display text-xl">🏆 FINAL 결과</h2><p className="text-xs text-text-secondary mt-1">version {currentVersion?.version_no ?? '-'} · 확정 {dt(currentVersion?.finalized_at)} · tie seed 보존</p></div>{currentVersion?.conquest_status === 'RECONQUEST_REQUIRED' && <button className="btn-primary" disabled={busy} onClick={reconquest}>⚔️ 재정복 시작</button>}</div><FinalRanking rows={data.guild_snapshots ?? []}/><Conquest data={data} busy={busy} run={run}/></section>}
 
     {data.versions.length > 0 && <section className="glass-card p-4"><h2 className="font-display text-lg mb-3">월 마감 Version History</h2><div className="space-y-2">{data.versions.map((v) => <div key={v.id} className="rounded-card-md border border-line bg-bg-deep p-3 flex flex-wrap justify-between gap-2"><div><b>v{v.version_no}</b> <span className="text-xs text-text-secondary">#{v.id}</span><div className="text-xs text-text-muted mt-1">FINAL {dt(v.finalized_at)} · 정복 {v.conquest_status}</div></div><div className="text-xs text-text-secondary">{v.rank_changed_from_previous ? '⚠️ 이전 version 대비 순위 변경' : '순위 변경 없음'}</div></div>)}</div></section>}
 
@@ -147,33 +144,99 @@ function territoryInitial(data: Guild5TeacherDashboard) {
 type TerritoryDraft = { slot: number; name: string; description: string; taxRatePercent: number };
 function TerritoryConfig({ data, drafts, setDrafts, busy, run }: { data: Guild5TeacherDashboard; drafts: TerritoryDraft[]; setDrafts: Dispatch<SetStateAction<TerritoryDraft[]>>; busy: boolean; run: (label:string,fn:()=>Promise<any>)=>void }) {
   if (!data.season) return null;
+  const closureState = String(data.closure?.lifecycle_state ?? data.preview?.closure_state ?? 'OPEN');
   const economyBySlot = new Map((data.territory_economy ?? []).map((row) => [Number(row.slot_no), row]));
+  const taxBySlot = new Map((data.territory_tax_summary ?? []).map((row) => [Number(row.slot_no), row]));
+  const territoryBySlot = new Map((data.territories ?? []).map((t) => [Number(t.slot_no), t]));
+  const assignedBySlot = new Map(
+    (data.conquest_turns ?? [])
+      .filter((t) => ['ASSIGNED','AUTO_ASSIGNED'].includes(String(t.turn_status)) && Number(t.territory_slot_no_snapshot) >= 1)
+      .map((t) => [Number(t.territory_slot_no_snapshot), t]),
+  );
+  const usedTerritoryIds = new Set<number>(
+    (data.conquest_turns ?? []).filter((t) => t.territory_id).map((t) => Number(t.territory_id)),
+  );
+  const activeTurn = (data.conquest_turns ?? []).find((t) => t.turn_status === 'ACTIVE') ?? null;
+  const guildNames = new Map(
+    (data.guild_snapshots ?? []).map((g) => [Number(g.guild_id), String(g.guild_name_at_close ?? `Guild #${g.guild_id}`)]),
+  );
+  const activeGuildName = activeTurn ? guildNames.get(Number(activeTurn.guild_id)) ?? `Guild #${activeTurn.guild_id}` : null;
+
   return <section className="glass-card p-4">
     <div className="mb-3">
-      <h2 className="font-display text-xl">🗺️ 정복 영토 3개</h2>
-      <p className="text-xs text-text-secondary mt-1">시즌당 정확히 3개를 설정합니다. 1위 → 2위 → 3위 순서로 하나씩 선택합니다. 경매 사용액은 최근 완료된 공통 경매 회차의 실제 정산액이며, 예상 수익은 사용액 × 현재 입력 세율입니다.</p>
+      <h2 className="font-display text-xl">🗺️ 정복 영토 3개 · 최종 점령</h2>
+      <p className="text-xs text-text-secondary mt-1">영토 이름·세율 설정, 경매 가치, 최종 점령 길드 지정까지 이 카드에서 처리합니다. FINAL 이후 현재 선택권을 가진 길드에 원하는 영토를 배정하면 해당 카테고리의 영토세도 함께 정산됩니다.</p>
     </div>
     <div className="grid lg:grid-cols-3 gap-3">{drafts.map((d, i) => {
       const economy = economyBySlot.get(d.slot);
+      const tax = taxBySlot.get(d.slot);
+      const savedTerritory = territoryBySlot.get(d.slot);
+      const assignedTurn = assignedBySlot.get(d.slot);
       const grossSpend = Number(economy?.gross_spend ?? 0);
       const projectedRevenue = grossSpend * d.taxRatePercent / 100;
-      return <div key={d.slot} className="rounded-card-md border border-line bg-bg-deep p-3">
-        <div className="text-xs font-black text-bv">영토 {d.slot} · {territorySlotLabel[d.slot]}</div>
+      const assignedGuildName = assignedTurn ? guildNames.get(Number(assignedTurn.guild_id)) ?? `Guild #${assignedTurn.guild_id}` : null;
+      const canAssign = closureState === 'FINALIZED'
+        && Boolean(activeTurn)
+        && Boolean(savedTerritory)
+        && !usedTerritoryIds.has(Number(savedTerritory?.id))
+        && !assignedTurn;
+
+      return <div key={d.slot} className={`rounded-card-md border p-3 ${assignedTurn ? 'border-success/35 bg-success/5' : activeTurn && canAssign ? 'border-gold/35 bg-gold/5' : 'border-line bg-bg-deep'}`}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="text-xs font-black text-bv">영토 {d.slot} · {territorySlotLabel[d.slot]}</div>
+          <span className={`rounded-pill border px-2 py-0.5 text-[9px] font-black ${assignedTurn ? 'border-success/30 text-success' : closureState === 'FINALIZED' ? 'border-warning/30 text-warning' : 'border-line text-text-muted'}`}>
+            {assignedTurn ? '점령 완료' : closureState === 'FINALIZED' ? '미점령' : '설정 단계'}
+          </span>
+        </div>
+
         <input className="input-field w-full mt-2" placeholder="영토 이름" value={d.name} onChange={(e) => setDrafts((rows) => rows.map((x, j) => j === i ? {...x,name:e.target.value} : x))}/>
         <input className="input-field w-full mt-2" placeholder="설명 (선택)" value={d.description} onChange={(e) => setDrafts((rows) => rows.map((x, j) => j === i ? {...x,description:e.target.value} : x))}/>
         <label className="mt-2 block text-[10px] font-black text-text-muted">지역 세율 (%)<input type="number" min={0} max={100} step={0.1} className="input-field w-full mt-1" value={d.taxRatePercent} onChange={(e) => { const next = Number(e.target.value); setDrafts((rows) => rows.map((x, j) => j === i ? {...x,taxRatePercent:Number.isFinite(next)?Math.min(100,Math.max(0,next)):0} : x)); }}/></label>
-        <div className="mt-3 rounded-card-md border border-gold/20 bg-gold/5 p-2.5">
+
+        <div className="mt-3 rounded-card-md border border-gold/20 bg-bg-card/70 p-2.5">
           <div className="flex items-center justify-between gap-2 text-[10px]">
             <span className="font-black text-gold">{economy?.auction_category ?? '-'}</span>
             <span className="text-text-muted">{economy?.auction_round_number ? `${economy.auction_round_number}회차 기준` : '기준 경매 없음'}</span>
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <div><div className="text-[9px] font-black text-text-muted">경매 사용액</div><div className="text-sm font-black text-white">{num(grossSpend)} G</div></div>
-            <div><div className="text-[9px] font-black text-text-muted">예상 영토 수익</div><div className="text-sm font-black text-gold">{num(projectedRevenue)} G</div></div>
+            <div><div className="text-[9px] font-black text-text-muted">예상 세수</div><div className="text-sm font-black text-gold">{num(projectedRevenue)} G</div></div>
           </div>
-          <div className="mt-1 text-[9px] text-text-muted">정산 {num(economy?.settled_item_count ?? 0)}건 · 실제 자동 지급이 아닌 가치 비교용 계산</div>
+          <div className="mt-1 text-[9px] text-text-muted">정산 {num(economy?.settled_item_count ?? 0)}건 · 개인 세율감면 적용 전 단순 예상</div>
         </div>
-        <button className="btn-secondary w-full mt-2" disabled={busy || d.name.trim().length < 1 || Boolean(data.season_lock)} onClick={() => run(`영토 ${d.slot} 설정을 저장했어요`, () => guild5TeacherRpc.setTerritory(supabase, { p_season_id: Number(data.season!.id), p_slot_no: d.slot, p_territory_name: d.name.trim(), p_description: d.description.trim() || null, p_tax_rate_percent: d.taxRatePercent }))}>저장</button>
+
+        <div className={`mt-3 rounded-card-md border p-2.5 ${assignedTurn ? 'border-success/25 bg-success/5' : 'border-line bg-bg-card/70'}`}>
+          <div className="text-[9px] font-black text-text-muted">최종 점령 상태</div>
+          {assignedTurn ? <>
+            <div className="mt-1 font-black text-success">{assignedTurn.rank_position}위 · {assignedGuildName}</div>
+            <div className="mt-1 text-[10px] text-text-secondary">{assignedTurn.assignment_method === 'AUTO' ? '기한 만료 자동 배정' : '교사 선택 배정'} · {assignedTurn.territory_name_snapshot}</div>
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
+              <div><div className="text-[8px] text-text-muted">부과 세금</div><div className="text-[11px] font-black text-white">{num(tax?.assessed_amount ?? 0)} G</div></div>
+              <div><div className="text-[8px] text-text-muted">징수 완료</div><div className="text-[11px] font-black text-success">{num(tax?.collected_amount ?? 0)} G</div></div>
+              <div><div className="text-[8px] text-text-muted">미납</div><div className={`text-[11px] font-black ${Number(tax?.outstanding_amount ?? 0) > 0 ? 'text-warning' : 'text-text-secondary'}`}>{num(tax?.outstanding_amount ?? 0)} G</div></div>
+            </div>
+          </> : closureState !== 'FINALIZED' ? (
+            <div className="mt-1 text-xs text-text-secondary">월간 FINAL 후 1위 → 2위 → 3위 순으로 점령 길드를 지정합니다.</div>
+          ) : activeTurn ? <>
+            <div className="mt-1 text-xs font-black text-gold">현재 {activeTurn.rank_position}위 · {activeGuildName} 선택 차례</div>
+            <div className="mt-1 text-[10px] text-text-muted">이 영토를 선택하면 {economy?.auction_category ?? '해당 카테고리'} 낙찰분의 영토세가 즉시 정산됩니다.</div>
+            <button
+              className="btn-primary w-full mt-2"
+              disabled={busy || !canAssign}
+              onClick={() => {
+                if (!savedTerritory || !activeTurn) return;
+                if (window.confirm(`${activeTurn.rank_position}위 ${activeGuildName} 길드에 '${savedTerritory.territory_name}'을(를) 배정할까요?\n배정과 동시에 해당 경매 카테고리의 영토세가 정산됩니다.`)) {
+                  run('정복 영토와 영토세를 확정했어요', () => guild5TeacherRpc.chooseTerritory(supabase, { p_turn_id: Number(activeTurn.id), p_territory_id: Number(savedTerritory.id) }));
+                }
+              }}
+            >이 영토 점령 확정</button>
+            {!savedTerritory && <div className="mt-1 text-[9px] text-warning">영토 이름·세율을 먼저 저장해야 배정할 수 있습니다.</div>}
+          </> : (
+            <div className="mt-1 text-xs text-text-secondary">앞 순위의 선택이 끝나면 다음 길드 선택 차례가 열립니다.</div>
+          )}
+        </div>
+
+        <button className="btn-secondary w-full mt-2" disabled={busy || d.name.trim().length < 1 || Boolean(data.season_lock) || Boolean(assignedTurn)} onClick={() => run(`영토 ${d.slot} 설정을 저장했어요`, () => guild5TeacherRpc.setTerritory(supabase, { p_season_id: Number(data.season!.id), p_slot_no: d.slot, p_territory_name: d.name.trim(), p_description: d.description.trim() || null, p_tax_rate_percent: d.taxRatePercent }))}>{assignedTurn ? '점령 확정 후 수정 불가' : '영토 설정 저장'}</button>
       </div>;
     })}</div>
   </section>;
@@ -186,10 +249,26 @@ function GuildDraftTable({ rows }: { rows: Array<Record<string, any>> }) {
 function FinalRanking({ rows }: { rows: Array<Record<string, any>> }) {
   return <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-2">{rows.map((r) => <div key={r.guild_id} className={`rounded-card-md border p-3 ${Number(r.rank_position) <= 3 ? 'border-gold/30 bg-gold/5' : 'border-line bg-bg-deep'}`}><div className="text-xs font-black text-text-muted">{r.rank_position}위</div><div className="font-black mt-1 truncate">{r.guild_name_at_close}</div><div className="font-display text-xl text-gold mt-2">{num(r.total_gs)} GS</div><div className="text-[10px] text-text-muted mt-1">BV {num(r.roster_bv_sum)} · 미션 길드점수 {num(r.official_mission_gs)}</div></div>)}</div>;
 }
-function Conquest({ data, busy, run, activeTurn, territories, usedTerritoryIds }: { data: Guild5TeacherDashboard; busy:boolean; run:(label:string,fn:()=>Promise<any>)=>void; activeTurn:any; territories:Array<Record<string,any>>; usedTerritoryIds:Set<number> }) {
+function Conquest({ data, busy, run }: { data: Guild5TeacherDashboard; busy:boolean; run:(label:string,fn:()=>Promise<any>)=>void }) {
   const currentVersionId = Number(data.closure?.current_version_id ?? 0);
   const guildNames = new Map((data.guild_snapshots ?? []).map((g) => [Number(g.guild_id), String(g.guild_name_at_close ?? `Guild #${g.guild_id}`)]));
-  return <div className="rounded-card-md border border-line bg-bg-deep p-4"><div className="flex flex-wrap justify-between gap-2"><div><h3 className="font-black">⚔️ 정복 순서</h3><p className="text-xs text-text-secondary mt-1">각 순위의 선택 기한은 활성화 시점부터 48시간입니다. 선순위 선택이 끝나야 다음 순위가 열립니다.</p></div>{currentVersionId > 0 && <button className="btn-secondary" disabled={busy} onClick={() => run('기한이 지난 정복 차례를 확인했어요', () => guild5TeacherRpc.processDue(supabase, { p_version_id: currentVersionId }))}>⏱ 기한 만료 처리</button>}</div><div className="grid md:grid-cols-3 gap-2 mt-3">{(data.conquest_turns ?? []).map((t) => <div key={t.id} className={`rounded-card-md border p-3 ${t.turn_status === 'ACTIVE' ? 'border-bv bg-bv/10' : 'border-line bg-bg-card'}`}><div className="flex justify-between"><b>{t.rank_position}위 · {guildNames.get(Number(t.guild_id)) ?? `Guild #${t.guild_id}`}</b><span className="text-xs">{turnLabel[t.turn_status] ?? t.turn_status}</span></div><div className="text-xs text-text-secondary mt-1">{t.territory_name_snapshot ?? (t.deadline_at ? `마감 ${dt(t.deadline_at)}` : '앞 순위 대기')}</div>{t.assignment_method && <div className="text-[10px] text-text-muted mt-1">{t.assignment_method === 'AUTO' ? '서버 자동 배정' : '교사 수동 선택'}</div>}</div>)}</div>{activeTurn && <div className="mt-4 border-t border-line pt-3"><div className="font-black text-sm">현재 {activeTurn.rank_position}위 선택</div><div className="flex flex-wrap gap-2 mt-2">{territories.filter((t) => !usedTerritoryIds.has(Number(t.id))).map((t) => <button key={t.id} className="btn-primary" disabled={busy} onClick={() => { if (window.confirm(`${t.territory_name}을(를) ${activeTurn.rank_position}위 길드에 배정할까요?`)) run('정복 영토를 배정했어요', () => guild5TeacherRpc.chooseTerritory(supabase, { p_turn_id: Number(activeTurn.id), p_territory_id: Number(t.id) })); }}>{t.territory_name}</button>)}{data.is_test_fixture && <button className="btn-secondary" disabled={busy} onClick={() => run('TEST에서 선택 기한을 만료시켜 자동 배정했어요', () => guild5TeacherRpc.forceTestTurnDue(supabase, { p_turn_id: Number(activeTurn.id) }))}>🧪 48시간 만료 테스트</button>}</div></div>}</div>;
+  const activeTurn = (data.conquest_turns ?? []).find((t) => t.turn_status === 'ACTIVE') ?? null;
+  return <div className="rounded-card-md border border-line bg-bg-deep p-4">
+    <div className="flex flex-wrap justify-between gap-2">
+      <div>
+        <h3 className="font-black">⚔️ 정복 진행 기록</h3>
+        <p className="text-xs text-text-secondary mt-1">영토 배정은 위 「정복 영토 3개」 카드에서 처리합니다. 여기서는 1위 → 2위 → 3위 진행 상태와 선택 기한을 확인합니다.</p>
+      </div>
+      {currentVersionId > 0 && <button className="btn-secondary" disabled={busy} onClick={() => run('기한이 지난 정복 차례를 확인했어요', () => guild5TeacherRpc.processDue(supabase, { p_version_id: currentVersionId }))}>⏱ 기한 만료 처리</button>}
+    </div>
+    <div className="grid md:grid-cols-3 gap-2 mt-3">{(data.conquest_turns ?? []).map((t) => <div key={t.id} className={`rounded-card-md border p-3 ${t.turn_status === 'ACTIVE' ? 'border-bv bg-bv/10' : ['ASSIGNED','AUTO_ASSIGNED'].includes(String(t.turn_status)) ? 'border-success/25 bg-success/5' : 'border-line bg-bg-card'}`}>
+      <div className="flex justify-between gap-2"><b>{t.rank_position}위 · {guildNames.get(Number(t.guild_id)) ?? `Guild #${t.guild_id}`}</b><span className="text-xs">{turnLabel[t.turn_status] ?? t.turn_status}</span></div>
+      <div className="text-xs text-text-secondary mt-1">{t.territory_name_snapshot ?? (t.deadline_at ? `선택 마감 ${dt(t.deadline_at)}` : '앞 순위 선택 대기')}</div>
+      {t.assignment_method && <div className="text-[10px] text-text-muted mt-1">{t.assignment_method === 'AUTO' ? '서버 자동 배정' : '교사 수동 선택'}</div>}
+    </div>)}</div>
+    {data.is_test_fixture && activeTurn && <div className="mt-3 border-t border-line pt-3"><button className="btn-secondary" disabled={busy} onClick={() => run('TEST에서 선택 기한을 만료시켜 자동 배정했어요', () => guild5TeacherRpc.forceTestTurnDue(supabase, { p_turn_id: Number(activeTurn.id) }))}>🧪 현재 차례 48시간 만료 테스트</button></div>}
+  </div>;
 }
+
 function Th({ children }: { children: ReactNode }) { return <th className="px-3 py-2 text-left font-black whitespace-nowrap">{children}</th>; }
 function Td({ children }: { children: ReactNode }) { return <td className="px-3 py-2 whitespace-nowrap">{children}</td>; }
