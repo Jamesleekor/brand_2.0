@@ -45,6 +45,24 @@ export type Guild5TerritoryEconomy = {
   snapshot?: boolean;
 };
 
+export type Guild5TerritoryTaxSummary = {
+  slot_no: number;
+  territory_id?: number | null;
+  territory_name?: string | null;
+  auction_category: '자리' | '1인1역' | '급식순서';
+  auction_id?: number | null;
+  auction_round_number?: number | null;
+  tax_rate_percent?: number | null;
+  owner_guild_id?: number | null;
+  turn_id?: number | null;
+  turn_status?: string | null;
+  assessment_count: number;
+  taxpayer_count: number;
+  assessed_amount: number;
+  collected_amount: number;
+  outstanding_amount: number;
+};
+
 export type Guild5TeacherDashboard = {
   preview: Guild5ClosePreview;
   season: Record<string, any> | null;
@@ -52,6 +70,7 @@ export type Guild5TeacherDashboard = {
   is_test_fixture?: boolean;
   territories: Array<Record<string, any>>;
   territory_economy: Guild5TerritoryEconomy[];
+  territory_tax_summary: Guild5TerritoryTaxSummary[];
   closure: Record<string, any> | null;
   versions: Array<Record<string, any>>;
   guild_snapshots: Array<Record<string, any>>;
@@ -68,6 +87,7 @@ export type Guild5StudentHistory = Array<{
   my_guild: Record<string, any>;
   territory?: Record<string, any> | null;
   territory_economy: Guild5TerritoryEconomy[];
+  territory_tax_summary: Guild5TerritoryTaxSummary[];
   rankings: Array<Record<string, any>>;
 }>;
 
