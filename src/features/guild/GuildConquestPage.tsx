@@ -43,10 +43,18 @@ export default function GuildConquestPage() {
   });
 
   const history = historyQ.data ?? [];
-  const months = useMemo(() => Array.from(new Set(history.map((row) => row.year_month))), [history]);
+  // ?먮졊 ??쓽 '?꾩옱 ?곹깭'???щ젰???꾩옱 ?붿씠 ?꾨땲??  // 媛??理쒓렐???먮졊 ?덉감源뚯? COMPLETE ??FINAL ?붿씠??
+  // 諛깆뿏?쒓? ?꾩쭅 conquest_status瑜??대젮二쇱? ?딅뒗 援щ쾭??諛고룷????명솚?쒕떎.
+  const conquestHistory = useMemo(() => {
+    const hasConquestStatus = history.some((item) => typeof item.conquest_status === 'string');
+    return hasConquestStatus
+      ? history.filter((item) => item.conquest_status === 'COMPLETE')
+      : history;
+  }, [history]);
+  const months = useMemo(() => Array.from(new Set(conquestHistory.map((row) => row.year_month))), [conquestHistory]);
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const effectiveMonth = selectedMonth && months.includes(selectedMonth) ? selectedMonth : months[0] ?? null;
-  const row = effectiveMonth ? history.find((item) => item.year_month === effectiveMonth) ?? null : null;
+  const row = effectiveMonth ? conquestHistory.find((item) => item.year_month === effectiveMonth) ?? null : null;
   const assigned = useMemo(() => {
     const rankings = (row?.rankings ?? []) as Array<Record<string, any>>;
     return rankings

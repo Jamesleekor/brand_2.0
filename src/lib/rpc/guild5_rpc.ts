@@ -82,9 +82,10 @@ export type Guild5TeacherDashboard = {
 export type Guild5StudentHistory = Array<{
   year_month: string;
   version_no: number;
-  finalized_at: string;
-  my_contribution: Record<string, any>;
-  my_guild: Record<string, any>;
+  finalized_at: string;
+  conquest_status?: string;
+  my_contribution: Record<string, any> | null;
+  my_guild: Record<string, any> | null;
   territory?: Record<string, any> | null;
   territory_economy: Guild5TerritoryEconomy[];
   territory_tax_summary: Guild5TerritoryTaxSummary[];
