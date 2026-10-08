@@ -9,10 +9,10 @@
     "sort_order": 1,
     "is_active": true,
     "metadata": {
-      "content_version": "neville_ep1_xlsx_v1",
+      "content_version": "neville_ep1_xlsx_v4",
       "long_episode_notice": true,
       "master_sheet_workflow": true,
-      "source": "Neville_EP1_BrandVN_Master_v3.xlsx",
+      "source": "Neville_EP1_BrandVN_Master_v4.xlsx",
       "notes": "프롤로그에서 기본 BGM 사용. Chapter 1 TITLE에서 NONE으로 중단."
     }
   },
@@ -40,7 +40,8 @@
         "scene_title": "프롤로그 — 방문하는 사람",
         "source_label": "PROLOGUE_START",
         "hide_sprite": true,
-        "title_kick": "PROLOGUE"
+        "title_kick": "PROLOGUE",
+        "sprite_mode": "none"
       }
     },
     {
@@ -61,7 +62,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -82,7 +84,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -103,7 +106,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -124,7 +128,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -145,7 +150,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -166,7 +172,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -187,7 +194,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -208,7 +216,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -229,7 +238,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -250,7 +260,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -271,7 +282,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -292,7 +304,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -313,7 +326,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -334,7 +348,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -355,7 +370,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -376,7 +392,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -397,7 +414,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -418,7 +436,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -439,7 +458,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -460,7 +480,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -481,7 +502,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -502,7 +524,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -525,7 +548,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -546,7 +570,8 @@
         "chapter_title": "방문하는 사람",
         "scene": "SCENE 0",
         "scene_title": "프롤로그 — 방문하는 사람",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -571,7 +596,8 @@
         "scene_title": "처음 만난 네빌",
         "source_label": "CHAPTER_1_START",
         "hide_sprite": true,
-        "title_kick": "CHAPTER 1"
+        "title_kick": "CHAPTER 1",
+        "sprite_mode": "none"
       }
     },
     {
@@ -950,7 +976,8 @@
         "scene": "SCENE 1",
         "scene_title": "처음 만난 네빌",
         "source_label": "CHOICE_01_COMMON",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -971,7 +998,8 @@
         "chapter_title": "굉장한 사람의 굉장하지 않은 부탁",
         "scene": "SCENE 1",
         "scene_title": "처음 만난 네빌",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -1020,7 +1048,7 @@
       "speaker": "네빌",
       "content": "처음 만났으니 정식으로 소개하지.",
       "background_url": "https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/Character_Stories/Neville/BG/neville_ep1_bg01_wind_boundary_hill.webp",
-      "sprite_url": "https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/Character_Stories/Neville/CHAR/neville_knee_pose03_awkward.webp",
+      "sprite_url": "https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/Character_Stories/Neville/CHAR/neville_knee_pose06_mischievous.webp",
       "bgm_url": null,
       "sfx_url": null,
       "effects": [],
@@ -1040,7 +1068,7 @@
       "speaker": "네빌",
       "content": "나는 네빌 크로포드.",
       "background_url": "https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/Character_Stories/Neville/BG/neville_ep1_bg01_wind_boundary_hill.webp",
-      "sprite_url": "https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/Character_Stories/Neville/CHAR/neville_knee_pose03_awkward.webp",
+      "sprite_url": "https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/Character_Stories/Neville/CHAR/neville_knee_pose06_mischievous.webp",
       "bgm_url": null,
       "sfx_url": null,
       "effects": [],
@@ -1353,7 +1381,8 @@
         "scene": "SCENE 1",
         "scene_title": "처음 만난 네빌",
         "hide_sprite": true,
-        "title_kick": "EP.1"
+        "title_kick": "EP.1",
+        "sprite_mode": "none"
       }
     },
     {
@@ -1378,7 +1407,8 @@
         "scene_title": "정착의 비밀",
         "source_label": "CHAPTER_2_START",
         "hide_sprite": true,
-        "title_kick": "CHAPTER 2"
+        "title_kick": "CHAPTER 2",
+        "sprite_mode": "none"
       }
     },
     {
@@ -2839,7 +2869,8 @@
         "chapter_title": "네빌의 위대한 연구",
         "scene": "SCENE 4",
         "scene_title": "후보 1호 — 세렌",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -2860,7 +2891,8 @@
         "chapter_title": "네빌의 위대한 연구",
         "scene": "SCENE 4",
         "scene_title": "후보 1호 — 세렌",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -2881,7 +2913,8 @@
         "chapter_title": "네빌의 위대한 연구",
         "scene": "SCENE 4",
         "scene_title": "후보 1호 — 세렌",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -2902,7 +2935,8 @@
         "chapter_title": "네빌의 위대한 연구",
         "scene": "SCENE 4",
         "scene_title": "후보 1호 — 세렌",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -2923,7 +2957,8 @@
         "chapter_title": "네빌의 위대한 연구",
         "scene": "SCENE 4",
         "scene_title": "후보 1호 — 세렌",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -3546,7 +3581,8 @@
         "scene_title": "첫 인사 후보 28개",
         "source_label": "CHAPTER_3_START",
         "hide_sprite": true,
-        "title_kick": "CHAPTER 3"
+        "title_kick": "CHAPTER 3",
+        "sprite_mode": "none"
       }
     },
     {
@@ -4269,7 +4305,8 @@
         "scene_title": "첫 만남",
         "source_label": "CHAPTER_4_START",
         "hide_sprite": true,
-        "title_kick": "CHAPTER 4"
+        "title_kick": "CHAPTER 4",
+        "sprite_mode": "none"
       }
     },
     {
@@ -5203,7 +5240,8 @@
         "scene": "SCENE 7",
         "scene_title": "둘이 너무 잘 맞습니다",
         "source_label": "CHOICE_05_COMMON",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -5224,7 +5262,8 @@
         "chapter_title": "첫 번째 데이트",
         "scene": "SCENE 7",
         "scene_title": "둘이 너무 잘 맞습니다",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -5245,7 +5284,8 @@
         "chapter_title": "첫 번째 데이트",
         "scene": "SCENE 7",
         "scene_title": "둘이 너무 잘 맞습니다",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -5728,7 +5768,8 @@
         "chapter_title": "첫 번째 데이트",
         "scene": "SCENE 7",
         "scene_title": "둘이 너무 잘 맞습니다",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       },
       "gallery": {
         "title": "세렌과의 첫 데이트",
@@ -5955,7 +5996,8 @@
         "scene": "SCENE 7",
         "scene_title": "둘이 너무 잘 맞습니다",
         "source_label": "CHOICE_06_OPT3",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -5977,7 +6019,8 @@
         "scene": "SCENE 7",
         "scene_title": "둘이 너무 잘 맞습니다",
         "source_label": "CHOICE_06_COMMON",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -5998,7 +6041,8 @@
         "chapter_title": "첫 번째 데이트",
         "scene": "SCENE 7",
         "scene_title": "둘이 너무 잘 맞습니다",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -6019,7 +6063,8 @@
         "chapter_title": "첫 번째 데이트",
         "scene": "SCENE 7",
         "scene_title": "둘이 너무 잘 맞습니다",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -6040,7 +6085,8 @@
         "chapter_title": "첫 번째 데이트",
         "scene": "SCENE 7",
         "scene_title": "둘이 너무 잘 맞습니다",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -6061,7 +6107,8 @@
         "chapter_title": "첫 번째 데이트",
         "scene": "SCENE 7",
         "scene_title": "둘이 너무 잘 맞습니다",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -6082,7 +6129,8 @@
         "chapter_title": "첫 번째 데이트",
         "scene": "SCENE 7",
         "scene_title": "둘이 너무 잘 맞습니다",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -6107,7 +6155,8 @@
         "scene_title": "집 이야기",
         "source_label": "CHAPTER_5_START",
         "hide_sprite": true,
-        "title_kick": "CHAPTER 5"
+        "title_kick": "CHAPTER 5",
+        "sprite_mode": "none"
       }
     },
     {
@@ -8086,7 +8135,8 @@
         "scene": "SCENE 9",
         "scene_title": "첫 번째 실패",
         "source_label": "CHOICE_07_COMMON",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -8111,7 +8161,8 @@
         "scene_title": "원인 분석",
         "source_label": "CHAPTER_6_START",
         "hide_sprite": true,
-        "title_kick": "CHAPTER 6"
+        "title_kick": "CHAPTER 6",
+        "sprite_mode": "none"
       }
     },
     {
@@ -8234,7 +8285,8 @@
         "chapter_title": "실패 보고서",
         "scene": "SCENE 10",
         "scene_title": "원인 분석",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -8255,7 +8307,8 @@
         "chapter_title": "실패 보고서",
         "scene": "SCENE 10",
         "scene_title": "원인 분석",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -8276,7 +8329,8 @@
         "chapter_title": "실패 보고서",
         "scene": "SCENE 10",
         "scene_title": "원인 분석",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -8397,7 +8451,8 @@
         "chapter_title": "실패 보고서",
         "scene": "SCENE 10",
         "scene_title": "원인 분석",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -8418,7 +8473,8 @@
         "chapter_title": "실패 보고서",
         "scene": "SCENE 10",
         "scene_title": "원인 분석",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -8439,7 +8495,8 @@
         "chapter_title": "실패 보고서",
         "scene": "SCENE 10",
         "scene_title": "원인 분석",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -8460,7 +8517,8 @@
         "chapter_title": "실패 보고서",
         "scene": "SCENE 10",
         "scene_title": "원인 분석",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -9043,7 +9101,8 @@
         "scene_title": "헤어질 시간",
         "source_label": "CHAPTER_7_START",
         "hide_sprite": true,
-        "title_kick": "CHAPTER 7"
+        "title_kick": "CHAPTER 7",
+        "sprite_mode": "none"
       }
     },
     {
@@ -9706,7 +9765,8 @@
         "scene_title": "아주 사소한 문제",
         "source_label": "CHAPTER_8_START",
         "hide_sprite": true,
-        "title_kick": "CHAPTER 8"
+        "title_kick": "CHAPTER 8",
+        "sprite_mode": "none"
       }
     },
     {
@@ -9729,7 +9789,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 12",
         "scene_title": "아주 사소한 문제",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       },
       "gallery": {
         "title": "열리지 않는 관문",
@@ -9839,7 +9900,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 12",
         "scene_title": "아주 사소한 문제",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -9880,7 +9942,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 12",
         "scene_title": "아주 사소한 문제",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -9901,7 +9964,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 12",
         "scene_title": "아주 사소한 문제",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -9942,7 +10006,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 12",
         "scene_title": "아주 사소한 문제",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -9963,7 +10028,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 12",
         "scene_title": "아주 사소한 문제",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10144,7 +10210,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 12",
         "scene_title": "아주 사소한 문제",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10165,7 +10232,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 12",
         "scene_title": "아주 사소한 문제",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10226,7 +10294,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 12",
         "scene_title": "아주 사소한 문제",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10287,7 +10356,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 12",
         "scene_title": "아주 사소한 문제",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10389,7 +10459,8 @@
         "scene": "SCENE 13",
         "scene_title": "처음 생긴 ‘다음’",
         "hide_sprite": true,
-        "bgm_delay_ms": 2500
+        "bgm_delay_ms": 2500,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10410,7 +10481,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
         "scene_title": "처음 생긴 ‘다음’",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10431,7 +10503,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
         "scene_title": "처음 생긴 ‘다음’",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10451,7 +10524,9 @@
         "chapter": "CHAPTER 8",
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
-        "scene_title": "처음 생긴 ‘다음’"
+        "scene_title": "처음 생긴 ‘다음’",
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10471,7 +10546,9 @@
         "chapter": "CHAPTER 8",
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
-        "scene_title": "처음 생긴 ‘다음’"
+        "scene_title": "처음 생긴 ‘다음’",
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10491,7 +10568,9 @@
         "chapter": "CHAPTER 8",
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
-        "scene_title": "처음 생긴 ‘다음’"
+        "scene_title": "처음 생긴 ‘다음’",
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10511,7 +10590,9 @@
         "chapter": "CHAPTER 8",
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
-        "scene_title": "처음 생긴 ‘다음’"
+        "scene_title": "처음 생긴 ‘다음’",
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10531,7 +10612,9 @@
         "chapter": "CHAPTER 8",
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
-        "scene_title": "처음 생긴 ‘다음’"
+        "scene_title": "처음 생긴 ‘다음’",
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10551,7 +10634,9 @@
         "chapter": "CHAPTER 8",
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
-        "scene_title": "처음 생긴 ‘다음’"
+        "scene_title": "처음 생긴 ‘다음’",
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10571,7 +10656,9 @@
         "chapter": "CHAPTER 8",
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
-        "scene_title": "처음 생긴 ‘다음’"
+        "scene_title": "처음 생긴 ‘다음’",
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10591,7 +10678,9 @@
         "chapter": "CHAPTER 8",
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
-        "scene_title": "처음 생긴 ‘다음’"
+        "scene_title": "처음 생긴 ‘다음’",
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10611,7 +10700,9 @@
         "chapter": "CHAPTER 8",
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
-        "scene_title": "처음 생긴 ‘다음’"
+        "scene_title": "처음 생긴 ‘다음’",
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10632,7 +10723,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
         "scene_title": "처음 생긴 ‘다음’",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10653,7 +10745,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
         "scene_title": "처음 생긴 ‘다음’",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10674,7 +10767,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
         "scene_title": "처음 생긴 ‘다음’",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10694,7 +10788,9 @@
         "chapter": "CHAPTER 8",
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
-        "scene_title": "처음 생긴 ‘다음’"
+        "scene_title": "처음 생긴 ‘다음’",
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10715,7 +10811,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
         "scene_title": "처음 생긴 ‘다음’",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10736,7 +10833,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
         "scene_title": "처음 생긴 ‘다음’",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10757,7 +10855,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
         "scene_title": "처음 생긴 ‘다음’",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10778,7 +10877,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
         "scene_title": "처음 생긴 ‘다음’",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10799,7 +10899,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
         "scene_title": "처음 생긴 ‘다음’",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10822,7 +10923,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
         "scene_title": "처음 생긴 ‘다음’",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10843,7 +10945,8 @@
         "chapter_title": "갈 수 없는 곳",
         "scene": "SCENE 13",
         "scene_title": "처음 생긴 ‘다음’",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -10868,7 +10971,8 @@
         "scene_title": "다음 가설",
         "source_label": "COOKIE_START",
         "hide_sprite": true,
-        "title_kick": "COOKIE"
+        "title_kick": "COOKIE",
+        "sprite_mode": "none"
       }
     },
     {
@@ -11029,7 +11133,8 @@
         "chapter_title": "쿠키 장면",
         "scene": "COOKIE",
         "scene_title": "다음 가설",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -11050,7 +11155,8 @@
         "chapter_title": "쿠키 장면",
         "scene": "COOKIE",
         "scene_title": "다음 가설",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -11113,7 +11219,8 @@
         "chapter_title": "쿠키 장면",
         "scene": "COOKIE",
         "scene_title": "다음 가설",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     },
     {
@@ -11134,7 +11241,8 @@
         "chapter_title": "쿠키 장면",
         "scene": "COOKIE",
         "scene_title": "다음 가설",
-        "hide_sprite": true
+        "hide_sprite": true,
+        "sprite_mode": "none"
       }
     }
   ]
