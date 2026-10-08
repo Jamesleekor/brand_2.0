@@ -14,7 +14,8 @@ import {
 
 export type CharacterPolicyStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE';
 export type CharacterRequirementMode = 'NONE' | 'GROUPS';
-export type CharacterRequirementType = 'ACHIEVEMENT_COUNT' | 'ACHIEVEMENT_GRADE_COUNT' | 'TIER_AT_LEAST';
+export type CharacterRequirementType = 'ACHIEVEMENT_COUNT' | 'ACHIEVEMENT_GRADE_COUNT' | 'TIER_AT_LEAST'
+  | 'OWNED_CHARACTERS' | 'OWNED_CHARACTER_COUNT' | 'OWNED_CHARACTER_VALUE' | 'COMPLETED_COLLECTION_COUNT';
 export type CharacterResourceKind = 'EMOJI' | 'IMAGE' | 'ANIMATED_IMAGE';
 
 export interface TeacherCharacterRequirement {
@@ -22,6 +23,7 @@ export interface TeacherCharacterRequirement {
   requirement_type: CharacterRequirementType;
   achievement_grade: string | null;
   required_numeric: number;
+  required_character_ids?: number[];
   sort_order: number;
 }
 

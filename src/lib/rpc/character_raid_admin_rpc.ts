@@ -1,9 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RpcResult } from './student_rpc';
 
-// CHARACTER_RAID_STATS_ADMIN_V1
+// CHARACTER_COMBAT_PROFILE_ADMIN_V2
 
 export type CharacterRaidElement = 'FIRE' | 'WATER' | 'WIND' | 'EARTH' | 'LIGHT' | 'DARK';
+
+export type CharacterExpeditionSpecialty = 'RUINS' | 'NATURE' | 'SANCTUARY';
+
+export interface CharacterElementProfileInput {
+  element_budget: number;
+  primary_element: CharacterRaidElement;
+  primary_points: number;
+  secondary_element: CharacterRaidElement | null;
+  secondary_points: number;
+}
 
 export interface TeacherCharacterRaidStatRow {
   character_id: number;
@@ -19,12 +29,7 @@ export interface TeacherCharacterRaidStatRow {
   primary_points: number | null;
   secondary_element: CharacterRaidElement | null;
   secondary_points: number | null;
-}
-
-export interface TeacherCharacterRaidUpdateRow {
-  character_id: number;
-  raid_power: number;
-  raid_crit_bonus_bp: number;
+  specialty_code: CharacterExpeditionSpecialty | null;
 }
 
 async function callRpc<T>(
@@ -39,19 +44,21 @@ async function callRpc<T>(
 
 export const characterRaidAdminRpc = {
   list: (supabase: SupabaseClient) =>
-    callRpc<TeacherCharacterRaidStatRow[]>(supabase, 'teacher_get_character_raid_stats'),
+    callRpc<TeacherCharacterRaidStatRow[]>(supabase, 'teacher_get_character_combat_profiles'),
 
   update: (
     supabase: SupabaseClient,
     characterId: number,
     raidPower: number,
     raidCritBonusBp: number,
-    reason: string | null = null,
+    elementProfile: CharacterElementProfileInput | null,
+    specialtyCode: CharacterExpeditionSpecialty | null,
   ) =>
-    callRpc<TeacherCharacterRaidUpdateRow[]>(supabase, 'teacher_update_character_raid_stats', {
+    callRpc<{ character_id: number }>(supabase, 'teacher_update_character_combat_profile', {
       p_character_id: characterId,
       p_raid_power: raidPower,
       p_raid_crit_bonus_bp: raidCritBonusBp,
-      p_reason: reason,
+      p_element_profile: elementProfile,
+      p_specialty_code: specialtyCode,
     }),
 };

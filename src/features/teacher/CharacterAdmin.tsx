@@ -254,6 +254,7 @@ export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?:
 
       <PolicyEditorModal
         row={policyEditing}
+        characters={board?.characters ?? []}
         classroomId={classroomId}
         onClose={() => setPolicyEditing(null)}
         onSaved={() => {
@@ -771,19 +772,27 @@ function MasterEditorModal({
 }
 
 function PolicyEditorModal({
-  row,classroomId,onClose,onSaved,
+  row,characters,classroomId,onClose,onSaved,
 }: {
   row: TeacherCharacterRow | null;
+  characters: TeacherCharacterRow[];
   classroomId: number | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { call, isLoading } = useRpcCall();
+  const queryClient = useQueryClient();
   const [form, setForm] = useState<PolicyForm>(() => blankPolicyForm());
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (row) setForm(policyFormFromRow(row));
-  }, [row]);
+    if (row) {
+      const next = policyFormFromRow(row);
+      if (next.sourceConditionText === buildPolicyText(next, characters)) next.sourceConditionText = '';
+      setForm(next);
+      setSaveError(null);
+    }
+  }, [row, characters]);
 
   const setMode = (mode: PolicyForm['requirementMode']) => {
     setForm((value) => ({
@@ -811,10 +820,11 @@ function PolicyEditorModal({
     groups: value.groups.map((group,index) => index === groupIndex ? { ...group, requirements: group.requirements.filter((_,rIndex) => rIndex !== reqIndex) } : group),
   }));
 
-  const derivedText = useMemo(() => buildPolicyText(form), [form]);
+  const derivedText = useMemo(() => buildPolicyText(form, characters), [form, characters]);
 
   const save = async () => {
     if (!row || !classroomId) return;
+    setSaveError(null);
     await call(
       () => characterC3Rpc.setPolicy(supabase, {
         p_classroom_id: classroomId,
@@ -829,7 +839,12 @@ function PolicyEditorModal({
       {
         successTitle: '영입 정책 저장 완료',
         successDescription: `${row.name} · ${form.sourceConditionText.trim() || derivedText || '조건 없음'}`,
-        onSuccess: onSaved,
+        onError: setSaveError,
+        onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: ['character-s1-store'] });
+          void queryClient.invalidateQueries({ queryKey: ['character-s1-recruitment-admin'] });
+          onSaved();
+        },
       },
     );
   };
@@ -886,6 +901,8 @@ function PolicyEditorModal({
                     <RequirementEditor
                       key={reqIndex}
                       requirement={req}
+                      characters={characters}
+                      targetCharacterId={row?.id ?? null}
                       canDelete={group.requirements.length > 1}
                       onChange={(patch) => updateRequirement(groupIndex,reqIndex,patch)}
                       onDelete={() => removeRequirement(groupIndex,reqIndex)}
@@ -913,10 +930,11 @@ function PolicyEditorModal({
         <div className="rounded-card-md border border-gold/25 bg-gold/5 p-3">
           <div className="text-[10px] font-black uppercase tracking-wide text-gold">저장될 조건</div>
           <div className="mt-1 text-sm font-black text-white">{form.sourceConditionText.trim() || derivedText || '조건 없음'}</div>
-          <div className="mt-1 text-[11px] font-bold text-text-secondary">저장 후 현재 학생 25명의 충족 인원이 자동으로 다시 계산됩니다.</div>
+          <div className="mt-1 text-[11px] font-bold text-[#F5E9D4]">저장 후 현재 학생들의 충족 인원이 자동으로 다시 계산됩니다.</div>
         </div>
 
         <div className="flex justify-end gap-2">
+          {saveError && <p role="alert" className="mr-auto self-center text-sm font-bold text-[#FFB3A7]">{saveError}</p>}
           <button type="button" onClick={onClose} className="btn-secondary">취소</button>
           <button type="button" disabled={isLoading} onClick={() => void save()} className="btn-primary disabled:opacity-50">{isLoading ? '저장 중…' : '영입 정책 저장'}</button>
         </div>
@@ -926,26 +944,47 @@ function PolicyEditorModal({
 }
 
 function RequirementEditor({
-  requirement,canDelete,onChange,onDelete,
+  requirement,characters,targetCharacterId,canDelete,onChange,onDelete,
 }: {
   requirement: CharacterRequirementInput;
+  characters: TeacherCharacterRow[];
+  targetCharacterId: number | null;
   canDelete: boolean;
   onChange: (patch: Partial<CharacterRequirementInput>) => void;
   onDelete: () => void;
 }) {
+  const [search, setSearch] = useState('');
+  const selectedIds = requirement.required_character_ids ?? [];
+  const selectableCharacters = characters.filter((character) => character.id !== targetCharacterId
+    && (character.is_active || selectedIds.includes(character.id)));
+  const needle = search.trim().toLocaleLowerCase('ko-KR');
+  const matches = selectableCharacters.filter((character) => !needle
+    || [character.name, character.character_uid].some((value) => value.toLocaleLowerCase('ko-KR').includes(needle)));
+  const selectedNames = selectedIds.map((id) => characters.find((character) => character.id === id)?.name ?? `편린 #${id}`);
+  const hint = requirement.type === 'OWNED_CHARACTER_COUNT' ? '현재 보유한 편린 수 · 회수된 편린 제외'
+    : requirement.type === 'OWNED_CHARACTER_VALUE' ? '크리스탈 영입 기본가 합계 · 할인 미반영 · 무료/이벤트 0'
+      : requirement.type === 'COMPLETED_COLLECTION_COUNT' ? '현재 완성한 공개·활성 콜렉션 수'
+        : '누적 획득 업적';
   return (
-    <div className="grid gap-2 rounded-card-md border border-line bg-bg-deep p-3 md:grid-cols-[1.3fr_1fr_110px_auto] md:items-center">
+    <div className="grid gap-2 rounded-card-md border border-line bg-bg-deep p-3 text-[#FFF7ED] md:grid-cols-[1.3fr_1fr_110px_auto] md:items-center">
       <select
         value={requirement.type}
         onChange={(event) => {
           const type = event.target.value as CharacterRequirementInput['type'];
-          onChange({ type, grade: type === 'ACHIEVEMENT_GRADE_COUNT' ? (requirement.grade || '희귀') : null, required_numeric: type === 'TIER_AT_LEAST' ? Math.min(requirement.required_numeric,22) : requirement.required_numeric });
+          onChange({ type, grade: type === 'ACHIEVEMENT_GRADE_COUNT' ? (requirement.grade || '희귀') : null,
+            required_numeric: type === 'OWNED_CHARACTERS' ? 1 : type === 'TIER_AT_LEAST' ? Math.min(requirement.required_numeric,22) : requirement.required_numeric,
+            required_character_ids: type === 'OWNED_CHARACTERS' ? selectedIds : [],
+          });
         }}
         className="input-admin"
       >
         <option value="ACHIEVEMENT_COUNT">총 업적 수</option>
         <option value="ACHIEVEMENT_GRADE_COUNT">등급별 업적 수</option>
         <option value="TIER_AT_LEAST">티어 이상</option>
+        <option value="OWNED_CHARACTERS">특정 편린 모두 보유</option>
+        <option value="OWNED_CHARACTER_COUNT">전체 편린 보유 수</option>
+        <option value="OWNED_CHARACTER_VALUE">전체 편린 보유 가치</option>
+        <option value="COMPLETED_COLLECTION_COUNT">완성 콜렉션 수</option>
       </select>
       {requirement.type === 'ACHIEVEMENT_GRADE_COUNT' ? (
         <select value={requirement.grade ?? '희귀'} onChange={(event) => onChange({ grade: event.target.value as CharacterRequirementInput['grade'] })} className="input-admin">
@@ -955,11 +994,26 @@ function RequirementEditor({
         <select value={requirement.required_numeric} onChange={(event) => onChange({ required_numeric: Number(event.target.value) })} className="input-admin">
           {TIER_NAMES.map((tier,index) => <option key={tier} value={index + 1}>{index + 1}. {tier}</option>)}
         </select>
-      ) : <div className="hidden md:block text-[11px] font-bold text-text-muted">누적 획득 업적</div>}
-      {requirement.type !== 'TIER_AT_LEAST' ? (
-        <input type="number" min={1} value={requirement.required_numeric} onChange={(event) => onChange({ required_numeric: Math.max(1,Number(event.target.value) || 1) })} className="input-admin" />
+      ) : <div className="text-[11px] font-bold text-[#F5E9D4]">{requirement.type === 'OWNED_CHARACTERS' ? '아래에서 이름을 검색해 선택하세요.' : hint}</div>}
+      {requirement.type === 'OWNED_CHARACTERS' ? <div className="text-xs font-black text-brand-primary">모두 보유</div> : requirement.type !== 'TIER_AT_LEAST' ? (
+        <label className="flex items-center gap-1 text-xs"><input aria-label="최소 조건 값" type="number" min={1} step={1} max={Number.MAX_SAFE_INTEGER} value={requirement.required_numeric} onChange={(event) => onChange({ required_numeric: Math.min(Number.MAX_SAFE_INTEGER, Math.max(1,Math.trunc(Number(event.target.value)) || 1)) })} className="input-admin min-w-0" /><span>{requirement.type === 'OWNED_CHARACTER_VALUE' ? '💎' : '개'}</span></label>
       ) : <div className="text-center text-xs font-black text-brand-primary">{TIER_NAMES[requirement.required_numeric - 1]}</div>}
       <button type="button" disabled={!canDelete} onClick={onDelete} className="rounded-card-md px-2 py-2 text-xs font-black text-danger disabled:opacity-20">✕</button>
+      {requirement.type === 'OWNED_CHARACTERS' && (
+        <div className="space-y-2 md:col-span-4">
+          <input aria-label="보유 조건 편린 검색" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="편린 이름 또는 CHAR-번호 검색" className="input-admin" />
+          <div className="grid max-h-48 grid-cols-1 gap-1 overflow-y-auto rounded-card-md border border-line p-2 sm:grid-cols-2">
+            {matches.map((character) => (
+              <label key={character.id} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs font-bold hover:bg-brand-primary/10">
+                <input type="checkbox" checked={selectedIds.includes(character.id)} onChange={(event) => onChange({ required_character_ids: event.target.checked ? [...selectedIds, character.id] : selectedIds.filter((id) => id !== character.id) })} />
+                {character.name} <span className="text-[#E7CFA4]">{character.character_uid}{!character.is_active ? ' · 비활성' : ''}</span>
+              </label>
+            ))}
+            {!matches.length && <p className="p-2 text-xs text-[#F5E9D4]">검색 결과가 없습니다.</p>}
+          </div>
+          <p className="text-xs font-bold text-[#FFE58A]">{selectedNames.length ? `${selectedNames.join(' · ')} — 모두 보유해야 합니다.` : '필요한 편린을 하나 이상 선택해주세요.'}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -1032,6 +1086,7 @@ function policyFormFromRow(row: TeacherCharacterRow): PolicyForm {
         type: requirement.requirement_type,
         grade: (requirement.achievement_grade as CharacterRequirementInput['grade']) ?? null,
         required_numeric: Number(requirement.required_numeric),
+        required_character_ids: requirement.required_character_ids ?? [],
       })),
     })),
   };
@@ -1045,17 +1100,21 @@ function newRequirementGroup(): CharacterRequirementGroupInput {
   return { label: null,requirements: [newRequirement()] };
 }
 
-function buildPolicyText(form: PolicyForm): string {
+function buildPolicyText(form: PolicyForm, characters: TeacherCharacterRow[]): string {
   if (form.requirementMode === 'NONE') return '조건 없음';
   return form.groups.map((group) => {
-    const text = group.requirements.map(requirementText).join(' AND ');
+    const text = group.requirements.map((req) => requirementText(req, characters)).join(' AND ');
     return group.requirements.length > 1 ? `(${text})` : text;
   }).join(' OR ');
 }
 
-function requirementText(req: CharacterRequirementInput): string {
+function requirementText(req: CharacterRequirementInput, characters: TeacherCharacterRow[]): string {
   if (req.type === 'ACHIEVEMENT_COUNT') return `업적 ${req.required_numeric}개 이상`;
   if (req.type === 'ACHIEVEMENT_GRADE_COUNT') return `${req.grade ?? '등급'} 업적 ${req.required_numeric}개 이상`;
+  if (req.type === 'OWNED_CHARACTERS') return `${(req.required_character_ids ?? []).map((id) => characters.find((character) => character.id === id)?.name ?? `편린 #${id}`).join(' · ') || '편린 선택 필요'} 모두 보유`;
+  if (req.type === 'OWNED_CHARACTER_COUNT') return `편린 ${req.required_numeric}개 이상 보유`;
+  if (req.type === 'OWNED_CHARACTER_VALUE') return `편린 보유 가치 ${req.required_numeric.toLocaleString('ko-KR')}크리스탈 이상`;
+  if (req.type === 'COMPLETED_COLLECTION_COUNT') return `콜렉션 ${req.required_numeric}개 이상 완성`;
   return `${TIER_NAMES[Math.max(0,Math.min(21,req.required_numeric - 1))]} 이상`;
 }
 

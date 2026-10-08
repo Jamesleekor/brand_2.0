@@ -7,16 +7,24 @@ import { supabase } from '@/lib/supabase/client';
 import {
   characterRaidAdminRpc,
   type CharacterRaidElement,
+  type CharacterElementProfileInput,
+  type CharacterExpeditionSpecialty,
   type TeacherCharacterRaidStatRow,
 } from '@/lib/rpc/character_raid_admin_rpc';
 import { cn } from '@/lib/utils/cn';
 
-// CHARACTER_RAID_STATS_ADMIN_V1
-// Teacher-only editor for Shard resonance / raid critical bonus.
+// CHARACTER_COMBAT_PROFILE_ADMIN_V2
+// Teacher-only editor for resonance, critical bonus, elements and expedition specialty.
 
 type StatusFilter = 'ALL' | 'ACTIVE' | 'INACTIVE';
 type ElementFilter = 'ALL' | CharacterRaidElement;
-type DraftValue = { power: string; crit: string };
+type DraftValue = {
+  power: string; crit: string; budget: string; primary: string; primaryPoints: string;
+  secondary: string; secondaryPoints: string; specialty: string;
+};
+const SPECIALTIES = [
+  { key: 'RUINS', label: '유적' }, { key: 'NATURE', label: '자연' }, { key: 'SANCTUARY', label: '성소' },
+] as const;
 
 const ELEMENTS: Array<{ key: ElementFilter; label: string }> = [
   { key: 'ALL', label: '전체 속성' },
@@ -44,6 +52,7 @@ export default function CharacterRaidStatsAdmin() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [elementFilter, setElementFilter] = useState<ElementFilter>('ALL');
   const [drafts, setDrafts] = useState<Record<number, DraftValue>>({});
+  const [saveError, setSaveError] = useState<{ id: number; message: string } | null>(null);
   const [savingId, setSavingId] = useState<number | null>(null);
 
   const statsQuery = useQuery<TeacherCharacterRaidStatRow[]>({
@@ -91,8 +100,7 @@ export default function CharacterRaidStatsAdmin() {
     setDrafts((current) => ({
       ...current,
       [row.character_id]: {
-        power: current[row.character_id]?.power ?? String(row.raid_power),
-        crit: current[row.character_id]?.crit ?? formatCritBp(row.raid_crit_bonus_bp),
+        ...(current[row.character_id] ?? rowDraft(row)),
         [key]: value,
       },
     }));
@@ -107,36 +115,66 @@ export default function CharacterRaidStatsAdmin() {
   };
 
   const saveRow = async (row: TeacherCharacterRaidStatRow) => {
+    if (savingId !== null) return;
+    setSaveError(null);
     const draft = drafts[row.character_id];
     if (!draft || !isRowDirty(row, draft)) return;
 
     const power = Number(draft.power);
     const critPercent = Number(draft.crit);
-    if (!Number.isInteger(power) || power < 0) {
+    if (!draft.power.trim() || !Number.isSafeInteger(power) || power < 0) {
       window.alert('공명력은 0 이상의 정수로 입력해주세요.');
       return;
     }
-    if (!Number.isFinite(critPercent) || critPercent < 0 || critPercent > 100) {
+    if (!draft.crit.trim() || !Number.isFinite(critPercent) || critPercent < 0 || critPercent > 100) {
       window.alert('치명타율은 0.00% ~ 100.00% 범위로 입력해주세요.');
       return;
     }
     const critBp = Math.round(critPercent * 100);
+    const profileChanged = profileKeys.some((key) => draft[key] !== rowDraft(row)[key]);
+    let profile: CharacterElementProfileInput | null = null;
+    if (profileChanged) {
+      const budget = Number(draft.budget);
+      const primaryPoints = Number(draft.primaryPoints);
+      const secondaryPoints = Number(draft.secondaryPoints);
+      if (!draft.budget || !draft.primary || !draft.primaryPoints.trim() || !draft.secondaryPoints.trim()
+        || ![8, 9, 10].includes(budget) || !Number.isInteger(primaryPoints) || primaryPoints < 1
+        || primaryPoints > 10 || !Number.isInteger(secondaryPoints) || secondaryPoints < 0 || secondaryPoints > 10
+        || primaryPoints + secondaryPoints !== budget
+        || (draft.secondary ? secondaryPoints < 1 || draft.secondary === draft.primary : secondaryPoints !== 0)) {
+        setSaveError({ id: row.character_id, message: '속성 합계는 8·9·10입니다. 주·부 속성을 다르게 선택하고 배분 합계를 맞춰주세요. 부 속성 없음은 0점입니다.' });
+        return;
+      }
+      profile = { element_budget: budget, primary_element: draft.primary as CharacterRaidElement,
+        primary_points: primaryPoints, secondary_element: (draft.secondary || null) as CharacterRaidElement | null,
+        secondary_points: secondaryPoints };
+    }
+    if (draft.specialty !== (row.specialty_code ?? '') && !draft.specialty) {
+      setSaveError({ id: row.character_id, message: '원정 특기를 선택해주세요.' });
+      return;
+    }
 
     const before = `공명력 ${formatNumber(row.raid_power)} / 치명타율 +${formatCritBp(row.raid_crit_bonus_bp)}%`;
     const after = `공명력 ${formatNumber(power)} / 치명타율 +${formatCritBp(critBp)}%`;
-    if (!window.confirm(`${row.character_uid} ${row.name}\n\n${before}\n→ ${after}\n\n이 값으로 저장할까요?`)) return;
+    const profileSummary = profile ? `\n속성 ${ELEMENT_META[profile.primary_element].label} ${profile.primary_points}`
+      + (profile.secondary_element ? ` / ${ELEMENT_META[profile.secondary_element].label} ${profile.secondary_points}` : '') : '';
+    const specialtySummary = draft.specialty ? `\n원정 특기 ${SPECIALTIES.find((item) => item.key === draft.specialty)?.label}` : '';
+    if (!window.confirm(`${row.character_uid} ${row.name}\n\n${before}\n→ ${after}${profileSummary}${specialtySummary}\n\n이 값으로 저장할까요?`)) return;
 
     setSavingId(row.character_id);
     try {
       await call(
-        () => characterRaidAdminRpc.update(supabase, row.character_id, power, critBp),
+        () => characterRaidAdminRpc.update(supabase, row.character_id, power, critBp, profile, draft.specialty !== (row.specialty_code ?? '') ? draft.specialty as CharacterExpeditionSpecialty : null),
         {
           successTitle: `${row.name} 능력치 저장 완료`,
           successDescription: after,
+          onError: (message) => setSaveError({ id: row.character_id, message }),
           onSuccess: () => {
             resetDraft(row.character_id);
             void queryClient.invalidateQueries({ queryKey: ['teacher-character-raid-stats'] });
-            void queryClient.invalidateQueries({ queryKey: ['character-raid-stats'] });
+            for (const key of ['character-raid-stats', 'character-element-profiles', 'character-expedition-profiles', 'expedition-board', 'expedition-preview', 'character-collection', 'equipped-characters']) {
+              void queryClient.invalidateQueries({ queryKey: [key] });
+            }
           },
         },
       );
@@ -153,7 +191,7 @@ export default function CharacterRaidStatsAdmin() {
             <div className="mb-1 text-xs font-black uppercase tracking-[0.16em] text-crystal">RAID CONTROL · SHARD STATS</div>
             <h1 className="font-display text-2xl tracking-tight text-brand-gradient">⚡ 편린 능력치 관리</h1>
             <p className="mt-1 text-sm font-bold text-amber-100">
-              레이드와 원정대에 사용되는 편린별 공명력과 자체 치명타율을 직접 조정합니다.
+              편린별 공명력, 자체 치명타율, 주·부 속성과 원정 특기를 조정합니다.
             </p>
           </div>
           <button type="button" onClick={() => void statsQuery.refetch()} className="btn-secondary self-start lg:self-auto">
@@ -234,6 +272,7 @@ export default function CharacterRaidStatsAdmin() {
             </div>
             {filteredRows.map((row) => {
               const draft = drafts[row.character_id];
+              const values = draft ?? rowDraft(row);
               const powerValue = draft?.power ?? String(row.raid_power);
               const critValue = draft?.crit ?? formatCritBp(row.raid_crit_bonus_bp);
               const dirty = isRowDirty(row, draft);
@@ -242,7 +281,7 @@ export default function CharacterRaidStatsAdmin() {
                 <article
                   key={row.character_id}
                   className={cn(
-                    'grid gap-4 rounded-card-lg border bg-bg-card p-4 transition lg:grid-cols-[minmax(250px,1.2fr)_minmax(180px,0.65fr)_minmax(180px,0.65fr)_auto] lg:items-center',
+                    'grid gap-4 rounded-card-lg border bg-bg-card p-4 transition lg:grid-cols-2 xl:grid-cols-4 lg:items-center',
                     dirty ? 'border-gold/70 shadow-[0_0_18px_rgba(245,158,11,0.08)]' : 'border-line',
                   )}
                 >
@@ -273,6 +312,7 @@ export default function CharacterRaidStatsAdmin() {
                     <span className="mb-1.5 block text-xs font-black text-yellow-100">⚡ 공명력</span>
                     <input
                       type="number"
+                      disabled={savingId !== null}
                       min={0}
                       step={1}
                       value={powerValue}
@@ -287,6 +327,7 @@ export default function CharacterRaidStatsAdmin() {
                     <div className="relative">
                       <input
                         type="number"
+                        disabled={savingId !== null}
                         min={0}
                         max={100}
                         step={0.01}
@@ -299,12 +340,32 @@ export default function CharacterRaidStatsAdmin() {
                     <span className="mt-1 block text-[11px] font-bold text-cyan-100">현재 +{formatCritBp(row.raid_crit_bonus_bp)}%</span>
                   </label>
 
+                  <fieldset disabled={savingId !== null} className="space-y-3 lg:col-span-2 xl:col-span-3">
+                    <legend className="text-sm font-black text-amber-100">속성 배분 · 원정 특기</legend>
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                      <ProfileSelect label="속성 총합" value={values.budget} onChange={(value) => updateDraft(row, 'budget', value)}
+                        options={[{ key: '', label: '미설정' }, ...[8, 9, 10].map((n) => ({ key: String(n), label: String(n) }))]} />
+                      <ProfileSelect label="주 속성" value={values.primary} onChange={(value) => updateDraft(row, 'primary', value)}
+                        options={[{ key: '', label: '미설정' }, ...ELEMENTS.filter((item) => item.key !== 'ALL')]} />
+                      <ProfilePoints label="주 속성 배분" value={values.primaryPoints} min={1} onChange={(value) => updateDraft(row, 'primaryPoints', value)} />
+                      <ProfileSelect label="부 속성" value={values.secondary} onChange={(value) => {
+                        updateDraft(row, 'secondary', value);
+                        if (!value) updateDraft(row, 'secondaryPoints', '0');
+                      }} options={[{ key: '', label: '없음' }, ...ELEMENTS.filter((item) => item.key !== 'ALL' && item.key !== values.primary)]} />
+                      <ProfilePoints label="부 속성 배분" value={values.secondaryPoints} min={0} onChange={(value) => updateDraft(row, 'secondaryPoints', value)} />
+                      <ProfileSelect label="원정 특기" value={values.specialty} onChange={(value) => updateDraft(row, 'specialty', value)}
+                        options={[{ key: '', label: '미설정' }, ...SPECIALTIES]} />
+                    </div>
+                    <p className="text-xs font-bold text-cyan-100">주·부 배분의 합은 속성 총합과 같아야 합니다. 진행 중인 원정의 확정된 기록에는 소급 적용하지 않습니다.</p>
+                    {saveError?.id === row.character_id && <p role="alert" className="text-sm font-bold text-red-100">{saveError.message}</p>}
+                  </fieldset>
+
                   <div className="flex gap-2 lg:justify-end">
                     {dirty && (
                       <button
                         type="button"
                         onClick={() => resetDraft(row.character_id)}
-                        disabled={saving}
+                        disabled={savingId !== null}
                         className="rounded-card-md border border-line bg-bg-deep px-3 py-2.5 text-xs font-black text-white transition hover:border-white/40 disabled:opacity-50"
                       >
                         되돌리기
@@ -313,7 +374,7 @@ export default function CharacterRaidStatsAdmin() {
                     <button
                       type="button"
                       onClick={() => void saveRow(row)}
-                      disabled={!dirty || saving}
+                      disabled={!dirty || savingId !== null}
                       className="btn-primary min-w-[88px] px-4 py-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {saving ? '저장 중...' : dirty ? '저장' : '저장됨'}
@@ -367,8 +428,9 @@ function isRowDirty(row: TeacherCharacterRaidStatRow, draft: DraftValue | undefi
   if (!draft) return false;
   const power = Number(draft.power);
   const crit = Number(draft.crit);
-  if (!Number.isFinite(power) || !Number.isFinite(crit)) return true;
-  return power !== Number(row.raid_power) || Math.round(crit * 100) !== Number(row.raid_crit_bonus_bp);
+  if (!draft.power.trim() || !draft.crit.trim() || !Number.isFinite(power) || !Number.isFinite(crit)) return true;
+  return power !== Number(row.raid_power) || Math.round(crit * 100) !== Number(row.raid_crit_bonus_bp)
+    || [...profileKeys, 'specialty' as const].some((key) => draft[key] !== rowDraft(row)[key]);
 }
 
 function formatCritBp(value: number) {
@@ -377,4 +439,31 @@ function formatCritBp(value: number) {
 
 function formatNumber(value: number) {
   return Number(value ?? 0).toLocaleString('ko-KR');
+}
+
+const profileKeys = ['budget', 'primary', 'primaryPoints', 'secondary', 'secondaryPoints'] as const;
+function rowDraft(row: TeacherCharacterRaidStatRow): DraftValue {
+  return { power: String(row.raid_power), crit: formatCritBp(row.raid_crit_bonus_bp),
+    budget: row.element_budget == null ? '' : String(row.element_budget), primary: row.primary_element ?? '',
+    primaryPoints: row.primary_points == null ? '' : String(row.primary_points), secondary: row.secondary_element ?? '',
+    secondaryPoints: String(row.secondary_points ?? 0), specialty: row.specialty_code ?? '' };
+}
+function ProfileSelect({ label, value, options, onChange }: {
+  label: string; value: string; options: ReadonlyArray<{ key: string; label: string }>; onChange: (value: string) => void;
+}) {
+  return <label className="block text-xs font-black text-amber-100">{label}
+    <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}
+      className="mt-1.5 w-full rounded-card-md border border-line bg-bg-deep px-3 py-2.5 text-sm text-white">
+      {options.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+    </select>
+  </label>;
+}
+function ProfilePoints({ label, value, min, onChange }: {
+  label: string; value: string; min: number; onChange: (value: string) => void;
+}) {
+  return <label className="block text-xs font-black text-amber-100">{label}
+    <input aria-label={label} type="number" min={min} max={10} step={1} value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="mt-1.5 w-full rounded-card-md border border-line bg-bg-deep px-3 py-2.5 text-sm text-white" />
+  </label>;
 }

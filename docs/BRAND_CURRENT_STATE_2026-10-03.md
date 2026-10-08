@@ -67,3 +67,14 @@ Repo authoritative source:
 - internal financial helpers의 classroom caller contract 문서화.
 - legacy auction rollback 자산은 신규 경매 E2E 확인 후 별도 migration에서 제거 검토.
 - auth initialize 자동 backoff, presence OFF polling 완화 등은 UX/성능 후순위 개선.
+
+## 8. 편린 영입 조건 확장 (2026-10-09)
+
+- 기존 업적 수/등급별 업적 수/티어 조건에 특정 편린 모두 보유, 전체 보유 수, 기본가 기준 보유 가치, 완성 공개 콜렉션 수를 추가했다.
+- 운영 DB migration `20261008154249_character_recruitment_collection_requirements` 적용 완료. 기존 판정 2,005건 동일, 새 판정/권한 테스트 392건 통과.
+- 교사 UI 소스 수정 완료. GitHub 반영 및 사용자 로컬 build/로그인 E2E는 미완료.
+- 네빌 조건은 예시 단계여서 지정하지 않았다. 세부 기준: `docs/CHARACTER_RECRUITMENT_REQUIREMENTS_2026-10-09.md`.
+
+## 9. 편린 능력치 관리 확장 (2026-10-09)
+
+공명력·치명타율에 주/부 속성 배분과 원정 특기 설정을 추가했다. 신규 편린의 누락 프로필도 생성 가능하다. 기존 RPC는 유지하고 교사 전용 combat profile RPC 2개를 추가했다. 운영 DB migration `20261008155719_character_combat_profile_admin.sql` 적용, 기존 값과 원정 스냅샷 보존. 실제 교사 로그인 E2E와 사용자 로컬 build/배포는 후속 확인. 상세: `docs/CHARACTER_COMBAT_PROFILE_ADMIN_2026-10-09.md`.

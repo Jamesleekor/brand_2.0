@@ -7,6 +7,10 @@ export const CharacterRequirementTypeSchema = z.enum([
   'ACHIEVEMENT_COUNT',
   'ACHIEVEMENT_GRADE_COUNT',
   'TIER_AT_LEAST',
+  'OWNED_CHARACTERS',
+  'OWNED_CHARACTER_COUNT',
+  'OWNED_CHARACTER_VALUE',
+  'COMPLETED_COLLECTION_COUNT',
 ]);
 export const CharacterAchievementGradeSchema = z.enum(['희귀', '유니크', '에픽', '히든', '유일', '초월']);
 
@@ -56,13 +60,20 @@ export const TeacherSetCharacterShowcaseVariantsSchema = z.object({
 export const CharacterRequirementInputSchema = z.object({
   type: CharacterRequirementTypeSchema,
   grade: CharacterAchievementGradeSchema.nullable(),
-  required_numeric: z.number().int().min(1),
+  required_numeric: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER),
+  required_character_ids: z.array(z.number().int().positive().max(Number.MAX_SAFE_INTEGER)).max(200).optional(),
 }).superRefine((value, ctx) => {
   if (value.type === 'ACHIEVEMENT_GRADE_COUNT' && !value.grade) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['grade'], message: '업적 등급을 선택해주세요.' });
   }
   if (value.type === 'TIER_AT_LEAST' && value.required_numeric > 22) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['required_numeric'], message: '티어 단계는 1~22입니다.' });
+  }
+  if (value.type === 'OWNED_CHARACTERS') {
+    const ids = value.required_character_ids ?? [];
+    if (!ids.length) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['required_character_ids'], message: '필요한 편린을 하나 이상 선택해주세요.' });
+    if (new Set(ids).size !== ids.length) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['required_character_ids'], message: '같은 편린을 중복 선택할 수 없습니다.' });
+    if (value.required_numeric !== 1) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['required_numeric'], message: '특정 편린 조건은 선택한 편린을 모두 보유해야 합니다.' });
   }
 });
 
@@ -90,6 +101,11 @@ export const TeacherSetCharacterPolicySchema = z.object({
   if (value.p_requirement_mode === 'GROUPS' && value.p_groups.length === 0) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['p_groups'], message: '하나 이상의 조건 그룹이 필요합니다.' });
   }
+  value.p_groups.forEach((group, groupIndex) => group.requirements.forEach((requirement, reqIndex) => {
+    if (requirement.type === 'OWNED_CHARACTERS' && requirement.required_character_ids?.includes(value.p_character_id)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['p_groups', groupIndex, 'requirements', reqIndex, 'required_character_ids'], message: '영입할 편린 자신을 보유 조건으로 지정할 수 없습니다.' });
+    }
+  }));
 });
 
 export const TeacherGrantCharacterSchema = z.object({
