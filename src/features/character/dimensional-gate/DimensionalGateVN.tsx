@@ -565,19 +565,20 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
 
       {previewMode && (
         <div className="absolute left-1/2 top-14 z-30 flex w-[min(94vw,720px)] -translate-x-1/2 flex-wrap items-center justify-center gap-1.5 rounded-card-md border border-amber-200/25 bg-black/72 px-2.5 py-2 shadow-xl backdrop-blur sm:top-16" onClick={(event) => event.stopPropagation()}>
-          <span className="mr-1 text-[9px] font-black text-amber-100">교사 QA · 기록/보상 없음</span>
+          <span className="mr-1 text-[9px] font-black text-amber-100">교사 QA · 현재 CUT {current.cut_order} / {cuts.length}</span>
           <button type="button" onClick={() => { setEnded(false); setIndex(Math.max(0, index - 1)); }} disabled={index <= 0} className="rounded border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-black text-white disabled:opacity-30">← 이전</button>
           <button type="button" onClick={() => { setEnded(false); advance(); }} disabled={saving || ended || !!epilogueRun} className="rounded border border-white/15 bg-white/5 px-2 py-1 text-[9px] font-black text-white disabled:opacity-30">다음 →</button>
-          <span className="px-1 text-[9px] font-black text-white/70">CUT {current.cut_order} · {index + 1}/{cuts.length}</span>
+          <span className="ml-1 text-[9px] font-black text-amber-100/80">바로 이동</span>
           <input
             value={qaCutOrder}
             onChange={(event) => setQaCutOrder(event.target.value.replace(/[^0-9]/g, ''))}
             onKeyDown={(event) => { if (event.key === 'Enter') jumpToQaCut(); }}
             inputMode="numeric"
-            aria-label="이동할 컷 번호"
-            className="w-16 rounded border border-white/15 bg-black/50 px-2 py-1 text-center text-[9px] font-black text-white outline-none focus:border-amber-200/50"
+            placeholder="CUT"
+            aria-label="바로 이동할 컷 번호"
+            className="w-20 rounded border border-amber-200/30 bg-black/60 px-2 py-1 text-center text-[10px] font-black text-white outline-none placeholder:text-white/30 focus:border-amber-200/70"
           />
-          <button type="button" onClick={jumpToQaCut} className="rounded border border-amber-200/25 bg-amber-300/10 px-2 py-1 text-[9px] font-black text-amber-50">컷 이동</button>
+          <button type="button" onClick={jumpToQaCut} className="rounded border border-amber-200/35 bg-amber-300/15 px-2.5 py-1 text-[10px] font-black text-amber-50 hover:bg-amber-300/25">CUT 이동</button>
         </div>
       )}
 
@@ -623,6 +624,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
                     className="rounded-card-md border border-violet-300/25 bg-violet-500/10 px-3 py-3 text-left text-xs font-black text-white transition-colors hover:bg-violet-500/20"
                   >
                     <span className="mr-2 text-violet-200">{choiceIndex + 1}.</span>{choice.label}
+                    {previewMode && <span className="ml-2 text-[10px] font-black text-amber-200/80">→ CUT {choice.to}</span>}
                   </button>
                 ))}
               </div>
