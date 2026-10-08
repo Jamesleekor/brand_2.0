@@ -44,6 +44,7 @@ import { HomeServiceAdStrip } from '@/features/dashboard/HomeServiceAdStrip';
 import { EmergencyQuestDetailModal, type EmergencyQuestDetail } from '@/features/dashboard/EmergencyQuestDetailModal';
 import { newbieSupportRpc, type NewbieSummary } from '@/lib/rpc/newbie_support_rpc';
 import { expeditionRpc } from '@/lib/rpc/expedition_rpc';
+import { MonthlyCelebrationModal, shouldOpenMonthlyCelebration } from '@/features/dashboard/MonthlyCelebrationModal';
 
 // =====================================================================
 // 메인 컴포넌트
@@ -93,6 +94,7 @@ export default function DashboardPage() {
   const [homeCustomizeSlot, setHomeCustomizeSlot] = useState<1 | 2 | 3>(1);
   const [brandWorldOpen, setBrandWorldOpen] = useState(false);
   const [emergencyQuestOpen, setEmergencyQuestOpen] = useState(false);
+  const [celebrationOpen, setCelebrationOpen] = useState(false);
 
   const openHomeCustomize = (slotNo: 1 | 2 | 3 = 1) => {
     setHomeCustomizeSlot(slotNo);
@@ -200,6 +202,11 @@ export default function DashboardPage() {
       setEmergencyQuestOpen(false);
     }
   }, [emergencyQuestOpen, emergencyQuest]);
+
+  useEffect(() => {
+    if (!studentId) return;
+    setCelebrationOpen(shouldOpenMonthlyCelebration(studentId));
+  }, [studentId]);
 
   const requestEmergencyQuestCompletion = async () => {
     if (!studentId || !classroomId || !emergencyQuest) return;
@@ -383,6 +390,12 @@ export default function DashboardPage() {
           initialSlot={homeCustomizeSlot}
         />
       )}
+
+      <MonthlyCelebrationModal
+        isOpen={celebrationOpen}
+        studentId={studentId}
+        onClose={() => setCelebrationOpen(false)}
+      />
     </div>
   );
 }
