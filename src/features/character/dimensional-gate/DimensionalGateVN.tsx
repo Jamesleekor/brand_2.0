@@ -40,6 +40,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   const visitedGalleryIds = useRef<Set<number>>(new Set());
   const bgmRef = useRef<HTMLAudioElement | null>(null);
   const bgmSourceRef = useRef<string | null>(null);
+  const bgmFadeIntervalRef = useRef<number | null>(null);
   const sfxRef = useRef<HTMLAudioElement | null>(null);
   const sfxSourceRef = useRef<string | null>(null);
   const startedRef = useRef(false);
@@ -150,44 +151,84 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
     }
   }, []);
 
-  const applyBgmCommand = useCallback((raw: string | null | undefined) => {
+  const applyBgmCommand = useCallback((raw: string | null | undefined, fadeMs = 0) => {
     const command = parseBgmCommand(raw);
     if (command.kind === 'hold') return;
 
-    if (command.kind === 'stop') {
+    if (bgmFadeIntervalRef.current != null) {
+      window.clearInterval(bgmFadeIntervalRef.current);
+      bgmFadeIntervalRef.current = null;
+    }
+
+    const fadeOutThen = (afterFade: () => void) => {
       const audio = bgmRef.current;
-      if (audio) {
-        audio.pause();
-        try { audio.currentTime = 0; } catch { /* no-op */ }
+      const duration = normalizedTransitionMs(fadeMs);
+      if (!audio || audio.paused || duration <= 0 || muted) {
+        afterFade();
+        return;
       }
+
+      const startVolume = audio.volume;
+      const startedAt = performance.now();
+      bgmFadeIntervalRef.current = window.setInterval(() => {
+        const progress = Math.min(1, (performance.now() - startedAt) / duration);
+        audio.volume = startVolume * (1 - progress);
+        if (progress >= 1) {
+          if (bgmFadeIntervalRef.current != null) window.clearInterval(bgmFadeIntervalRef.current);
+          bgmFadeIntervalRef.current = null;
+          afterFade();
+        }
+      }, 40);
+    };
+
+    if (command.kind === 'stop') {
+      // Mark STOP immediately so pointer-resume cannot restart the fading track.
       bgmSourceRef.current = BGM_STOP_KEY;
+      fadeOutThen(() => {
+        const audio = bgmRef.current;
+        if (audio) {
+          audio.pause();
+          try { audio.currentTime = 0; } catch { /* no-op */ }
+          audio.volume = muted ? 0 : 0.45;
+        }
+      });
       return;
     }
 
-    // Reuse one HTMLAudioElement for the whole VN. Once the student has interacted
-    // with the VN and this element is allowed to play, later track changes are much
-    // less likely to be rejected by browser autoplay policy.
-    let audio = bgmRef.current;
-    if (!audio) {
-      audio = new Audio();
-      audio.preload = 'auto';
+    const playTrack = () => {
+      // Reuse one HTMLAudioElement for the whole VN. Once the student has interacted
+      // with the VN and this element is allowed to play, later track changes are much
+      // less likely to be rejected by browser autoplay policy.
+      let audio = bgmRef.current;
+      if (!audio) {
+        audio = new Audio();
+        audio.preload = 'auto';
+        audio.loop = true;
+        bgmRef.current = audio;
+      }
+
+      if (bgmSourceRef.current === command.url) {
+        audio.volume = muted ? 0 : 0.45;
+        if (!muted && audio.paused) requestPlay(audio, 'BGM');
+        return;
+      }
+
+      audio.pause();
+      audio.src = resolveAssetUrl(command.url, 'icon');
       audio.loop = true;
-      bgmRef.current = audio;
-    }
-
-    if (bgmSourceRef.current === command.url) {
       audio.volume = muted ? 0 : 0.45;
-      if (!muted && audio.paused) requestPlay(audio, 'BGM');
-      return;
-    }
+      bgmSourceRef.current = command.url;
+      audio.load();
+      if (!muted) requestPlay(audio, 'BGM');
+    };
 
-    audio.pause();
-    audio.src = resolveAssetUrl(command.url, 'icon');
-    audio.loop = true;
-    audio.volume = muted ? 0 : 0.45;
-    bgmSourceRef.current = command.url;
-    audio.load();
-    if (!muted) requestPlay(audio, 'BGM');
+    const currentAudio = bgmRef.current;
+    const changingTrack = currentAudio != null
+      && bgmSourceRef.current != null
+      && bgmSourceRef.current !== BGM_STOP_KEY
+      && bgmSourceRef.current !== command.url;
+    if (changingTrack && normalizedTransitionMs(fadeMs) > 0) fadeOutThen(playTrack);
+    else playTrack();
   }, [muted, requestPlay]);
 
   const applySfxCommand = useCallback((raw: string | null | undefined, cutOrder: number) => {
@@ -262,16 +303,35 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
 
   useEffect(() => {
     if (!script || !current) return;
+
     const cutCommand = parseBgmCommand(current.bgm_url);
-    if (cutCommand.kind !== 'hold') {
-      applyBgmCommand(current.bgm_url);
+    const effectiveCommand = cutCommand.kind !== 'hold'
+      ? current.bgm_url
+      : index === 0
+        ? script.default_bgm_url
+        : null;
+    if (effectiveCommand == null) return;
+
+    const delayMs = normalizedTransitionMs(current.metadata?.bgm_delay_ms);
+    const fadeMs = normalizedTransitionMs(current.metadata?.bgm_fade_ms);
+    if (delayMs <= 0) {
+      applyBgmCommand(effectiveCommand, fadeMs);
       return;
     }
 
-    // Empty/non-playable BGM cell means HOLD. On the first cut only, use the
-    // episode default track. Descriptive legacy notes are already parsed as HOLD.
-    if (index === 0) applyBgmCommand(script.default_bgm_url);
-  }, [applyBgmCommand, current?.bgm_url, current?.cut_order, index, script]);
+    const timer = window.setTimeout(() => {
+      applyBgmCommand(effectiveCommand, fadeMs);
+    }, delayMs);
+    return () => window.clearTimeout(timer);
+  }, [
+    applyBgmCommand,
+    current?.bgm_url,
+    current?.cut_order,
+    current?.metadata?.bgm_delay_ms,
+    current?.metadata?.bgm_fade_ms,
+    index,
+    script,
+  ]);
 
   useEffect(() => {
     if (bgmRef.current) bgmRef.current.volume = muted ? 0 : 0.45;
@@ -284,6 +344,8 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   }, [applySfxCommand, current?.cut_order, current?.sfx_url]);
 
   useEffect(() => () => {
+    if (bgmFadeIntervalRef.current != null) window.clearInterval(bgmFadeIntervalRef.current);
+    bgmFadeIntervalRef.current = null;
     bgmRef.current?.pause();
     bgmRef.current = null;
     bgmSourceRef.current = null;
@@ -323,12 +385,16 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
     const target = cuts[targetIndex];
     if (!target) return;
 
-    const command = parseBgmCommand(target.bgm_url);
-    if (command.kind !== 'hold') {
-      applyBgmCommand(target.bgm_url);
-    } else if (!bgmRef.current && bgmSourceRef.current !== BGM_STOP_KEY) {
-      const effective = effectiveBgmCommandAt(cuts, targetIndex, script.default_bgm_url);
-      if (effective != null) applyBgmCommand(effective);
+    const timedBgm = normalizedTransitionMs(target.metadata?.bgm_delay_ms) > 0
+      || normalizedTransitionMs(target.metadata?.bgm_fade_ms) > 0;
+    if (!timedBgm) {
+      const command = parseBgmCommand(target.bgm_url);
+      if (command.kind !== 'hold') {
+        applyBgmCommand(target.bgm_url);
+      } else if (!bgmRef.current && bgmSourceRef.current !== BGM_STOP_KEY) {
+        const effective = effectiveBgmCommandAt(cuts, targetIndex, script.default_bgm_url);
+        if (effective != null) applyBgmCommand(effective);
+      }
     }
 
     applySfxCommand(target.sfx_url, target.cut_order);
@@ -845,6 +911,12 @@ type BgmCommand =
   | { kind: 'play'; url: string };
 
 const BGM_STOP_KEY = '__DG_BGM_STOP__';
+
+function normalizedTransitionMs(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return Math.min(15_000, Math.round(parsed));
+}
 
 function parseBgmCommand(raw: string | null | undefined): BgmCommand {
   const value = String(raw ?? '').trim();
