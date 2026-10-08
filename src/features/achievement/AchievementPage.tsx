@@ -489,7 +489,7 @@ function AchievementDetailModal({ achievement: ach, onClose }: { achievement: Ac
           {isHiddenLocked ? '아직 밝혀지지 않은 히든 업적입니다.' : ach.description}
         </p>
 
-        {!isHiddenLocked && ach.hint && (
+        {ach.hint && (
           <div className="mb-4 rounded-card-md border border-warning/25 bg-warning/10 p-3 text-xs font-bold leading-relaxed text-amber-100">
             💡 힌트 · {ach.hint}
           </div>
