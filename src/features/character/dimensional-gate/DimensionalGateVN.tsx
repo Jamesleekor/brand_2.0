@@ -504,11 +504,17 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
 
   const effects = Array.isArray(current.effects) ? current.effects : [];
   const background = current.background_url ? resolveAssetUrl(current.background_url, 'background') : null;
-  const sprite = current.sprite_url ? resolveAssetUrl(current.sprite_url, 'character') : getCharacterSprite(character);
   const isCg = current.cut_type === 'CG' || effects.includes('cg');
-  // Explicit per-cut sprite directives from the legacy H column always win.
-  // `sprite:none` is represented as metadata.hide_sprite=true with no sprite_url.
-  const hideSprite = current.metadata?.hide_sprite === true && !current.sprite_url;
+
+  // Explicit NONE must suppress the character completely. A null sprite_url by itself
+  // can still mean legacy/default-sprite fallback, so the compiled story records the
+  // NONE state in metadata and HOLD keeps that state until another sprite is selected.
+  const hideSprite = current.metadata?.hide_sprite === true || current.metadata?.sprite_mode === 'none';
+  const sprite = hideSprite
+    ? null
+    : current.sprite_url
+      ? resolveAssetUrl(current.sprite_url, 'character')
+      : getCharacterSprite(character);
   const titleKick = typeof current.metadata?.title_kick === 'string' && current.metadata.title_kick.trim() ? current.metadata.title_kick : 'Chapter';
   const nameGlow = current.metadata?.name_glow === true;
   const isTitle = current.cut_type === 'TITLE';
