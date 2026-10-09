@@ -130,7 +130,11 @@ export interface ExpeditionReleaseValidation {
   ok: boolean;
   flags?: Record<string, boolean> | null;
   catalog?: {
+    active_characters?: number;
+    active_element_profiles?: number;
     active_character_profiles?: number;
+    invalid_specialty_profiles?: number;
+    orphan_active_profiles?: number;
     restorable_characters?: number;
     active_sites?: number;
     story_sites?: number;
