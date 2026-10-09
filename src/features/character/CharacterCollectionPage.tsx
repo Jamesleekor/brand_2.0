@@ -471,19 +471,19 @@ function CharacterPageTabs({
           type="button"
           onClick={() => onChange(item.key)}
           className={cn(
-            'rounded-card-md border px-3 py-2.5 text-left transition-all sm:px-4',
+            'min-w-0 rounded-card-md border px-1.5 py-3 text-left transition-all sm:px-4',
             tab === item.key
               ? 'border-brand-primary/45 bg-brand-primary/15 shadow-brand-sm'
               : 'border-transparent bg-bg-deep/45 hover:border-line-strong hover:bg-bg-deep/70',
           )}
         >
-          <div className="flex items-center gap-2">
-            <span className="text-base">{item.icon}</span>
-            <span className={cn('text-sm font-black', tab === item.key ? 'text-white' : 'text-text-secondary')}>
+          <div className="flex min-w-0 items-center justify-center gap-1.5 sm:justify-start sm:gap-2">
+            <span className="flex-none text-sm sm:text-base">{item.icon}</span>
+            <span className={cn('whitespace-nowrap text-[13px] font-black leading-none sm:text-sm', tab === item.key ? 'text-white' : 'text-text-secondary')}>
               {item.label}
             </span>
           </div>
-          <div className="mt-0.5 hidden truncate pl-7 text-[10px] font-bold text-text-muted sm:block">
+          <div className="mt-1 hidden truncate pl-7 text-[11px] font-bold text-text-muted sm:block">
             {item.description}
           </div>
         </button>
