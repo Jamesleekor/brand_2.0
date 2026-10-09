@@ -19,7 +19,7 @@ export const BASE_AI_WEIGHTS: AIWeights = {
 };
 
 interface ProfilePreset {
-  searchDepth: 0 | 1 | 2 | 3;
+  searchDepth: 0 | 1 | 2 | 3 | 4 | 5;
   mistakeRate: number;
   candidatePoolSize: number;
   maxMistakeScoreGap: number;
