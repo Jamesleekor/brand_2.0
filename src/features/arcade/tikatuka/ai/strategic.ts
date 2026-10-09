@@ -90,7 +90,7 @@ export function evaluateHighLevelSearchState(state: GameState, profile: AIProfil
 
   const occupied = countBoardDice(state.sides.ai.board) + countBoardDice(state.sides.player.board);
   const maturity = occupied >= 14 ? 1 : occupied >= 10 ? 0.82 : occupied >= 6 ? 0.58 : 0.35;
-  const strategicWeight = profile.difficulty >= 11 ? 1.6 : profile.difficulty >= 10 ? 1.15 : 0.9;
+  const strategicWeight = profile.difficulty >= 11 ? 2.0 : profile.difficulty >= 10 ? 1.15 : 0.9;
   return base + evaluateStrategicWinPlan(state) * maturity * strategicWeight;
 }
 
@@ -191,7 +191,7 @@ export function rerankStrategicAIActions(
 
   const baseline = evaluateStrategicWinPlan(state);
   const bestBaseScore = baseCandidates[0].score;
-  const tacticalGapLimit = profile.difficulty >= 11 ? 24 : profile.difficulty >= 10 ? 20 : 12;
+  const tacticalGapLimit = profile.difficulty >= 11 ? 28 : profile.difficulty >= 10 ? 20 : 12;
   const eligible = baseCandidates.filter((candidate) => bestBaseScore - candidate.score <= tacticalGapLimit);
   const ineligible = baseCandidates.filter((candidate) => bestBaseScore - candidate.score > tacticalGapLimit);
   const originalIndex = new Map(baseCandidates.map((candidate, index) => [candidate.action, index]));
@@ -200,7 +200,7 @@ export function rerankStrategicAIActions(
     const strategicDelta = clampStrategicDelta(strategicActionValue(state, candidate.action) - baseline);
     return {
       action: candidate.action,
-      score: candidate.score + strategicDelta * (profile.difficulty >= 11 ? 4.25 : STRATEGIC_RERANK_WEIGHT),
+      score: candidate.score + strategicDelta * (profile.difficulty >= 11 ? 5.0 : STRATEGIC_RERANK_WEIGHT),
     } satisfies AIAdvancedActionCandidate;
   }).sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
