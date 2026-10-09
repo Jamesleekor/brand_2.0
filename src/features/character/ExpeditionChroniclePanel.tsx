@@ -726,7 +726,7 @@ function SiteCard({
         </div>
         <div className="mt-3 flex items-center justify-between gap-3 rounded-card-md border border-white/10 bg-white/[0.04] px-3 py-2.5">
           <div>
-            <div className="text-xs font-black text-[#FFF7ED]">핵심 보상</div>
+            <div className="whitespace-nowrap text-xs font-black text-[#FFF7ED]">핵심 보상</div>
             <div className="mt-0.5 text-sm font-black text-[#FFD58A]">{site.core_reward_label}</div>
           </div>
           <div className="flex min-w-0 items-center gap-2.5 text-right">
@@ -738,9 +738,9 @@ function SiteCard({
               decoding="async"
             />
             <div className="min-w-0">
-              <div className="text-xs font-black text-[#FFF7ED]">최종 주도지역 효과</div>
+              <div className="whitespace-nowrap text-xs font-black text-[#FFF7ED]">최종 주도지역 효과</div>
               <div className="mt-0.5 break-keep text-sm font-black text-[#D9C3FF]">{site.world_effect_label}</div>
-              <div className="mt-0.5 text-[11px] font-bold text-[#F6EFE7]">흔적 12+부터 발동</div>
+              <div className="mt-0.5 whitespace-nowrap text-[11px] font-bold text-[#F6EFE7]">흔적 12+부터 발동</div>
             </div>
           </div>
         </div>
@@ -1345,12 +1345,12 @@ function ChronicleSiteCard({ site, onStory }: { site: ExpeditionChronicleSite; o
       </div>
 
       <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <span className="font-bold text-[#F6EFE7]">핵심 보상</span>
-          <span className="font-black text-[#FFD58A]">{site.core_reward_label}</span>
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 text-sm">
+          <span className="flex-none whitespace-nowrap font-bold text-[#F6EFE7]">핵심 보상</span>
+          <span className="min-w-0 text-right font-black text-[#FFD58A]">{site.core_reward_label}</span>
         </div>
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-bold text-[#F6EFE7]">주도지역 효과</span>
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
+          <span className="flex-none whitespace-nowrap text-sm font-bold text-[#F6EFE7]">주도지역 효과</span>
           <span className="flex min-w-0 items-center justify-end gap-2">
             <img
               src={getExpeditionWorldEffectAsset(site.world_effect_code) ?? undefined}
@@ -1359,7 +1359,7 @@ function ChronicleSiteCard({ site, onStory }: { site: ExpeditionChronicleSite; o
               loading="lazy"
               decoding="async"
             />
-            <span className="break-keep text-right text-sm font-black text-[#D9C3FF]">{site.world_effect_label}</span>
+            <span className="min-w-0 break-keep text-right text-sm font-black leading-tight text-[#D9C3FF]">{site.world_effect_label}</span>
           </span>
         </div>
       </div>
