@@ -1,0 +1,35 @@
+name: Rakaruka Lv11 Smoke MC
+
+on:
+  push:
+    branches:
+      - feat/tikatuka-extreme-lv11-lv12
+    paths:
+      - .github/workflows/rakaruka-extreme-lv11-smoke.yml
+
+permissions:
+  contents: read
+
+jobs:
+  monte-carlo:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run Lv11 smoke Monte Carlo shard
+        run: npm run test:tikatuka
+        env:
+          RAKARUKA_MC_RUN: '1'
+          RAKARUKA_MC_CURRENT_ONLY: '1'
+          RAKARUKA_MC_LEVELS: '11'
+          RAKARUKA_MC_GAMES_PER_LEVEL: '10'
+          RAKARUKA_MC_SHARD: ${{ matrix.shard }}
+          RAKARUKA_MC_SHARDS: '10'
