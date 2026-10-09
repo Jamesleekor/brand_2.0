@@ -238,6 +238,12 @@ export interface ExpeditionFragmentWallet {
     character_id: number;
     character_uid: string;
     name: string;
+    epithet: string | null;
+    resource_kind: string | null;
+    resource_url: string | null;
+    card_image_url: string | null;
+    avatar_image_url: string | null;
+    emoji: string | null;
     base_cost: number | null;
     effective_cost: number | null;
     restore_eligible: boolean;
