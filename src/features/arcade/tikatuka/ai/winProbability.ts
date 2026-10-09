@@ -44,7 +44,7 @@ export interface WinProbabilityRanking {
 }
 
 interface RolloutPlan {
-  shortlistSize: 2 | 3;
+  shortlistSize: number;
   initialSamplesPerCandidate: number;
   maxSamplesPerCandidate: number;
   extensionGap: number;
@@ -60,11 +60,22 @@ interface ScoredRolloutAction {
   utility: number;
 }
 
-function rolloutPlanForState(state: GameState): RolloutPlan {
+function rolloutPlanForState(state: GameState, profile: AIProfile): RolloutPlan {
   const occupied = countBoardDice(state.sides.ai.board) + countBoardDice(state.sides.player.board);
 
-  // Early-game futures are highly noisy, so keep them cheap. As the board matures,
-  // root decisions become much more decisive and extra samples are worth the cost.
+  // Lv10 stays frozen. Lv11 spends more independent futures and compares a
+  // wider root shortlist, but still never reads or consumes the live gameRng.
+  if (profile.difficulty === 11) {
+    if (occupied >= 14) {
+      return { shortlistSize: 4, initialSamplesPerCandidate: 52, maxSamplesPerCandidate: 104, extensionGap: 0.045 };
+    }
+    if (occupied >= 8) {
+      return { shortlistSize: 4, initialSamplesPerCandidate: 36, maxSamplesPerCandidate: 72, extensionGap: 0.055 };
+    }
+    return { shortlistSize: 3, initialSamplesPerCandidate: 24, maxSamplesPerCandidate: 48, extensionGap: 0.065 };
+  }
+
+  // Existing Lv10 sampling plan.
   if (occupied >= 14) {
     return { shortlistSize: 3, initialSamplesPerCandidate: 48, maxSamplesPerCandidate: 96, extensionGap: 0.06 };
   }
@@ -75,7 +86,8 @@ function rolloutPlanForState(state: GameState): RolloutPlan {
 }
 
 function stateUtility(state: GameState, profile: AIProfile): number {
-  return evaluateStateForAI(state, profile) + evaluateStrategicWinPlan(state) * STRATEGIC_ROLLOUT_WEIGHT;
+  const strategicWeight = profile.difficulty === 11 ? 5.0 : STRATEGIC_ROLLOUT_WEIGHT;
+  return evaluateStateForAI(state, profile) + evaluateStrategicWinPlan(state) * strategicWeight;
 }
 
 function bestImmediatePlacementUtility(state: GameState, profile: AIProfile): number {
@@ -258,7 +270,7 @@ function sortProbabilityResults(results: WinProbabilityCandidate[]): void {
 }
 
 /**
- * Lv.10 root selector. It never reads or consumes the live gameRng. The caller's
+ * Lv.10/Lv.11 root selector. It never reads or consumes the live gameRng. The caller's
  * aiRng is used only to create independent Monte Carlo futures, and the same seed
  * set is replayed for every shortlisted action (common-random-number comparison).
  *
@@ -279,7 +291,7 @@ export function rankWinProbabilityAIActions(
     throw new Error('라카루카 승리확률 AI에 전략 후보가 없습니다.');
   }
 
-  const plan = rolloutPlanForState(state);
+  const plan = rolloutPlanForState(state, profile);
   const shortlist = strategicCandidates.slice(0, Math.min(plan.shortlistSize, strategicCandidates.length));
   const results = shortlist.map(emptyResult);
 
