@@ -51,6 +51,22 @@ function benchmarkSeeds(): readonly number[] {
   return Array.from({ length: gamesPerLevel }, (_, index) => base + index * shardCount * 7_919);
 }
 
+function benchmarkDifficulties(): readonly Difficulty[] {
+  const raw = process.env.RAKARUKA_MC_LEVELS?.trim();
+  if (!raw) return [8, 9, 10];
+
+  const levels = raw
+    .split(',')
+    .map((value) => Number(value.trim()))
+    .filter((value): value is Difficulty =>
+      Number.isInteger(value) && value >= 1 && value <= 12);
+
+  if (levels.length === 0) {
+    throw new Error('RAKARUKA_MC_LEVELS must contain at least one difficulty from 1 to 12.');
+  }
+  return [...new Set(levels)];
+}
+
 function createDependencies(seed: number, label: string): EngineDependencies {
   let id = 0;
   const aiSeed = ((seed ^ 0x6a09e667) >>> 0) || 1;
@@ -187,30 +203,23 @@ function printSummary(difficulty: Difficulty, mode: AIMode, games: readonly Benc
 }
 
 if (process.env.RAKARUKA_MC_RUN === '1') {
-  test('balance benchmark: strong depth-2 proxy A/B baseline for Lv8~10', () => {
+  test('balance benchmark: strong depth-2 player proxy against selected Rakaruka levels', () => {
     const seeds = benchmarkSeeds();
+    const levels = benchmarkDifficulties();
     const currentOnly = process.env.RAKARUKA_MC_CURRENT_ONLY === '1';
 
-    console.log(`\n[Rakaruka strong depth-2 proxy A/B] seeds=${seeds.length} shard=${process.env.RAKARUKA_MC_SHARD ?? 'default'}`);
+    console.log(`\n[Rakaruka strong depth-2 proxy] levels=${levels.join(',')} seeds=${seeds.length} shard=${process.env.RAKARUKA_MC_SHARD ?? 'default'}`);
 
-    const lv8 = runGroup(8, 'current', seeds);
-    const lv9Current = runGroup(9, 'current', seeds);
-    const lv10Current = runGroup(10, 'current', seeds);
-    printSummary(8, 'current', lv8);
-    printSummary(9, 'current', lv9Current);
-    printSummary(10, 'current', lv10Current);
+    for (const difficulty of levels) {
+      const current = runGroup(difficulty, 'current', seeds);
+      printSummary(difficulty, 'current', current);
+      assertEqual(current.length, seeds.length);
 
-    assertEqual(lv8.length, seeds.length);
-    assertEqual(lv9Current.length, seeds.length);
-    assertEqual(lv10Current.length, seeds.length);
-
-    if (!currentOnly) {
-      const lv9Legacy = runGroup(9, 'legacy', seeds);
-      const lv10Legacy = runGroup(10, 'legacy', seeds);
-      printSummary(9, 'legacy', lv9Legacy);
-      printSummary(10, 'legacy', lv10Legacy);
-      assertEqual(lv9Legacy.length, seeds.length);
-      assertEqual(lv10Legacy.length, seeds.length);
+      if (!currentOnly && difficulty >= 9) {
+        const legacy = runGroup(difficulty, 'legacy', seeds);
+        printSummary(difficulty, 'legacy', legacy);
+        assertEqual(legacy.length, seeds.length);
+      }
     }
   });
 }
