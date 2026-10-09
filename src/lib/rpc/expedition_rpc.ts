@@ -238,8 +238,9 @@ export interface ExpeditionFragmentWallet {
     character_id: number;
     character_uid: string;
     name: string;
-    base_cost: number;
-    effective_cost: number;
+    base_cost: number | null;
+    effective_cost: number | null;
+    restore_eligible: boolean;
     is_owned: boolean;
   }>;
 }
