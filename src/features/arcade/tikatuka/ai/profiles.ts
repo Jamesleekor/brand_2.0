@@ -19,7 +19,7 @@ export const BASE_AI_WEIGHTS: AIWeights = {
 };
 
 interface ProfilePreset {
-  searchDepth: 0 | 1 | 2;
+  searchDepth: 0 | 1 | 2 | 3;
   mistakeRate: number;
   candidatePoolSize: number;
   maxMistakeScoreGap: number;
@@ -40,8 +40,9 @@ const PROFILE_PRESETS = {
   8: { searchDepth: 2, mistakeRate: 0.06, candidatePoolSize: 2, maxMistakeScoreGap: 8, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },
   9: { searchDepth: 2, mistakeRate: 0.01, candidatePoolSize: 2, maxMistakeScoreGap: 3, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },
   10: { searchDepth: 2, mistakeRate: 0, candidatePoolSize: 1, maxMistakeScoreGap: 0, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },
-  // Structural placeholders only. Dedicated Extreme AI tuning replaces these in the next checkpoints.
-  11: { searchDepth: 2, mistakeRate: 0, candidatePoolSize: 1, maxMistakeScoreGap: 0, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },
+  // Lv11 is the first Extreme tier: no intentional mistakes and one extra expectimax turn.
+  11: { searchDepth: 3, mistakeRate: 0, candidatePoolSize: 1, maxMistakeScoreGap: 0, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },
+  // Lv12 remains a structural placeholder until the dedicated final-tier checkpoint.
   12: { searchDepth: 2, mistakeRate: 0, candidatePoolSize: 1, maxMistakeScoreGap: 0, evaluateCombo: true, evaluateShieldBlock: true, evaluateVulnerability: true, evaluateEndgame: true },
 } as const satisfies Record<Difficulty, ProfilePreset>;
 
