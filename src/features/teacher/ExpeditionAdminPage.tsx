@@ -43,12 +43,12 @@ const SPECIALTY_META = {
 } as const;
 
 const ELEMENT_META: Record<string, { label: string; icon: string }> = {
-  WATER: { label: '물', icon: '💧' },
-  FIRE: { label: '불', icon: '🔥' },
-  WIND: { label: '바람', icon: '🌪️' },
-  EARTH: { label: '땅', icon: '🪨' },
-  LIGHT: { label: '빛', icon: '☀️' },
-  DARK: { label: '어둠', icon: '🌑' },
+  WATER: { label: '수', icon: '💧' },
+  FIRE: { label: '화', icon: '🔥' },
+  WIND: { label: '풍', icon: '🌪️' },
+  EARTH: { label: '지', icon: '🪨' },
+  LIGHT: { label: '광', icon: '☀️' },
+  DARK: { label: '암', icon: '🌑' },
 };
 
 const EFFECT_META: Record<ExpeditionWorldEffectCode, { label: string; short: string }> = {
@@ -792,21 +792,20 @@ function SiteElementBadge({
   const asset = EXPEDITION_ASSETS.element[code as keyof typeof EXPEDITION_ASSETS.element];
   return (
     <div className={cn(
-      'min-w-[72px] rounded-card-md border px-2 py-1.5 text-center',
+      'min-w-[96px] rounded-card-md border px-2.5 py-2',
       changed
         ? 'border-gold/35 bg-gold/10'
         : strong
           ? 'border-bv/40 bg-bv/10'
           : 'border-line bg-bg-deep/85',
     )}>
-      <div className="flex items-center justify-center gap-1.5">
-        {asset && <img src={asset} alt="" className="h-6 w-6 object-contain" decoding="async" />}
+      <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+        {asset && <img src={asset} alt="" className="h-6 w-6 flex-none object-contain" decoding="async" />}
         <span className={cn(
           'text-sm font-black',
           changed ? 'text-gold' : strong ? 'text-[#CBB6FF]' : 'text-[#FFF7ED]',
-        )}>{label}</span>
+        )}>{role}: {label}</span>
       </div>
-      <div className="mt-0.5 text-[10px] font-black text-[#F6EFE7]">{role}</div>
     </div>
   );
 }
