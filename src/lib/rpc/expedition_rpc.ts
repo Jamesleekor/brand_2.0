@@ -263,6 +263,10 @@ export interface ExpeditionChronicleSite {
   site_code: string;
   site_name: string;
   specialty_code: ExpeditionSpecialtyCode;
+  core_reward_code: ExpeditionRewardKind;
+  core_reward_label: string;
+  world_effect_code: string;
+  world_effect_label: string;
   cumulative_trace: number;
   story_stage: number;
   story_stage_label: string;
@@ -364,6 +368,25 @@ export interface ExpeditionBoxInventory {
   }>;
 }
 
+export interface ExpeditionBoxCatalogReward {
+  reward_code: string;
+  reward_kind: string;
+  label: string;
+  weight_bp: number;
+  probability_percent: number;
+}
+
+export interface ExpeditionBoxCatalogTier {
+  tier: 'COMMON' | 'INTERMEDIATE' | 'RARE';
+  tier_label: string;
+  rewards: ExpeditionBoxCatalogReward[];
+}
+
+export interface ExpeditionBoxCatalog {
+  version: string;
+  tiers: ExpeditionBoxCatalogTier[];
+}
+
 export interface ExpeditionBoxOpenResult {
   opening_id: number;
   box_item_id: number;
@@ -452,6 +475,9 @@ export const expeditionRpc = {
 
   boxInventory: (supabase: SupabaseClient) =>
     callRpc<ExpeditionBoxInventory>(supabase, 'student_get_expedition_box_inventory'),
+
+  boxCatalog: (supabase: SupabaseClient) =>
+    callRpc<ExpeditionBoxCatalog>(supabase, 'student_get_expedition_box_catalog'),
 
   purchaseLuxury: (supabase: SupabaseClient, itemId: number, pricingId: number) =>
     callRpc<number>(supabase, 'student_purchase_cosmetic', {
