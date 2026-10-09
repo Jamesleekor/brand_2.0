@@ -73,6 +73,7 @@ export default function ExpeditionChroniclePanel() {
   const [storyLoading, setStoryLoading] = useState(false);
   const [dismissedPopup, setDismissedPopup] = useState(false);
   const [boxResults, setBoxResults] = useState<Record<number, ExpeditionBoxOpenResult>>({});
+  const [boxOpeningPopup, setBoxOpeningPopup] = useState<ExpeditionBoxOpenResult | null>(null);
 
   const boardQuery = useQuery<ExpeditionBoard>({
     queryKey: ['expedition-board'],
@@ -244,6 +245,7 @@ export default function ExpeditionChroniclePanel() {
       return;
     }
     setBoxResults((current) => ({ ...current, [itemId]: result.data }));
+    setBoxOpeningPopup(result.data);
     setNotice(`상자를 열었습니다: ${result.data.final_reward_label}`);
     await refreshExpedition();
   };
@@ -504,6 +506,13 @@ export default function ExpeditionChroniclePanel() {
         busyAction={busyAction}
         onBuy={purchaseLuxury}
       />
+
+      {boxOpeningPopup && (
+        <BoxOpeningResultModal
+          result={boxOpeningPopup}
+          onClose={() => setBoxOpeningPopup(null)}
+        />
+      )}
 
       {board.sunday_popup && !dismissedPopup && (
         <SundayEventModal
@@ -1247,6 +1256,85 @@ function LuxuryShopSection({
         ))}
       </div>
     </section>
+  );
+}
+
+function BoxOpeningResultModal({
+  result,
+  onClose,
+}: {
+  result: ExpeditionBoxOpenResult;
+  onClose: () => void;
+}) {
+  const chestAsset = getExpeditionRewardChestAsset(result.box_tier);
+  const tierAsset = getExpeditionRewardTierAsset(result.box_tier);
+  const tierLabel = result.box_tier === 'RARE'
+    ? '희귀'
+    : result.box_tier === 'INTERMEDIATE'
+      ? '중급'
+      : '일반';
+
+  return (
+    <div
+      className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md overflow-hidden rounded-card-xl border border-gold/45 bg-[#100C18] shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="border-b border-white/10 bg-gradient-to-r from-gold/15 via-brand-primary/10 to-transparent px-5 py-4 text-center">
+          <div className="text-[13px] font-black uppercase tracking-[0.16em] text-[#FFD58A]">
+            {tierLabel} 원정 상자 개봉
+          </div>
+          <div className="mt-3 flex items-center justify-center gap-3">
+            {chestAsset && (
+              <img
+                src={chestAsset}
+                alt=""
+                className="h-20 w-20 object-contain drop-shadow-[0_8px_24px_rgba(255,198,77,0.25)]"
+                decoding="async"
+              />
+            )}
+            {tierAsset && (
+              <img
+                src={tierAsset}
+                alt=""
+                className="h-12 w-12 object-contain"
+                decoding="async"
+              />
+            )}
+          </div>
+        </div>
+
+        <div className="px-5 py-6 text-center">
+          <div className="text-sm font-black text-[#FFF7ED]">획득 보상</div>
+          <div className="mt-2 break-keep font-display text-2xl font-black text-white">
+            {result.final_reward_label}
+          </div>
+          {result.final_quantity != null && result.final_quantity > 1 && (
+            <div className="mt-2 text-lg font-black text-[#FFD58A]">
+              × {result.final_quantity.toLocaleString('ko-KR')}
+            </div>
+          )}
+          {result.cosmetic_fallback_crystal && (
+            <div className="mx-auto mt-4 max-w-sm rounded-card-md border border-crystal/30 bg-crystal/10 px-3 py-2 text-sm font-bold text-[#E8FBFF]">
+              획득 가능한 꾸미기 아이템을 모두 보유해 CRYSTAL 보상으로 전환되었습니다.
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-white/10 bg-black/15 p-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-card-lg border border-gold/45 bg-gold/15 px-4 py-3 text-base font-black text-[#FFF7ED] transition hover:bg-gold/25"
+          >
+            확인
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
