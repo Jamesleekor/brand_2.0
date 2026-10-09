@@ -418,32 +418,22 @@ function FutureHomeShortcuts() {
     refetchOnWindowFocus: true,
   });
   const expeditionEnabled = expeditionBoardQuery.data?.enabled === true;
-  const expeditionWeekVisible = expeditionBoardQuery.data?.week != null;
-  const expeditionCaption = expeditionBoardQuery.isLoading
-    ? '확인 중'
-    : expeditionEnabled
-      ? expeditionWeekVisible ? '입장' : '개방 대기'
-      : '준비 중';
-
   const shortcuts = [
     {
       emoji: '🔮',
       label: '차원관문',
-      caption: '입장',
       enabled: true,
       to: '/dimensional-gate',
     },
     {
       emoji: '⚔️',
-      label: '레이드 관문',
-      caption: '입장',
+      label: '레이드관문',
       enabled: true,
       to: '/raid',
     },
     {
       emoji: '🧭',
       label: '편린 원정대',
-      caption: expeditionCaption,
       enabled: expeditionEnabled,
       to: '/characters?tab=expedition',
     },
@@ -464,21 +454,12 @@ function FutureHomeShortcuts() {
             onClick={() => { if (shortcut.enabled && shortcut.to) navigate(shortcut.to); }}
             className={
               shortcut.enabled
-                ? 'flex h-10 items-center justify-center gap-1.5 rounded-pill border border-yellow-300/45 bg-yellow-400/10 px-3 text-2xs font-black text-yellow-100 backdrop-blur-card transition hover:border-yellow-200/75 hover:bg-yellow-400/20'
-                : 'flex h-10 cursor-not-allowed items-center justify-center gap-1.5 rounded-pill border border-cyan-300/20 bg-bg-card/65 px-3 text-2xs font-black text-cyan-100/55 backdrop-blur-card'
+                ? 'flex h-10 min-w-0 items-center justify-center gap-1 rounded-pill border border-yellow-300/45 bg-yellow-400/10 px-1.5 text-[11px] font-black text-yellow-100 backdrop-blur-card transition hover:border-yellow-200/75 hover:bg-yellow-400/20 sm:gap-1.5 sm:px-3 sm:text-xs'
+                : 'flex h-10 min-w-0 cursor-not-allowed items-center justify-center gap-1 rounded-pill border border-cyan-300/20 bg-bg-card/65 px-1.5 text-[11px] font-black text-cyan-100/55 backdrop-blur-card sm:gap-1.5 sm:px-3 sm:text-xs'
             }
           >
-            <span aria-hidden="true">{shortcut.emoji}</span>
-            <span>{shortcut.label}</span>
-            <span
-              className={
-                shortcut.enabled
-                  ? 'text-[9px] font-extrabold tracking-wide text-yellow-100'
-                  : 'text-[9px] font-extrabold tracking-wide text-cyan-100/45'
-              }
-            >
-              {shortcut.caption}
-            </span>
+            <span aria-hidden="true" className="flex-none">{shortcut.emoji}</span>
+            <span className="whitespace-nowrap">{shortcut.label}</span>
           </button>
         );
       })}
