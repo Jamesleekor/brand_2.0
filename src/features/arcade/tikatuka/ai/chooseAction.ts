@@ -94,20 +94,17 @@ export function chooseAdvancedAIAction(
   if (profile.difficulty === 10 || profile.difficulty === 11) {
     const strategic = rerankStrategicAIActions(state, ranking.rankedCandidates, profile).rankedCandidates;
     const probability = rankWinProbabilityAIActions(state, aiRng, strategic, profile);
-    const probabilityCandidates = profile.difficulty === 11 && probability.rankedCandidates.length > 1
-      ? (() => {
-          const bestProbability = probability.rankedCandidates[0].estimatedWinProbability;
-          const close = probability.rankedCandidates
-            .filter((candidate) => bestProbability - candidate.estimatedWinProbability <= 0.04)
-            .sort((a, b) => b.baseScore - a.baseScore);
-          const closeSet = new Set(close);
-          return [...close, ...probability.rankedCandidates.filter((candidate) => !closeSet.has(candidate))];
-        })()
-      : probability.rankedCandidates;
-    const ranked = probabilityCandidates.map((candidate) => ({
-      action: candidate.action,
-      score: candidate.estimatedWinProbability * 1_000_000 + candidate.baseScore,
-    } satisfies AIAdvancedActionCandidate));
+    const ranked = probability.rankedCandidates
+      .map((candidate) => ({
+        action: candidate.action,
+        // Lv10 stays probability-first. Lv11 treats Monte Carlo as evidence on top
+        // of the deeper expectimax/strategic score so a noisy fast rollout cannot
+        // override a clearly superior depth-3/4/5 line.
+        score: profile.difficulty === 11
+          ? candidate.baseScore + candidate.estimatedWinProbability * 120
+          : candidate.estimatedWinProbability * 1_000_000 + candidate.baseScore,
+      } satisfies AIAdvancedActionCandidate))
+      .sort((a, b) => b.score - a.score);
     const best = ranked[0];
 
     return {
