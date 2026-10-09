@@ -16,7 +16,6 @@ import { characterS1Rpc, type StudentCharacterRecruitmentRow } from '@/lib/rpc/c
 import { expeditionRpc } from '@/lib/rpc/expedition_rpc';
 import { useWallet } from '@/hooks/useWallet';
 import { cn } from '@/lib/utils/cn';
-import { EXPEDITION_ASSETS } from './expedition/expeditionAssets';
 
 // =====================================================================
 // B.R.A.N.D 2.0 — Character Collection C2 + C4-C + S1 + E1-A
@@ -671,12 +670,12 @@ function CharacterElementLine({
   return (
     <div className="mt-2 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-black text-text-primary">
       <span className="inline-flex flex-shrink-0 items-center gap-1">
-        <img src={EXPEDITION_ASSETS.element[profile.primary_element]} alt="" className="h-4 w-4 object-contain" decoding="async" />
+        {primary.icon}
         {profile.primary_points}
       </span>
       {secondary && profile.secondary_element && profile.secondary_points > 0 && (
         <span className="inline-flex flex-shrink-0 items-center gap-1">
-          <img src={EXPEDITION_ASSETS.element[profile.secondary_element!]} alt="" className="h-4 w-4 object-contain" decoding="async" />
+          {secondary.icon}
           {profile.secondary_points}
         </span>
       )}
@@ -688,8 +687,7 @@ function CharacterElementLine({
           'flex-shrink-0 rounded-pill border px-1.5 py-0.5 text-[9px]',
           specialty.className,
         )}>
-          <img src={EXPEDITION_ASSETS.specialty[expeditionProfile!.specialty_code]} alt="" className="mr-1 inline-block h-3.5 w-3.5 object-contain align-[-3px]" decoding="async" />
-          {specialty.label}
+          {specialty.icon} {specialty.label}
         </span>
       )}
     </div>
@@ -1092,8 +1090,7 @@ function CharacterElementPanel({
                   'rounded-pill border px-2 py-0.5 text-[12px]',
                   specialty.className,
                 )}>
-                  <img src={EXPEDITION_ASSETS.specialty[expeditionProfile!.specialty_code]} alt="" className="mr-1 inline-block h-4 w-4 object-contain align-[-3px]" decoding="async" />
-                  원정 특기 · {specialty.label}
+                  {specialty.icon} 원정 특기 · {specialty.label}
                 </span>
               </>
             )}
@@ -1105,7 +1102,7 @@ function CharacterElementPanel({
             style={elementChipStyle(primary)}
           >
             <span className="inline-flex items-center gap-1.5">
-              <img src={EXPEDITION_ASSETS.element[profile.primary_element]} alt="" className="h-5 w-5 object-contain" decoding="async" />
+              {primary.icon}
               {primary.label} {profile.primary_points}
             </span>
           </span>
@@ -1115,7 +1112,7 @@ function CharacterElementPanel({
               style={elementChipStyle(secondary)}
             >
               <span className="inline-flex items-center gap-1.5">
-                <img src={EXPEDITION_ASSETS.element[profile.secondary_element!]} alt="" className="h-5 w-5 object-contain" decoding="async" />
+                {secondary.icon}
                 {secondary.label} {profile.secondary_points}
               </span>
             </span>
