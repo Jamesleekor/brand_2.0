@@ -127,14 +127,14 @@ const ELEMENT_META: Record<ElementCode, ElementVisualMeta> = {
     textShadow: '0 0 10px rgba(255, 229, 138, 0.62)', rare: true,
   },
 };
-const ELEMENT_FILTERS: Array<{ key: ElementFilterKey; label: string }> = [
+const ELEMENT_FILTERS: Array<{ key: ElementFilterKey; label: string; asset?: string }> = [
   { key: 'ALL', label: '속성 전체' },
-  { key: 'FIRE', label: '화' },
-  { key: 'WATER', label: '수' },
-  { key: 'WIND', label: '풍' },
-  { key: 'EARTH', label: '토' },
-  { key: 'LIGHT', label: '빛' },
-  { key: 'DARK', label: '암' },
+  { key: 'FIRE', label: '화', asset: EXPEDITION_ASSETS.element.FIRE },
+  { key: 'WATER', label: '수', asset: EXPEDITION_ASSETS.element.WATER },
+  { key: 'WIND', label: '풍', asset: EXPEDITION_ASSETS.element.WIND },
+  { key: 'EARTH', label: '토', asset: EXPEDITION_ASSETS.element.EARTH },
+  { key: 'LIGHT', label: '빛', asset: EXPEDITION_ASSETS.element.LIGHT },
+  { key: 'DARK', label: '암', asset: EXPEDITION_ASSETS.element.DARK },
 ];
 const TENDENCY_FILTERS: Array<{ key: TendencyFilterKey; label: string }> = [
   { key: 'ALL', label: '성향 전체' },
@@ -419,7 +419,7 @@ function ElementFilterGroup<T extends string>({
   value,
   onChange,
 }: {
-  items: Array<{ key: T; label: string }>;
+  items: Array<{ key: T; label: string; asset?: string }>;
   value: T;
   onChange: (value: T) => void;
 }) {
@@ -431,12 +431,15 @@ function ElementFilterGroup<T extends string>({
           type="button"
           onClick={() => onChange(item.key)}
           className={cn(
-            'flex-shrink-0 rounded-pill px-2.5 py-1.5 text-[10px] font-black transition-all',
+            'inline-flex flex-shrink-0 items-center gap-1 rounded-pill px-2.5 py-1.5 text-[10px] font-black transition-all',
             value === item.key
               ? 'bg-brand-primary/20 text-white shadow-brand-sm'
               : 'text-text-secondary hover:bg-bg-card hover:text-text-primary',
           )}
         >
+          {item.asset && (
+            <img src={item.asset} alt="" className="h-[18px] w-[18px] flex-none object-contain" loading="lazy" decoding="async" />
+          )}
           {item.label}
         </button>
       ))}
@@ -686,10 +689,11 @@ function CharacterElementLine({
       </span>
       {specialty && (
         <span className={cn(
-          'flex-shrink-0 rounded-pill border px-1.5 py-0.5 text-[9px]',
+          'inline-flex flex-shrink-0 items-center gap-1 rounded-pill border px-1.5 py-0.5 text-[9px]',
           specialty.className,
         )}>
-          <img src={specialty.asset} alt="" className="h-4 w-4 object-contain" loading="lazy" decoding="async" /> {specialty.label}
+          <img src={specialty.asset} alt="" className="h-4 w-4 flex-none object-contain" loading="lazy" decoding="async" />
+          {specialty.label}
         </span>
       )}
     </div>
@@ -1089,10 +1093,11 @@ function CharacterElementPanel({
               <>
                 <span className="text-[#E7CFA4]">·</span>
                 <span className={cn(
-                  'rounded-pill border px-2 py-0.5 text-[12px]',
+                  'inline-flex items-center gap-1 rounded-pill border px-2 py-0.5 text-[12px]',
                   specialty.className,
                 )}>
-                  <img src={specialty.asset} alt="" className="h-5 w-5 object-contain" loading="lazy" decoding="async" /> 원정 특기 · {specialty.label}
+                  <img src={specialty.asset} alt="" className="h-5 w-5 flex-none object-contain" loading="lazy" decoding="async" />
+                  원정 특기 · {specialty.label}
                 </span>
               </>
             )}
