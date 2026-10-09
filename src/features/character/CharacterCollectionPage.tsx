@@ -101,7 +101,7 @@ const ELEMENT_META: Record<ElementCode, ElementVisualMeta> = {
     glow: '0 0 8px rgba(59, 130, 246, 0.24)', textShadow: '0 0 8px rgba(80, 180, 255, 0.20)',
   },
   EARTH: {
-    label: '토', icon: '🪨', asset: EXPEDITION_ASSETS.element.EARTH,
+    label: '지', icon: '🪨', asset: EXPEDITION_ASSETS.element.EARTH,
     barGradient: 'linear-gradient(90deg, #c9905b 0%, #9a6438 52%, #6f4528 100%)',
     textColor: '#E5B982', chipBackground: 'rgba(74, 48, 30, 0.78)', chipBorder: 'rgba(201, 144, 91, 0.58)',
     glow: '0 0 8px rgba(154, 100, 56, 0.22)', textShadow: '0 0 8px rgba(201, 144, 91, 0.18)',
@@ -120,7 +120,7 @@ const ELEMENT_META: Record<ElementCode, ElementVisualMeta> = {
     textShadow: '0 0 10px rgba(192, 132, 252, 0.58)', rare: true,
   },
   LIGHT: {
-    label: '빛', icon: '✦', asset: EXPEDITION_ASSETS.element.LIGHT,
+    label: '광', icon: '✦', asset: EXPEDITION_ASSETS.element.LIGHT,
     barGradient: 'linear-gradient(90deg, #b7791f 0%, #f6c453 24%, #fff3b0 48%, #ffffff 52%, #f6d365 68%, #c58b22 100%)',
     textColor: '#FFE58A', chipBackground: 'linear-gradient(135deg, rgba(103, 72, 14, 0.92), rgba(225, 174, 55, 0.38))', chipBorder: 'rgba(255, 226, 123, 0.84)',
     glow: '0 0 12px rgba(255, 211, 90, 0.48), inset 0 0 10px rgba(255, 255, 255, 0.12)',
@@ -132,8 +132,8 @@ const ELEMENT_FILTERS: Array<{ key: ElementFilterKey; label: string; asset?: str
   { key: 'FIRE', label: '화', asset: EXPEDITION_ASSETS.element.FIRE },
   { key: 'WATER', label: '수', asset: EXPEDITION_ASSETS.element.WATER },
   { key: 'WIND', label: '풍', asset: EXPEDITION_ASSETS.element.WIND },
-  { key: 'EARTH', label: '토', asset: EXPEDITION_ASSETS.element.EARTH },
-  { key: 'LIGHT', label: '빛', asset: EXPEDITION_ASSETS.element.LIGHT },
+  { key: 'EARTH', label: '지', asset: EXPEDITION_ASSETS.element.EARTH },
+  { key: 'LIGHT', label: '광', asset: EXPEDITION_ASSETS.element.LIGHT },
   { key: 'DARK', label: '암', asset: EXPEDITION_ASSETS.element.DARK },
 ];
 const TENDENCY_FILTERS: Array<{ key: TendencyFilterKey; label: string }> = [
