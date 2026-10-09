@@ -129,12 +129,12 @@ const ELEMENT_META: Record<ElementCode, ElementVisualMeta> = {
 };
 const ELEMENT_FILTERS: Array<{ key: ElementFilterKey; label: string }> = [
   { key: 'ALL', label: '속성 전체' },
-  { key: 'FIRE', label: '🔥 화' },
-  { key: 'WATER', label: '💧 수' },
-  { key: 'WIND', label: '💫 풍' },
-  { key: 'EARTH', label: '🪨 토' },
-  { key: 'LIGHT', label: '✦ 빛' },
-  { key: 'DARK', label: '☾ 암' },
+  { key: 'FIRE', label: '화' },
+  { key: 'WATER', label: '수' },
+  { key: 'WIND', label: '풍' },
+  { key: 'EARTH', label: '토' },
+  { key: 'LIGHT', label: '빛' },
+  { key: 'DARK', label: '암' },
 ];
 const TENDENCY_FILTERS: Array<{ key: TendencyFilterKey; label: string }> = [
   { key: 'ALL', label: '성향 전체' },
