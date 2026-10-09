@@ -53,8 +53,9 @@ export function chooseBasicAIPlacement(
  * - Lv.1~8: established tactical search path.
  * - Lv.9: depth-2 search whose leaves carry the two-row win plan, followed by
  *   threat-aware root reranking.
- * - Lv.10: the same strategic search/shortlist is re-evaluated by independent
- *   adaptive Monte Carlo futures and the highest estimated win probability wins.
+ * - Lv.10: existing strategic search/shortlist + adaptive Monte Carlo (frozen).
+ * - Lv.11: depth-3 strategic search + wider independent Monte Carlo comparison.
+ *   Neither level reads or manipulates the live future gameRng.
  */
 export function chooseAdvancedAIAction(
   state: GameState,
@@ -62,12 +63,24 @@ export function chooseAdvancedAIAction(
   profile: AIProfile = getAIProfile(state.difficulty),
   options?: AdvancedSearchOptions,
 ): AIAdvancedChoice {
+  const lv11DefaultLimits = profile.difficulty === 11
+    ? { maxNodes: 30_000, hardTimeBudgetMs: 350 }
+    : undefined;
   const highLevelOptions: AdvancedSearchOptions | undefined = profile.difficulty >= 9
-    ? { ...options, evaluateState: evaluateHighLevelSearchState }
+    ? {
+        ...options,
+        limits: lv11DefaultLimits
+          ? {
+              maxNodes: options?.limits?.maxNodes ?? lv11DefaultLimits.maxNodes,
+              hardTimeBudgetMs: options?.limits?.hardTimeBudgetMs ?? lv11DefaultLimits.hardTimeBudgetMs,
+            }
+          : options?.limits,
+        evaluateState: evaluateHighLevelSearchState,
+      }
     : options;
   const ranking = rankAdvancedAIActions(state, profile, highLevelOptions);
 
-  if (profile.difficulty === 10) {
+  if (profile.difficulty === 10 || profile.difficulty === 11) {
     const strategic = rerankStrategicAIActions(state, ranking.rankedCandidates, profile).rankedCandidates;
     const probability = rankWinProbabilityAIActions(state, aiRng, strategic, profile);
     const ranked = probability.rankedCandidates.map((candidate) => ({
