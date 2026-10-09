@@ -78,3 +78,7 @@ Repo authoritative source:
 ## 9. 편린 능력치 관리 확장 (2026-10-09)
 
 공명력·치명타율에 주/부 속성 배분과 원정 특기 설정을 추가했다. 신규 편린의 누락 프로필도 생성 가능하다. 기존 RPC는 유지하고 교사 전용 combat profile RPC 2개를 추가했다. 운영 DB migration `20261008155719_character_combat_profile_admin.sql` 적용, 기존 값과 원정 스냅샷 보존. 실제 교사 로그인 E2E와 사용자 로컬 build/배포는 후속 확인. 상세: `docs/CHARACTER_COMBAT_PROFILE_ADMIN_2026-10-09.md`.
+
+## 10. Arcade 기간 기록 조회 (2026-10-09)
+
+운영 패널에 ACTIVE 기간부터 일반 기록을 확인하는 3게임 통합 조회를 추가했다. 운영 DB migration `20261009121639_arcade_teacher_period_records` 적용, 실제 10월/9월 각각 72행과 교사/학생/학급 경계 검증 완료. 기존 사전 테스트 순위·공인 인증과 별도로 조회하며 기록/보상/기간 상태를 바꾸지 않는다. 라카루카의 일반 경기와 공인 도전 기록은 구분한다. 전체 TypeScript 정적 검사/실제 응답 Zod/3게임 학생표 서버 렌더 확인 완료. 사용자 승인에 따라 main에 반영하며 실제 교사 로그인 E2E는 배포 후 확인 대상이다. 상세: `docs/ARCADE_PERIOD_RECORDS_FIX_2026-10-09.md`.

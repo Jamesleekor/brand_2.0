@@ -4,6 +4,37 @@ const PositiveId = z.number().int('정수여야 합니다.').positive('양수여
 const YearMonth = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, '월 형식은 YYYY-MM이어야 합니다.');
 const IsoDateTime = z.string().datetime({ offset: true, message: '시간 형식이 올바르지 않습니다.' });
 
+export const TeacherArcadePeriodRecordsSchema = z.object({ p_period_id: PositiveId });
+export type TeacherArcadePeriodRecordsInput = z.infer<typeof TeacherArcadePeriodRecordsSchema>;
+export const ArcadePeriodRecordsResultSchema = z.object({
+  period_id: PositiveId,
+  period_name: z.string(),
+  period_status: z.enum(['DRAFT', 'ACTIVE', 'VERIFICATION', 'READY_TO_FINALIZE', 'FINALIZED']),
+  starts_at: z.string(),
+  ends_at_exclusive: z.string(),
+  rows: z.array(z.object({
+    student_id: PositiveId,
+    student_name: z.string(),
+    brand_name: z.string().nullable(),
+    game_code: z.enum(['focus_reaction_01', 'pure_reaction_02', 'rakaruka_03']),
+    play_count: z.number().int().nonnegative(),
+    completed_count: z.number().int().nonnegative(),
+    rejected_count: z.number().int().nonnegative(),
+    general_best_score: z.number().nullable(),
+    average_reaction_ms_x10: z.number().nullable(),
+    official_score: z.number().nullable(),
+    current_rank: z.number().int().positive().nullable(),
+    clear_level: z.number().int().nonnegative(),
+    official_difficulty: z.number().int().nullable(),
+    official_status: z.string().nullable(),
+    wins: z.number().int().nonnegative(),
+    losses: z.number().int().nonnegative(),
+    draws: z.number().int().nonnegative(),
+    last_played_at: z.string().nullable(),
+  })),
+});
+export type ArcadePeriodRecordsResult = z.infer<typeof ArcadePeriodRecordsResultSchema>;
+
 export const ArcadeGameCodeSchema = z.string()
   .regex(/^[a-z][a-z0-9_]{2,63}$/, '게임 코드 형식이 올바르지 않습니다.');
 

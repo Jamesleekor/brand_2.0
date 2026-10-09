@@ -236,6 +236,15 @@ export const arcadeStudentRpc = {
 };
 
 export const arcadeTeacherRpc = {
+  getPeriodRecords: async (client: SupabaseClient, input: ArcadeSchemas.TeacherArcadePeriodRecordsInput): Promise<RpcResult<ArcadeSchemas.ArcadePeriodRecordsResult>> => {
+    const result = await safeArcadeRpc<ArcadeSchemas.TeacherArcadePeriodRecordsInput, unknown>(
+      client, 'teacher_get_arcade_period_records', ArcadeSchemas.TeacherArcadePeriodRecordsSchema, input,
+    );
+    if (result.success === false) return result;
+    const parsed = ArcadeSchemas.ArcadePeriodRecordsResultSchema.safeParse(result.data);
+    if (!parsed.success) return { success: false, type: 'SERVER', error: '기간 기록 응답 형식이 올바르지 않습니다. 새로고침 후 다시 확인해주세요.' };
+    return { success: true, data: parsed.data };
+  },
   createRankingPeriod: (client: SupabaseClient, input: ArcadeSchemas.TeacherCreateArcadeRankingPeriodInput) =>
     safeArcadeRpc<ArcadeSchemas.TeacherCreateArcadeRankingPeriodInput, { period_id: number; classroom_id: number; status: string }>(client, 'teacher_create_arcade_ranking_period', ArcadeSchemas.TeacherCreateArcadeRankingPeriodSchema, input),
   updateRankingPeriod: (client: SupabaseClient, input: ArcadeSchemas.TeacherUpdateArcadeRankingPeriodInput) =>

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/shared/components';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
+import { TeacherArcadePeriodRecordsPanel } from './TeacherArcadePeriodRecordsPanel';
 import { arcadeErrorMessage, arcadeTeacherRpc, type ArcadePrereleaseTestLeaderboardResult, type ArcadeVerificationOverview, type ArcadeVerificationOverviewRow } from '@/lib/rpc/arcade_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
@@ -87,7 +88,11 @@ export default function TeacherArcadePage() {
     setEndsAt(`${nextMonthStart(yearMonth)}T00:00`);
   };
 
-  const refresh = () => void client.invalidateQueries({ queryKey: ['teacher-arcade', classroomId] });
+  const refresh = () => {
+    void client.invalidateQueries({ queryKey: ['teacher-arcade', classroomId] });
+    void client.invalidateQueries({ queryKey: ['teacher-arcade-record-periods', classroomId] });
+    void client.invalidateQueries({ queryKey: ['teacher-arcade-period-records', classroomId] });
+  };
   const createPeriod = async () => {
     setActionError(null);
     const startsAtIso = localDateTimeToIso(startsAt);
@@ -280,6 +285,7 @@ export default function TeacherArcadePage() {
     setInvalidateTarget(null);
     setInvalidationReason('');
     await loadAudit();
+    refresh();
   };
 
   const setPrereleaseTestAccess = async (enabled: boolean, studentId = Number(testStudentId)) => {
@@ -295,6 +301,7 @@ export default function TeacherArcadePage() {
 
   return <TeacherShell><div className="space-y-6">
     <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start"><div><h1 className="font-display text-2xl text-brand-gradient">🕹️ Arcade 운영</h1><p className="mt-1 text-sm font-bold text-text-secondary">기간을 열고, 종료 후 기록 인증을 거쳐 월간 Top 10과 Guild 2 점수를 안전하게 확정합니다.</p></div><Link className="btn-secondary" to="/teacher/guild/scores">📊 Guild 2 점수 보기</Link></div>
+    <TeacherArcadePeriodRecordsPanel classroomId={classroomId} />
     {actionError && <div className="glass-card border-danger/40 p-4 text-sm font-bold text-danger">{actionError}</div>}
     {query.isLoading && <div className="py-16 text-center"><LoadingSpinner size="lg" /></div>}
     {query.isError && <div className="glass-card border-danger/40 p-4"><div className="font-black text-danger">Arcade 운영 정보를 불러오지 못했습니다.</div><p className="mt-2 text-xs text-text-secondary">{query.error instanceof Error ? query.error.message : '알 수 없는 오류'}</p><button className="btn-secondary mt-3" onClick={() => void query.refetch()}>다시 시도</button></div>}
