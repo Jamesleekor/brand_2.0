@@ -190,7 +190,9 @@ export default function ExpeditionChroniclePanel() {
       if (current.includes(character.character_id)) {
         return current.filter((id) => id !== character.character_id);
       }
-      if (current.length >= 3) return current;
+      if (current.length >= 3) {
+        return [current[0], current[1], character.character_id];
+      }
       return [...current, character.character_id];
     });
   };
@@ -354,14 +356,14 @@ export default function ExpeditionChroniclePanel() {
               <div className="flex items-center gap-3">
                 <img src={EXPEDITION_ASSETS.common.trace} alt="" className="h-10 w-10 flex-none object-contain" decoding="async" />
                 <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">이번 주 원정</div>
+                  <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">이번 주 원정</div>
                   <h2 className="mt-1 font-display text-xl text-[#FFF7ED]">탐사지 선택</h2>
-                  <p className="mt-1 text-xs font-semibold text-[#EADCC8]">
+                  <p className="mt-1 text-sm font-semibold text-[#F6EFE7]">
                     {phaseMessage(phase)}
                   </p>
                 </div>
               </div>
-              <div className="rounded-pill border border-line bg-bg-deep/70 px-3 py-1.5 text-xs font-black text-[#FFF7ED]">
+              <div className="rounded-pill border border-line bg-bg-deep/70 px-3 py-1.5 text-sm font-black text-[#FFF7ED]">
                 {phaseLabel(phase)}
               </div>
             </div>
@@ -387,16 +389,16 @@ export default function ExpeditionChroniclePanel() {
             <section className="rounded-card-xl border border-line bg-bg-card/90 p-4 shadow-card lg:p-5">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">원정대 편성</div>
+                  <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">원정대 편성</div>
                   <h2 className="mt-1 font-display text-xl text-[#FFF7ED]">{activeSite.site_name}</h2>
-                  <p className="mt-1 text-xs font-semibold text-[#EADCC8]">
+                  <p className="mt-1 text-sm font-semibold text-[#F6EFE7]">
                     편린 3명을 선택하면 원정 적합도와 예상 흔적을 미리 확인할 수 있습니다.
                   </p>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs font-black text-[#FFF7ED]">선택 {selectedCharacterIds.length}/3</div>
+                  <div className="text-sm font-black text-[#FFF7ED]">선택 {selectedCharacterIds.length}/3</div>
                   {phase === 'SUN' && (
-                    <div className="mt-1 text-[11px] font-bold text-[#FFCC80]">토요일 원정 편린은 회복 필요</div>
+                    <div className="mt-1 text-[13px] font-bold text-[#FFCC80]">토요일 원정 편린은 회복 필요</div>
                   )}
                 </div>
               </div>
@@ -415,7 +417,46 @@ export default function ExpeditionChroniclePanel() {
                 </div>
               ) : (
                 <>
-                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                  <div className="sticky top-2 z-30 mt-4 rounded-card-xl border border-brand-primary/45 bg-[#110D1B]/95 p-2.5 shadow-2xl backdrop-blur-md sm:top-3">
+                    <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_180px] lg:items-stretch">
+                      <PreviewCard
+                        site={activeSite}
+                        selectedCharacters={selectedCharacters}
+                        isLoading={previewQuery.isFetching}
+                        error={previewQuery.isError ? '원정 적합도를 계산하지 못했습니다.' : null}
+                        preview={previewQuery.data ?? null}
+                      />
+                      <button
+                        type="button"
+                        disabled={selectedCharacterIds.length !== 3 || previewQuery.isFetching || busyAction === 'submit'}
+                        onClick={() => void submitExpedition()}
+                        className="min-h-[64px] rounded-card-lg border border-brand-primary/55 bg-brand-primary/25 px-5 py-3 text-sm font-black text-white shadow-brand-sm transition hover:bg-brand-primary/35 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {busyAction === 'submit' ? '원정 기록 중...' : '원정 보내기'}
+                      </button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1 text-sm font-bold text-[#FFF7ED]">
+                      <span>
+                        선택 {selectedCharacterIds.length}/3
+                        {selectedCharacters.length > 0 && ` · ${selectedCharacters.map((item) => item.name).join(' / ')}`}
+                      </span>
+                      {selectedCharacterIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCharacterIds([])}
+                          className="rounded-pill border border-white/20 bg-white/5 px-2.5 py-1 text-[13px] font-black text-[#FFF7ED]"
+                        >
+                          선택 초기화
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 rounded-card-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-bold leading-relaxed text-[#F6EFE7]">
+                    3명을 선택한 뒤 다른 편린을 누르면 <span className="font-black text-[#FFD58A]">3번 슬롯이 즉시 교체</span>됩니다. 두 명을 고정해 두고 후보를 빠르게 바꾸며 적합도를 비교할 수 있습니다.
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                     {characters.map((character) => (
                       <PartyCharacterCard
                         key={character.character_id}
@@ -425,24 +466,6 @@ export default function ExpeditionChroniclePanel() {
                         onClick={() => toggleCharacter(character)}
                       />
                     ))}
-                  </div>
-
-                  <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-stretch">
-                    <PreviewCard
-                      site={activeSite}
-                      selectedCharacters={selectedCharacters}
-                      isLoading={previewQuery.isFetching}
-                      error={previewQuery.isError ? '원정 적합도를 계산하지 못했습니다.' : null}
-                      preview={previewQuery.data ?? null}
-                    />
-                    <button
-                      type="button"
-                      disabled={selectedCharacterIds.length !== 3 || previewQuery.isFetching || busyAction === 'submit'}
-                      onClick={() => void submitExpedition()}
-                      className="min-h-[96px] rounded-card-lg border border-brand-primary/45 bg-brand-primary/20 px-6 py-4 text-sm font-black text-white shadow-brand-sm transition hover:bg-brand-primary/30 disabled:cursor-not-allowed disabled:opacity-40 lg:min-w-[180px]"
-                    >
-                      {busyAction === 'submit' ? '원정 기록 중...' : '원정 보내기'}
-                    </button>
                   </div>
                 </>
               )}
@@ -522,11 +545,11 @@ function ExpeditionStatusHeader({
             decoding="async"
           />
           <div className="min-w-0">
-            <div className="text-[11px] font-black uppercase tracking-[0.15em] text-[#FFD58A]">Fragment Expedition</div>
+            <div className="text-[13px] font-black uppercase tracking-[0.15em] text-[#FFD58A]">Fragment Expedition</div>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <h2 className="font-display text-2xl text-[#FFF7ED]">편린 원정</h2>
               {board.week?.reward_mode === 'DRY_RUN' && (
-                <span className="rounded-pill border border-warning/40 bg-warning/10 px-2 py-1 text-[10px] font-black text-warning">
+                <span className="rounded-pill border border-warning/40 bg-warning/10 px-2 py-1 text-xs font-black text-warning">
                   체험 운영
                 </span>
               )}
@@ -547,7 +570,7 @@ function ExpeditionStatusHeader({
           decoding="async"
         />
         <div className="relative">
-          <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">현재 월드효과</div>
+          <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">현재 월드효과</div>
           {effect ? (
             <div className="mt-2 flex items-center gap-3">
               {getExpeditionWorldEffectAsset(effect.effect_code) && (
@@ -563,7 +586,7 @@ function ExpeditionStatusHeader({
                 <div className="text-lg font-black text-[#FFF7ED]">
                   {WORLD_EFFECT_LABEL[effect.effect_code] ?? '원정 효과'} Lv.{effect.effect_level}
                 </div>
-                <div className="mt-1 text-xs font-semibold text-[#EADCC8]">
+                <div className="mt-1 text-sm font-semibold text-[#F6EFE7]">
                   {formatDateTime(effect.ends_at)}까지
                 </div>
               </div>
@@ -611,22 +634,22 @@ function SiteCard({
           <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/70 to-transparent" />
           <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-pill border border-white/15 bg-black/55 px-2 py-1 backdrop-blur-sm">
             <img src={specialtyAsset} alt="" className="h-4 w-4 object-contain" decoding="async" />
-            <span className="text-[9px] font-black text-[#FFF7ED]">{specialty.label}</span>
+            <span className="text-[11px] font-black text-[#FFF7ED]">{specialty.label}</span>
           </div>
         </div>
       )}
       <button type="button" onClick={onClick} className="w-full text-left">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <div className="text-[10px] font-black text-[#FFD58A]">{specialty.label}</div>
+            <div className="text-xs font-black text-[#FFD58A]">{specialty.label}</div>
             <div className="mt-1 text-sm font-black text-[#FFF7ED]">{site.site_name}</div>
           </div>
           {site.sunday_environment_changed && (
-            <span className="rounded-pill border border-crystal/35 bg-crystal/10 px-2 py-1 text-[9px] font-black text-crystal">환경 변화</span>
+            <span className="rounded-pill border border-crystal/35 bg-crystal/10 px-2 py-1 text-[11px] font-black text-[#73E6F2]">환경 변화</span>
           )}
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-1.5 text-[10px] font-bold">
+        <div className="mt-3 grid grid-cols-2 gap-1.5 text-xs font-bold">
           <MiniStat label="이번 주 흔적" value={`${site.weekly_trace}`} />
           <MiniStat label="원정 인원" value={`${site.weekly_participants}명`} />
           <MiniStat label="누적 흔적" value={`${site.cumulative_trace}`} />
@@ -637,14 +660,14 @@ function SiteCard({
           <ElementChip code={site.major_element} strong />
           <ElementChip code={site.minor_element} />
         </div>
-        <div className="mt-2 text-[10px] font-bold text-[#EADCC8]">핵심 보상 · {site.core_reward_label}</div>
-        <div className="mt-0.5 text-[10px] font-bold text-[#EADCC8]">주도 시 · {site.world_effect_label}</div>
+        <div className="mt-2 text-xs font-bold text-[#F6EFE7]">핵심 보상 · {site.core_reward_label}</div>
+        <div className="mt-0.5 text-xs font-bold text-[#F6EFE7]">주도 시 · {site.world_effect_label}</div>
       </button>
 
       <button
         type="button"
         onClick={onStory}
-        className="mt-3 w-full rounded-pill border border-line bg-bg-card/80 px-2.5 py-1.5 text-[10px] font-black text-[#FFF7ED] hover:border-brand-primary/40"
+        className="mt-3 w-full rounded-pill border border-line bg-bg-card/80 px-2.5 py-1.5 text-xs font-black text-[#FFF7ED] hover:border-brand-primary/40"
       >
         탐사 기록 보기
       </button>
@@ -671,39 +694,45 @@ function PartyCharacterCard({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'relative min-h-[166px] overflow-hidden rounded-card-lg border text-left transition-all',
+        'relative min-h-[190px] overflow-hidden rounded-card-lg border text-left transition-all',
         selected
-          ? 'border-brand-primary/70 bg-brand-primary/12 shadow-brand-sm'
-          : 'border-line bg-bg-deep/60 hover:border-brand-primary/35',
+          ? 'border-brand-primary/80 bg-brand-primary/15 shadow-brand-sm'
+          : 'border-line bg-bg-deep/60 hover:border-brand-primary/45',
         disabled && 'cursor-not-allowed opacity-55',
       )}
     >
-      <div className="flex h-[92px] items-center justify-center bg-black/20">
+      <div className="flex h-[108px] items-center justify-center bg-black/20">
         {character.resource_kind === 'EMOJI' || !src ? (
-          <span className="text-5xl">{character.emoji || '✦'}</span>
+          <span className="text-6xl">{character.emoji || '✦'}</span>
         ) : (
           <img src={src} alt={character.name} className="h-full w-full object-contain" decoding="async" />
         )}
       </div>
-      <div className="p-2.5">
-        <div className="truncate text-xs font-black text-[#FFF7ED]">{character.name}</div>
-        <div className="mt-1 flex items-center justify-between gap-1 text-[9px] font-black text-[#EADCC8]">
-          <span className="inline-flex items-center gap-1">
-            <img src={EXPEDITION_ASSETS.specialty[character.specialty_code]} alt="" className="h-3.5 w-3.5 object-contain" decoding="async" />
-            {specialty.label}
+      <div className="p-3">
+        <div className="truncate text-sm font-black text-[#FFF7ED]">{character.name}</div>
+        <div className="mt-1.5 inline-flex items-center gap-1.5 text-[13px] font-black text-[#FFF7ED]">
+          <img src={EXPEDITION_ASSETS.specialty[character.specialty_code]} alt="" className="h-[18px] w-[18px] object-contain" decoding="async" />
+          {specialty.label}
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <span className="inline-flex items-center gap-1 rounded-pill border border-white/15 bg-white/[0.05] px-2 py-1 text-[13px] font-black text-[#FFF7ED]">
+            <img src={EXPEDITION_ASSETS.element[character.primary_element]} alt="" className="h-[18px] w-[18px] object-contain" decoding="async" />
+            주 {character.primary_points}
           </span>
-          <span className="inline-flex items-center gap-1">
-            <img src={EXPEDITION_ASSETS.element[character.primary_element]} alt="" className="h-3.5 w-3.5 object-contain" decoding="async" />
-            {character.primary_points}
-          </span>
+          {character.secondary_element && character.secondary_points > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-pill border border-white/15 bg-white/[0.05] px-2 py-1 text-[13px] font-black text-[#FFF7ED]">
+              <img src={EXPEDITION_ASSETS.element[character.secondary_element]} alt="" className="h-[18px] w-[18px] object-contain" decoding="async" />
+              보 {character.secondary_points}
+            </span>
+          )}
         </div>
       </div>
       {selected && (
-        <div className="absolute right-2 top-2 rounded-full border border-brand-primary/70 bg-brand-primary px-2 py-1 text-[9px] font-black text-white">선택</div>
+        <div className="absolute right-2 top-2 rounded-full border border-brand-primary/70 bg-brand-primary px-2.5 py-1 text-[13px] font-black text-white">선택</div>
       )}
       {disabled && (
-        <div className="absolute inset-x-1 bottom-1 flex items-center justify-center gap-1.5 rounded-card-md border border-warning/45 bg-[#2C2012]/95 px-2 py-1.5 text-center text-[10px] font-black text-warning">
-          <img src={EXPEDITION_ASSETS.recoveryRequired} alt="" className="h-4 w-4 object-contain" decoding="async" />
+        <div className="absolute inset-x-1 bottom-1 flex items-center justify-center gap-1.5 rounded-card-md border border-warning/45 bg-[#2C2012]/95 px-2 py-1.5 text-center text-[13px] font-black text-warning">
+          <img src={EXPEDITION_ASSETS.recoveryRequired} alt="" className="h-5 w-5 object-contain" decoding="async" />
           회복 필요
         </div>
       )}
@@ -726,33 +755,35 @@ function PreviewCard({
 }) {
   if (selectedCharacters.length !== 3) {
     return (
-      <div className="rounded-card-lg border border-line bg-bg-deep/55 p-4 text-sm font-bold text-[#F2EADB]">
-        편린 3명을 선택하세요. 원정 적합도는 성공확률이 아니라, 이번 환경에 원정대가 얼마나 잘 맞는지를 보여주는 지표입니다.
+      <div className="flex min-h-[64px] items-center rounded-card-lg border border-line bg-bg-deep/70 px-4 py-3 text-sm font-bold text-[#FFF7ED]">
+        편린 {selectedCharacters.length}/3 선택 · 세 명을 채우면 원정 적합도와 예상 흔적을 바로 계산합니다.
       </div>
     );
   }
   if (isLoading) {
-    return <div className="flex min-h-[96px] items-center justify-center rounded-card-lg border border-line bg-bg-deep/55"><LoadingSpinner size="sm" /></div>;
+    return <div className="flex min-h-[64px] items-center justify-center rounded-card-lg border border-line bg-bg-deep/70"><LoadingSpinner size="sm" /></div>;
   }
   if (error || !preview) {
-    return <div className="rounded-card-lg border border-danger/35 bg-danger-bg p-4 text-sm font-black text-[#FFF7ED]">{error ?? '적합도를 확인할 수 없습니다.'}</div>;
+    return <div className="rounded-card-lg border border-danger/35 bg-danger-bg p-3 text-sm font-black text-[#FFF7ED]">{error ?? '적합도를 확인할 수 없습니다.'}</div>;
   }
 
   const fitAsset = getExpeditionFitGradeAsset(preview.fit_grade);
   return (
-    <div className="rounded-card-lg border border-line bg-bg-deep/55 p-4">
+    <div className="rounded-card-lg border border-line bg-bg-deep/75 p-3">
       <div className="flex items-center gap-3">
         {fitAsset && (
-          <img src={fitAsset} alt="" className="h-12 w-12 flex-none object-contain" decoding="async" />
+          <img src={fitAsset} alt="" className="h-11 w-11 flex-none object-contain" decoding="async" />
         )}
-        <div className="grid min-w-0 flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
           <PreviewStat label="원정 적합도" value={`${preview.fit_percent}%`} strong />
           <PreviewStat label="등급" value={preview.fit_grade_ko} />
           <PreviewStat label="예상 흔적" value={`+${preview.trace_contribution}`} />
           <PreviewStat label="특기 일치" value={`${preview.specialty_match_count}/3`} />
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-bold text-[#EADCC8]">
+      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] font-bold text-[#FFF7ED]">
+        <span className="font-black text-[#FFD58A]">{selectedCharacters.map((item) => item.name).join(' · ')}</span>
+        <span>·</span>
         <span>{site.site_name}</span>
         <span>·</span>
         <span>주요 {ELEMENT_META[preview.major_element as ExpeditionElementCode]?.label}</span>
@@ -794,13 +825,13 @@ function RunResultCard({
               {fitAsset && <img src={fitAsset} alt="" className="absolute bottom-1 right-1 h-6 w-6 object-contain drop-shadow" decoding="async" />}
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">
+              <div className="flex items-center gap-1.5 text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">
                 <img src={EXPEDITION_ASSETS.common.completed} alt="" className="h-5 w-5 object-contain" decoding="async" />
                 원정 결과
               </div>
               <div className="mt-1 flex flex-wrap items-baseline gap-3">
                 <div className="font-display text-2xl text-[#FFF7ED]">{run.site.site_name}</div>
-                <div className="text-sm font-black text-crystal">적합도 {run.fit_percent}% · {run.fit_grade_ko}</div>
+                <div className="text-sm font-black text-[#73E6F2]">적합도 {run.fit_percent}% · {run.fit_grade_ko}</div>
               </div>
             </div>
           </div>
@@ -811,7 +842,7 @@ function RunResultCard({
           </div>
 
           {run.record?.discovery?.new_permanent_unlock && (
-            <div className="mt-3 flex items-center gap-2 rounded-card-md border border-gold/40 bg-gold/10 px-3 py-2 text-xs font-black text-gold">
+            <div className="mt-3 flex items-center gap-2 rounded-card-md border border-gold/40 bg-gold/10 px-3 py-2 text-sm font-black text-gold">
               <img src={EXPEDITION_ASSETS.common.discoverySuccess} alt="" className="h-7 w-7 flex-none object-contain" decoding="async" />
               <span>새 발굴 기록이 해금되었습니다 · {run.record.discovery.title}</span>
             </div>
@@ -829,9 +860,9 @@ function RunResultCard({
               />
             )}
             <div className="min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-[0.13em] text-[#FFD58A]">개인 보상</div>
+              <div className="text-xs font-black uppercase tracking-[0.13em] text-[#FFD58A]">개인 보상</div>
               <div className="mt-1 text-lg font-black text-[#FFF7ED]">{reward?.reward_label ?? '보상 확인 중'}</div>
-              <div className="mt-1 text-xs font-bold text-[#EADCC8]">{reward ? `${reward.reward_tier_ko} 등급` : ''}</div>
+              <div className="mt-1 text-sm font-bold text-[#F6EFE7]">{reward ? `${reward.reward_tier_ko} 등급` : ''}</div>
             </div>
           </div>
 
@@ -840,18 +871,18 @@ function RunResultCard({
               type="button"
               onClick={onClaim}
               disabled={busyAction === `claim-${run.run_id}`}
-              className="mt-3 w-full rounded-pill border border-brand-primary/45 bg-brand-primary/20 px-3 py-2.5 text-xs font-black text-white disabled:opacity-45"
+              className="mt-3 w-full rounded-pill border border-brand-primary/45 bg-brand-primary/20 px-3 py-2.5 text-sm font-black text-white disabled:opacity-45"
             >
               {busyAction === `claim-${run.run_id}` ? '보상 처리 중...' : '보상 받기'}
             </button>
           )}
 
           {reward?.claim_status === 'SIMULATED' && (
-            <div className="mt-3 rounded-card-md border border-warning/35 bg-warning/10 px-3 py-2 text-xs font-black text-warning">체험 운영 결과 확인 완료</div>
+            <div className="mt-3 rounded-card-md border border-warning/35 bg-warning/10 px-3 py-2 text-sm font-black text-warning">체험 운영 결과 확인 완료</div>
           )}
 
           {reward?.claim_status === 'GRANTED' && (
-            <div className="mt-3 rounded-card-md border border-success/35 bg-success-bg px-3 py-2 text-xs font-black text-success">
+            <div className="mt-3 rounded-card-md border border-success/35 bg-success-bg px-3 py-2 text-sm font-black text-success">
               {reward.reward_kind === 'EXPEDITION_BOX' ? '원정 상자함에 추가됨' : '보상 지급 완료'}
             </div>
           )}
@@ -872,54 +903,123 @@ function FragmentRestoreSection({
   busyAction: string | null;
   onRestore: (characterId: number) => Promise<void>;
 }) {
-  const restorable = (wallet?.restorable_characters ?? []).filter((character: any) => !character.is_owned);
+  const [expanded, setExpanded] = useState(false);
+  const [filter, setFilter] = useState<'ALL' | 'RESTORABLE' | 'OWNED' | 'EXCLUDED'>('ALL');
+  const catalog = wallet?.restorable_characters ?? [];
+  const ownedCount = catalog.filter((character: any) => character.is_owned).length;
+  const restorableCount = catalog.filter((character: any) => !character.is_owned && character.restore_eligible).length;
+  const excludedCount = catalog.filter((character: any) => !character.restore_eligible).length;
+  const filtered = catalog.filter((character: any) => {
+    if (filter === 'RESTORABLE') return !character.is_owned && character.restore_eligible;
+    if (filter === 'OWNED') return character.is_owned;
+    if (filter === 'EXCLUDED') return !character.restore_eligible;
+    return true;
+  });
+  const visible = expanded ? filtered : filtered.slice(0, 9);
+
   return (
     <section className="rounded-card-xl border border-line bg-bg-card/90 p-4 shadow-card lg:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <img src={EXPEDITION_ASSETS.common.universalFragment} alt="" className="h-12 w-12 flex-none object-contain" loading="lazy" decoding="async" />
+          <img src={EXPEDITION_ASSETS.common.universalFragment} alt="" className="h-14 w-14 flex-none object-contain" loading="lazy" decoding="async" />
           <div>
-            <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">편린 복원</div>
-            <h2 className="mt-1 font-display text-xl text-[#FFF7ED]">범용 편린 조각</h2>
-            <p className="mt-1 text-xs font-semibold text-[#EADCC8]">모은 조각은 복원 가능한 어떤 편린에도 사용할 수 있습니다.</p>
+            <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">편린 복원</div>
+            <h2 className="mt-1 font-display text-2xl text-[#FFF7ED]">범용 편린 조각</h2>
+            <p className="mt-1 text-sm font-semibold text-[#F6EFE7]">전체 편린을 확인하고, 조각으로 복원 가능한 미보유 편린을 선택할 수 있습니다.</p>
           </div>
         </div>
-        <div className="rounded-card-lg border border-crystal/35 bg-crystal/10 px-4 py-2 text-right">
-          <div className="text-[10px] font-black text-[#EADCC8]">보유 조각</div>
-          <div className="text-lg font-black text-crystal">{loading ? '—' : `${wallet?.balance ?? 0}개`}</div>
+        <div className="rounded-card-lg border border-crystal/35 bg-crystal/10 px-4 py-2.5 text-right">
+          <div className="text-sm font-black text-[#FFF7ED]">보유 조각</div>
+          <div className="text-xl font-black text-[#73E6F2]">{loading ? '—' : `${wallet?.balance ?? 0}개`}</div>
           {(wallet?.restore_discount_percent ?? 0) > 0 && (
-            <div className="text-[10px] font-black text-success">복원비 {wallet.restore_discount_percent}% 할인 중</div>
+            <div className="text-sm font-black text-success">복원비 {wallet.restore_discount_percent}% 할인 중</div>
           )}
         </div>
       </div>
 
-      {!loading && restorable.length === 0 ? (
-        <div className="mt-4 rounded-card-lg border border-line bg-bg-deep/55 p-4 text-sm font-bold text-[#F2EADB]">현재 조각으로 복원할 미보유 편린이 없습니다.</div>
-      ) : (
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {restorable.slice(0, 12).map((character: any) => {
-            const enough = Number(wallet?.balance ?? 0) >= Number(character.effective_cost ?? 0);
-            return (
-              <div key={character.character_id} className="flex items-center justify-between gap-3 rounded-card-lg border border-line bg-bg-deep/55 p-3">
-                <div>
-                  <div className="text-xs font-black text-[#FFF7ED]">{character.name}</div>
-                  <div className="mt-1 text-[10px] font-bold text-[#EADCC8]">
-                    {character.base_cost !== character.effective_cost && <span className="mr-1 line-through">{character.base_cost}</span>}
-                    조각 {character.effective_cost}개
-                  </div>
-                </div>
+      {!loading && (
+        <>
+          <div className="mt-4 flex flex-col gap-2 rounded-card-lg border border-line bg-bg-deep/55 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm font-black text-[#FFF7ED]">
+              전체 {catalog.length}종
+              <span className="ml-2 font-bold text-[#F6EFE7]">복원 가능 {restorableCount} · 보유 {ownedCount} · 복원 제외 {excludedCount}</span>
+            </div>
+            <select
+              value={filter}
+              onChange={(event) => {
+                setFilter(event.target.value as 'ALL' | 'RESTORABLE' | 'OWNED' | 'EXCLUDED');
+                setExpanded(true);
+              }}
+              className="rounded-pill border border-line bg-bg-card px-3 py-2 text-sm font-black text-[#FFF7ED] outline-none focus:border-brand-primary/60"
+            >
+              <option value="ALL">전체 편린</option>
+              <option value="RESTORABLE">복원 가능한 미보유 편린</option>
+              <option value="OWNED">보유 중</option>
+              <option value="EXCLUDED">복원 대상 아님</option>
+            </select>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="mt-3 rounded-card-lg border border-line bg-bg-deep/55 p-4 text-sm font-bold text-[#FFF7ED]">조건에 맞는 편린이 없습니다.</div>
+          ) : (
+            <>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {visible.map((character: any) => {
+                  const cost = Number(character.effective_cost ?? 0);
+                  const eligible = character.restore_eligible === true;
+                  const enough = eligible && !character.is_owned && Number(wallet?.balance ?? 0) >= cost;
+                  return (
+                    <div key={character.character_id} className="rounded-card-lg border border-line bg-bg-deep/55 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0 truncate text-sm font-black text-[#FFF7ED]">{character.name}</div>
+                        <div className="flex-none text-sm font-black text-[#FFD58A]">
+                          {character.is_owned
+                            ? '보유 중'
+                            : !eligible
+                              ? '복원 제외'
+                              : <>필요 {cost}개</>}
+                        </div>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <div className="min-w-0 text-sm font-bold text-[#F6EFE7]">
+                          {eligible && character.base_cost !== character.effective_cost ? (
+                            <>기본 <span className="line-through">{character.base_cost}개</span> · 할인 적용</>
+                          ) : eligible ? '범용 편린 조각으로 복원' : '이 편린은 조각 복원 대상이 아닙니다.'}
+                        </div>
+                        <button
+                          type="button"
+                          disabled={!enough || busyAction === `restore-${character.character_id}`}
+                          onClick={() => void onRestore(character.character_id)}
+                          className="flex-none rounded-pill border border-crystal/40 bg-crystal/10 px-3 py-2 text-sm font-black text-[#73E6F2] disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/[0.03] disabled:text-[#C8C0B7] disabled:opacity-70"
+                        >
+                          {busyAction === `restore-${character.character_id}`
+                            ? '복원 중'
+                            : character.is_owned
+                              ? '보유'
+                              : !eligible
+                                ? '대상 아님'
+                                : enough
+                                  ? '복원'
+                                  : '조각 부족'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {filtered.length > 9 && (
                 <button
                   type="button"
-                  disabled={!enough || busyAction === `restore-${character.character_id}`}
-                  onClick={() => void onRestore(character.character_id)}
-                  className="rounded-pill border border-crystal/35 bg-crystal/10 px-3 py-2 text-[10px] font-black text-crystal disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={() => setExpanded((value) => !value)}
+                  className="mt-3 w-full rounded-card-lg border border-line bg-bg-deep/65 px-4 py-3 text-sm font-black text-[#FFF7ED] transition hover:border-brand-primary/45"
                 >
-                  {busyAction === `restore-${character.character_id}` ? '복원 중' : enough ? '복원' : '조각 부족'}
+                  {expanded ? '목록 접기' : `전체 ${filtered.length}종 펼쳐보기`}
                 </button>
-              </div>
-            );
-          })}
-        </div>
+              )}
+            </>
+          )}
+        </>
       )}
     </section>
   );
@@ -944,9 +1044,9 @@ function ExpeditionBoxInventorySection({
   return (
     <section className="rounded-card-xl border border-gold/30 bg-gold/5 p-4 shadow-card lg:p-5">
       <div>
-        <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">원정 상자함</div>
+        <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">원정 상자함</div>
         <h2 className="mt-1 font-display text-xl text-[#FFF7ED]">획득한 원정 상자</h2>
-        <p className="mt-1 text-xs font-semibold text-[#EADCC8]">상자를 열 때 최종 내용물이 한 번 확정됩니다.</p>
+        <p className="mt-1 text-sm font-semibold text-[#F6EFE7]">상자를 열 때 최종 내용물이 한 번 확정됩니다.</p>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         {boxes.map((box) => {
@@ -957,7 +1057,7 @@ function ExpeditionBoxInventorySection({
               <div className="flex items-center gap-3">
                 <img src={getExpeditionRewardChestAsset(box.tier) ?? undefined} alt="" className="h-14 w-14 flex-none object-contain" loading="lazy" decoding="async" />
                 <div>
-                  <div className="text-[10px] font-black text-[#FFD58A]">{tierLabel} 원정 상자</div>
+                  <div className="text-xs font-black text-[#FFD58A]">{tierLabel} 원정 상자</div>
                   <div className="mt-1 text-sm font-black text-[#FFF7ED]">보유 {box.available_quantity}개</div>
                 </div>
               </div>
@@ -965,14 +1065,14 @@ function ExpeditionBoxInventorySection({
                 type="button"
                 disabled={busyAction === `box-item-${box.item_id}`}
                 onClick={() => void onOpen(box.item_id)}
-                className="mt-3 w-full rounded-pill border border-gold/40 bg-gold/10 px-3 py-2.5 text-xs font-black text-gold disabled:opacity-45"
+                className="mt-3 w-full rounded-pill border border-gold/40 bg-gold/10 px-3 py-2.5 text-sm font-black text-gold disabled:opacity-45"
               >
                 {busyAction === `box-item-${box.item_id}` ? '상자 여는 중...' : '상자 열기'}
               </button>
               {result && (
                 <div className="mt-3 rounded-card-md border border-success/30 bg-success-bg px-3 py-2">
-                  <div className="text-[9px] font-black text-success">방금 획득</div>
-                  <div className="mt-0.5 text-xs font-black text-[#FFF7ED]">{result.final_reward_label}</div>
+                  <div className="text-[11px] font-black text-success">방금 획득</div>
+                  <div className="mt-0.5 text-sm font-black text-[#FFF7ED]">{result.final_reward_label}</div>
                 </div>
               )}
             </div>
@@ -1003,9 +1103,9 @@ function ChronicleSection({
       <div className="flex items-center gap-3">
         <img src={EXPEDITION_ASSETS.weeklySummary} alt="" className="h-12 w-12 flex-none object-contain" loading="lazy" decoding="async" />
         <div>
-          <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">원정 연대기</div>
+          <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">원정 연대기</div>
           <h2 className="mt-1 font-display text-xl text-[#FFF7ED]">15개 탐사지 기록</h2>
-          <p className="mt-1 text-xs font-semibold text-[#EADCC8]">학급이 쌓은 누적 흔적과 내가 발견한 기록은 시즌 동안 계속 보존됩니다.</p>
+          <p className="mt-1 text-sm font-semibold text-[#F6EFE7]">학급이 쌓은 누적 흔적과 내가 발견한 기록은 시즌 동안 계속 보존됩니다.</p>
         </div>
       </div>
 
@@ -1063,8 +1163,8 @@ function ChronicleSiteCard({ site, onStory }: { site: ExpeditionChronicleSite; o
       <div className="p-3">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="inline-flex items-center gap-1 text-[9px] font-black text-[#FFD58A]"><img src={EXPEDITION_ASSETS.specialty[site.specialty_code]} alt="" className="h-3.5 w-3.5 object-contain" loading="lazy" decoding="async" />{specialty.label}</div>
-          <div className="mt-1 text-xs font-black text-[#FFF7ED]">{site.site_name}</div>
+          <div className="inline-flex items-center gap-1 text-[11px] font-black text-[#FFD58A]"><img src={EXPEDITION_ASSETS.specialty[site.specialty_code]} alt="" className="h-3.5 w-3.5 object-contain" loading="lazy" decoding="async" />{specialty.label}</div>
+          <div className="mt-1 text-sm font-black text-[#FFF7ED]">{site.site_name}</div>
         </div>
         {site.discovery_unlocked && <img src={EXPEDITION_ASSETS.common.discoverySuccess} alt="발굴 기록 발견" className="h-6 w-6 object-contain" loading="lazy" decoding="async" />}
       </div>
@@ -1094,9 +1194,9 @@ function LuxuryShopSection({
   if (!shop?.open) {
     return (
       <section className="rounded-card-xl border border-line bg-bg-card/90 p-4 shadow-card lg:p-5">
-        <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">명품관</div>
+        <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">명품관</div>
         <div className="mt-1 text-lg font-black text-[#FFF7ED]">현재는 문이 닫혀 있습니다.</div>
-        <p className="mt-1 text-xs font-semibold text-[#EADCC8]">상점(명품관) 개방 월드효과가 활성화되면 기간 한정 상품을 구매할 수 있습니다.</p>
+        <p className="mt-1 text-sm font-semibold text-[#F6EFE7]">상점(명품관) 개방 월드효과가 활성화되면 기간 한정 상품을 구매할 수 있습니다.</p>
       </section>
     );
   }
@@ -1104,16 +1204,16 @@ function LuxuryShopSection({
   if (shop.assets_pending || (shop.items ?? []).length === 0) {
     return (
       <section className="rounded-card-xl border border-gold/30 bg-gold/5 p-4 shadow-card lg:p-5">
-        <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">명품관 · Lv.{shop.access_level}</div>
+        <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">명품관 · Lv.{shop.access_level}</div>
         <div className="mt-1 text-lg font-black text-[#FFF7ED]">명품관이 열렸습니다.</div>
-        <p className="mt-1 text-xs font-semibold text-[#EADCC8]">이번 개방에 연결된 한정 상품은 아직 준비 중입니다.</p>
+        <p className="mt-1 text-sm font-semibold text-[#F6EFE7]">이번 개방에 연결된 한정 상품은 아직 준비 중입니다.</p>
       </section>
     );
   }
 
   return (
     <section className="rounded-card-xl border border-gold/30 bg-gold/5 p-4 shadow-card lg:p-5">
-      <div className="text-[11px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">명품관 · Lv.{shop.access_level}</div>
+      <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">명품관 · Lv.{shop.access_level}</div>
       <h2 className="mt-1 font-display text-xl text-[#FFF7ED]">기간 한정 꾸미기</h2>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {(shop.items as ExpeditionLuxuryItem[]).map((item) => (
@@ -1122,11 +1222,11 @@ function LuxuryShopSection({
               <img src={item.resource_url} alt={item.name} className="h-full w-full object-contain" />
             </div>
             <div className="p-3">
-              <div className="text-[9px] font-black text-[#FFD58A]">GROUP {item.luxury_group}</div>
+              <div className="text-[11px] font-black text-[#FFD58A]">GROUP {item.luxury_group}</div>
               <div className="mt-1 text-sm font-black text-[#FFF7ED]">{item.name}</div>
-              {item.description && <div className="mt-1 text-[10px] font-semibold text-[#EADCC8]">{item.description}</div>}
+              {item.description && <div className="mt-1 text-xs font-semibold text-[#F6EFE7]">{item.description}</div>}
               {item.owned ? (
-                <div className="mt-3 rounded-pill border border-success/35 bg-success-bg px-3 py-2 text-center text-[10px] font-black text-success">보유 중</div>
+                <div className="mt-3 rounded-pill border border-success/35 bg-success-bg px-3 py-2 text-center text-xs font-black text-success">보유 중</div>
               ) : (
                 <div className="mt-3 space-y-1.5">
                   {item.pricing.map((pricing) => (
@@ -1135,7 +1235,7 @@ function LuxuryShopSection({
                       type="button"
                       disabled={busyAction === `luxury-${item.item_id}`}
                       onClick={() => void onBuy(item, pricing.pricing_id)}
-                      className="w-full rounded-pill border border-gold/35 bg-gold/10 px-3 py-2 text-[10px] font-black text-gold disabled:opacity-45"
+                      className="w-full rounded-pill border border-gold/35 bg-gold/10 px-3 py-2 text-xs font-black text-gold disabled:opacity-45"
                     >
                       {pricing.value_token === 'CRYSTAL' ? '💎' : '🪙'} {pricing.price.toLocaleString('ko-KR')} 구매
                     </button>
@@ -1163,7 +1263,7 @@ function SundayEventModal({
     <div className="fixed inset-0 z-[1450] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
       <div className="w-full max-w-lg overflow-hidden rounded-card-xl border border-crystal/40 bg-bg-base shadow-2xl">
         <div className="border-b border-line bg-gradient-to-r from-crystal/15 to-brand-primary/10 px-5 py-4">
-          <div className="text-[11px] font-black uppercase tracking-[0.15em] text-crystal">일요일 환경 변화</div>
+          <div className="text-[13px] font-black uppercase tracking-[0.15em] text-[#73E6F2]">일요일 환경 변화</div>
           <h3 className="mt-1 font-display text-2xl text-[#FFF7ED]">{popup.site_name}</h3>
         </div>
         <div className="space-y-4 p-5">
@@ -1176,11 +1276,11 @@ function SundayEventModal({
             <MiniStat label="누적 흔적" value={`${popup.cumulative_trace}`} />
           </div>
           <div className="rounded-card-lg border border-line bg-bg-card p-4">
-            <div className="text-xs font-black text-[#FFD58A]">{popup.site_message_title}</div>
+            <div className="text-sm font-black text-[#FFD58A]">{popup.site_message_title}</div>
             <p className="mt-1 text-sm font-semibold leading-relaxed text-[#F2EADB]">{popup.site_message_text}</p>
           </div>
           <div className="rounded-card-lg border border-crystal/30 bg-crystal/10 p-4">
-            <div className="text-xs font-black text-crystal">{popup.event_title}</div>
+            <div className="text-sm font-black text-[#73E6F2]">{popup.event_title}</div>
             <p className="mt-1 text-sm font-semibold text-[#F2EADB]">{popup.event_text}</p>
             <div className="mt-3 flex items-center justify-center gap-3 text-sm font-black text-[#FFF7ED]">
               <ElementChip code={popup.old_major_element} strong />
@@ -1188,7 +1288,7 @@ function SundayEventModal({
               <ElementChip code={popup.new_major_element} strong />
             </div>
           </div>
-          <div className="text-center text-xs font-bold text-[#EADCC8]">현재 탐사 단계 · {popup.highest_story_stage_label}</div>
+          <div className="text-center text-sm font-bold text-[#F6EFE7]">현재 탐사 단계 · {popup.highest_story_stage_label}</div>
         </div>
         <div className="border-t border-line bg-bg-deep/60 p-4">
           <button
@@ -1215,13 +1315,13 @@ function StoryModal({ story, onClose }: { story: ExpeditionSiteStory; onClose: (
               <img src={getExpeditionSiteAsset(story.site_code) ?? undefined} alt="" className="h-14 w-16 flex-none rounded-card-md object-cover" loading="lazy" decoding="async" />
             )}
             <div className="min-w-0">
-              <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">탐사 기록</div>
+              <div className="text-xs font-black uppercase tracking-[0.14em] text-[#FFD58A]">탐사 기록</div>
               <h3 className="mt-1 truncate font-display text-2xl text-[#FFF7ED]">{story.site_name}</h3>
-              <div className="mt-1 text-xs font-bold text-[#EADCC8]">누적 흔적 {story.cumulative_trace} · {story.highest_story_stage_label} · {story.mastery_label}</div>
+              <div className="mt-1 text-sm font-bold text-[#F6EFE7]">누적 흔적 {story.cumulative_trace} · {story.highest_story_stage_label} · {story.mastery_label}</div>
             </div>
             <img src={getExpeditionMasteryAsset(story.mastery_level)} alt="" className="h-9 w-9 flex-none object-contain" loading="lazy" decoding="async" />
           </div>
-          <button type="button" onClick={onClose} className="rounded-full border border-line bg-bg-deep px-3 py-2 text-xs font-black text-[#FFF7ED]">닫기</button>
+          <button type="button" onClick={onClose} className="rounded-full border border-line bg-bg-deep px-3 py-2 text-sm font-black text-[#FFF7ED]">닫기</button>
         </div>
         <div className="space-y-4 p-5">
           <p className="whitespace-pre-line text-sm font-semibold leading-relaxed text-[#F2EADB]">{story.intro_text}</p>
@@ -1236,15 +1336,15 @@ function StoryModal({ story, onClose }: { story: ExpeditionSiteStory; onClose: (
                     loading="lazy"
                     decoding="async"
                   />
-                  <div className="text-xs font-black text-[#FFD58A]">누적 {stage.threshold} · {stage.label}</div>
+                  <div className="text-sm font-black text-[#FFD58A]">누적 {stage.threshold} · {stage.label}</div>
                 </div>
-                <div className="text-[10px] font-black text-[#EADCC8]">{stage.unlocked ? '해금' : '잠김'}</div>
+                <div className="text-xs font-black text-[#F6EFE7]">{stage.unlocked ? '해금' : '잠김'}</div>
               </div>
               {stage.unlocked && (
                 <>
                   <div className="mt-2 text-sm font-black text-[#FFF7ED]">「{stage.title}」</div>
                   <p className="mt-1 whitespace-pre-line text-sm font-semibold leading-relaxed text-[#F2EADB]">{stage.text}</p>
-                  {stage.short_result && <div className="mt-2 text-xs font-black text-crystal">{stage.short_result}</div>}
+                  {stage.short_result && <div className="mt-2 text-sm font-black text-[#73E6F2]">{stage.short_result}</div>}
                 </>
               )}
             </div>
@@ -1283,16 +1383,16 @@ function RecordBlock({
 }) {
   return (
     <div className={cn('rounded-card-lg border p-4', unlocked ? 'border-gold/30 bg-gold/5' : 'border-line bg-bg-deep/45')}>
-      <div className="text-[10px] font-black uppercase tracking-[0.13em] text-[#FFD58A]">{title}</div>
+      <div className="text-xs font-black uppercase tracking-[0.13em] text-[#FFD58A]">{title}</div>
       {unlocked ? (
         <>
           <div className="mt-2 text-sm font-black text-[#FFF7ED]">{recordTitle}</div>
-          <p className="mt-1 whitespace-pre-line text-xs font-semibold leading-relaxed text-[#F2EADB]">{text}</p>
+          <p className="mt-1 whitespace-pre-line text-sm font-semibold leading-relaxed text-[#F2EADB]">{text}</p>
         </>
       ) : (
         <div className="mt-2 flex items-center gap-2">
           <img src={EXPEDITION_ASSETS.chronicleRecordLocked} alt="" className="h-9 w-9 flex-none object-contain opacity-70" loading="lazy" decoding="async" />
-          <p className="text-xs font-semibold text-[#EADCC8]">
+          <p className="text-sm font-semibold text-[#F6EFE7]">
             {title === '현장 기록' ? '이 지역에 직접 원정을 보내면 확인할 수 있습니다.' : '원정 중 발견하면 영구적으로 기록됩니다.'}
           </p>
         </div>
@@ -1304,8 +1404,8 @@ function RecordBlock({
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-card-md border border-line bg-bg-card/75 px-2.5 py-2">
-      <div className="text-[9px] font-black text-[#D9CBB7]">{label}</div>
-      <div className="mt-0.5 truncate text-[11px] font-black text-[#FFF7ED]">{value}</div>
+      <div className="text-[11px] font-black text-[#FFF7ED]">{label}</div>
+      <div className="mt-0.5 truncate text-[13px] font-black text-[#FFF7ED]">{value}</div>
     </div>
   );
 }
@@ -1313,8 +1413,8 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 function PreviewStat({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
     <div>
-      <div className="text-[9px] font-black uppercase tracking-[0.1em] text-[#D9CBB7]">{label}</div>
-      <div className={cn('mt-1 font-black text-[#FFF7ED]', strong ? 'text-xl text-crystal' : 'text-base')}>{value}</div>
+      <div className="text-[11px] font-black uppercase tracking-[0.1em] text-[#FFF7ED]">{label}</div>
+      <div className={cn('mt-1 font-black text-[#FFF7ED]', strong ? 'text-xl text-[#73E6F2]' : 'text-base')}>{value}</div>
     </div>
   );
 }
@@ -1323,10 +1423,10 @@ function ElementChip({ code, strong = false }: { code: ExpeditionElementCode; st
   const meta = ELEMENT_META[code];
   return (
     <span className={cn(
-      'rounded-pill border border-line bg-bg-card/80 px-2 py-1 text-[10px] font-black text-[#FFF7ED]',
+      'rounded-pill border border-line bg-bg-card/80 px-2 py-1 text-xs font-black text-[#FFF7ED]',
       strong && 'border-brand-primary/40 bg-brand-primary/10',
     )}>
-      <img src={EXPEDITION_ASSETS.element[code]} alt="" className="mr-1 inline-block h-3.5 w-3.5 object-contain align-[-3px]" decoding="async" />
+      <img src={EXPEDITION_ASSETS.element[code]} alt="" className="mr-1 inline-block h-[18px] w-[18px] object-contain align-[-4px]" decoding="async" />
       {meta.label}{strong ? ' 주요' : ' 보조'}
     </span>
   );
@@ -1354,7 +1454,7 @@ function PanelNotice({
       <div className="mt-3 text-base font-black text-[#FFF7ED]">{title}</div>
       <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-relaxed text-[#F2EADB]">{body}</p>
       {actionLabel && onAction && (
-        <button type="button" onClick={onAction} className="mt-4 rounded-pill border border-line bg-bg-deep px-4 py-2 text-xs font-black text-[#FFF7ED]">{actionLabel}</button>
+        <button type="button" onClick={onAction} className="mt-4 rounded-pill border border-line bg-bg-deep px-4 py-2 text-sm font-black text-[#FFF7ED]">{actionLabel}</button>
       )}
     </div>
   );
