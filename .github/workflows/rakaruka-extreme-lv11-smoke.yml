@@ -6,6 +6,8 @@ on:
       - feat/tikatuka-extreme-lv11-lv12
     paths:
       - .github/workflows/rakaruka-extreme-lv11-smoke.yml
+      - src/features/arcade/tikatuka/ai/**
+      - src/features/arcade/tikatuka/tests/phase11_ai_balance_benchmark.test.ts
 
 permissions:
   contents: read
