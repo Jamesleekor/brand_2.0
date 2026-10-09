@@ -1,4 +1,4 @@
-import type { GameState, RandomSource } from '../engine';
+import { countBoardDice, type GameState, type RandomSource } from '../engine';
 import { getAIProfile } from './profiles';
 import { rankAIPlacementCandidates } from './evaluatePlacement';
 import { rankAdvancedAIActions, type AdvancedSearchOptions } from './search';
@@ -54,7 +54,7 @@ export function chooseBasicAIPlacement(
  * - Lv.9: depth-2 search whose leaves carry the two-row win plan, followed by
  *   threat-aware root reranking.
  * - Lv.10: existing strategic search/shortlist + adaptive Monte Carlo (frozen).
- * - Lv.11: depth-3 strategic search + wider independent Monte Carlo comparison.
+ * - Lv.11: adaptive depth-3/4/5 strategic search + wider independent Monte Carlo comparison.
  *   Neither level reads or manipulates the live future gameRng.
  */
 export function chooseAdvancedAIAction(
@@ -63,8 +63,19 @@ export function chooseAdvancedAIAction(
   profile: AIProfile = getAIProfile(state.difficulty),
   options?: AdvancedSearchOptions,
 ): AIAdvancedChoice {
+  const occupied = countBoardDice(state.sides.ai.board) + countBoardDice(state.sides.player.board);
+  const lv11Depth = profile.difficulty === 11
+    ? occupied >= 14 ? 5 : occupied >= 10 ? 4 : 3
+    : profile.searchDepth;
+  const searchProfile: AIProfile = lv11Depth === profile.searchDepth
+    ? profile
+    : { ...profile, searchDepth: lv11Depth };
   const lv11DefaultLimits = profile.difficulty === 11
-    ? { maxNodes: 30_000, hardTimeBudgetMs: 350 }
+    ? occupied >= 14
+      ? { maxNodes: 80_000, hardTimeBudgetMs: 700 }
+      : occupied >= 10
+        ? { maxNodes: 50_000, hardTimeBudgetMs: 500 }
+        : { maxNodes: 30_000, hardTimeBudgetMs: 350 }
     : undefined;
   const highLevelOptions: AdvancedSearchOptions | undefined = profile.difficulty >= 9
     ? {
@@ -78,12 +89,22 @@ export function chooseAdvancedAIAction(
         evaluateState: evaluateHighLevelSearchState,
       }
     : options;
-  const ranking = rankAdvancedAIActions(state, profile, highLevelOptions);
+  const ranking = rankAdvancedAIActions(state, searchProfile, highLevelOptions);
 
   if (profile.difficulty === 10 || profile.difficulty === 11) {
     const strategic = rerankStrategicAIActions(state, ranking.rankedCandidates, profile).rankedCandidates;
     const probability = rankWinProbabilityAIActions(state, aiRng, strategic, profile);
-    const ranked = probability.rankedCandidates.map((candidate) => ({
+    const probabilityCandidates = profile.difficulty === 11 && probability.rankedCandidates.length > 1
+      ? (() => {
+          const bestProbability = probability.rankedCandidates[0].estimatedWinProbability;
+          const close = probability.rankedCandidates
+            .filter((candidate) => bestProbability - candidate.estimatedWinProbability <= 0.04)
+            .sort((a, b) => b.baseScore - a.baseScore);
+          const closeSet = new Set(close);
+          return [...close, ...probability.rankedCandidates.filter((candidate) => !closeSet.has(candidate))];
+        })()
+      : probability.rankedCandidates;
+    const ranked = probabilityCandidates.map((candidate) => ({
       action: candidate.action,
       score: candidate.estimatedWinProbability * 1_000_000 + candidate.baseScore,
     } satisfies AIAdvancedActionCandidate));
@@ -94,7 +115,7 @@ export function chooseAdvancedAIAction(
       score: best.score,
       usedMistake: false,
       rankedCandidates: ranked,
-      searchDepth: profile.searchDepth,
+      searchDepth: searchProfile.searchDepth,
       nodesVisited: ranking.nodesVisited,
       searchAbortReason: ranking.searchAbortReason,
     };
