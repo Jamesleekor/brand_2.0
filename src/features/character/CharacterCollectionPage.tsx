@@ -479,7 +479,7 @@ function CharacterPageTabs({
         >
           <div className="flex min-w-0 items-center justify-center gap-1.5 sm:justify-start sm:gap-2">
             <span className="flex-none text-sm sm:text-base">{item.icon}</span>
-            <span className={cn('whitespace-nowrap text-[13px] font-black leading-none sm:text-sm', tab === item.key ? 'text-white' : 'text-text-secondary')}>
+            <span className={cn('whitespace-nowrap text-[13px] font-black leading-none sm:text-sm', tab === item.key ? 'text-white' : 'text-[#D8D0E6]')}>
               {item.label}
             </span>
           </div>
