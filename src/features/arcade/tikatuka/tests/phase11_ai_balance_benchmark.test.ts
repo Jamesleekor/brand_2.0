@@ -35,6 +35,11 @@ const SEARCH_OPTIONS = {
   now: () => 0,
 } as const;
 
+const EXTREME_SEARCH_OPTIONS = {
+  limits: { maxNodes: 30_000, hardTimeBudgetMs: 10_000 },
+  now: () => 0,
+} as const;
+
 function envInt(name: string, fallback: number): number {
   const raw = process.env[name];
   if (!raw) return fallback;
@@ -131,7 +136,12 @@ function runBenchmarkGame(difficulty: Difficulty, seed: number, mode: AIMode): B
     const action = state.currentSide === 'player'
       ? strongPlayerAction(state)
       : mode === 'current'
-        ? chooseAdvancedAIAction(state, deps.aiRng, getAIProfile(difficulty), SEARCH_OPTIONS).action
+        ? chooseAdvancedAIAction(
+            state,
+            deps.aiRng,
+            getAIProfile(difficulty),
+            difficulty >= 11 ? EXTREME_SEARCH_OPTIONS : SEARCH_OPTIONS,
+          ).action
         : legacyAIAction(state);
 
     const transition = dispatchTikatukaAction(state, action, deps, state.currentSide);
