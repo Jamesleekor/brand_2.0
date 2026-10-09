@@ -17,6 +17,7 @@ import {
 import {
   expeditionRpc,
   type ExpeditionBoard,
+  type ExpeditionBoxCatalog,
   type ExpeditionBoxOpenResult,
   type ExpeditionCharacterRow,
   type ExpeditionChronicle,
@@ -131,6 +132,17 @@ export default function ExpeditionChroniclePanel() {
     },
     enabled,
     staleTime: 4_000,
+  });
+
+  const boxCatalogQuery = useQuery({
+    queryKey: ['expedition-box-catalog'],
+    queryFn: async () => {
+      const result = await expeditionRpc.boxCatalog(supabase);
+      if (result.success === false) throw new Error(result.error);
+      return result.data;
+    },
+    enabled,
+    staleTime: 60_000,
   });
 
   const board = boardQuery.data;
@@ -386,6 +398,11 @@ export default function ExpeditionChroniclePanel() {
               ))}
             </div>
           </section>
+
+          <ExpeditionRewardGuideSection
+            catalog={boxCatalogQuery.data ?? null}
+            loading={boxCatalogQuery.isLoading}
+          />
 
           {activeSite && (
             <section className="rounded-card-xl border border-line bg-bg-card/90 p-4 shadow-card lg:p-5">
@@ -669,8 +686,26 @@ function SiteCard({
           <ElementChip code={site.major_element} strong />
           <ElementChip code={site.minor_element} />
         </div>
-        <div className="mt-2 text-sm font-bold text-[#F6EFE7]">핵심 보상 · {site.core_reward_label}</div>
-        <div className="mt-0.5 text-sm font-bold text-[#F6EFE7]">주도 시 · {site.world_effect_label}</div>
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-card-md border border-white/10 bg-white/[0.04] px-3 py-2.5">
+          <div>
+            <div className="text-xs font-black text-[#FFF7ED]">핵심 보상</div>
+            <div className="mt-0.5 text-sm font-black text-[#FFD58A]">{site.core_reward_label}</div>
+          </div>
+          <div className="flex min-w-0 items-center gap-2.5 text-right">
+            <img
+              src={getExpeditionWorldEffectAsset(site.world_effect_code)}
+              alt=""
+              className="h-9 w-9 flex-none object-contain"
+              loading="lazy"
+              decoding="async"
+            />
+            <div className="min-w-0">
+              <div className="text-xs font-black text-[#FFF7ED]">최종 주도지역 효과</div>
+              <div className="mt-0.5 break-keep text-sm font-black text-[#D9C3FF]">{site.world_effect_label}</div>
+              <div className="mt-0.5 text-[11px] font-bold text-[#F6EFE7]">흔적 12+부터 발동</div>
+            </div>
+          </div>
+        </div>
       </button>
 
       <button
@@ -1041,6 +1076,86 @@ function FragmentRestoreSection({
   );
 }
 
+function ExpeditionRewardGuideSection({
+  catalog,
+  loading,
+}: {
+  catalog: ExpeditionBoxCatalog | null;
+  loading: boolean;
+}) {
+  return (
+    <section className="rounded-card-xl border border-line bg-bg-card/90 p-4 shadow-card lg:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">원정 보상 안내</div>
+          <h2 className="mt-1 font-display text-xl text-[#FFF7ED]">탐사지별 핵심 보상</h2>
+          <p className="mt-1 text-sm font-semibold text-[#F6EFE7]">유적은 원정 상자, 자연은 GOLD, 성소는 범용 편린 조각을 획득합니다.</p>
+        </div>
+        <div className="grid grid-cols-3 gap-1.5 text-center text-xs font-black">
+          <span className="rounded-pill border border-line bg-bg-deep/70 px-2.5 py-1.5 text-[#FFF7ED]">유적 · 상자</span>
+          <span className="rounded-pill border border-line bg-bg-deep/70 px-2.5 py-1.5 text-[#FFD58A]">자연 · GOLD</span>
+          <span className="rounded-pill border border-line bg-bg-deep/70 px-2.5 py-1.5 text-[#73E6F2]">성소 · 조각</span>
+        </div>
+      </div>
+
+      <details className="group mt-4 overflow-hidden rounded-card-lg border border-gold/25 bg-gold/5">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5">
+          <div className="flex items-center gap-3">
+            <img src={EXPEDITION_ASSETS.rewards.chestCommon} alt="" className="h-10 w-10 object-contain" loading="lazy" decoding="async" />
+            <div>
+              <div className="text-sm font-black text-[#FFF7ED]">원정 상자에서는 무엇이 나오나요?</div>
+              <div className="mt-0.5 text-xs font-bold text-[#F6EFE7]">일반 · 중급 · 희귀 상자의 실제 보상 확률 확인</div>
+            </div>
+          </div>
+          <span className="flex-none text-sm font-black text-[#FFD58A] group-open:hidden">펼쳐보기 ▾</span>
+          <span className="hidden flex-none text-sm font-black text-[#FFD58A] group-open:inline">접기 ▴</span>
+        </summary>
+
+        <div className="border-t border-gold/20 p-3 sm:p-4">
+          {loading ? (
+            <div className="flex min-h-[100px] items-center justify-center"><LoadingSpinner size="sm" /></div>
+          ) : !catalog || catalog.tiers.length === 0 ? (
+            <div className="rounded-card-md border border-line bg-bg-deep/55 p-4 text-sm font-bold text-[#F6EFE7]">
+              상자 보상 정보를 불러오지 못했습니다.
+            </div>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-3">
+              {catalog.tiers.map((tier) => (
+                <div key={tier.tier} className="rounded-card-lg border border-line bg-bg-deep/70 p-3">
+                  <div className="flex items-center gap-3 border-b border-white/10 pb-3">
+                    <img
+                      src={getExpeditionRewardChestAsset(tier.tier) ?? undefined}
+                      alt=""
+                      className="h-12 w-12 flex-none object-contain"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <div>
+                      <div className="text-base font-black text-[#FFF7ED]">{tier.tier_label} 원정 상자</div>
+                      <div className="mt-0.5 text-xs font-bold text-[#F6EFE7]">상자를 열 때 아래 중 하나가 확정됩니다.</div>
+                    </div>
+                  </div>
+                  <div className="mt-2 divide-y divide-white/[0.07]">
+                    {tier.rewards.map((reward) => (
+                      <div key={reward.reward_code} className="flex items-center justify-between gap-3 py-2 text-sm">
+                        <span className="min-w-0 break-keep font-bold text-[#FFF7ED]">{reward.label}</span>
+                        <span className="flex-none font-black text-[#FFD58A]">{formatProbability(reward.probability_percent)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="mt-3 text-xs font-bold leading-relaxed text-[#F6EFE7]">
+            미보유 랜덤 폰트·배경/CG는 아직 보유하지 않은 상품에서 추첨됩니다. 해당 종류를 모두 보유한 경우에는 시스템의 대체 보상 규칙이 적용됩니다.
+          </p>
+        </div>
+      </details>
+    </section>
+  );
+}
+
 function ExpeditionBoxInventorySection({
   inventory,
   loading,
@@ -1189,6 +1304,26 @@ function ChronicleSiteCard({ site, onStory }: { site: ExpeditionChronicleSite; o
         <MiniStat label="탐사" value={site.story_stage_label} />
         <MiniStat label="숙련" value={site.mastery_label} />
         <MiniStat label="내 기록" value={site.discovery_unlocked ? '발굴 완료' : site.field_record_unlocked ? '현장 기록' : '미방문'} />
+      </div>
+
+      <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <span className="font-bold text-[#F6EFE7]">핵심 보상</span>
+          <span className="font-black text-[#FFD58A]">{site.core_reward_label}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-bold text-[#F6EFE7]">주도지역 효과</span>
+          <span className="flex min-w-0 items-center justify-end gap-2">
+            <img
+              src={getExpeditionWorldEffectAsset(site.world_effect_code)}
+              alt=""
+              className="h-7 w-7 flex-none object-contain"
+              loading="lazy"
+              decoding="async"
+            />
+            <span className="break-keep text-right text-sm font-black text-[#D9C3FF]">{site.world_effect_label}</span>
+          </span>
+        </div>
       </div>
       </div>
     </button>
@@ -1562,6 +1697,10 @@ function phaseMessage(phase: string) {
   if (phase === 'SAT') return '오늘 한 번, 원하는 탐사지에 편린 3명을 보낼 수 있습니다.';
   if (phase === 'SUN') return '오늘도 한 번 원정할 수 있습니다. 토요일에 보낸 편린 3명은 회복이 필요합니다.';
   return '이번 주 원정 결과를 확인하고 다음 원정을 준비하세요.';
+}
+
+function formatProbability(value: number) {
+  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
 }
 
 function formatDateTime(value: string | null | undefined) {
