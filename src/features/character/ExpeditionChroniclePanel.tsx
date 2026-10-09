@@ -981,7 +981,7 @@ function FragmentRestoreSection({
                     <div key={character.character_id} className="rounded-card-lg border border-line bg-bg-deep/55 p-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0 truncate text-sm font-black text-[#FFF7ED]">{character.name}</div>
-                        <div className="flex-none text-sm font-black text-[#FFD58A]">
+                        <div className="flex-none whitespace-nowrap text-sm font-black text-[#FFD58A]">
                           {character.is_owned
                             ? '보유 중'
                             : !eligible
@@ -992,7 +992,14 @@ function FragmentRestoreSection({
                       <div className="mt-2 flex items-center justify-between gap-2">
                         <div className="min-w-0 text-sm font-bold text-[#F6EFE7]">
                           {eligible && character.base_cost !== character.effective_cost ? (
-                            <>기본 <span className="line-through">{character.base_cost}개</span> · 할인 적용</>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="whitespace-nowrap">
+                                기본 <span className="line-through">{character.base_cost}개</span>
+                              </span>
+                              <span className="whitespace-nowrap rounded-pill border border-success/25 bg-success/10 px-2 py-0.5 text-xs font-black text-success">
+                                할인 적용
+                              </span>
+                            </div>
                           ) : eligible ? '범용 편린 조각으로 복원' : '이 편린은 조각 복원 대상이 아닙니다.'}
                         </div>
                         <button
