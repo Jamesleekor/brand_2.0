@@ -42,8 +42,8 @@ const ELEMENT_META: Record<ExpeditionElementCode, { label: string; icon: string 
   WATER: { label: '수', icon: '💧' },
   FIRE: { label: '화', icon: '🔥' },
   WIND: { label: '풍', icon: '💫' },
-  EARTH: { label: '토', icon: '🪨' },
-  LIGHT: { label: '빛', icon: '✦' },
+  EARTH: { label: '지', icon: '🪨' },
+  LIGHT: { label: '광', icon: '✦' },
   DARK: { label: '암', icon: '☾' },
 };
 
@@ -799,12 +799,12 @@ function PartyCharacterCard({
         <div className="mt-2 flex flex-wrap gap-1.5">
           <span className="inline-flex items-center gap-1 rounded-pill border border-white/15 bg-white/[0.05] px-2 py-1 text-[13px] font-black text-[#FFF7ED]">
             <img src={EXPEDITION_ASSETS.element[character.primary_element]} alt="" className="h-[18px] w-[18px] object-contain" decoding="async" />
-            주 {character.primary_points}
+            {ELEMENT_META[character.primary_element].label} {character.primary_points}
           </span>
           {character.secondary_element && character.secondary_points > 0 && (
             <span className="inline-flex items-center gap-1 rounded-pill border border-white/15 bg-white/[0.05] px-2 py-1 text-[13px] font-black text-[#FFF7ED]">
               <img src={EXPEDITION_ASSETS.element[character.secondary_element]} alt="" className="h-[18px] w-[18px] object-contain" decoding="async" />
-              보 {character.secondary_points}
+              {ELEMENT_META[character.secondary_element].label} {character.secondary_points}
             </span>
           )}
         </div>
@@ -868,9 +868,9 @@ function PreviewCard({
         <span>·</span>
         <span>{site.site_name}</span>
         <span>·</span>
-        <span>주요 {ELEMENT_META[preview.major_element as ExpeditionElementCode]?.label}</span>
+        <span className="whitespace-nowrap">주속성: {ELEMENT_META[preview.major_element as ExpeditionElementCode]?.label}</span>
         <span>·</span>
-        <span>보조 {ELEMENT_META[preview.minor_element as ExpeditionElementCode]?.label}</span>
+        <span className="whitespace-nowrap">부속성: {ELEMENT_META[preview.minor_element as ExpeditionElementCode]?.label}</span>
       </div>
     </div>
   );
@@ -1814,11 +1814,11 @@ function ElementChip({ code, strong = false }: { code: ExpeditionElementCode; st
   const meta = ELEMENT_META[code];
   return (
     <span className={cn(
-      'rounded-pill border border-line bg-bg-card/80 px-2 py-1 text-sm font-black text-[#FFF7ED]',
+      'inline-flex items-center gap-1.5 whitespace-nowrap rounded-pill border border-line bg-bg-card/80 px-2.5 py-1.5 text-sm font-black text-[#FFF7ED]',
       strong && 'border-brand-primary/40 bg-brand-primary/10',
     )}>
-      <img src={EXPEDITION_ASSETS.element[code]} alt="" className="mr-1 inline-block h-[18px] w-[18px] object-contain align-[-4px]" decoding="async" />
-      {meta.label}{strong ? ' 주요' : ' 보조'}
+      <img src={EXPEDITION_ASSETS.element[code]} alt="" className="h-[18px] w-[18px] flex-none object-contain" decoding="async" />
+      <span>{strong ? '주속성' : '부속성'}: {meta.label}</span>
     </span>
   );
 }
