@@ -1312,11 +1312,6 @@ function BoxOpeningResultModal({
           <div className="mt-2 break-keep font-display text-2xl font-black text-white">
             {result.final_reward_label}
           </div>
-          {result.final_quantity != null && result.final_quantity > 1 && (
-            <div className="mt-2 text-lg font-black text-[#FFD58A]">
-              × {result.final_quantity.toLocaleString('ko-KR')}
-            </div>
-          )}
           {result.cosmetic_fallback_crystal && (
             <div className="mx-auto mt-4 max-w-sm rounded-card-md border border-crystal/30 bg-crystal/10 px-3 py-2 text-sm font-bold text-[#E8FBFF]">
               획득 가능한 꾸미기 아이템을 모두 보유해 CRYSTAL 보상으로 전환되었습니다.
