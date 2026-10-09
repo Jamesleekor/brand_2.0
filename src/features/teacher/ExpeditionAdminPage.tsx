@@ -108,6 +108,20 @@ function fitGradeLabel(grade: string) {
   return grade;
 }
 
+function rewardTierLabel(tier: string) {
+  if (tier === 'RARE') return '희귀';
+  if (tier === 'INTERMEDIATE') return '중급';
+  return '일반';
+}
+
+function rewardResultLabel(reward: ExpeditionAdminRunSummary['reward']) {
+  if (!reward) return '—';
+  if (reward.kind === 'EXPEDITION_BOX') return `${rewardTierLabel(reward.tier)} 원정상자`;
+  if (reward.kind === 'GOLD') return `GOLD +${reward.quantity.toLocaleString('ko-KR')}`;
+  if (reward.kind === 'FRAGMENT') return `편린 조각 +${reward.quantity.toLocaleString('ko-KR')}`;
+  return `${reward.kind} ×${reward.quantity.toLocaleString('ko-KR')}`;
+}
+
 function masteryLabel(level: number) {
   if (level >= 3) return '완전탐사';
   if (level === 2) return '개방';
@@ -677,86 +691,132 @@ function SiteCard({ site }: { site: ExpeditionAdminSite }) {
           <div className="absolute inset-0 bg-gradient-to-t from-bg-card via-transparent to-transparent" />
         </div>
       )}
-      <div className="relative p-4">
-      {site.is_dominant && (
-        <div className="absolute right-3 top-3 rounded-pill border border-gold/30 bg-gold/10 px-2 py-1 text-[11px] font-black text-gold">
-          ★ 주도 지역
-        </div>
-      )}
-      <div className="flex items-center gap-2">
-        <img src={EXPEDITION_ASSETS.specialty[site.specialty_code]} alt="" className="h-5 w-5 object-contain" decoding="async" />
-        <span className="text-xs font-black text-[#F0DEC3]">{specialty.label} · SLOT {site.slot}</span>
-      </div>
-      <h3 className="mt-2 pr-20 text-base font-black text-white">{site.site_name}</h3>
-      <p className="mt-0.5 truncate text-xs font-bold text-text-secondary">{site.environment_label}</p>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <ElementChip code={site.saturday_major_element} label={`주 ${satMajor.label}`} strong />
-        <ElementChip code={site.saturday_minor_element} label={`부 ${satMinor.label}`} />
+      <div className="relative p-4">
+        {site.is_dominant && (
+          <div className="absolute right-3 top-3 rounded-pill border border-gold/30 bg-gold/10 px-2 py-1 text-xs font-black text-gold">
+            ★ 주도 지역
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <img src={EXPEDITION_ASSETS.specialty[site.specialty_code]} alt="" className="h-5 w-5 object-contain" decoding="async" />
+          <span className="text-xs font-black text-[#F0DEC3]">{specialty.label} · SLOT {site.slot}</span>
+        </div>
+
+        <div className="mt-2 flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base font-black text-white">{site.site_name}</h3>
+            <p className="mt-0.5 truncate text-xs font-bold text-[#F6EFE7]">{site.environment_label}</p>
+          </div>
+
+          <div className="flex flex-none items-stretch gap-1.5">
+            <SiteElementBadge code={site.saturday_major_element} role="주속성" label={satMajor.label} strong />
+            <SiteElementBadge code={site.saturday_minor_element} role="부속성" label={satMinor.label} />
+          </div>
+        </div>
+
         {site.sunday_event_applied && site.sunday_major_element !== site.saturday_major_element && (
-          <ElementChip code={site.sunday_major_element} label={`일요일 → ${sunMajor.label}`} changed />
+          <div className="mt-2 flex justify-end">
+            <SiteElementBadge code={site.sunday_major_element} role="일요일" label={sunMajor.label} changed />
+          </div>
+        )}
+
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          <SiteMetric label="토 흔적" value={site.saturday_trace} sub={`${site.saturday_participants}명`} />
+          <SiteMetric label="일 흔적" value={site.sunday_trace} sub={`${site.sunday_participants}명`} />
+          <SiteMetric label="합계" value={site.total_trace} sub={`${site.total_participants}명`} strong />
+        </div>
+
+        <div className="mt-4">
+          <div className="mb-2 flex items-center justify-between text-[13px] font-black">
+            <span className="text-[#FFF7ED]">월드 효과 도달</span>
+            <span className="text-white">{site.total_trace} / 40+</span>
+          </div>
+          <div className="relative h-3 overflow-hidden rounded-pill bg-bg-deep">
+            <div className="h-full rounded-pill bg-gradient-to-r from-brand-primary to-gold" style={{ width: `${tracePct}%` }} />
+            <span className="absolute left-[30%] top-0 h-full w-px bg-white/35" />
+            <span className="absolute left-[60%] top-0 h-full w-px bg-white/35" />
+          </div>
+          <div className="mt-2 flex justify-between text-xs font-black text-[#F6EFE7]">
+            <span>12 · Lv1</span><span>24 · Lv2</span><span>40 · Lv3</span>
+          </div>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4">
+          <div className="min-w-0">
+            <div className="text-xs font-black text-[#FFF7ED]">예상 효과</div>
+            <div className="mt-0.5 text-sm font-black text-[#D9C3FF]">{EFFECT_META[site.world_effect_code].label}</div>
+          </div>
+
+          <div className="flex flex-none items-center gap-2.5 text-right">
+            <img src={getExpeditionMasteryAsset(site.mastery_level)} alt="" className="h-10 w-10 object-contain" loading="lazy" decoding="async" />
+            <div>
+              <div className="text-sm font-black text-[#FFD58A]">{REWARD_META[site.core_reward_code]}</div>
+              <div className="mt-0.5 text-xs font-black text-[#FFF7ED]">
+                {storyLabel(site.story_stage)} · {masteryLabel(site.mastery_level)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {site.sunday_event_applied && (
+          <div className="mt-3 flex items-center gap-2 rounded-card-md border border-gold/20 bg-gold/5 px-3 py-2">
+            <img src={EXPEDITION_ASSETS.sundayEnvironmentShift} alt="" className="h-9 w-9 flex-none object-contain" loading="lazy" decoding="async" />
+            <div className="min-w-0">
+              <div className="text-xs font-black text-gold">일요일 환경 변화</div>
+              <div className="mt-0.5 truncate text-sm font-bold text-[#FFF7ED]">
+                {site.sunday_event_title ?? '토요일 선두 지역 환경이 변화했습니다.'}
+              </div>
+            </div>
+          </div>
         )}
       </div>
-
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        <SiteMetric label="토 흔적" value={site.saturday_trace} sub={`${site.saturday_participants}명`} />
-        <SiteMetric label="일 흔적" value={site.sunday_trace} sub={`${site.sunday_participants}명`} />
-        <SiteMetric label="합계" value={site.total_trace} sub={`${site.total_participants}명`} strong />
-      </div>
-
-      <div className="mt-3">
-        <div className="mb-1 flex items-center justify-between text-[11px] font-black">
-          <span className="text-text-muted">월드 효과 도달</span>
-          <span className="text-text-secondary">{site.total_trace} / 40+</span>
-        </div>
-        <div className="relative h-2 overflow-hidden rounded-pill bg-bg-deep">
-          <div className="h-full rounded-pill bg-gradient-to-r from-brand-primary to-gold" style={{ width: `${tracePct}%` }} />
-          <span className="absolute left-[30%] top-0 h-full w-px bg-white/25" />
-          <span className="absolute left-[60%] top-0 h-full w-px bg-white/25" />
-        </div>
-        <div className="mt-1 flex justify-between text-[10px] font-bold text-text-muted">
-          <span>12 · Lv1</span><span>24 · Lv2</span><span>40 · Lv3</span>
-        </div>
-      </div>
-
-      <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
-        <div>
-          <div className="text-[11px] font-black text-text-muted">예상 효과</div>
-          <div className="text-[13px] font-black text-bv">{EFFECT_META[site.world_effect_code].label}</div>
-        </div>
-        <div className="flex items-center gap-2 text-right">
-          <img src={getExpeditionMasteryAsset(site.mastery_level)} alt="" className="h-8 w-8 object-contain" loading="lazy" decoding="async" />
-          <div>
-            <div className="text-[11px] font-black text-[#F0DEC3]">{REWARD_META[site.core_reward_code]}</div>
-            <div className="text-[11px] font-bold text-[#FFF7ED]">
-              {storyLabel(site.story_stage)} · {masteryLabel(site.mastery_level)}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {site.sunday_event_applied && (
-        <div className="mt-3 flex items-center gap-2 rounded-card-md border border-gold/20 bg-gold/5 px-3 py-2">
-          <img src={EXPEDITION_ASSETS.sundayEnvironmentShift} alt="" className="h-8 w-8 flex-none object-contain" loading="lazy" decoding="async" />
-          <div className="min-w-0">
-            <div className="text-[11px] font-black text-gold">일요일 환경 변화</div>
-            <div className="mt-0.5 truncate text-xs font-bold text-[#FFF7ED]">
-              {site.sunday_event_title ?? '토요일 선두 지역 환경이 변화했습니다.'}
-            </div>
-          </div>
-        </div>
-      )}
-      </div>
     </article>
+  );
+}
+
+function SiteElementBadge({
+  code,
+  role,
+  label,
+  strong,
+  changed,
+}: {
+  code: string;
+  role: string;
+  label: string;
+  strong?: boolean;
+  changed?: boolean;
+}) {
+  const asset = EXPEDITION_ASSETS.element[code as keyof typeof EXPEDITION_ASSETS.element];
+  return (
+    <div className={cn(
+      'min-w-[72px] rounded-card-md border px-2 py-1.5 text-center',
+      changed
+        ? 'border-gold/35 bg-gold/10'
+        : strong
+          ? 'border-bv/40 bg-bv/10'
+          : 'border-line bg-bg-deep/85',
+    )}>
+      <div className="flex items-center justify-center gap-1.5">
+        {asset && <img src={asset} alt="" className="h-6 w-6 object-contain" decoding="async" />}
+        <span className={cn(
+          'text-sm font-black',
+          changed ? 'text-gold' : strong ? 'text-[#CBB6FF]' : 'text-[#FFF7ED]',
+        )}>{label}</span>
+      </div>
+      <div className="mt-0.5 text-[10px] font-black text-[#F6EFE7]">{role}</div>
+    </div>
   );
 }
 
 function SiteMetric({ label,value,sub,strong }: { label: string; value: number; sub: string; strong?: boolean }) {
   return (
     <div className={cn('rounded-card-md border p-2.5 text-center', strong ? 'border-brand-primary/25 bg-brand-primary/10' : 'border-line bg-bg-deep/55')}>
-      <div className="text-[10px] font-black text-text-muted">{label}</div>
-      <div className={cn('mt-0.5 text-lg font-black', strong ? 'text-brand-primary' : 'text-white')}>{value}</div>
-      <div className="text-[10px] font-bold text-text-muted">{sub}</div>
+      <div className="text-xs font-black text-[#F6EFE7]">{label}</div>
+      <div className={cn('mt-0.5 text-xl font-black', strong ? 'text-brand-primary' : 'text-white')}>{value}</div>
+      <div className="text-xs font-bold text-[#F6EFE7]">{sub}</div>
     </div>
   );
 }
@@ -831,9 +891,9 @@ function StudentOperations({
         <div className="py-10 text-center text-sm font-bold text-text-muted">조건에 맞는 학생이 없습니다.</div>
       ) : (
         <div className="overflow-x-auto">
-          <div className="min-w-[840px]">
-            <div className="grid grid-cols-[150px_1fr_1fr_86px_110px] gap-3 border-b border-line bg-bg-deep/50 px-4 py-2 text-[11px] font-black uppercase tracking-wide text-text-muted">
-              <span>학생</span><span>토요일</span><span>일요일</span><span>흔적</span><span>보상 상태</span>
+          <div className="min-w-[1080px]">
+            <div className="grid grid-cols-[150px_1fr_1fr_210px_76px_110px] gap-3 border-b border-line bg-bg-deep/50 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-[#F6EFE7]">
+              <span>학생</span><span>토요일</span><span>일요일</span><span>받은 보상</span><span>흔적</span><span>보상 상태</span>
             </div>
             <div className="divide-y divide-line">
               {students.map((student) => (
@@ -854,7 +914,7 @@ function StudentRow({ student }: { student: ExpeditionAdminStudent }) {
 
   return (
     <div className={cn(
-      'grid grid-cols-[150px_1fr_1fr_86px_110px] gap-3 px-4 py-2.5 text-sm',
+      'grid grid-cols-[150px_1fr_1fr_210px_76px_110px] gap-3 px-4 py-3 text-sm',
       student.is_test_account && 'opacity-60',
     )}>
       <div className="min-w-0">
@@ -866,6 +926,7 @@ function StudentRow({ student }: { student: ExpeditionAdminStudent }) {
       </div>
       <RunCell run={student.sat} />
       <RunCell run={student.sun} />
+      <StudentRewardCell sat={student.sat} sun={student.sun} />
       <div className="flex items-center">
         <span className={cn('font-display text-lg', trace > 0 ? 'text-brand-primary' : 'text-text-muted')}>{trace}</span>
       </div>
@@ -883,6 +944,38 @@ function StudentRow({ student }: { student: ExpeditionAdminStudent }) {
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+function StudentRewardCell({
+  sat,
+  sun,
+}: {
+  sat: ExpeditionAdminRunSummary | null;
+  sun: ExpeditionAdminRunSummary | null;
+}) {
+  const rewards = [
+    sat?.reward ? { day: '토', reward: sat.reward } : null,
+    sun?.reward ? { day: '일', reward: sun.reward } : null,
+  ].filter((item): item is { day: string; reward: NonNullable<ExpeditionAdminRunSummary['reward']> } => Boolean(item));
+
+  if (rewards.length === 0) {
+    return <div className="flex items-center text-xs font-bold text-text-muted">—</div>;
+  }
+
+  return (
+    <div className="flex min-w-0 flex-col justify-center gap-1">
+      {rewards.map(({ day, reward }) => (
+        <div key={day} className="flex min-w-0 items-center gap-2">
+          <span className="flex h-5 w-5 flex-none items-center justify-center rounded-full border border-white/15 bg-white/5 text-[10px] font-black text-[#F6EFE7]">
+            {day}
+          </span>
+          <span className="truncate text-[13px] font-black text-[#FFE066]">
+            {rewardResultLabel(reward)}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
