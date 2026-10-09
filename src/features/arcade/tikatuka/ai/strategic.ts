@@ -79,7 +79,7 @@ export function evaluateStrategicWinPlan(state: GameState): number {
 }
 
 /**
- * Production-only high-level leaf evaluator for Lv9/Lv10. The benchmark's strong
+ * Production-only high-level leaf evaluator for Lv9+. The benchmark's strong
  * player keeps the generic evaluator, while the late-game opponents carry their
  * two-row plan through every leaf of the depth-2 tree instead of only reranking
  * the root after search has finished.
@@ -90,7 +90,7 @@ export function evaluateHighLevelSearchState(state: GameState, profile: AIProfil
 
   const occupied = countBoardDice(state.sides.ai.board) + countBoardDice(state.sides.player.board);
   const maturity = occupied >= 14 ? 1 : occupied >= 10 ? 0.82 : occupied >= 6 ? 0.58 : 0.35;
-  const strategicWeight = profile.difficulty >= 10 ? 1.15 : 0.9;
+  const strategicWeight = profile.difficulty >= 11 ? 1.6 : profile.difficulty >= 10 ? 1.15 : 0.9;
   return base + evaluateStrategicWinPlan(state) * maturity * strategicWeight;
 }
 
@@ -109,7 +109,7 @@ function bestImmediateStrategicPlacementValue(state: GameState): number {
 }
 
 /**
- * Cheap opponent-threat pass used only by Lv9/Lv10 root strategy.
+ * Cheap opponent-threat pass used by Lv9+ root strategy.
  * It asks: after this turn ends, across every possible next die, how well can the
  * opponent immediately answer? This is intentionally separate from the generic
  * depth-2 evaluator so Lv8 remains frozen and the high-level opponents gain a
@@ -191,7 +191,7 @@ export function rerankStrategicAIActions(
 
   const baseline = evaluateStrategicWinPlan(state);
   const bestBaseScore = baseCandidates[0].score;
-  const tacticalGapLimit = profile.difficulty >= 10 ? 20 : 12;
+  const tacticalGapLimit = profile.difficulty >= 11 ? 24 : profile.difficulty >= 10 ? 20 : 12;
   const eligible = baseCandidates.filter((candidate) => bestBaseScore - candidate.score <= tacticalGapLimit);
   const ineligible = baseCandidates.filter((candidate) => bestBaseScore - candidate.score > tacticalGapLimit);
   const originalIndex = new Map(baseCandidates.map((candidate, index) => [candidate.action, index]));
@@ -200,7 +200,7 @@ export function rerankStrategicAIActions(
     const strategicDelta = clampStrategicDelta(strategicActionValue(state, candidate.action) - baseline);
     return {
       action: candidate.action,
-      score: candidate.score + strategicDelta * STRATEGIC_RERANK_WEIGHT,
+      score: candidate.score + strategicDelta * (profile.difficulty >= 11 ? 4.25 : STRATEGIC_RERANK_WEIGHT),
     } satisfies AIAdvancedActionCandidate;
   }).sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
