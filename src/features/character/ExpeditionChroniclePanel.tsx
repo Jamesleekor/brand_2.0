@@ -56,6 +56,21 @@ const WORLD_EFFECT_LABEL: Record<string, string> = {
   COSMETIC: '상점(명품관) 개방',
 };
 
+const WORLD_EFFECT_LEVEL_DETAIL: Record<string, [string, string, string]> = {
+  RESTORE: ['편린 복원 비용 10% 할인', '편린 복원 비용 20% 할인', '편린 복원 비용 25% 할인'],
+  SHOP: ['상점 가격 5% 할인', '상점 가격 10% 할인', '상점 가격 15% 할인'],
+  SUPPLY: ['원정 참가 학생 100 GOLD 보급', '원정 참가 학생 200 GOLD 보급', '원정 참가 학생 300 GOLD 보급'],
+  RECORD: ['발굴 발견 확률 35%', '발굴 발견 확률 40%', '발굴 발견 확률 45%'],
+  COSMETIC: ['명품관 A그룹 구매 가능', '명품관 A+B그룹 구매 가능', '명품관 A+B+C그룹 구매 가능'],
+};
+
+function getWorldEffectLevelDetail(effectCode: string, level: number) {
+  const levels = WORLD_EFFECT_LEVEL_DETAIL[effectCode];
+  if (!levels || level < 1 || level > 3) return '';
+  return levels[level - 1];
+}
+
+
 type RestoreRevealState = {
   result: ExpeditionRestoreResult;
   character: ExpeditionFragmentWallet['restorable_characters'][number];
@@ -652,6 +667,9 @@ function ExpeditionStatusHeader({
                 <div className="text-lg font-black text-[#FFF7ED]">
                   {WORLD_EFFECT_LABEL[effect.effect_code] ?? '원정 효과'} Lv.{effect.effect_level}
                 </div>
+                <div className="mt-1 text-sm font-black text-[#FFD58A]">
+                  {getWorldEffectLevelDetail(effect.effect_code, effect.effect_level)}
+                </div>
                 <div className="mt-1 text-sm font-semibold text-[#F6EFE7]">
                   {formatDateTime(effect.ends_at)}까지
                 </div>
@@ -662,6 +680,49 @@ function ExpeditionStatusHeader({
           )}
         </div>
       </div>
+
+      <details className="md:col-span-2 overflow-hidden rounded-card-xl border border-line bg-bg-card/90 shadow-card">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 lg:px-5">
+          <div>
+            <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">월드효과 단계 안내</div>
+            <div className="mt-1 text-sm font-bold text-[#FFF7ED]">Lv1~Lv3에서 실제로 무엇이 달라지는지 확인</div>
+          </div>
+          <span className="text-sm font-black text-[#73E6F2]">펼쳐보기 ▾</span>
+        </summary>
+        <div className="border-t border-line p-3 lg:p-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            {Object.entries(WORLD_EFFECT_LEVEL_DETAIL).map(([code, levels]) => (
+              <div key={code} className="rounded-card-lg border border-white/10 bg-bg-deep/60 p-3">
+                <div className="flex items-center gap-2">
+                  <img
+                    src={getExpeditionWorldEffectAsset(code) ?? undefined}
+                    alt=""
+                    className="h-9 w-9 flex-none object-contain"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <div className="min-w-0 break-keep text-sm font-black text-[#FFF7ED]">
+                    {WORLD_EFFECT_LABEL[code] ?? code}
+                  </div>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {levels.map((detail, index) => (
+                    <div key={detail} className="grid grid-cols-[42px_minmax(0,1fr)] items-start gap-2">
+                      <span className="whitespace-nowrap rounded-pill border border-brand-primary/25 bg-brand-primary/10 px-2 py-1 text-center text-[11px] font-black text-[#D9C3FF]">
+                        Lv{index + 1}
+                      </span>
+                      <span className="break-keep text-sm font-bold leading-snug text-[#F6EFE7]">{detail}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs font-bold leading-relaxed text-[#F6EFE7]">
+            고고학자의 발굴 지원은 기본 발견 확률 25%에 Lv1 +10%p, Lv2 +15%p, Lv3 +20%p가 적용된 최종 확률입니다.
+          </p>
+        </div>
+      </details>
     </section>
   );
 }
