@@ -549,7 +549,7 @@ function ExpeditionStatusHeader({
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <h2 className="font-display text-2xl text-[#FFF7ED]">편린 원정</h2>
               {board.week?.reward_mode === 'DRY_RUN' && (
-                <span className="rounded-pill border border-warning/40 bg-warning/10 px-2 py-1 text-xs font-black text-warning">
+                <span className="rounded-pill border border-warning/40 bg-warning/10 px-2 py-1 text-sm font-black text-warning">
                   체험 운영
                 </span>
               )}
@@ -634,22 +634,22 @@ function SiteCard({
           <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/70 to-transparent" />
           <div className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-pill border border-white/15 bg-black/55 px-2 py-1 backdrop-blur-sm">
             <img src={specialtyAsset} alt="" className="h-4 w-4 object-contain" decoding="async" />
-            <span className="text-[11px] font-black text-[#FFF7ED]">{specialty.label}</span>
+            <span className="text-xs font-black text-[#FFF7ED]">{specialty.label}</span>
           </div>
         </div>
       )}
       <button type="button" onClick={onClick} className="w-full text-left">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <div className="text-xs font-black text-[#FFD58A]">{specialty.label}</div>
+            <div className="text-sm font-black text-[#FFD58A]">{specialty.label}</div>
             <div className="mt-1 text-sm font-black text-[#FFF7ED]">{site.site_name}</div>
           </div>
           {site.sunday_environment_changed && (
-            <span className="rounded-pill border border-crystal/35 bg-crystal/10 px-2 py-1 text-[11px] font-black text-[#73E6F2]">환경 변화</span>
+            <span className="rounded-pill border border-crystal/35 bg-crystal/10 px-2 py-1 text-xs font-black text-[#73E6F2]">환경 변화</span>
           )}
         </div>
 
-        <div className="mt-3 grid grid-cols-2 gap-1.5 text-xs font-bold">
+        <div className="mt-3 grid grid-cols-2 gap-1.5 text-sm font-bold">
           <MiniStat label="이번 주 흔적" value={`${site.weekly_trace}`} />
           <MiniStat label="원정 인원" value={`${site.weekly_participants}명`} />
           <MiniStat label="누적 흔적" value={`${site.cumulative_trace}`} />
@@ -660,14 +660,14 @@ function SiteCard({
           <ElementChip code={site.major_element} strong />
           <ElementChip code={site.minor_element} />
         </div>
-        <div className="mt-2 text-xs font-bold text-[#F6EFE7]">핵심 보상 · {site.core_reward_label}</div>
-        <div className="mt-0.5 text-xs font-bold text-[#F6EFE7]">주도 시 · {site.world_effect_label}</div>
+        <div className="mt-2 text-sm font-bold text-[#F6EFE7]">핵심 보상 · {site.core_reward_label}</div>
+        <div className="mt-0.5 text-sm font-bold text-[#F6EFE7]">주도 시 · {site.world_effect_label}</div>
       </button>
 
       <button
         type="button"
         onClick={onStory}
-        className="mt-3 w-full rounded-pill border border-line bg-bg-card/80 px-2.5 py-1.5 text-xs font-black text-[#FFF7ED] hover:border-brand-primary/40"
+        className="mt-3 w-full rounded-pill border border-line bg-bg-card/80 px-2.5 py-1.5 text-sm font-black text-[#FFF7ED] hover:border-brand-primary/40"
       >
         탐사 기록 보기
       </button>
@@ -860,7 +860,7 @@ function RunResultCard({
               />
             )}
             <div className="min-w-0">
-              <div className="text-xs font-black uppercase tracking-[0.13em] text-[#FFD58A]">개인 보상</div>
+              <div className="text-sm font-black uppercase tracking-[0.13em] text-[#FFD58A]">개인 보상</div>
               <div className="mt-1 text-lg font-black text-[#FFF7ED]">{reward?.reward_label ?? '보상 확인 중'}</div>
               <div className="mt-1 text-sm font-bold text-[#F6EFE7]">{reward ? `${reward.reward_tier_ko} 등급` : ''}</div>
             </div>
@@ -1057,7 +1057,7 @@ function ExpeditionBoxInventorySection({
               <div className="flex items-center gap-3">
                 <img src={getExpeditionRewardChestAsset(box.tier) ?? undefined} alt="" className="h-14 w-14 flex-none object-contain" loading="lazy" decoding="async" />
                 <div>
-                  <div className="text-xs font-black text-[#FFD58A]">{tierLabel} 원정 상자</div>
+                  <div className="text-sm font-black text-[#FFD58A]">{tierLabel} 원정 상자</div>
                   <div className="mt-1 text-sm font-black text-[#FFF7ED]">보유 {box.available_quantity}개</div>
                 </div>
               </div>
@@ -1071,7 +1071,7 @@ function ExpeditionBoxInventorySection({
               </button>
               {result && (
                 <div className="mt-3 rounded-card-md border border-success/30 bg-success-bg px-3 py-2">
-                  <div className="text-[11px] font-black text-success">방금 획득</div>
+                  <div className="text-xs font-black text-success">방금 획득</div>
                   <div className="mt-0.5 text-sm font-black text-[#FFF7ED]">{result.final_reward_label}</div>
                 </div>
               )}
@@ -1163,7 +1163,7 @@ function ChronicleSiteCard({ site, onStory }: { site: ExpeditionChronicleSite; o
       <div className="p-3">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="inline-flex items-center gap-1 text-[11px] font-black text-[#FFD58A]"><img src={EXPEDITION_ASSETS.specialty[site.specialty_code]} alt="" className="h-3.5 w-3.5 object-contain" loading="lazy" decoding="async" />{specialty.label}</div>
+          <div className="inline-flex items-center gap-1 text-xs font-black text-[#FFD58A]"><img src={EXPEDITION_ASSETS.specialty[site.specialty_code]} alt="" className="h-3.5 w-3.5 object-contain" loading="lazy" decoding="async" />{specialty.label}</div>
           <div className="mt-1 text-sm font-black text-[#FFF7ED]">{site.site_name}</div>
         </div>
         {site.discovery_unlocked && <img src={EXPEDITION_ASSETS.common.discoverySuccess} alt="발굴 기록 발견" className="h-6 w-6 object-contain" loading="lazy" decoding="async" />}
@@ -1222,11 +1222,11 @@ function LuxuryShopSection({
               <img src={item.resource_url} alt={item.name} className="h-full w-full object-contain" />
             </div>
             <div className="p-3">
-              <div className="text-[11px] font-black text-[#FFD58A]">GROUP {item.luxury_group}</div>
+              <div className="text-xs font-black text-[#FFD58A]">GROUP {item.luxury_group}</div>
               <div className="mt-1 text-sm font-black text-[#FFF7ED]">{item.name}</div>
-              {item.description && <div className="mt-1 text-xs font-semibold text-[#F6EFE7]">{item.description}</div>}
+              {item.description && <div className="mt-1 text-sm font-semibold text-[#F6EFE7]">{item.description}</div>}
               {item.owned ? (
-                <div className="mt-3 rounded-pill border border-success/35 bg-success-bg px-3 py-2 text-center text-xs font-black text-success">보유 중</div>
+                <div className="mt-3 rounded-pill border border-success/35 bg-success-bg px-3 py-2 text-center text-sm font-black text-success">보유 중</div>
               ) : (
                 <div className="mt-3 space-y-1.5">
                   {item.pricing.map((pricing) => (
@@ -1235,7 +1235,7 @@ function LuxuryShopSection({
                       type="button"
                       disabled={busyAction === `luxury-${item.item_id}`}
                       onClick={() => void onBuy(item, pricing.pricing_id)}
-                      className="w-full rounded-pill border border-gold/35 bg-gold/10 px-3 py-2 text-xs font-black text-gold disabled:opacity-45"
+                      className="w-full rounded-pill border border-gold/35 bg-gold/10 px-3 py-2 text-sm font-black text-gold disabled:opacity-45"
                     >
                       {pricing.value_token === 'CRYSTAL' ? '💎' : '🪙'} {pricing.price.toLocaleString('ko-KR')} 구매
                     </button>
@@ -1315,7 +1315,7 @@ function StoryModal({ story, onClose }: { story: ExpeditionSiteStory; onClose: (
               <img src={getExpeditionSiteAsset(story.site_code) ?? undefined} alt="" className="h-14 w-16 flex-none rounded-card-md object-cover" loading="lazy" decoding="async" />
             )}
             <div className="min-w-0">
-              <div className="text-xs font-black uppercase tracking-[0.14em] text-[#FFD58A]">탐사 기록</div>
+              <div className="text-sm font-black uppercase tracking-[0.14em] text-[#FFD58A]">탐사 기록</div>
               <h3 className="mt-1 truncate font-display text-2xl text-[#FFF7ED]">{story.site_name}</h3>
               <div className="mt-1 text-sm font-bold text-[#F6EFE7]">누적 흔적 {story.cumulative_trace} · {story.highest_story_stage_label} · {story.mastery_label}</div>
             </div>
@@ -1338,7 +1338,7 @@ function StoryModal({ story, onClose }: { story: ExpeditionSiteStory; onClose: (
                   />
                   <div className="text-sm font-black text-[#FFD58A]">누적 {stage.threshold} · {stage.label}</div>
                 </div>
-                <div className="text-xs font-black text-[#F6EFE7]">{stage.unlocked ? '해금' : '잠김'}</div>
+                <div className="text-sm font-black text-[#F6EFE7]">{stage.unlocked ? '해금' : '잠김'}</div>
               </div>
               {stage.unlocked && (
                 <>
@@ -1383,7 +1383,7 @@ function RecordBlock({
 }) {
   return (
     <div className={cn('rounded-card-lg border p-4', unlocked ? 'border-gold/30 bg-gold/5' : 'border-line bg-bg-deep/45')}>
-      <div className="text-xs font-black uppercase tracking-[0.13em] text-[#FFD58A]">{title}</div>
+      <div className="text-sm font-black uppercase tracking-[0.13em] text-[#FFD58A]">{title}</div>
       {unlocked ? (
         <>
           <div className="mt-2 text-sm font-black text-[#FFF7ED]">{recordTitle}</div>
@@ -1404,7 +1404,7 @@ function RecordBlock({
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-card-md border border-line bg-bg-card/75 px-2.5 py-2">
-      <div className="text-[11px] font-black text-[#FFF7ED]">{label}</div>
+      <div className="text-xs font-black text-[#FFF7ED]">{label}</div>
       <div className="mt-0.5 truncate text-[13px] font-black text-[#FFF7ED]">{value}</div>
     </div>
   );
@@ -1413,7 +1413,7 @@ function MiniStat({ label, value }: { label: string; value: string }) {
 function PreviewStat({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
     <div>
-      <div className="text-[11px] font-black uppercase tracking-[0.1em] text-[#FFF7ED]">{label}</div>
+      <div className="text-xs font-black uppercase tracking-[0.1em] text-[#FFF7ED]">{label}</div>
       <div className={cn('mt-1 font-black text-[#FFF7ED]', strong ? 'text-xl text-[#73E6F2]' : 'text-base')}>{value}</div>
     </div>
   );
@@ -1423,7 +1423,7 @@ function ElementChip({ code, strong = false }: { code: ExpeditionElementCode; st
   const meta = ELEMENT_META[code];
   return (
     <span className={cn(
-      'rounded-pill border border-line bg-bg-card/80 px-2 py-1 text-xs font-black text-[#FFF7ED]',
+      'rounded-pill border border-line bg-bg-card/80 px-2 py-1 text-sm font-black text-[#FFF7ED]',
       strong && 'border-brand-primary/40 bg-brand-primary/10',
     )}>
       <img src={EXPEDITION_ASSETS.element[code]} alt="" className="mr-1 inline-block h-[18px] w-[18px] object-contain align-[-4px]" decoding="async" />
