@@ -23,7 +23,9 @@ import {
   type ExpeditionChronicle,
   type ExpeditionChronicleSite,
   type ExpeditionElementCode,
+  type ExpeditionFragmentWallet,
   type ExpeditionLuxuryItem,
+  type ExpeditionRestoreResult,
   type ExpeditionRunResult,
   type ExpeditionSiteRow,
   type ExpeditionSiteStory,
@@ -53,6 +55,12 @@ const WORLD_EFFECT_LABEL: Record<string, string> = {
   COSMETIC: '상점(명품관) 개방',
 };
 
+type RestoreRevealState = {
+  result: ExpeditionRestoreResult;
+  character: ExpeditionFragmentWallet['restorable_characters'][number];
+  phase: 'RESTORING' | 'REVEALED';
+};
+
 function newRequestId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -75,6 +83,7 @@ export default function ExpeditionChroniclePanel() {
   const [dismissedPopup, setDismissedPopup] = useState(false);
   const [boxResults, setBoxResults] = useState<Record<number, ExpeditionBoxOpenResult>>({});
   const [boxOpeningPopup, setBoxOpeningPopup] = useState<ExpeditionBoxOpenResult | null>(null);
+  const [restoreReveal, setRestoreReveal] = useState<RestoreRevealState | null>(null);
 
   const boardQuery = useQuery<ExpeditionBoard>({
     queryKey: ['expedition-board'],
@@ -263,6 +272,10 @@ export default function ExpeditionChroniclePanel() {
   };
 
   const restoreCharacter = async (characterId: number) => {
+    const character = fragmentQuery.data?.restorable_characters.find(
+      (item) => item.character_id === characterId,
+    ) ?? null;
+
     setBusyAction(`restore-${characterId}`);
     setNotice(null);
     const result = await expeditionRpc.restore(supabase, characterId, newRequestId());
@@ -271,7 +284,25 @@ export default function ExpeditionChroniclePanel() {
       setNotice(toStudentError(result.error));
       return;
     }
-    setNotice(`${result.data.character_name} 복원이 완료되었습니다. 편린 조각 ${result.data.final_cost}개를 사용했습니다.`);
+
+    if (character) {
+      const restorationId = result.data.restoration_id;
+      setRestoreReveal({
+        result: result.data,
+        character,
+        phase: 'RESTORING',
+      });
+      window.setTimeout(() => {
+        setRestoreReveal((current) => (
+          current?.result.restoration_id === restorationId
+            ? { ...current, phase: 'REVEALED' }
+            : current
+        ));
+      }, 1100);
+    } else {
+      setNotice(`${result.data.character_name} 복원이 완료되었습니다.`);
+    }
+
     await refreshExpedition();
   };
 
@@ -523,6 +554,13 @@ export default function ExpeditionChroniclePanel() {
         busyAction={busyAction}
         onBuy={purchaseLuxury}
       />
+
+      {restoreReveal && (
+        <RestoreRevealModal
+          reveal={restoreReveal}
+          onClose={() => setRestoreReveal(null)}
+        />
+      )}
 
       {boxOpeningPopup && (
         <BoxOpeningResultModal
@@ -1398,6 +1436,134 @@ function LuxuryShopSection({
         ))}
       </div>
     </section>
+  );
+}
+
+function RestoreRevealModal({
+  reveal,
+  onClose,
+}: {
+  reveal: RestoreRevealState;
+  onClose: () => void;
+}) {
+  const { result, character, phase } = reveal;
+  const imageSrc = character.card_image_url || character.avatar_image_url || character.resource_url;
+  const revealed = phase === 'REVEALED';
+
+  return (
+    <div
+      className="fixed inset-0 z-[1700] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
+      onClick={revealed ? onClose : undefined}
+    >
+      <div
+        className="relative w-full max-w-md overflow-hidden rounded-card-xl border border-crystal/45 bg-[#0D0A16] shadow-[0_0_80px_rgba(92,225,255,0.16)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute left-1/2 top-[38%] h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-crystal/10 blur-3xl" />
+          <div className="absolute -left-20 top-16 h-40 w-40 rounded-full bg-brand-primary/10 blur-3xl" />
+          <div className="absolute -right-16 bottom-12 h-36 w-36 rounded-full bg-gold/10 blur-3xl" />
+        </div>
+
+        {!revealed ? (
+          <div className="relative px-5 py-8 text-center">
+            <div className="text-[13px] font-black uppercase tracking-[0.18em] text-[#73E6F2]">Fragment Restoration</div>
+            <h3 className="mt-2 font-display text-2xl text-[#FFF7ED]">편린 복원 중</h3>
+
+            <div className="relative mx-auto mt-6 flex h-64 w-64 items-center justify-center">
+              <div className="absolute inset-3 rounded-full border border-crystal/25 animate-ping" />
+              <div className="absolute inset-7 rounded-full border-2 border-dashed border-crystal/40 animate-spin" />
+              <div className="absolute inset-12 rounded-full border border-gold/25 animate-pulse" />
+
+              <span className="absolute left-7 top-11 h-2.5 w-2.5 rounded-full bg-crystal shadow-[0_0_16px_rgba(115,230,242,0.9)] animate-pulse" />
+              <span className="absolute right-8 top-20 h-2 w-2 rounded-full bg-gold shadow-[0_0_14px_rgba(255,213,138,0.9)] animate-pulse" />
+              <span className="absolute bottom-12 left-12 h-2 w-2 rounded-full bg-white shadow-[0_0_14px_rgba(255,255,255,0.9)] animate-pulse" />
+              <span className="absolute bottom-8 right-14 h-2.5 w-2.5 rounded-full bg-brand-primary shadow-[0_0_16px_rgba(255,122,69,0.8)] animate-pulse" />
+
+              <div className="absolute inset-14 flex items-center justify-center">
+                {character.resource_kind === 'EMOJI' || !imageSrc ? (
+                  <span className="text-8xl opacity-20 blur-[1px] animate-pulse">{character.emoji || '✦'}</span>
+                ) : (
+                  <img
+                    src={imageSrc}
+                    alt=""
+                    className="max-h-full max-w-full scale-90 object-contain opacity-20 blur-[2px] animate-pulse"
+                    decoding="async"
+                  />
+                )}
+              </div>
+
+              <div className="relative z-10 flex h-24 w-24 items-center justify-center rounded-full border border-crystal/40 bg-[#101925]/90 shadow-[0_0_40px_rgba(115,230,242,0.35)]">
+                <img
+                  src={EXPEDITION_ASSETS.common.universalFragment}
+                  alt=""
+                  className="h-16 w-16 object-contain animate-pulse"
+                  decoding="async"
+                />
+              </div>
+            </div>
+
+            <div className="mt-1 text-sm font-black text-[#FFF7ED]">흩어진 편린의 기억을 되찾는 중...</div>
+            <div className="mt-1 text-sm font-bold text-[#F6EFE7]">{character.name}</div>
+          </div>
+        ) : (
+          <>
+            <div className="relative border-b border-white/10 bg-gradient-to-r from-crystal/10 via-brand-primary/10 to-gold/10 px-5 py-4 text-center">
+              <div className="text-[13px] font-black uppercase tracking-[0.18em] text-[#73E6F2]">Restoration Complete</div>
+              <div className="mt-1 text-sm font-black text-[#FFD58A]">편린 복원 완료</div>
+            </div>
+
+            <div className="relative px-5 pb-5 pt-4 text-center">
+              <div className="relative mx-auto flex h-72 max-h-[42vh] w-full items-center justify-center overflow-hidden rounded-card-xl border border-white/10 bg-black/20">
+                <div className="absolute inset-8 rounded-full bg-crystal/10 blur-3xl animate-pulse" />
+                <div className="absolute inset-x-12 bottom-5 h-8 rounded-full bg-gold/10 blur-2xl" />
+                {character.resource_kind === 'EMOJI' || !imageSrc ? (
+                  <span className="relative z-10 text-9xl">{character.emoji || '✦'}</span>
+                ) : (
+                  <img
+                    src={imageSrc}
+                    alt={character.name}
+                    className="relative z-10 max-h-full max-w-full object-contain drop-shadow-[0_16px_28px_rgba(0,0,0,0.55)]"
+                    decoding="async"
+                  />
+                )}
+              </div>
+
+              <div className="mt-4">
+                {character.epithet && (
+                  <div className="text-sm font-black text-[#FFD58A]">{character.epithet}</div>
+                )}
+                <h3 className="mt-1 break-keep font-display text-3xl font-black text-white">{character.name}</h3>
+                <p className="mt-2 text-sm font-bold text-[#F6EFE7]">
+                  새로운 편린이 도감에 복원되었습니다.
+                </p>
+              </div>
+
+              <div className="mx-auto mt-4 grid max-w-sm grid-cols-2 gap-2">
+                <div className="rounded-card-md border border-white/10 bg-white/[0.04] px-3 py-2.5">
+                  <div className="text-xs font-black text-[#F6EFE7]">사용한 조각</div>
+                  <div className="mt-1 text-lg font-black text-[#73E6F2]">{result.final_cost}개</div>
+                </div>
+                <div className="rounded-card-md border border-white/10 bg-white/[0.04] px-3 py-2.5">
+                  <div className="text-xs font-black text-[#F6EFE7]">남은 조각</div>
+                  <div className="mt-1 text-lg font-black text-[#FFD58A]">{result.fragment_balance}개</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative border-t border-white/10 bg-black/15 p-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full rounded-card-lg border border-crystal/40 bg-crystal/10 px-4 py-3 text-base font-black text-[#FFF7ED] transition hover:bg-crystal/20"
+              >
+                확인
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
