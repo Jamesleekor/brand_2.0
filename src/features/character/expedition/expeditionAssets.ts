@@ -7,7 +7,10 @@ export type ExpeditionFitGradeCode = 'VULNERABLE' | 'NORMAL' | 'STABLE' | 'STRON
 export type ExpeditionRewardTierCode = 'COMMON' | 'INTERMEDIATE' | 'RARE';
 export type ExpeditionWorldEffectCode = 'RESTORE' | 'SHOP' | 'SUPPLY' | 'RECORD' | 'COSMETIC';
 
-const ROOT = '/assets/expedition';
+const ROOT = 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/expedition';
+
+// Expedition visuals live in the dedicated public asset repository.
+// Keep every UI consumer behind this central map so filenames/hosting can change in one place.
 
 export const EXPEDITION_ASSETS = {
   common: {
