@@ -36,7 +36,8 @@ const SEARCH_OPTIONS = {
 } as const;
 
 const EXTREME_SEARCH_OPTIONS = {
-  limits: { maxNodes: 30_000, hardTimeBudgetMs: 10_000 },
+  // Keep the search clock deterministic while letting Lv11 choose its production
+  // node budget adaptively from board maturity.
   now: () => 0,
 } as const;
 
