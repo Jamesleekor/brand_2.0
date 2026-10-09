@@ -1,7 +1,7 @@
 import type { Difficulty, GameAction, GameState, Placement } from '../engine';
 import type { AISearchAbortReason } from './searchContext';
 
-export type AISearchDepth = 0 | 1 | 2 | 3;
+export type AISearchDepth = 0 | 1 | 2 | 3 | 4 | 5;
 export type AIPlacementAction = Extract<GameAction, { type: 'PLACE_DIE' }>;
 export type AIAdvancedAction = Extract<GameAction, { type: 'PLACE_DIE' | 'USE_TAZZA' | 'HOLD' }>;
 
