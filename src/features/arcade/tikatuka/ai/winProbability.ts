@@ -17,7 +17,8 @@ import type {
 } from '../engine';
 import { evaluateStateForAI } from './evaluateState';
 import { createHypotheticalTazzaState } from './evaluateTazza';
-import { evaluateStrategicWinPlan } from './strategic';
+import { evaluateHighLevelSearchState, evaluateStrategicWinPlan } from './strategic';
+import { rankAdvancedTurnActions } from './search';
 import { createHypotheticalHoldState } from './turnSimulation';
 import type { AIAdvancedActionCandidate, AIProfile } from './types';
 
@@ -66,11 +67,13 @@ function rolloutPlanForState(state: GameState, profile: AIProfile): RolloutPlan 
   // Lv10 stays frozen. Lv11 spends more independent futures and compares a
   // wider root shortlist, but still never reads or consumes the live gameRng.
   if (profile.difficulty === 11) {
+    // Mid/late rollouts use a stronger reply-aware policy, so spend fewer but
+    // higher-quality futures there. Early game keeps the cheap fast policy.
     if (occupied >= 14) {
-      return { shortlistSize: 4, initialSamplesPerCandidate: 52, maxSamplesPerCandidate: 104, extensionGap: 0.045 };
+      return { shortlistSize: 4, initialSamplesPerCandidate: 20, maxSamplesPerCandidate: 40, extensionGap: 0.055 };
     }
     if (occupied >= 8) {
-      return { shortlistSize: 4, initialSamplesPerCandidate: 36, maxSamplesPerCandidate: 72, extensionGap: 0.055 };
+      return { shortlistSize: 4, initialSamplesPerCandidate: 20, maxSamplesPerCandidate: 40, extensionGap: 0.06 };
     }
     return { shortlistSize: 3, initialSamplesPerCandidate: 24, maxSamplesPerCandidate: 48, extensionGap: 0.065 };
   }
@@ -165,6 +168,30 @@ export function chooseFastRolloutAction(state: GameState, profile: AIProfile): S
   return best;
 }
 
+function chooseRolloutAction(state: GameState, profile: AIProfile): ScoredRolloutAction {
+  if (profile.difficulty !== 11) return chooseFastRolloutAction(state, profile);
+
+  const occupied = countBoardDice(state.sides.ai.board) + countBoardDice(state.sides.player.board);
+  if (occupied < 8) return chooseFastRolloutAction(state, profile);
+
+  const searchDepth = occupied >= 14 ? 2 : 1;
+  const rolloutProfile: AIProfile = { ...profile, searchDepth };
+  const ranking = rankAdvancedTurnActions(
+    state,
+    rolloutProfile,
+    {
+      limits: {
+        maxNodes: occupied >= 14 ? 1_200 : 450,
+        hardTimeBudgetMs: 10_000,
+      },
+      now: () => 0,
+      evaluateState: evaluateHighLevelSearchState,
+    },
+  );
+  const best = ranking.rankedCandidates[0];
+  return { action: best.action, utility: best.score };
+}
+
 function createRolloutDependencies(seed: number, label: string): EngineDependencies {
   const aiSeed = ((seed ^ 0x5bd1e995) >>> 0) || 1;
   let counter = 0;
@@ -201,7 +228,7 @@ function runRollout(
       throw new Error('라카루카 rollout이 행동 가능한 턴 상태를 벗어났습니다.');
     }
 
-    const choice = chooseFastRolloutAction(working, profile);
+    const choice = chooseRolloutAction(working, profile);
     working = dispatchTikatukaAction(working, choice.action, deps, working.currentSide).nextState;
   }
 
