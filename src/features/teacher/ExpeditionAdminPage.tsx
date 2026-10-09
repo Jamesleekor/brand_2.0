@@ -351,7 +351,7 @@ export default function ExpeditionAdminPage() {
         <div className="rounded-card-xl border border-danger/40 bg-danger-bg p-8 text-center">
           <div className="text-4xl">⚠️</div>
           <h1 className="mt-3 font-display text-xl text-white">편린 원정 통제실을 불러오지 못했습니다</h1>
-          <p className="mt-2 break-all text-xs font-bold text-text-secondary">
+          <p className="mt-2 break-all text-sm font-bold text-text-secondary">
             {boardQuery.error instanceof Error ? boardQuery.error.message : '알 수 없는 오류'}
           </p>
           <button type="button" className="btn-secondary mt-4" onClick={() => void boardQuery.refetch()}>
@@ -372,24 +372,24 @@ export default function ExpeditionAdminPage() {
       <div className="space-y-4 pb-12">
         <header className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
           <div>
-            <div className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-brand-primary">
+            <div className="mb-1 text-xs font-black uppercase tracking-[0.2em] text-brand-primary">
               Fragment Expedition · Operations
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="font-display text-2xl tracking-tight text-brand-gradient">🧭 편린 원정 통제실</h1>
               <ReleaseBadge ok={board.release_validation.ok} />
             </div>
-            <p className="mt-1 max-w-3xl text-sm font-semibold text-text-secondary">
+            <p className="mt-1 max-w-3xl text-base font-semibold text-text-secondary">
               주차 생성부터 3개 지역, 학생 참여, 일요일 변동, 정산과 월드 효과까지 한 화면에서 운영합니다.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden text-[10px] font-bold text-text-muted sm:block">
+            <span className="hidden text-xs font-bold text-text-muted sm:block">
               15초 자동 갱신 · 서버 {formatKst(board.server_now)}
             </span>
             <button
               type="button"
-              className="btn-secondary px-3 py-2 text-xs"
+              className="btn-secondary px-3 py-2 text-sm"
               disabled={boardQuery.isFetching}
               onClick={() => void boardQuery.refetch()}
             >
@@ -400,7 +400,7 @@ export default function ExpeditionAdminPage() {
 
         {notice && (
           <div className={cn(
-            'rounded-card-md border px-4 py-2.5 text-xs font-black',
+            'rounded-card-md border px-4 py-2.5 text-sm font-black',
             notice.tone === 'success'
               ? 'border-success/35 bg-success-bg text-success'
               : 'border-danger/35 bg-danger-bg text-danger',
@@ -409,7 +409,7 @@ export default function ExpeditionAdminPage() {
           </div>
         )}
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
           <main className="min-w-0 space-y-4">
             <CommandDeck
               board={board}
@@ -432,11 +432,11 @@ export default function ExpeditionAdminPage() {
             <section>
               <div className="mb-2 flex items-end justify-between">
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-text-muted">Weekly Map</div>
-                  <h2 className="text-sm font-black text-white">이번 주 3개 탐사지</h2>
+                  <div className="text-xs font-black uppercase tracking-[0.16em] text-text-muted">Weekly Map</div>
+                  <h2 className="text-base font-black text-white">이번 주 3개 탐사지</h2>
                 </div>
                 {week && (
-                  <div className="text-[10px] font-bold text-text-muted">
+                  <div className="text-xs font-bold text-text-muted">
                     월드효과 기준 · 흔적 12 / 24 / 40
                   </div>
                 )}
@@ -491,9 +491,9 @@ export default function ExpeditionAdminPage() {
       >
         {pending && (
           <div className="space-y-4">
-            <p className="text-sm font-semibold leading-6 text-text-secondary">{pending.description}</p>
+            <p className="text-base font-semibold leading-6 text-text-secondary">{pending.description}</p>
             <div className={cn(
-              'rounded-card-md border p-3 text-xs font-bold',
+              'rounded-card-md border p-3 text-sm font-bold',
               pending.tone === 'danger'
                 ? 'border-danger/30 bg-danger-bg text-danger'
                 : pending.tone === 'warning'
@@ -517,7 +517,7 @@ export default function ExpeditionAdminPage() {
                   void action.run().catch(() => undefined);
                 }}
                 className={cn(
-                  'rounded-card-md px-4 py-2 text-sm font-black transition-all disabled:opacity-50',
+                  'rounded-card-md px-4 py-2 text-base font-black transition-all disabled:opacity-50',
                   pending.tone === 'danger'
                     ? 'bg-danger text-white hover:brightness-110'
                     : 'bg-brand-primary text-white hover:brightness-110',
@@ -568,16 +568,16 @@ function CommandDeck({
     <section className="overflow-hidden rounded-card-xl border border-line bg-bg-card shadow-card">
       <div className="flex flex-col gap-3 border-b border-line px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-2">
-          <span className={cn('rounded-pill border px-2.5 py-1 text-[10px] font-black', phase.tone)}>
+          <span className={cn('rounded-pill border px-2.5 py-1 text-xs font-black', phase.tone)}>
             {phase.label}
           </span>
           {week ? (
             <>
-              <span className="text-sm font-black text-white">
+              <span className="text-base font-black text-white">
                 {week.week_index}주차 · {formatDate(week.week_start_date)}
               </span>
               <span className={cn(
-                'rounded-pill border px-2 py-1 text-[9px] font-black',
+                'rounded-pill border px-2 py-1 text-[11px] font-black',
                 week.reward_mode === 'LIVE'
                   ? 'border-danger/35 bg-danger-bg text-danger'
                   : 'border-bv/30 bg-bv/10 text-bv',
@@ -586,13 +586,13 @@ function CommandDeck({
               </span>
             </>
           ) : (
-            <span className="text-sm font-black text-white">원정 주차 대기</span>
+            <span className="text-base font-black text-white">원정 주차 대기</span>
           )}
         </div>
         {nextAction && (
           <button
             type="button"
-            className="btn-primary px-4 py-2 text-xs"
+            className="btn-primary px-4 py-2 text-sm"
             disabled={Boolean(busy) || nextAction.disabled}
             onClick={nextAction.onClick}
           >
@@ -636,12 +636,12 @@ function MetricCell({
 }) {
   return (
     <div className="bg-bg-card px-4 py-3">
-      <div className="text-[9px] font-black uppercase tracking-[0.13em] text-text-muted">{label}</div>
+      <div className="text-[11px] font-black uppercase tracking-[0.13em] text-text-muted">{label}</div>
       <div className={cn(
         'mt-1 font-display text-xl tracking-tight',
         tone === 'success' ? 'text-success' : tone === 'warning' ? 'text-warning' : 'text-white',
       )}>{value}</div>
-      <div className="mt-0.5 truncate text-[9px] font-bold text-text-muted">{hint}</div>
+      <div className="mt-0.5 truncate text-[11px] font-bold text-text-muted">{hint}</div>
     </div>
   );
 }
@@ -652,8 +652,8 @@ function TimelineStep({ label,value,active }: { label: string; value: string; ac
       'min-w-0 rounded-card-md border px-2 py-2 text-center',
       active ? 'border-brand-primary/35 bg-brand-primary/10' : 'border-line bg-bg-deep/45',
     )}>
-      <div className={cn('text-[9px] font-black', active ? 'text-brand-primary' : 'text-text-muted')}>{label}</div>
-      <div className="mt-0.5 truncate text-[9px] font-bold text-text-secondary">{value}</div>
+      <div className={cn('text-[11px] font-black', active ? 'text-brand-primary' : 'text-text-muted')}>{label}</div>
+      <div className="mt-0.5 truncate text-[11px] font-bold text-text-secondary">{value}</div>
     </div>
   );
 }
@@ -679,16 +679,16 @@ function SiteCard({ site }: { site: ExpeditionAdminSite }) {
       )}
       <div className="relative p-4">
       {site.is_dominant && (
-        <div className="absolute right-3 top-3 rounded-pill border border-gold/30 bg-gold/10 px-2 py-1 text-[9px] font-black text-gold">
+        <div className="absolute right-3 top-3 rounded-pill border border-gold/30 bg-gold/10 px-2 py-1 text-[11px] font-black text-gold">
           ★ 주도 지역
         </div>
       )}
       <div className="flex items-center gap-2">
         <img src={EXPEDITION_ASSETS.specialty[site.specialty_code]} alt="" className="h-5 w-5 object-contain" decoding="async" />
-        <span className="text-[10px] font-black text-[#F0DEC3]">{specialty.label} · SLOT {site.slot}</span>
+        <span className="text-xs font-black text-[#F0DEC3]">{specialty.label} · SLOT {site.slot}</span>
       </div>
       <h3 className="mt-2 pr-20 text-base font-black text-white">{site.site_name}</h3>
-      <p className="mt-0.5 truncate text-[10px] font-bold text-text-secondary">{site.environment_label}</p>
+      <p className="mt-0.5 truncate text-xs font-bold text-text-secondary">{site.environment_label}</p>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         <ElementChip code={site.saturday_major_element} label={`주 ${satMajor.label}`} strong />
@@ -705,7 +705,7 @@ function SiteCard({ site }: { site: ExpeditionAdminSite }) {
       </div>
 
       <div className="mt-3">
-        <div className="mb-1 flex items-center justify-between text-[9px] font-black">
+        <div className="mb-1 flex items-center justify-between text-[11px] font-black">
           <span className="text-text-muted">월드 효과 도달</span>
           <span className="text-text-secondary">{site.total_trace} / 40+</span>
         </div>
@@ -714,21 +714,21 @@ function SiteCard({ site }: { site: ExpeditionAdminSite }) {
           <span className="absolute left-[30%] top-0 h-full w-px bg-white/25" />
           <span className="absolute left-[60%] top-0 h-full w-px bg-white/25" />
         </div>
-        <div className="mt-1 flex justify-between text-[8px] font-bold text-text-muted">
+        <div className="mt-1 flex justify-between text-[10px] font-bold text-text-muted">
           <span>12 · Lv1</span><span>24 · Lv2</span><span>40 · Lv3</span>
         </div>
       </div>
 
       <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
         <div>
-          <div className="text-[9px] font-black text-text-muted">예상 효과</div>
-          <div className="text-[11px] font-black text-bv">{EFFECT_META[site.world_effect_code].label}</div>
+          <div className="text-[11px] font-black text-text-muted">예상 효과</div>
+          <div className="text-[13px] font-black text-bv">{EFFECT_META[site.world_effect_code].label}</div>
         </div>
         <div className="flex items-center gap-2 text-right">
           <img src={getExpeditionMasteryAsset(site.mastery_level)} alt="" className="h-8 w-8 object-contain" loading="lazy" decoding="async" />
           <div>
-            <div className="text-[9px] font-black text-[#F0DEC3]">{REWARD_META[site.core_reward_code]}</div>
-            <div className="text-[9px] font-bold text-[#FFF7ED]">
+            <div className="text-[11px] font-black text-[#F0DEC3]">{REWARD_META[site.core_reward_code]}</div>
+            <div className="text-[11px] font-bold text-[#FFF7ED]">
               {storyLabel(site.story_stage)} · {masteryLabel(site.mastery_level)}
             </div>
           </div>
@@ -739,8 +739,8 @@ function SiteCard({ site }: { site: ExpeditionAdminSite }) {
         <div className="mt-3 flex items-center gap-2 rounded-card-md border border-gold/20 bg-gold/5 px-3 py-2">
           <img src={EXPEDITION_ASSETS.sundayEnvironmentShift} alt="" className="h-8 w-8 flex-none object-contain" loading="lazy" decoding="async" />
           <div className="min-w-0">
-            <div className="text-[9px] font-black text-gold">일요일 환경 변화</div>
-            <div className="mt-0.5 truncate text-[10px] font-bold text-[#FFF7ED]">
+            <div className="text-[11px] font-black text-gold">일요일 환경 변화</div>
+            <div className="mt-0.5 truncate text-xs font-bold text-[#FFF7ED]">
               {site.sunday_event_title ?? '토요일 선두 지역 환경이 변화했습니다.'}
             </div>
           </div>
@@ -754,9 +754,9 @@ function SiteCard({ site }: { site: ExpeditionAdminSite }) {
 function SiteMetric({ label,value,sub,strong }: { label: string; value: number; sub: string; strong?: boolean }) {
   return (
     <div className={cn('rounded-card-md border p-2.5 text-center', strong ? 'border-brand-primary/25 bg-brand-primary/10' : 'border-line bg-bg-deep/55')}>
-      <div className="text-[8px] font-black text-text-muted">{label}</div>
+      <div className="text-[10px] font-black text-text-muted">{label}</div>
       <div className={cn('mt-0.5 text-lg font-black', strong ? 'text-brand-primary' : 'text-white')}>{value}</div>
-      <div className="text-[8px] font-bold text-text-muted">{sub}</div>
+      <div className="text-[10px] font-bold text-text-muted">{sub}</div>
     </div>
   );
 }
@@ -765,7 +765,7 @@ function ElementChip({ code,label,strong,changed }: { code: string; label: strin
   const asset = EXPEDITION_ASSETS.element[code as keyof typeof EXPEDITION_ASSETS.element];
   return (
     <span className={cn(
-      'inline-flex items-center gap-1 rounded-pill border px-2 py-1 text-[9px] font-black',
+      'inline-flex items-center gap-1 rounded-pill border px-2 py-1 text-[11px] font-black',
       changed
         ? 'border-gold/30 bg-gold/10 text-gold'
         : strong
@@ -792,8 +792,8 @@ function StudentOperations({
     <section className="overflow-hidden rounded-card-xl border border-line bg-bg-card">
       <div className="flex flex-col gap-3 border-b border-line px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-text-muted">Participants</div>
-          <h2 className="text-sm font-black text-white">학생 참가 현황</h2>
+          <div className="text-xs font-black uppercase tracking-[0.16em] text-text-muted">Participants</div>
+          <h2 className="text-base font-black text-white">학생 참가 현황</h2>
         </div>
         <div className="flex min-w-0 flex-wrap gap-1.5">
           {([
@@ -807,7 +807,7 @@ function StudentOperations({
               type="button"
               onClick={() => setFilter(key)}
               className={cn(
-                'rounded-pill border px-2.5 py-1.5 text-[9px] font-black',
+                'rounded-pill border px-2.5 py-1.5 text-[11px] font-black',
                 filter === key
                   ? 'border-brand-primary/40 bg-brand-primary/15 text-white'
                   : 'border-line bg-bg-deep text-text-secondary',
@@ -820,19 +820,19 @@ function StudentOperations({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="학생 검색"
-            className="w-32 rounded-pill border border-line bg-bg-deep px-3 py-1.5 text-[10px] font-bold text-white outline-none focus:border-brand-primary/50"
+            className="w-32 rounded-pill border border-line bg-bg-deep px-3 py-1.5 text-xs font-bold text-white outline-none focus:border-brand-primary/50"
           />
         </div>
       </div>
 
       {!week ? (
-        <div className="py-10 text-center text-xs font-bold text-text-muted">주차를 생성하면 학생 참가 현황이 표시됩니다.</div>
+        <div className="py-10 text-center text-sm font-bold text-text-muted">주차를 생성하면 학생 참가 현황이 표시됩니다.</div>
       ) : students.length === 0 ? (
-        <div className="py-10 text-center text-xs font-bold text-text-muted">조건에 맞는 학생이 없습니다.</div>
+        <div className="py-10 text-center text-sm font-bold text-text-muted">조건에 맞는 학생이 없습니다.</div>
       ) : (
         <div className="overflow-x-auto">
           <div className="min-w-[840px]">
-            <div className="grid grid-cols-[150px_1fr_1fr_86px_110px] gap-3 border-b border-line bg-bg-deep/50 px-4 py-2 text-[9px] font-black uppercase tracking-wide text-text-muted">
+            <div className="grid grid-cols-[150px_1fr_1fr_86px_110px] gap-3 border-b border-line bg-bg-deep/50 px-4 py-2 text-[11px] font-black uppercase tracking-wide text-text-muted">
               <span>학생</span><span>토요일</span><span>일요일</span><span>흔적</span><span>보상 상태</span>
             </div>
             <div className="divide-y divide-line">
@@ -854,15 +854,15 @@ function StudentRow({ student }: { student: ExpeditionAdminStudent }) {
 
   return (
     <div className={cn(
-      'grid grid-cols-[150px_1fr_1fr_86px_110px] gap-3 px-4 py-2.5 text-xs',
+      'grid grid-cols-[150px_1fr_1fr_86px_110px] gap-3 px-4 py-2.5 text-sm',
       student.is_test_account && 'opacity-60',
     )}>
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           <span className="truncate font-black text-white">{student.name}</span>
-          {student.is_test_account && <span className="rounded-pill border border-line px-1.5 py-0.5 text-[8px] font-black text-text-muted">TEST</span>}
+          {student.is_test_account && <span className="rounded-pill border border-line px-1.5 py-0.5 text-[10px] font-black text-text-muted">TEST</span>}
         </div>
-        <div className="truncate text-[9px] font-bold text-text-muted">{student.brand_name ?? 'BRAND 미설정'}</div>
+        <div className="truncate text-[11px] font-bold text-text-muted">{student.brand_name ?? 'BRAND 미설정'}</div>
       </div>
       <RunCell run={student.sat} />
       <RunCell run={student.sun} />
@@ -871,10 +871,10 @@ function StudentRow({ student }: { student: ExpeditionAdminStudent }) {
       </div>
       <div className="flex items-center">
         {claims.length === 0 ? (
-          <span className="text-[9px] font-bold text-text-muted">제출 없음</span>
+          <span className="text-[11px] font-bold text-text-muted">제출 없음</span>
         ) : (
           <span className={cn(
-            'rounded-pill border px-2 py-1 text-[9px] font-black',
+            'rounded-pill border px-2 py-1 text-[11px] font-black',
             claimed === claims.length
               ? 'border-success/30 bg-success-bg text-success'
               : 'border-warning/30 bg-warning-bg text-warning',
@@ -888,7 +888,7 @@ function StudentRow({ student }: { student: ExpeditionAdminStudent }) {
 }
 
 function RunCell({ run }: { run: ExpeditionAdminRunSummary | null }) {
-  if (!run) return <div className="flex items-center text-[10px] font-bold text-text-muted">— 미참여</div>;
+  if (!run) return <div className="flex items-center text-xs font-bold text-text-muted">— 미참여</div>;
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-1.5">
@@ -896,11 +896,11 @@ function RunCell({ run }: { run: ExpeditionAdminRunSummary | null }) {
           <img src={getExpeditionFitGradeAsset(run.fit_grade) ?? undefined} alt="" className="h-5 w-5 flex-none object-contain" loading="lazy" decoding="async" />
         )}
         <span className="truncate font-black text-text-primary">{run.site_name}</span>
-        <span className="rounded-pill border border-line px-1.5 py-0.5 text-[8px] font-black text-[#F0DEC3]">
+        <span className="rounded-pill border border-line px-1.5 py-0.5 text-[10px] font-black text-[#F0DEC3]">
           {fitGradeLabel(run.fit_grade)} {run.fit_percent}
         </span>
       </div>
-      <div className="mt-0.5 truncate text-[9px] font-bold text-text-muted">
+      <div className="mt-0.5 truncate text-[11px] font-bold text-text-muted">
         {run.members.join(' · ')} · 흔적 +{run.trace}
       </div>
     </div>
@@ -922,34 +922,40 @@ function SafetyPanel({
   const settings = board.settings;
   const integrity = board.release_validation.integrity;
   const catalog = board.release_validation.catalog;
+  const expectedProfiles = catalog?.active_characters ?? 0;
+  const profileCoverageOk = expectedProfiles > 0
+    && (catalog?.active_character_profiles ?? 0) === expectedProfiles
+    && (catalog?.active_element_profiles ?? 0) === expectedProfiles
+    && (catalog?.invalid_specialty_profiles ?? 0) === 0
+    && (catalog?.orphan_active_profiles ?? 0) === 0;
 
   return (
     <section className="rounded-card-xl border border-line bg-bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-text-muted">Launch Safety</div>
-          <h2 className="mt-0.5 text-sm font-black text-white">운영 안전장치</h2>
+          <div className="text-xs font-black uppercase tracking-[0.16em] text-text-muted">Launch Safety</div>
+          <h2 className="mt-0.5 text-base font-black text-white">운영 안전장치</h2>
         </div>
         <ReleaseBadge ok={board.release_validation.ok} />
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
-        <IntegrityMini label="편린 프로필" value={`${catalog?.active_character_profiles ?? '—'}/79`} ok={(catalog?.active_character_profiles ?? 0) === 79} />
+        <IntegrityMini label="편린 프로필" value={expectedProfiles > 0 ? `${catalog?.active_character_profiles ?? '—'}/${expectedProfiles}` : '—'} ok={profileCoverageOk} />
         <IntegrityMini label="탐사지/서사" value={`${catalog?.active_sites ?? '—'}/${catalog?.story_sites ?? '—'}`} ok={(catalog?.active_sites ?? 0) === 15 && (catalog?.story_sites ?? 0) === 15} />
         <IntegrityMini label="Cron" value={`${integrity?.active_lifecycle_cron_jobs ?? '—'}개`} ok={(integrity?.active_lifecycle_cron_jobs ?? 0) === 1} />
         <IntegrityMini label="권한 누수" value={`${integrity?.direct_browser_table_grants ?? '—'}건`} ok={(integrity?.direct_browser_table_grants ?? -1) === 0} />
       </div>
 
       {catalog?.luxury_assets_pending && (
-        <div className="mt-2 rounded-card-md border border-warning/25 bg-warning-bg px-3 py-2 text-[9px] font-bold leading-4 text-warning">
+        <div className="mt-2 rounded-card-md border border-warning/25 bg-warning-bg px-3 py-2 text-[11px] font-bold leading-4 text-warning">
           명품관 A/B/C 실물 자산은 아직 미등록입니다. 원정 본체 운영에는 영향이 없고 COSMETIC 효과에서만 상품이 비어 있습니다.
         </div>
       )}
 
       <div className="mt-4 border-t border-line pt-3">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-[10px] font-black text-text-muted">이번 주차 모드</span>
-          {!week && <span className="text-[9px] font-bold text-text-muted">주차 생성 후 설정</span>}
+          <span className="text-xs font-black text-text-muted">이번 주차 모드</span>
+          {!week && <span className="text-[11px] font-bold text-text-muted">주차 생성 후 설정</span>}
         </div>
         <div className="grid grid-cols-2 gap-1 rounded-card-md border border-line bg-bg-deep p-1">
           {(['DRY_RUN','LIVE'] as const).map((mode) => (
@@ -959,7 +965,7 @@ function SafetyPanel({
               disabled={!week || week.status !== 'DRAFT' || Boolean(busy)}
               onClick={() => onMode(mode)}
               className={cn(
-                'rounded-card-md px-3 py-2 text-[10px] font-black transition-all disabled:cursor-not-allowed disabled:opacity-40',
+                'rounded-card-md px-3 py-2 text-xs font-black transition-all disabled:cursor-not-allowed disabled:opacity-40',
                 week?.reward_mode === mode
                   ? mode === 'LIVE'
                     ? 'bg-danger/15 text-danger'
@@ -1011,8 +1017,8 @@ function SafetyPanel({
 function IntegrityMini({ label,value,ok }: { label: string; value: string; ok: boolean }) {
   return (
     <div className="rounded-card-md border border-line bg-bg-deep/55 px-3 py-2">
-      <div className="text-[8px] font-black text-text-muted">{label}</div>
-      <div className={cn('mt-0.5 text-xs font-black', ok ? 'text-success' : 'text-warning')}>{value}</div>
+      <div className="text-[10px] font-black text-text-muted">{label}</div>
+      <div className={cn('mt-0.5 text-sm font-black', ok ? 'text-success' : 'text-warning')}>{value}</div>
     </div>
   );
 }
@@ -1035,8 +1041,8 @@ function FeatureSwitch({
       className="flex w-full items-center gap-3 rounded-card-md px-2 py-1.5 text-left transition-colors hover:bg-bg-deep disabled:cursor-not-allowed disabled:opacity-50"
     >
       <div className="min-w-0 flex-1">
-        <div className={cn('text-[10px] font-black', dangerous && enabled ? 'text-danger' : 'text-white')}>{label}</div>
-        <div className="truncate text-[8px] font-bold text-text-muted">{description}</div>
+        <div className={cn('text-xs font-black', dangerous && enabled ? 'text-danger' : 'text-white')}>{label}</div>
+        <div className="truncate text-[10px] font-bold text-text-muted">{description}</div>
       </div>
       <span className={cn(
         'relative h-5 w-9 flex-shrink-0 rounded-pill border transition-colors',
@@ -1057,8 +1063,8 @@ function WorldEffectPanel({ board }: { board: ExpeditionAdminBoard }) {
   const effect = board.week?.world_effect;
   return (
     <section className="rounded-card-xl border border-line bg-bg-card p-4">
-      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-text-muted">World Effect</div>
-      <h2 className="mt-0.5 text-sm font-black text-white">월드 효과</h2>
+      <div className="text-xs font-black uppercase tracking-[0.16em] text-text-muted">World Effect</div>
+      <h2 className="mt-0.5 text-base font-black text-white">월드 효과</h2>
       {effect ? (
         <div className="relative mt-3 overflow-hidden rounded-card-lg border border-gold/15 bg-bg-deep/40 p-3">
           <img src={EXPEDITION_ASSETS.worldEffectActivation} alt="" className="pointer-events-none absolute -bottom-5 -right-4 h-24 w-24 object-contain opacity-[0.12]" loading="lazy" decoding="async" />
@@ -1069,9 +1075,9 @@ function WorldEffectPanel({ board }: { board: ExpeditionAdminBoard }) {
               )}
               <span className="truncate text-lg font-black text-gold">{EFFECT_META[effect.effect_code].label}</span>
             </div>
-            <span className="rounded-pill border border-gold/30 bg-gold/10 px-2 py-1 text-[9px] font-black text-gold">Lv.{effect.effect_level}</span>
+            <span className="rounded-pill border border-gold/30 bg-gold/10 px-2 py-1 text-[11px] font-black text-gold">Lv.{effect.effect_level}</span>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2 text-[9px] font-bold">
+          <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-bold">
             <div className="rounded-card-md border border-line bg-bg-deep p-2">
               <div className="text-text-muted">시작</div>
               <div className="mt-0.5 text-text-primary">{formatKst(effect.starts_at)}</div>
@@ -1081,13 +1087,13 @@ function WorldEffectPanel({ board }: { board: ExpeditionAdminBoard }) {
               <div className="mt-0.5 text-text-primary">{formatKst(effect.ends_at)}</div>
             </div>
           </div>
-          <div className="mt-2 text-[9px] font-bold text-text-muted">정확히 168시간 · 월요일 06:00 → 다음 월요일 06:00</div>
+          <div className="mt-2 text-[11px] font-bold text-text-muted">정확히 168시간 · 월요일 06:00 → 다음 월요일 06:00</div>
         </div>
       ) : (
         <div className="mt-3 rounded-card-md border border-dashed border-line px-3 py-5 text-center">
           <div className="text-xl">◌</div>
-          <div className="mt-1 text-[10px] font-black text-text-secondary">확정된 월드 효과 없음</div>
-          <div className="mt-0.5 text-[9px] font-bold text-text-muted">주간 정산 후 이곳에 표시됩니다.</div>
+          <div className="mt-1 text-xs font-black text-text-secondary">확정된 월드 효과 없음</div>
+          <div className="mt-0.5 text-[11px] font-bold text-text-muted">주간 정산 후 이곳에 표시됩니다.</div>
         </div>
       )}
     </section>
@@ -1098,18 +1104,18 @@ function OperationLog({ operations }: { operations: ExpeditionAdminOperation[] }
   const rows = [...operations].sort((a,b) => Date.parse(b.completed_at) - Date.parse(a.completed_at)).slice(0, 5);
   return (
     <section className="rounded-card-xl border border-line bg-bg-card p-4">
-      <div className="text-[10px] font-black uppercase tracking-[0.16em] text-text-muted">Audit Trail</div>
-      <h2 className="mt-0.5 text-sm font-black text-white">운영 기록</h2>
+      <div className="text-xs font-black uppercase tracking-[0.16em] text-text-muted">Audit Trail</div>
+      <h2 className="mt-0.5 text-base font-black text-white">운영 기록</h2>
       {rows.length === 0 ? (
-        <div className="mt-3 text-[10px] font-bold text-text-muted">아직 실행된 운영 작업이 없습니다.</div>
+        <div className="mt-3 text-xs font-bold text-text-muted">아직 실행된 운영 작업이 없습니다.</div>
       ) : (
         <div className="mt-3 space-y-2">
           {rows.map((operation) => (
             <div key={`${operation.code}-${operation.completed_at}`} className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-success/25 bg-success-bg text-[9px] text-success">✓</span>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-success/25 bg-success-bg text-[11px] text-success">✓</span>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[10px] font-black text-text-primary">{operationLabel(operation.code)}</div>
-                <div className="text-[8px] font-bold text-text-muted">{formatKst(operation.completed_at)}</div>
+                <div className="truncate text-xs font-black text-text-primary">{operationLabel(operation.code)}</div>
+                <div className="text-[10px] font-bold text-text-muted">{formatKst(operation.completed_at)}</div>
               </div>
             </div>
           ))}
@@ -1122,7 +1128,7 @@ function OperationLog({ operations }: { operations: ExpeditionAdminOperation[] }
 function ReleaseBadge({ ok }: { ok: boolean }) {
   return (
     <span className={cn(
-      'rounded-pill border px-2.5 py-1 text-[9px] font-black',
+      'rounded-pill border px-2.5 py-1 text-[11px] font-black',
       ok
         ? 'border-success/30 bg-success-bg text-success'
         : 'border-warning/30 bg-warning-bg text-warning',
@@ -1136,8 +1142,8 @@ function EmptyPanel({ icon,title,description }: { icon: string; title: string; d
   return (
     <div className="rounded-card-xl border border-dashed border-line bg-bg-card px-6 py-12 text-center">
       <div className="text-4xl opacity-70">{icon}</div>
-      <h3 className="mt-3 text-sm font-black text-white">{title}</h3>
-      <p className="mx-auto mt-1 max-w-lg text-xs font-semibold leading-5 text-text-secondary">{description}</p>
+      <h3 className="mt-3 text-base font-black text-white">{title}</h3>
+      <p className="mx-auto mt-1 max-w-lg text-sm font-semibold leading-5 text-text-secondary">{description}</p>
     </div>
   );
 }
