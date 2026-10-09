@@ -693,7 +693,7 @@ function SiteCard({
           </div>
           <div className="flex min-w-0 items-center gap-2.5 text-right">
             <img
-              src={getExpeditionWorldEffectAsset(site.world_effect_code)}
+              src={getExpeditionWorldEffectAsset(site.world_effect_code) ?? undefined}
               alt=""
               className="h-9 w-9 flex-none object-contain"
               loading="lazy"
@@ -1101,7 +1101,7 @@ function ExpeditionRewardGuideSection({
       <details className="group mt-4 overflow-hidden rounded-card-lg border border-gold/25 bg-gold/5">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5">
           <div className="flex items-center gap-3">
-            <img src={EXPEDITION_ASSETS.rewards.chestCommon} alt="" className="h-10 w-10 object-contain" loading="lazy" decoding="async" />
+            <img src={EXPEDITION_ASSETS.rewardChest.COMMON} alt="" className="h-10 w-10 object-contain" loading="lazy" decoding="async" />
             <div>
               <div className="text-sm font-black text-[#FFF7ED]">원정 상자에서는 무엇이 나오나요?</div>
               <div className="mt-0.5 text-xs font-bold text-[#F6EFE7]">일반 · 중급 · 희귀 상자의 실제 보상 확률 확인</div>
@@ -1315,7 +1315,7 @@ function ChronicleSiteCard({ site, onStory }: { site: ExpeditionChronicleSite; o
           <span className="text-sm font-bold text-[#F6EFE7]">주도지역 효과</span>
           <span className="flex min-w-0 items-center justify-end gap-2">
             <img
-              src={getExpeditionWorldEffectAsset(site.world_effect_code)}
+              src={getExpeditionWorldEffectAsset(site.world_effect_code) ?? undefined}
               alt=""
               className="h-7 w-7 flex-none object-contain"
               loading="lazy"
