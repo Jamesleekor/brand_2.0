@@ -16,6 +16,7 @@ import { characterS1Rpc, type StudentCharacterRecruitmentRow } from '@/lib/rpc/c
 import { expeditionRpc } from '@/lib/rpc/expedition_rpc';
 import { useWallet } from '@/hooks/useWallet';
 import { cn } from '@/lib/utils/cn';
+import { EXPEDITION_ASSETS } from './expedition/expeditionAssets';
 
 // =====================================================================
 // B.R.A.N.D 2.0 — Character Collection C2 + C4-C + S1 + E1-A
@@ -48,20 +49,20 @@ type CharacterExpeditionProfile = {
   profile_status: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
 };
 
-const EXPEDITION_SPECIALTY_META: Record<ExpeditionSpecialtyCode, { label: string; icon: string; className: string }> = {
+const EXPEDITION_SPECIALTY_META: Record<ExpeditionSpecialtyCode, { label: string; asset: string; className: string }> = {
   RUINS: {
     label: '유적',
-    icon: '🏛',
+    asset: EXPEDITION_ASSETS.specialty.RUINS,
     className: 'border-[#D6A56B]/45 bg-[#5A3A20]/55 text-[#FFD9A3]',
   },
   NATURE: {
     label: '자연',
-    icon: '🌿',
+    asset: EXPEDITION_ASSETS.specialty.NATURE,
     className: 'border-[#7DCE87]/45 bg-[#1E4A2B]/55 text-[#BDF5C5]',
   },
   SANCTUARY: {
     label: '성소',
-    icon: '✦',
+    asset: EXPEDITION_ASSETS.specialty.SANCTUARY,
     className: 'border-[#CFA8FF]/45 bg-[#432664]/55 text-[#E8CFFF]',
   },
 };
@@ -76,6 +77,7 @@ const FILTERS: Array<{ key: FilterKey; label: string; icon: string }> = [
 type ElementVisualMeta = {
   label: string;
   icon: string;
+  asset: string;
   barGradient: string;
   textColor: string;
   chipBackground: string;
@@ -87,38 +89,38 @@ type ElementVisualMeta = {
 
 const ELEMENT_META: Record<ElementCode, ElementVisualMeta> = {
   FIRE: {
-    label: '화', icon: '🔥',
+    label: '화', icon: '🔥', asset: EXPEDITION_ASSETS.element.FIRE,
     barGradient: 'linear-gradient(90deg, #ff7a63 0%, #ef4444 48%, #b91c1c 100%)',
     textColor: '#FF9A88', chipBackground: 'rgba(94, 29, 24, 0.72)', chipBorder: 'rgba(255, 122, 99, 0.58)',
     glow: '0 0 8px rgba(239, 68, 68, 0.24)', textShadow: '0 0 8px rgba(255, 90, 72, 0.18)',
   },
   WATER: {
-    label: '수', icon: '💧',
+    label: '수', icon: '💧', asset: EXPEDITION_ASSETS.element.WATER,
     barGradient: 'linear-gradient(90deg, #67d4ff 0%, #3b82f6 52%, #1d4ed8 100%)',
     textColor: '#86D9FF', chipBackground: 'rgba(22, 52, 92, 0.74)', chipBorder: 'rgba(83, 181, 255, 0.60)',
     glow: '0 0 8px rgba(59, 130, 246, 0.24)', textShadow: '0 0 8px rgba(80, 180, 255, 0.20)',
   },
   EARTH: {
-    label: '토', icon: '🪨',
+    label: '토', icon: '🪨', asset: EXPEDITION_ASSETS.element.EARTH,
     barGradient: 'linear-gradient(90deg, #c9905b 0%, #9a6438 52%, #6f4528 100%)',
     textColor: '#E5B982', chipBackground: 'rgba(74, 48, 30, 0.78)', chipBorder: 'rgba(201, 144, 91, 0.58)',
     glow: '0 0 8px rgba(154, 100, 56, 0.22)', textShadow: '0 0 8px rgba(201, 144, 91, 0.18)',
   },
   WIND: {
-    label: '풍', icon: '💫',
+    label: '풍', icon: '💫', asset: EXPEDITION_ASSETS.element.WIND,
     barGradient: 'linear-gradient(90deg, #fff59d 0%, #facc15 48%, #eab308 100%)',
     textColor: '#FFF27A', chipBackground: 'rgba(84, 70, 15, 0.74)', chipBorder: 'rgba(250, 204, 21, 0.60)',
     glow: '0 0 8px rgba(250, 204, 21, 0.24)', textShadow: '0 0 8px rgba(255, 230, 80, 0.18)',
   },
   DARK: {
-    label: '암', icon: '☾',
+    label: '암', icon: '☾', asset: EXPEDITION_ASSETS.element.DARK,
     barGradient: 'linear-gradient(90deg, #2e1065 0%, #6d28d9 32%, #c084fc 50%, #7c3aed 68%, #24103f 100%)',
     textColor: '#D8B4FE', chipBackground: 'linear-gradient(135deg, rgba(49, 20, 85, 0.94), rgba(91, 33, 182, 0.52))', chipBorder: 'rgba(192, 132, 252, 0.78)',
     glow: '0 0 12px rgba(147, 51, 234, 0.42), inset 0 0 10px rgba(216, 180, 254, 0.08)',
     textShadow: '0 0 10px rgba(192, 132, 252, 0.58)', rare: true,
   },
   LIGHT: {
-    label: '빛', icon: '✦',
+    label: '빛', icon: '✦', asset: EXPEDITION_ASSETS.element.LIGHT,
     barGradient: 'linear-gradient(90deg, #b7791f 0%, #f6c453 24%, #fff3b0 48%, #ffffff 52%, #f6d365 68%, #c58b22 100%)',
     textColor: '#FFE58A', chipBackground: 'linear-gradient(135deg, rgba(103, 72, 14, 0.92), rgba(225, 174, 55, 0.38))', chipBorder: 'rgba(255, 226, 123, 0.84)',
     glow: '0 0 12px rgba(255, 211, 90, 0.48), inset 0 0 10px rgba(255, 255, 255, 0.12)',
@@ -670,12 +672,12 @@ function CharacterElementLine({
   return (
     <div className="mt-2 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-black text-text-primary">
       <span className="inline-flex flex-shrink-0 items-center gap-1">
-        {primary.icon}
+        <img src={primary.asset} alt="" className="h-4 w-4 object-contain" loading="lazy" decoding="async" />
         {profile.primary_points}
       </span>
       {secondary && profile.secondary_element && profile.secondary_points > 0 && (
         <span className="inline-flex flex-shrink-0 items-center gap-1">
-          {secondary.icon}
+          <img src={secondary.asset} alt="" className="h-4 w-4 object-contain" loading="lazy" decoding="async" />
           {profile.secondary_points}
         </span>
       )}
@@ -687,7 +689,7 @@ function CharacterElementLine({
           'flex-shrink-0 rounded-pill border px-1.5 py-0.5 text-[9px]',
           specialty.className,
         )}>
-          {specialty.icon} {specialty.label}
+          <img src={specialty.asset} alt="" className="h-4 w-4 object-contain" loading="lazy" decoding="async" /> {specialty.label}
         </span>
       )}
     </div>
@@ -1090,7 +1092,7 @@ function CharacterElementPanel({
                   'rounded-pill border px-2 py-0.5 text-[12px]',
                   specialty.className,
                 )}>
-                  {specialty.icon} 원정 특기 · {specialty.label}
+                  <img src={specialty.asset} alt="" className="h-5 w-5 object-contain" loading="lazy" decoding="async" /> 원정 특기 · {specialty.label}
                 </span>
               </>
             )}
@@ -1102,7 +1104,7 @@ function CharacterElementPanel({
             style={elementChipStyle(primary)}
           >
             <span className="inline-flex items-center gap-1.5">
-              {primary.icon}
+              <img src={primary.asset} alt="" className="h-5 w-5 object-contain" loading="lazy" decoding="async" />
               {primary.label} {profile.primary_points}
             </span>
           </span>
@@ -1112,7 +1114,7 @@ function CharacterElementPanel({
               style={elementChipStyle(secondary)}
             >
               <span className="inline-flex items-center gap-1.5">
-                {secondary.icon}
+                <img src={secondary.asset} alt="" className="h-5 w-5 object-contain" loading="lazy" decoding="async" />
                 {secondary.label} {profile.secondary_points}
               </span>
             </span>
