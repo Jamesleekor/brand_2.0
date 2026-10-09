@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { LoadingSpinner } from '@/components/shared/components';
-import { LuxuryShopSection } from './expedition/LuxuryShopSection';
 import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -552,7 +551,6 @@ export default function ExpeditionChroniclePanel() {
       <LuxuryShopSection
         shop={luxuryQuery.data ?? null}
         loading={luxuryQuery.isLoading}
-        error={luxuryQuery.isError}
         busyAction={busyAction}
         onBuy={purchaseLuxury}
       />
@@ -726,29 +724,23 @@ function SiteCard({
           <ElementChip code={site.major_element} strong />
           <ElementChip code={site.minor_element} />
         </div>
-                {/* PATCH: EXPEDITION_CARD_REWARD_EFFECT_V3 */}
-        <div className="mt-3 overflow-hidden rounded-card-md border border-white/10 bg-white/[0.04]">
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-3 py-2.5">
-            <span className="flex-none whitespace-nowrap text-xs font-black text-[#FFF7ED]">핵심 보상</span>
-            <span className="min-w-0 break-keep text-right text-sm font-black leading-tight text-[#FFD58A]">
-              {site.core_reward_label}
-            </span>
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-card-md border border-white/10 bg-white/[0.04] px-3 py-2.5">
+          <div>
+            <div className="whitespace-nowrap text-xs font-black text-[#FFF7ED]">핵심 보상</div>
+            <div className="mt-0.5 text-sm font-black text-[#FFD58A]">{site.core_reward_label}</div>
           </div>
-
-          <div className="border-t border-white/10 px-3 py-2.5">
-            <div className="whitespace-nowrap text-xs font-black text-[#FFF7ED]">최종 주도지역 효과</div>
-            <div className="mt-1.5 flex min-w-0 items-center gap-2.5">
-              <img
-                src={getExpeditionWorldEffectAsset(site.world_effect_code) ?? undefined}
-                alt=""
-                className="h-9 w-9 flex-none object-contain"
-                loading="lazy"
-                decoding="async"
-              />
-              <div className="min-w-0 flex-1 text-right">
-                <div className="break-keep text-sm font-black leading-tight text-[#D9C3FF]">{site.world_effect_label}</div>
-                <div className="mt-1 whitespace-nowrap text-[11px] font-bold text-[#F6EFE7]">흔적 12+부터 발동</div>
-              </div>
+          <div className="flex min-w-0 items-center gap-2.5 text-right">
+            <img
+              src={getExpeditionWorldEffectAsset(site.world_effect_code) ?? undefined}
+              alt=""
+              className="h-9 w-9 flex-none object-contain"
+              loading="lazy"
+              decoding="async"
+            />
+            <div className="min-w-0">
+              <div className="whitespace-nowrap text-xs font-black text-[#FFF7ED]">최종 주도지역 효과</div>
+              <div className="mt-0.5 break-keep text-sm font-black text-[#D9C3FF]">{site.world_effect_label}</div>
+              <div className="mt-0.5 whitespace-nowrap text-[11px] font-bold text-[#F6EFE7]">흔적 12+부터 발동</div>
             </div>
           </div>
         </div>
@@ -1373,6 +1365,77 @@ function ChronicleSiteCard({ site, onStory }: { site: ExpeditionChronicleSite; o
       </div>
       </div>
     </button>
+  );
+}
+
+function LuxuryShopSection({
+  shop,
+  loading,
+  busyAction,
+  onBuy,
+}: {
+  shop: any;
+  loading: boolean;
+  busyAction: string | null;
+  onBuy: (item: ExpeditionLuxuryItem, pricingId: number) => Promise<void>;
+}) {
+  if (loading) return null;
+  if (!shop?.open) {
+    return (
+      <section className="rounded-card-xl border border-line bg-bg-card/90 p-4 shadow-card lg:p-5">
+        <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">명품관</div>
+        <div className="mt-1 text-lg font-black text-[#FFF7ED]">현재는 문이 닫혀 있습니다.</div>
+        <p className="mt-1 text-sm font-semibold text-[#F6EFE7]">상점(명품관) 개방 월드효과가 활성화되면 기간 한정 상품을 구매할 수 있습니다.</p>
+      </section>
+    );
+  }
+
+  if (shop.assets_pending || (shop.items ?? []).length === 0) {
+    return (
+      <section className="rounded-card-xl border border-gold/30 bg-gold/5 p-4 shadow-card lg:p-5">
+        <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">명품관 · Lv.{shop.access_level}</div>
+        <div className="mt-1 text-lg font-black text-[#FFF7ED]">명품관이 열렸습니다.</div>
+        <p className="mt-1 text-sm font-semibold text-[#F6EFE7]">이번 개방에 연결된 한정 상품은 아직 준비 중입니다.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-card-xl border border-gold/30 bg-gold/5 p-4 shadow-card lg:p-5">
+      <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">명품관 · Lv.{shop.access_level}</div>
+      <h2 className="mt-1 font-display text-xl text-[#FFF7ED]">기간 한정 꾸미기</h2>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {(shop.items as ExpeditionLuxuryItem[]).map((item) => (
+          <div key={item.item_id} className="overflow-hidden rounded-card-lg border border-gold/25 bg-bg-deep/65">
+            <div className="flex h-28 items-center justify-center bg-black/20">
+              <img src={item.resource_url} alt={item.name} className="h-full w-full object-contain" />
+            </div>
+            <div className="p-3">
+              <div className="text-xs font-black text-[#FFD58A]">GROUP {item.luxury_group}</div>
+              <div className="mt-1 text-sm font-black text-[#FFF7ED]">{item.name}</div>
+              {item.description && <div className="mt-1 text-sm font-semibold text-[#F6EFE7]">{item.description}</div>}
+              {item.owned ? (
+                <div className="mt-3 rounded-pill border border-success/35 bg-success-bg px-3 py-2 text-center text-sm font-black text-success">보유 중</div>
+              ) : (
+                <div className="mt-3 space-y-1.5">
+                  {item.pricing.map((pricing) => (
+                    <button
+                      key={pricing.pricing_id}
+                      type="button"
+                      disabled={busyAction === `luxury-${item.item_id}`}
+                      onClick={() => void onBuy(item, pricing.pricing_id)}
+                      className="w-full rounded-pill border border-gold/35 bg-gold/10 px-3 py-2 text-sm font-black text-gold disabled:opacity-45"
+                    >
+                      {pricing.value_token === 'CRYSTAL' ? '💎' : '🪙'} {pricing.price.toLocaleString('ko-KR')} 구매
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
