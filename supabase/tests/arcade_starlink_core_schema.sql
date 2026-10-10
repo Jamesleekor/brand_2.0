@@ -82,12 +82,30 @@ BEGIN
     RAISE EXCEPTION '[TEST ARCADE STARLINK 2A] anon role can directly read internal seed tables.';
   END IF;
 
-  IF has_function_privilege('authenticated','public.arcade_validate_period_game_rule_pin()','EXECUTE')
+  IF has_function_privilege('authenticated','public.arcade_validate_verification_period_game_rule()','EXECUTE')
+     OR has_function_privilege('authenticated','public.arcade_validate_period_game_rule_pin()','EXECUTE')
      OR has_function_privilege('authenticated','public.arcade_guard_verification_seed_slot_write()','EXECUTE')
      OR has_function_privilege('authenticated','public.arcade_guard_locked_verification_pack_header()','EXECUTE')
      OR has_function_privilege('authenticated','public.arcade_validate_verification_seed_assignment()','EXECUTE')
   THEN
     RAISE EXCEPTION '[TEST ARCADE STARLINK 2A] authenticated role can execute internal guard helpers.';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public'
+      AND c.relname IN (
+        'arcade_period_game_rule_pins',
+        'arcade_verification_seed_pack_slots',
+        'arcade_verification_seed_assignments'
+      )
+      AND c.relrowsecurity
+    GROUP BY n.nspname
+    HAVING count(*)=3
+  ) THEN
+    RAISE EXCEPTION '[TEST ARCADE STARLINK 2A] RLS is not enabled on every new internal table.';
   END IF;
 
   IF NOT EXISTS (
