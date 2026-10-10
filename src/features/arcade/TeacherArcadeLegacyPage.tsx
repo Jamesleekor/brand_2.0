@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/shared/components';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { TeacherArcadePeriodRecordsPanel } from './TeacherArcadePeriodRecordsPanel';
-import { arcadeErrorMessage, arcadeTeacherRpc, type ArcadePrereleaseTestLeaderboardResult, type ArcadeVerificationOverview, type ArcadeVerificationOverviewRow } from '@/lib/rpc/arcade_rpc';
+import { arcadeErrorMessage, arcadeTeacherRpc, type ArcadeForceFinalizePreview, type ArcadePrereleaseTestLeaderboardResult, type ArcadeVerificationOverview, type ArcadeVerificationOverviewRow } from '@/lib/rpc/arcade_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import { useToastStore } from '@/stores/ui_store';
@@ -53,6 +53,9 @@ export default function TeacherArcadePage() {
   const [verificationOverview, setVerificationOverview] = useState<ArcadeVerificationOverview | null>(null);
   const [isLoadingVerification, setIsLoadingVerification] = useState(false);
   const [verificationActionId, setVerificationActionId] = useState<string | null>(null);
+  const [forceFinalizePreview, setForceFinalizePreview] = useState<ArcadeForceFinalizePreview | null>(null);
+  const [forceFinalizeReason, setForceFinalizeReason] = useState('인증 미완료자 대기 없이 현재 공식·동결 기록으로 월간 마감');
+  const [isForceFinalizing, setIsForceFinalizing] = useState(false);
 
   const query = useQuery({    queryKey: ['teacher-arcade', classroomId, selectedGameCode],
     staleTime: 30_000,
@@ -161,7 +164,7 @@ export default function TeacherArcadePage() {
     const alreadyEnded = new Date(period.ends_at_exclusive).getTime() <= Date.now();
     const warning = alreadyEnded
       ? `「${period.display_name}」의 기록을 동결하고 공인 기록 인증을 시작할까요?\n동결 뒤에는 이 기간의 일반 Arcade 기록이 더 이상 바뀌지 않습니다.`
-      : `「${period.display_name}」의 공인 기록 인증을 지금 시작할까요?\n\n이 작업은 월간 랭킹 기간을 지금 즉시 종료한 뒤, 집중 반응과 순수 반응 속도를 포함한 이 기간의 일반 기록을 모두 동결합니다.\n이후 새 일반 기록은 이 기간 순위에 반영되지 않습니다.`;
+      : `「${period.display_name}」의 공인 기록 인증을 지금 시작할까요?\n\n이 작업은 월간 랭킹 기간을 지금 즉시 종료한 뒤, 이 기간의 Arcade 일반 기록을 모두 동결합니다.\n이후 새 일반 기록은 이 기간 순위에 반영되지 않습니다.`;
     if (!window.confirm(warning)) return;
 
     setActionError(null);
@@ -258,6 +261,42 @@ export default function TeacherArcadePage() {
     setVerificationOverview(null);
   };
 
+  const openForceFinalize = async (period: PeriodRow) => {
+    setActionError(null);
+    setIsForceFinalizing(true);
+    const rpc = await arcadeTeacherRpc.getForceFinalizePreview(supabase, { p_period_id: period.id });
+    setIsForceFinalizing(false);
+    if (rpc.success === false) { setActionError(arcadeErrorMessage(rpc)); return; }
+    if (rpc.data.already_finalized) {
+      show({ title: '이미 최종 확정된 기간이에요', description: '추가 작업 없이 현재 확정 상태를 유지합니다.', variant: 'success' });
+      refresh();
+      return;
+    }
+    setForceFinalizeReason('인증 미완료자 대기 없이 현재 공식·동결 기록으로 월간 마감');
+    setForceFinalizePreview(rpc.data);
+  };
+
+  const confirmForceFinalize = async () => {
+    if (!forceFinalizePreview || forceFinalizeReason.trim().length < 2) return;
+    setActionError(null);
+    setIsForceFinalizing(true);
+    const rpc = await arcadeTeacherRpc.forceFinalizePeriod(supabase, {
+      p_period_id: forceFinalizePreview.period_id,
+      p_reason: forceFinalizeReason.trim(),
+    });
+    setIsForceFinalizing(false);
+    if (rpc.success === false) { setActionError(arcadeErrorMessage(rpc)); return; }
+
+    show({
+      title: '월간 Arcade를 최종 확정했어요',
+      description: '남은 공인도전을 정리하고 최종 순위와 Guild 2 반영까지 완료했습니다.',
+      variant: 'success',
+    });
+    setForceFinalizePreview(null);
+    setVerificationOverview(null);
+    refresh();
+  };
+
   const loadAudit = async () => {
     if (!auditPeriod) return;
     setIsLoadingAudit(true);
@@ -305,16 +344,17 @@ export default function TeacherArcadePage() {
     {actionError && <div className="glass-card border-danger/40 p-4 text-sm font-bold text-danger">{actionError}</div>}
     {query.isLoading && <div className="py-16 text-center"><LoadingSpinner size="lg" /></div>}
     {query.isError && <div className="glass-card border-danger/40 p-4"><div className="font-black text-danger">Arcade 운영 정보를 불러오지 못했습니다.</div><p className="mt-2 text-xs text-text-secondary">{query.error instanceof Error ? query.error.message : '알 수 없는 오류'}</p><button className="btn-secondary mt-3" onClick={() => void query.refetch()}>다시 시도</button></div>}
+    {forceFinalizePreview && <ForceFinalizeModal preview={forceFinalizePreview} reason={forceFinalizeReason} setReason={setForceFinalizeReason} busy={isForceFinalizing} onCancel={() => setForceFinalizePreview(null)} onConfirm={() => void confirmForceFinalize()} />}
     {query.data && <>
-      <section className="glass-card border-brand-primary/30 p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-xs font-black tracking-[0.16em] text-brand-primary">ARCADE GAME</div><h2 className="mt-1 font-display text-lg text-white">관리할 게임 선택</h2></div><select className="input-field min-w-[240px]" value={selectedGameCode} onChange={(event) => { setSelectedGameCode(event.target.value); setAuditRows(null); setPrereleaseTestLeaderboard(null); setVerificationOverview(null); setTestStudentId(''); }}>{query.data.games.filter((game: { code: string; is_active: boolean }) => game.is_active && ['focus_reaction_01','pure_reaction_02'].includes(game.code)).map((game: { id: number; code: string }) => <option key={game.id} value={game.code}>{arcadeGameLabel(game.code)}</option>)}</select></div></section>
+      <section className="glass-card border-brand-primary/30 p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-xs font-black tracking-[0.16em] text-brand-primary">ARCADE GAME</div><h2 className="mt-1 font-display text-lg text-white">관리할 게임 선택</h2></div><select className="input-field min-w-[240px]" value={selectedGameCode} onChange={(event) => { setSelectedGameCode(event.target.value); setAuditRows(null); setPrereleaseTestLeaderboard(null); setVerificationOverview(null); setTestStudentId(''); }}>{query.data.games.filter((game: { code: string; is_active: boolean }) => game.is_active && ['focus_reaction_01','pure_reaction_02','starlink_04'].includes(game.code)).map((game: { id: number; code: string }) => <option key={game.id} value={game.code}>{arcadeGameLabel(game.code)}</option>)}</select></div></section>
 
-      <section id="arcade-verification-management" className="glass-card border-gold/40 p-5"><div className="mb-4"><div className="text-xs font-black tracking-[0.16em] text-gold">OFFICIAL RECORD VERIFICATION</div><h2 className="mt-1 font-display text-lg text-white">🏅 {arcadeGameLabel(selectedGameCode)} 공인 도전</h2><p className="mt-1 text-xs text-white/80">집중 반응과 순수 반응 속도는 월간 기록을 동결한 뒤 공식 참여 학생 전원에게 동일하게 3회의 공인 인증 기회를 엽니다. 일반 기록 순위는 인증 자격을 제한하지 않으며, 최종 인증 결과로 Top 10과 보상을 결정합니다.</p></div>{verificationPeriods.length > 0 ? <><div className="flex flex-col gap-2 sm:flex-row"><select className="input-field min-w-0 flex-1" value={verificationPeriod?.id ?? ''} onChange={(event) => { const id = Number(event.target.value); setVerificationPeriodId(id); setVerificationOverview(null); }}><option value="">인증 기간 선택</option>{verificationPeriods.map((period) => <option key={period.id} value={period.id}>{period.display_name} · {period.status === 'READY_TO_FINALIZE' ? '최종 확정 대기' : '인증 중'}</option>)}</select><button className="btn-primary" disabled={!verificationPeriod || isLoadingVerification} onClick={() => void loadVerificationOverview()}>{isLoadingVerification ? '불러오는 중...' : '🏅 인증 현황 열기'}</button></div>{verificationOverview && <VerificationOverviewTable overview={verificationOverview} busyKey={verificationActionId} runAction={runVerificationAction} onForceClose={forceCloseVerificationGame} />}</> : activeMonthlyPeriod ? <div className="rounded-card-md border border-warning/30 bg-warning/10 p-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><b className="text-sm text-white">현재 월간 랭킹: {activeMonthlyPeriod.display_name}</b><p className="mt-1 text-xs text-warning">아직 일반 기록 접수 중입니다. 공인 도전을 열면 이 월간 기간을 즉시 종료하고 기록을 동결한 뒤 학생별 인증 단계로 전환합니다.</p></div><button className="btn-primary shrink-0" disabled={isSaving} onClick={() => void openVerificationNow(activeMonthlyPeriod)}>{isSaving ? '전환 중...' : '🏅 공인 도전 열기'}</button></div></div> : <p className="rounded-card-md border border-line bg-bg-deep p-4 text-sm text-text-secondary">공인 도전을 열 수 있는 월간 기간이 없습니다. 먼저 아래에서 월간 랭킹 기간을 만들고 활성화하세요.</p>}</section>
+      <section id="arcade-verification-management" className="glass-card border-gold/40 p-5"><div className="mb-4"><div className="text-xs font-black tracking-[0.16em] text-gold">OFFICIAL RECORD VERIFICATION</div><h2 className="mt-1 font-display text-lg text-white">🏅 {arcadeGameLabel(selectedGameCode)} 공인 도전</h2><p className="mt-1 text-xs text-white/80">Arcade 기록 인증 게임은 월간 기록을 동결한 뒤 공식 참여 학생 전원에게 공인 인증 기회를 엽니다. 일반 기록 순위는 인증 자격을 제한하지 않으며, 최종 인증 결과로 Top 10과 보상을 결정합니다.</p></div>{verificationPeriods.length > 0 ? <><div className="flex flex-col gap-2 sm:flex-row"><select className="input-field min-w-0 flex-1" value={verificationPeriod?.id ?? ''} onChange={(event) => { const id = Number(event.target.value); setVerificationPeriodId(id); setVerificationOverview(null); }}><option value="">인증 기간 선택</option>{verificationPeriods.map((period) => <option key={period.id} value={period.id}>{period.display_name} · {period.status === 'READY_TO_FINALIZE' ? '최종 확정 대기' : '인증 중'}</option>)}</select><button className="btn-primary" disabled={!verificationPeriod || isLoadingVerification} onClick={() => void loadVerificationOverview()}>{isLoadingVerification ? '불러오는 중...' : '🏅 인증 현황 열기'}</button></div>{verificationOverview && <VerificationOverviewTable overview={verificationOverview} busyKey={verificationActionId} runAction={runVerificationAction} onForceClose={forceCloseVerificationGame} />}</> : activeMonthlyPeriod ? <div className="rounded-card-md border border-warning/30 bg-warning/10 p-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><b className="text-sm text-white">현재 월간 랭킹: {activeMonthlyPeriod.display_name}</b><p className="mt-1 text-xs text-warning">아직 일반 기록 접수 중입니다. 공인 도전을 열면 이 월간 기간을 즉시 종료하고 기록을 동결한 뒤 학생별 인증 단계로 전환합니다.</p></div><button className="btn-primary shrink-0" disabled={isSaving} onClick={() => void openVerificationNow(activeMonthlyPeriod)}>{isSaving ? '전환 중...' : '🏅 공인 도전 열기'}</button></div></div> : <p className="rounded-card-md border border-line bg-bg-deep p-4 text-sm text-text-secondary">공인 도전을 열 수 있는 월간 기간이 없습니다. 먼저 아래에서 월간 랭킹 기간을 만들고 활성화하세요.</p>}</section>
       <section className="glass-card p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">새 랭킹 기간 만들기</h2><p className="mt-1 text-xs text-text-secondary">월간 기간은 Guild 2 반영 월을 가집니다. 날짜·시각은 한국(Asia/Seoul) 기준으로 입력하세요. 종료 시각은 포함하지 않는 경계입니다.</p></div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><label className="text-xs font-black text-text-secondary">기간 종류<select className="input-field mt-1 w-full" value={kind} onChange={(event) => setKind(event.target.value as PeriodKind)}><option value="MONTHLY">월간 (Guild 2 반영)</option><option value="SEASON">시즌 랭킹</option></select></label><label className="text-xs font-black text-text-secondary">기간 이름<input className="input-field mt-1 w-full" value={displayName} maxLength={120} onChange={(event) => setDisplayName(event.target.value)} /></label><label className="text-xs font-black text-text-secondary">연결할 길드 시즌<select className="input-field mt-1 w-full" value={seasonId} onChange={(event) => setSeasonId(event.target.value)}><option value="">연결하지 않음</option>{query.data.seasons.map((season) => <option key={season.id} value={season.id}>{season.display_name} ({season.starts_on} ~ {season.ends_on})</option>)}</select></label>{kind === 'MONTHLY' && <label className="text-xs font-black text-text-secondary">Guild 2 반영 월<div className="mt-1 flex gap-2"><input className="input-field min-w-0 flex-1" type="month" value={yearMonth} onChange={(event) => setYearMonth(event.target.value)} /><button className="btn-secondary text-xs" onClick={fillMonthlyTemplate}>월 템플릿</button></div></label>}<label className="text-xs font-black text-text-secondary">시작 (포함)<input className="input-field mt-1 w-full" type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} /></label><label className="text-xs font-black text-text-secondary">종료 (이 시각 전까지)<input className="input-field mt-1 w-full" type="datetime-local" value={endsAt} onChange={(event) => setEndsAt(event.target.value)} /></label></div>
         <button className="btn-primary mt-4" disabled={isSaving} onClick={() => void createPeriod()}>{isSaving ? '저장 중...' : '초안 기간 만들기'}</button>
       </section>
 
-      <section className="glass-card p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">기간 상태와 월간 확정</h2><p className="mt-1 text-xs text-text-secondary">월간 기간은 종료 후 기록을 동결하고 공식 참여 학생 전원에게 공인 인증 기회를 엽니다. Top 10은 인증 자격이 아니라 최종 보상 범위이며, 현재 Top 10이 해결되고 진행 중 인증 세션이 없을 때 최종 snapshot과 Guild 2 반영을 확정합니다.</p></div>{!query.data.periods.length ? <p className="py-8 text-center text-sm text-text-secondary">아직 만든 기간이 없습니다.</p> : <div className="space-y-3">{query.data.periods.map((period) => { const ended = new Date(period.ends_at_exclusive).getTime() <= Date.now(); return <div key={period.id} className="rounded-card-md border border-line bg-bg-deep p-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><b className="text-white">{period.display_name}</b><StatusPill status={period.status} /><span className="text-xs text-text-muted">{period.period_kind === 'MONTHLY' ? `Guild 2 ${period.contribution_year_month}` : '시즌 랭킹'}</span></div><p className="mt-1 text-xs text-text-secondary">{formatKst(period.starts_at)} ~ {formatKst(period.ends_at_exclusive)} 전</p></div><div className="flex flex-wrap gap-2">{period.status === 'DRAFT' && <button className="btn-primary text-xs" disabled={isSaving} onClick={() => void updateStatus(period, 'ACTIVE')}>기간 열기</button>}{period.status === 'ACTIVE' && !ended && <button className="btn-secondary text-xs" disabled={isSaving} onClick={() => void updateStatus(period, 'DRAFT')}>다시 초안으로</button>}{period.status === 'ACTIVE' && !ended && <button className="btn-danger text-xs" disabled={isSaving} onClick={() => void endPeriodNow(period)}>⏹ 랭킹 기간 즉시 종료</button>}{period.status === 'ACTIVE' && period.period_kind === 'MONTHLY' && <button className="btn-primary text-xs" disabled={!ended || isSaving} title={ended ? '일반 기록을 동결하고 기록 인증 단계를 시작합니다.' : '종료 시각 뒤에 동결할 수 있습니다.'} onClick={() => void freezePeriod(period)}>{ended ? '🔒 기록 동결 + 인증 시작' : '기간 종료 전'}</button>}{period.period_kind === 'MONTHLY' && ['VERIFICATION','READY_TO_FINALIZE'].includes(period.status) && <button className="btn-secondary text-xs" disabled={isLoadingVerification} onClick={() => void loadVerificationOverview(period.id)}>🏅 인증 관리</button>}{period.status === 'READY_TO_FINALIZE' && <button className="btn-primary text-xs" disabled={isSaving} onClick={() => void finalizePeriod(period)}>✅ 최종 랭킹 확정 + Guild 2 반영</button>}</div></div></div>; })}</div>}</section>
+      <section className="glass-card p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">기간 상태와 월간 확정</h2><p className="mt-1 text-xs text-text-secondary">월간 기간은 종료 후 기록을 동결하고 공식 참여 학생 전원에게 공인 인증 기회를 엽니다. Top 10은 인증 자격이 아니라 최종 보상 범위이며, 현재 Top 10이 해결되고 진행 중 인증 세션이 없을 때 정상 확정할 수 있습니다. 필요하면 남은 인증을 전체 마감한 뒤 즉시 최종 확정할 수도 있습니다.</p></div>{!query.data.periods.length ? <p className="py-8 text-center text-sm text-text-secondary">아직 만든 기간이 없습니다.</p> : <div className="space-y-3">{query.data.periods.map((period) => { const ended = new Date(period.ends_at_exclusive).getTime() <= Date.now(); return <div key={period.id} className="rounded-card-md border border-line bg-bg-deep p-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><b className="text-white">{period.display_name}</b><StatusPill status={period.status} /><span className="text-xs text-text-muted">{period.period_kind === 'MONTHLY' ? `Guild 2 ${period.contribution_year_month}` : '시즌 랭킹'}</span></div><p className="mt-1 text-xs text-text-secondary">{formatKst(period.starts_at)} ~ {formatKst(period.ends_at_exclusive)} 전</p></div><div className="flex flex-wrap gap-2">{period.status === 'DRAFT' && <button className="btn-primary text-xs" disabled={isSaving} onClick={() => void updateStatus(period, 'ACTIVE')}>기간 열기</button>}{period.status === 'ACTIVE' && !ended && <button className="btn-secondary text-xs" disabled={isSaving} onClick={() => void updateStatus(period, 'DRAFT')}>다시 초안으로</button>}{period.status === 'ACTIVE' && !ended && <button className="btn-danger text-xs" disabled={isSaving} onClick={() => void endPeriodNow(period)}>⏹ 랭킹 기간 즉시 종료</button>}{period.status === 'ACTIVE' && period.period_kind === 'MONTHLY' && <button className="btn-primary text-xs" disabled={!ended || isSaving} title={ended ? '일반 기록을 동결하고 기록 인증 단계를 시작합니다.' : '종료 시각 뒤에 동결할 수 있습니다.'} onClick={() => void freezePeriod(period)}>{ended ? '🔒 기록 동결 + 인증 시작' : '기간 종료 전'}</button>}{period.period_kind === 'MONTHLY' && ['VERIFICATION','READY_TO_FINALIZE'].includes(period.status) && <button className="btn-secondary text-xs" disabled={isLoadingVerification} onClick={() => void loadVerificationOverview(period.id)}>🏅 인증 관리</button>}{period.status === 'READY_TO_FINALIZE' && <button className="btn-primary text-xs" disabled={isSaving} onClick={() => void finalizePeriod(period)}>✅ 최종 랭킹 확정 + Guild 2 반영</button>}{period.period_kind === 'MONTHLY' && ['VERIFICATION','READY_TO_FINALIZE'].includes(period.status) && <button className="btn-danger text-xs" disabled={isForceFinalizing || isSaving} onClick={() => void openForceFinalize(period)}>{isForceFinalizing ? '확인 중...' : '⚠ 남은 인증 전체 마감 후 즉시 확정'}</button>}</div></div></div>; })}</div>}</section>
       <section className="glass-card border-brand-primary/30 p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">사전 테스트 허용</h2><p className="mt-1 text-xs text-text-secondary">공개일 전에는 여기서 허용한 학생만 게임을 플레이할 수 있습니다. 테스트 기록은 서버 검증과 감사 기록에는 남지만, Top 10·월간 확정·Guild 2 점수에는 절대 반영되지 않습니다.</p></div><div className="flex flex-col gap-2 sm:flex-row"><select className="input-field min-w-0 flex-1" value={testStudentId} onChange={(event) => setTestStudentId(event.target.value)}><option value="">테스트할 학생 선택</option>{query.data.students.filter((student) => !student.transferred_at && ['STUDENT', 'STUDENT_LEADER', 'GUARD', 'TEST'].includes(student.role)).map((student) => <option key={student.id} value={student.id}>{student.brand_name || student.name} ({student.name})</option>)}</select><button className="btn-primary" disabled={isSaving || !testStudentId} onClick={() => void setPrereleaseTestAccess(true)}>{isSaving ? '저장 중...' : '사전 테스트 허용'}</button></div>{!query.data.testAccess.length ? <p className="mt-4 text-sm text-text-secondary">현재 사전 테스트가 허용된 학생이 없습니다.</p> : <div className="mt-4 space-y-2">{query.data.testAccess.map((access) => <div key={access.access_id} className="flex flex-wrap items-center justify-between gap-2 rounded-card-md border border-line bg-bg-deep p-3"><div><b className="text-sm text-white">{access.student_brand_name || access.student_name}</b><p className="mt-1 text-xs text-text-secondary">사전 테스트 허용됨 · 최근 변경 {formatKst(access.updated_at)}</p></div><button className="btn-secondary text-xs" disabled={isSaving} onClick={() => void setPrereleaseTestAccess(false, access.student_id)}>허용 해제</button></div>)}</div>}</section>
 
       <section className="glass-card border-brand-primary/30 p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">사전 테스트 순위 확인</h2><p className="mt-1 text-xs text-text-secondary">공개 랭킹과 같은 방식으로 학생당 최고 기록 하나만 사용해 순위를 계산합니다. 이 표는 테스트 기록만 읽으며, 공개 Top 10·월간 확정·Guild 2에는 전혀 영향을 주지 않습니다.</p></div><div className="flex flex-col gap-2 sm:flex-row"><select className="input-field min-w-0 flex-1" value={auditPeriod?.id ?? ''} onChange={(event) => { setAuditPeriodId(Number(event.target.value)); setAuditRows(null); setPrereleaseTestLeaderboard(null); }}><option value="">기간 선택</option>{query.data.periods.map((period) => <option key={period.id} value={period.id}>{period.display_name}</option>)}</select><button className="btn-secondary" disabled={!auditPeriod || isLoadingPrereleaseTestLeaderboard} onClick={() => void loadPrereleaseTestLeaderboard()}>{isLoadingPrereleaseTestLeaderboard ? '순위 계산 중...' : '사전 테스트 순위 보기'}</button></div>{prereleaseTestLeaderboard && <PrereleaseTestLeaderboardCard leaderboard={prereleaseTestLeaderboard} />}</section>
@@ -324,6 +364,53 @@ export default function TeacherArcadePage() {
       </section>
     </>}
   </div></TeacherShell>;
+}
+
+function ForceFinalizeModal({ preview, reason, setReason, busy, onCancel, onConfirm }: { preview: ArcadeForceFinalizePreview; reason: string; setReason: (value: string) => void; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
+  const unresolved = preview.games.reduce((sum, game) => sum + game.unresolved_reward_range, 0);
+  return <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-card-xl border border-danger/50 bg-bg-overlay p-5 shadow-card">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs font-black tracking-[0.16em] text-danger">FORCE FINALIZE</div>
+          <h2 className="mt-1 font-display text-xl text-white">⚠ 남은 인증 전체 마감 후 즉시 확정</h2>
+          <p className="mt-2 text-sm font-bold text-text-secondary">「{preview.period_name}」의 미완료 공인도전을 정리하고 월간 순위와 Guild 2 반영까지 한 번에 확정합니다.</p>
+        </div>
+        <button className="btn-secondary text-xs" disabled={busy} onClick={onCancel}>닫기</button>
+      </div>
+
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <ForceFinalizeStat label="미해결 보상권" value={`${unresolved}명`} />
+        <ForceFinalizeStat label="진행 중 인증 run" value={`${preview.active_verification_runs}개`} />
+        <ForceFinalizeStat label="동결 기록 채택" value={`${preview.will_adopt_frozen_provisional}명`} />
+        <ForceFinalizeStat label="라카루카 미완료" value={`${preview.rakaruka_active_sessions}명`} />
+      </div>
+
+      <div className="mt-4 overflow-x-auto rounded-card-md border border-line">
+        <table className="w-full min-w-[620px] text-xs">
+          <thead className="border-b border-line bg-bg-deep text-left text-text-secondary"><tr><th className="p-3">게임</th><th className="p-3 text-right">미해결 Top 10</th><th className="p-3 text-right">활성 세션</th><th className="p-3 text-right">진행 run</th><th className="p-3 text-right">동결 기록 채택</th></tr></thead>
+          <tbody>{preview.games.map((game) => <tr key={game.game_code} className="border-b border-line/70 last:border-0"><td className="p-3 font-black text-white">{arcadeGameLabel(game.game_code)}{game.verification_closed && <span className="ml-2 text-[10px] text-success">마감됨</span>}</td><td className="p-3 text-right text-white">{game.unresolved_reward_range}</td><td className="p-3 text-right text-white">{game.active_sessions}</td><td className="p-3 text-right text-warning">{game.active_runs}</td><td className="p-3 text-right text-gold">{game.will_adopt_frozen_provisional}</td></tr>)}</tbody>
+        </table>
+      </div>
+
+      <div className="mt-4 rounded-card-md border border-warning/35 bg-warning/10 p-4 text-xs font-bold leading-6 text-warning">
+        이미 확정된 인증 결과는 그대로 유지됩니다. 미완료 보상권 학생은 동결된 일반 기록을 사용합니다. 진행 중 공인도전은 종료되며, 라카루카 미완료 공인 세션은 취소됩니다. 성공하면 이 기간은 즉시 FINALIZED가 되어 일반 수정이 불가능합니다.
+      </div>
+
+      <label className="mt-4 block text-xs font-black text-text-secondary">강제 확정 사유
+        <textarea className="input-field mt-1 min-h-24 w-full resize-y text-sm" value={reason} maxLength={500} onChange={(event) => setReason(event.target.value)} placeholder="2자 이상 입력" />
+      </label>
+
+      <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <button className="btn-secondary" disabled={busy} onClick={onCancel}>취소</button>
+        <button className="btn-danger" disabled={busy || reason.trim().length < 2} onClick={onConfirm}>{busy ? '전체 마감 및 확정 중...' : '남은 인증 마감 + 최종 확정'}</button>
+      </div>
+    </div>
+  </div>;
+}
+
+function ForceFinalizeStat({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-card-md border border-line bg-bg-deep p-3"><div className="text-[10px] font-black text-text-muted">{label}</div><div className="mt-1 text-lg font-black text-white">{value}</div></div>;
 }
 
 function VerificationOverviewTable({ overview, busyKey, runAction, onForceClose }: { overview: ArcadeVerificationOverview; busyKey: string | null; runAction: (key: string, action: () => ReturnType<typeof arcadeTeacherRpc.startVerificationSession>) => Promise<boolean>; onForceClose: () => Promise<void> }) {
@@ -379,7 +466,11 @@ function PrereleaseTestLeaderboardCard({ leaderboard }: { leaderboard: ArcadePre
 }
 
 function StatusPill({ status }: { status: string }) { const label: Record<string, string> = { DRAFT: '초안', ACTIVE: '진행 중', VERIFICATION: '인증 중', READY_TO_FINALIZE: '확정 대기', FINALIZED: '확정', VERIFIED: '인정됨', REJECTED: '거절됨', PLAYING: '진행 중', COUNTDOWN: '준비 중', SUBMITTING: '검증 중' }; const color = status === 'FINALIZED' || status === 'VERIFIED' ? 'bg-success/15 text-success' : status === 'REJECTED' ? 'bg-warning/15 text-warning' : status === 'DRAFT' ? 'bg-bg-card text-text-secondary' : 'bg-brand-primary/15 text-brand-primary'; return <span className={`rounded-pill px-2 py-0.5 text-[10px] font-black ${color}`}>{label[status] ?? status}</span>; }
-function arcadeGameLabel(code: string) { return code === 'pure_reaction_02' ? 'Game #02 · 순수 반응속도' : 'Game #01 · 집중 반응'; }
+function arcadeGameLabel(code: string) {
+  if (code === 'pure_reaction_02') return 'Game #02 · 순수 반응속도';
+  if (code === 'starlink_04') return 'Game #04 · 스타링크';
+  return 'Game #01 · 집중 반응';
+}
 
 function koreaDateString() { const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()); const value = (type: string) => parts.find((part) => part.type === type)?.value ?? ''; return `${value('year')}-${value('month')}-${value('day')}`; }
 function nextMonthStart(yearMonth: string) { const [year, month] = yearMonth.split('-').map(Number); const date = new Date(Date.UTC(year, month, 1)); return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-01`; }
