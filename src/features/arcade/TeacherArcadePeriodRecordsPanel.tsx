@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { arcadeErrorMessage, arcadeTeacherRpc } from '@/lib/rpc/arcade_rpc';
+import { arcadeGameMeta, PERIOD_RECORD_GAME_CODES } from './arcadeGameRegistry';
 import type { ArcadePeriodRecordsResult } from '@/lib/zod_schemas/arcade_schemas';
 
-const GAMES = [
-  { code: 'focus_reaction_01', name: '집중 반응' },
-  { code: 'pure_reaction_02', name: '순수 반응 속도' },
-  { code: 'rakaruka_03', name: '라카루카' },
-] as const;
+const GAMES = PERIOD_RECORD_GAME_CODES.map((code) => ({
+  code,
+  name: arcadeGameMeta(code)?.shortName ?? code,
+}));
 type PeriodRow = { id: number; display_name: string; period_kind: string; status: string; starts_at: string; ends_at_exclusive: string };
 const STATUS: Record<string, string> = { ACTIVE: '기록 접수 중', VERIFICATION: '인증 중', READY_TO_FINALIZE: '확정 대기', FINALIZED: '확정 완료' };
 function kst(value: string | null) {
@@ -18,7 +18,7 @@ function score(value: number | null) { return value === null ? '—' : value.toL
 
 export function TeacherArcadePeriodRecordsPanel({ classroomId }: { classroomId: number | null }) {
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
-  const [gameCode, setGameCode] = useState<typeof GAMES[number]['code']>('focus_reaction_01');
+  const [gameCode, setGameCode] = useState<(typeof PERIOD_RECORD_GAME_CODES)[number]>('focus_reaction_01');
   const periods = useQuery({
     queryKey: ['teacher-arcade-record-periods', classroomId],
     enabled: classroomId !== null,
