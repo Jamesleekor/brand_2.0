@@ -441,7 +441,8 @@ BEGIN
   SELECT count(*)::integer
   INTO v_missing_config
   FROM public.arcade_games g
-  WHERE g.available_from<=v_end_date
+  WHERE g.is_active
+    AND g.available_from<=v_end_date
     AND (g.available_until IS NULL OR g.available_until>=v_start_date)
     AND NOT EXISTS(
       SELECT 1
@@ -609,7 +610,8 @@ BEGIN
   JOIN public.arcade_period_game_rule_pins pin
     ON pin.period_id=v_period.id
    AND pin.game_id=g.id
-  WHERE g.available_from<=v_end_date
+  WHERE g.is_active
+    AND g.available_from<=v_end_date
     AND (g.available_until IS NULL OR g.available_until>=v_start_date);
 
   FOR v_pack IN
