@@ -2,6 +2,8 @@ import { useMemo, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { AchievementTitleBadge } from '@/components/shared/AchievementTitleBadge';
 import { GuildNameBadge } from '@/components/shared/GuildNameBadge';
+import { PrestigeFrame } from '@/components/shared/PrestigeFrame';
+import type { OwnedPrestigeBorder } from '@/hooks/usePrestigeBorders';
 import { cn } from '@/lib/utils/cn';
 import type { EquippedAchievementTitle } from '@/lib/rpc/achievement_a1_rpc';
 import type { Tier } from '@/types/database_types';
@@ -17,6 +19,7 @@ export type RankingV2VisualEntry = {
   isMe: boolean;
   equippedCharacterUrl?: string | null;
   characterEmoji?: string | null;
+  prestigeBorder?: OwnedPrestigeBorder | null;
   metric: ReactNode;
   detail?: ReactNode;
   privateDetail?: ReactNode;
@@ -101,7 +104,9 @@ export function RankingV2Showcase({ ranks, achievementTitles, heading, beforeRan
         <div className={cn('grid grid-cols-3 items-end gap-1.5 sm:gap-3 lg:gap-5', podium.some((item) => item.groupBanner) ? 'mt-12 sm:mt-14' : 'mt-14 sm:mt-16')}>
           {podiumDisplayOrder.map(({ item, rank }) => (
             <div key={item.studentId} className={cn('min-w-0', rank === 1 && 'relative -top-3 sm:-top-5 lg:-top-6')}>
-              <PodiumCard rank={rank} item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+              <PrestigeFrame border={item.prestigeBorder}>
+                <PodiumCard rank={rank} item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+              </PrestigeFrame>
             </div>
           ))}
         </div>
@@ -119,7 +124,9 @@ export function RankingV2Showcase({ ranks, achievementTitles, heading, beforeRan
           )}
           <div className={cn('grid gap-2.5 md:grid-cols-3', elite.some((item) => item.groupBanner) ? 'mt-2' : 'mt-3')}>
             {elite.map((item) => (
-              <EliteRankCard key={item.studentId} item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+              <PrestigeFrame key={item.studentId} border={item.prestigeBorder}>
+                <EliteRankCard item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+              </PrestigeFrame>
             ))}
           </div>
         </section>
@@ -137,7 +144,9 @@ export function RankingV2Showcase({ ranks, achievementTitles, heading, beforeRan
           )}
           <div className={cn('grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4', top10.some((item) => item.groupBanner) ? 'mt-2' : 'mt-3')}>
             {top10.map((item) => (
-              <TopTenCard key={item.studentId} item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+              <PrestigeFrame key={item.studentId} border={item.prestigeBorder}>
+                <TopTenCard item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+              </PrestigeFrame>
             ))}
           </div>
         </section>
@@ -155,7 +164,9 @@ export function RankingV2Showcase({ ranks, achievementTitles, heading, beforeRan
           )}
           <div className={cn('grid grid-cols-1 gap-2 md:grid-cols-2', standard.some((item) => item.groupBanner) ? 'mt-2' : 'mt-3')}>
             {standard.map((item) => (
-              <StandardRankRow key={item.studentId} item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+              <PrestigeFrame key={item.studentId} border={item.prestigeBorder}>
+                <StandardRankRow item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+              </PrestigeFrame>
             ))}
           </div>
         </section>

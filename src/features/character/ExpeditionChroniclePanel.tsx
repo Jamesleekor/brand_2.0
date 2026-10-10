@@ -360,6 +360,7 @@ export default function ExpeditionChroniclePanel() {
     setNotice(`${item.name} 구매가 완료되었습니다.`);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['expedition-luxury-shop'] }),
+      queryClient.invalidateQueries({ queryKey: ['my-prestige-borders'] }),
       queryClient.invalidateQueries({ queryKey: ['wallet'] }),
     ]);
   };

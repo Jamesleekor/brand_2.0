@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -63,16 +63,11 @@ export function HomeCustomizationPanel({
   const [section, setSection] = useState<HomeCustomizationSection>('showcase');
   const [activeSlot, setActiveSlot] = useState<1 | 2 | 3>(1);
 
-  const backgroundSaveLock = useRef(false);
-  const [isSavingBackground, setIsSavingBackground] = useState(false);
-  const [backgroundFeedback, setBackgroundFeedback] = useState<{ error: boolean; text: string } | null>(null);
-
   const backgroundsQuery = useOwnedBackgrounds(studentId, isOpen);
   const charactersQuery = useOwnedCharacters(isOpen);
 
   useEffect(() => {
     if (!isOpen) return;
-    setBackgroundFeedback(null);
     setSection(initialSection);
     setActiveSlot(initialSlot);
   }, [isOpen, initialSection, initialSlot]);
@@ -113,42 +108,15 @@ export function HomeCustomizationPanel({
     ]);
   };
 
-  const equipBackground = async (background: OwnedBackground | null) => {
-    if (backgroundSaveLock.current || background?.isEquipped) return;
-    backgroundSaveLock.current = true;
-    setIsSavingBackground(true);
-    setBackgroundFeedback(null);
-    try {
-      // The self-scoped RPC clears only this category when ownership is null.
-      const result = await selectMyCosmetic(supabase, 'background', background?.ownershipId ?? null);
-      if (result.success === false) {
-        setBackgroundFeedback({ error: true, text: '배경을 저장하지 못했어요. 잠시 후 다시 선택해 주세요.' });
-        return;
-      }
-
-      // Update both views only after the server confirms persistence.
-      queryClient.setQueryData<HomePersonalization>(['home-customization', studentId], (previous) =>
-        previous ? {
-          ...previous,
-          background: background ? {
-            ownership_id: background.ownershipId,
-            item_id: background.itemId,
-            name: background.name,
-            resource_url: background.resourceUrl,
-          } : null,
-        } : previous,
-      );
-      queryClient.setQueryData<OwnedBackground[]>(['home-customization', 'backgrounds', studentId], (previous) =>
-        previous?.map((item) => ({ ...item, isEquipped: item.ownershipId === background?.ownershipId })),
-      );
-      setBackgroundFeedback({ error: false, text: background ? '홈 배경을 바꿨어요.' : '기본 배경으로 되돌렸어요.' });
-      await invalidateHome();
-    } catch {
-      setBackgroundFeedback({ error: true, text: '배경 저장 상태를 확인하지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.' });
-    } finally {
-      backgroundSaveLock.current = false;
-      setIsSavingBackground(false);
-    }
+  const equipBackground = async (background: OwnedBackground) => {
+    if (background.isEquipped) return;
+    await call(
+      () => selectMyCosmetic(supabase, 'background', background.ownershipId),
+      {
+        successTitle: '홈 배경을 바꿨어요 🎨',
+        onSuccess: () => { void invalidateHome(); },
+      },
+    );
   };
 
   const setCharacter = async (characterId: number | null, visualVariantNo: 1 | 2 | 3 = 1) => {
@@ -240,9 +208,7 @@ export function HomeCustomizationPanel({
                 <BackgroundSection
                   query={backgroundsQuery}
                   currentOwnershipId={personalization?.background?.ownership_id ?? null}
-                  disabled={isMutating || isSavingBackground}
-                  saving={isSavingBackground}
-                  feedback={backgroundFeedback}
+                  disabled={isMutating}
                   onSelect={(background) => { void equipBackground(background); }}
                   onGoShop={() => {
                     onClose();
@@ -300,68 +266,57 @@ function BackgroundSection({
   disabled,
   onSelect,
   onGoShop,
-  saving,
-  feedback,
 }: {
   query: ReturnType<typeof useOwnedBackgrounds>;
   currentOwnershipId: number | null;
   disabled: boolean;
-  onSelect: (background: OwnedBackground | null) => void;
-  saving: boolean;
-  feedback: { error: boolean; text: string } | null;
+  onSelect: (background: OwnedBackground) => void;
   onGoShop: () => void;
 }) {
+  if (query.isLoading) {
+    return <PanelLoading label="보유 배경을 불러오는 중..." />;
+  }
+
+  if (query.isError) {
+    return <PanelError label="보유 배경을 불러오지 못했어요." onRetry={() => { void query.refetch(); }} />;
+  }
+
   const backgrounds = query.data ?? [];
-  const defaultSelected = query.isSuccess && currentOwnershipId == null
-    && !backgrounds.some((background) => background.isEquipped);
-  const selectionDisabled = disabled || !query.isSuccess;
+  if (backgrounds.length === 0) {
+    return (
+      <div className="rounded-card-lg border border-dashed border-line bg-bg-card/70 px-5 py-8 text-center">
+        <div className="text-4xl">🌌</div>
+        <div className="mt-3 text-sm font-black text-white">아직 보유한 Home 배경이 없어요</div>
+        <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-text-secondary">
+          홈 꾸미기에서는 이미 획득한 배경만 선택할 수 있어요. 구매와 획득은 기존 꾸미기 페이지에서 진행합니다.
+        </p>
+        <button type="button" onClick={onGoShop} className="btn-primary mt-4 px-5">
+          🎨 꾸미기 페이지 열기
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-black text-white">Home 전체 배경</h3>
-          <p className="mt-0.5 text-2xs leading-relaxed text-amber-100">선택한 그림은 홈 전체에 적용됩니다. 언제든 기본 배경으로 돌아갈 수 있어요.</p>
+          <p className="mt-0.5 text-2xs leading-relaxed text-text-secondary">선택한 그림은 Home 전체에 적용됩니다. 구매 기능은 이 창에 포함하지 않습니다.</p>
         </div>
         <button type="button" onClick={onGoShop} className="flex-none text-2xs font-black text-brand-glow hover:underline">
           꾸미기 페이지 →
         </button>
       </div>
 
-      {saving && <p role="status" className="mb-3 text-xs font-bold text-amber-100">배경을 저장하는 중...</p>}
-      {feedback && (
-        <p role={feedback.error ? 'alert' : 'status'} className={cn('mb-3 rounded-card-md border px-3 py-2 text-xs font-bold', feedback.error ? 'border-danger/40 bg-danger-bg text-white' : 'border-brand-primary/40 text-amber-100')}>
-          {feedback.text}
-        </p>
-      )}
-      {query.isLoading && <PanelLoading label="보유 배경을 불러오는 중..." />}
-      {query.isError && <PanelError label="보유 배경을 불러오지 못했어요." onRetry={() => { void query.refetch(); }} />}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3" aria-busy={saving}>
-        <button
-          type="button"
-          disabled={selectionDisabled || defaultSelected}
-          aria-pressed={defaultSelected}
-          onClick={() => onSelect(null)}
-          className={cn(
-            'overflow-hidden rounded-card-md border bg-bg-card text-left transition',
-            defaultSelected ? 'border-brand-primary shadow-brand-sm' : 'border-line hover:border-brand-primary/50',
-            selectionDisabled && 'opacity-70',
-          )}
-        >
-          <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-gradient-to-br from-indigo-950 via-bg-deep to-purple-950">
-            <span aria-hidden="true" className="text-4xl text-amber-100">✦</span>
-            {defaultSelected && <span className="absolute left-2 top-2 rounded-pill bg-brand-primary px-2 py-0.5 text-2xs font-black text-white">적용 중</span>}
-          </div>
-          <div className="px-2.5 py-2 text-xs font-extrabold text-white">기본 배경</div>
-        </button>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {backgrounds.map((background) => {
           const selected = background.ownershipId === currentOwnershipId || background.isEquipped;
           return (
             <button
               key={background.ownershipId}
               type="button"
-              disabled={selectionDisabled || selected}
-              aria-pressed={selected}
+              disabled={disabled || selected}
               onClick={() => onSelect(background)}
               className={cn(
                 'overflow-hidden rounded-card-md border bg-bg-card text-left transition',
@@ -387,10 +342,8 @@ function BackgroundSection({
         })}
       </div>
 
-      <p className="mt-3 text-2xs leading-relaxed text-amber-100">
-        {query.isSuccess && backgrounds.length === 0
-          ? '아직 획득한 배경이 없어요. 기본 배경을 사용하거나 차원관문에서 새로운 그림을 모아 보세요.'
-          : '기본 배경을 선택해도 획득한 BG·CG는 그대로 보관됩니다.'}
+      <p className="mt-3 text-2xs leading-relaxed text-text-muted">
+        기본 배경으로 되돌리는 동작은 기존 장착 RPC의 전체 카테고리 해제 동작과 충돌하므로 이번 버전에서는 제공하지 않습니다.
       </p>
     </div>
   );

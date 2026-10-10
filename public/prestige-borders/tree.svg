@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
+  <defs><linearGradient id="vine" x1="0" y1="0" x2="160" y2="160" gradientUnits="userSpaceOnUse"><stop stop-color="#E7FFB1"/><stop offset=".42" stop-color="#65D7A4"/><stop offset="1" stop-color="#BDFBDD"/></linearGradient><linearGradient id="leaf" x1="0" y1="0" x2="160" y2="160" gradientUnits="userSpaceOnUse"><stop stop-color="#F2F9C1"/><stop offset="1" stop-color="#2BBA89"/></linearGradient></defs>
+  <rect x="5" y="5" width="150" height="150" rx="27" stroke="#C7F2B1" stroke-opacity=".4" stroke-width="3"/>
+  <rect x="10" y="10" width="140" height="140" rx="23" stroke="url(#vine)" stroke-width="3"/>
+  <rect x="18" y="18" width="124" height="124" rx="16" stroke="#AFEFCA" stroke-opacity=".8" stroke-width="2"/>
+  <path d="M27 14c11 10 18 13 36 11M133 14c-11 10-18 13-36 11M27 146c11-10 18-13 36-11m70 11c-11-10-18-13-36-11M14 27c10 11 13 18 11 36m121-36c-10 11-13 18-11 36M14 133c10-11 13-18 11-36m121 36c-10-11-13-18-11-36" stroke="url(#vine)" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M11 11c20-1 30 12 29 29C24 42 10 32 11 11Zm138 0c-20-1-30 12-29 29 16 2 30-8 29-29ZM11 149c20 1 30-12 29-29-16-2-30 8-29 29Zm138 0c-20 1-30-12-29-29 16-2 30 8 29 29Z" fill="url(#leaf)" stroke="#F3F9CE" stroke-width="1.5"/>
+  <path d="M14 14 37 37m109-23-23 23M14 146l23-23m109 23-23-23" stroke="#F7FFE0" stroke-opacity=".78" stroke-width="1.4"/>
+  <path d="m80 6 5 5-5 5-5-5 5-5Zm0 138 5 5-5 5-5-5 5-5ZM6 80l5-5 5 5-5 5-5-5Zm138 0 5-5 5 5-5 5-5-5Z" fill="#DBFFCC"/>
+</svg>

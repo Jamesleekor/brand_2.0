@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
+  <defs>
+    <linearGradient id="metal" x1="0" y1="0" x2="160" y2="160" gradientUnits="userSpaceOnUse"><stop stop-color="#B9EBFF"/><stop offset=".48" stop-color="#5F91D5"/><stop offset="1" stop-color="#EEE5FF"/></linearGradient>
+    <linearGradient id="light" x1="0" y1="0" x2="160" y2="160" gradientUnits="userSpaceOnUse"><stop stop-color="#FFF8FF"/><stop offset=".55" stop-color="#9DE1FF"/><stop offset="1" stop-color="#7D78DA"/></linearGradient>
+  </defs>
+  <rect x="5" y="5" width="150" height="150" rx="27" stroke="#A7DBFF" stroke-opacity=".45" stroke-width="3"/>
+  <rect x="9" y="9" width="142" height="142" rx="24" stroke="url(#metal)" stroke-width="3"/>
+  <rect x="17" y="17" width="126" height="126" rx="17" stroke="url(#light)" stroke-opacity=".85" stroke-width="2"/>
+  <path d="M30 12h30M100 12h30M30 148h30M100 148h30M12 32v28m0 40v28m136-96v28m0 40v28" stroke="#D8F3FF" stroke-opacity=".8" stroke-width="2" stroke-linecap="round"/>
+  <path d="M28 41c-13-4-14-22-3-29-3 10 2 18 13 20-2 5-5 8-10 9Zm104 0c13-4 14-22 3-29 3 10-2 18-13 20 2 5 5 8 10 9ZM28 119c-13 4-14 22-3 29-3-10 2-18 13-20-2-5-5-8-10-9Zm104 0c13 4 14 22 3 29 3-10-2-18-13-20 2-5 5-8 10-9Z" fill="url(#light)" stroke="#DDEEFF" stroke-width="1.4"/>
+  <path d="m80 5 3 6-3 6-3-6 3-6Zm0 138 3 6-3 6-3-6 3-6ZM5 80l6-3 6 3-6 3-6-3Zm138 0 6-3 6 3-6 3-6-3Z" fill="#F8F4FF"/>
+  <circle cx="80" cy="11" r="2" fill="#C1E7FF"/><circle cx="80" cy="149" r="2" fill="#C1E7FF"/>
+</svg>

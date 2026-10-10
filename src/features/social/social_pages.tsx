@@ -26,6 +26,8 @@ import { AchievementRankingShowcase, type AchievementRankingEntry } from '@/feat
 import { getEquippedCharacterImageUrl, useClassroomEquippedCharacters } from '@/hooks/useEquippedCharacters';
 import { useClassroomStudentGuilds } from '@/hooks/useStudentGuilds';
 import { GuildNameBadge } from '@/components/shared/GuildNameBadge';
+import { PrestigeFrame } from '@/components/shared/PrestigeFrame';
+import { useEquippedPrestigeBorders, type OwnedPrestigeBorder } from '@/hooks/usePrestigeBorders';
 import { RankingV2Showcase, type RankingV2VisualEntry } from '@/features/social/RankingV2Showcase';
 import { RankingCollectionDetailModal } from '@/features/social/RankingCollectionDetailModal';
 import {
@@ -70,6 +72,7 @@ export function FriendsPage() {
     },
     enabled: classroomId !== null,
   });
+  const { byStudentId: prestigeBorders } = useEquippedPrestigeBorders((classmates ?? []).map((student) => student.id));
   
   const filtered = (classmates ?? []).filter((c) => {
     if (!search.trim()) return true;
@@ -110,6 +113,7 @@ export function FriendsPage() {
                   friend={classmate}
                   achievementTitle={achievementTitles.get(classmate.id) ?? null}
                   guildName={guildsByStudentId.get(classmate.id)?.guildName ?? null}
+                  prestigeBorder={prestigeBorders.get(classmate.id) ?? null}
                 />
               ))}
             </div>
@@ -131,12 +135,15 @@ function FriendCard({
   friend,
   achievementTitle,
   guildName,
+  prestigeBorder,
 }: { 
   friend: { id: number; name: string; brandName: string | null; tier: Tier; isMe: boolean };
   achievementTitle: EquippedAchievementTitle | null;
   guildName: string | null;
+  prestigeBorder: OwnedPrestigeBorder | null;
 }) {
   return (
+    <PrestigeFrame border={prestigeBorder}>
     <motion.div
       whileTap={{ scale: 0.98 }}
       className={cn(
@@ -198,6 +205,7 @@ function FriendCard({
         </span>
       </div>
     </motion.div>
+    </PrestigeFrame>
   );
 }
 
@@ -285,6 +293,9 @@ function RankingList({ type, collectionMode }: { type: RankingType; collectionMo
     staleTime: 15_000,
     queryFn: () => getClassroomRankingV2(supabase),
   });
+  const { byStudentId: prestigeBorders } = useEquippedPrestigeBorders(
+    (boardQuery.data?.bv_ranks ?? []).map((row) => Number(row.student_id)),
+  );
 
   if (boardQuery.isLoading) {
     return <div className="py-8 flex justify-center"><LoadingSpinner size="lg" /></div>;
@@ -317,6 +328,7 @@ function RankingList({ type, collectionMode }: { type: RankingType; collectionMo
       guildLogoUrl: guild?.guildLogoUrl ?? null,
       equippedCharacterUrl: getEquippedCharacterImageUrl(character, 'avatar'),
       characterEmoji: character?.emoji ?? null,
+      prestigeBorder: prestigeBorders.get(studentId) ?? null,
     };
   };
 

@@ -8,6 +8,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 
 import { LoadingSpinner } from '@/components/shared/components';
+import { PrestigeFrame } from '@/components/shared/PrestigeFrame';
+import { useEquippedPrestigeBorders, type OwnedPrestigeBorder } from '@/hooks/usePrestigeBorders';
 import {
   raidAdminRpc,
   type RaidStatus,
@@ -123,6 +125,9 @@ export default function RaidBroadcastPage() {
   });
 
   const state = broadcastQuery.data;
+  const { byStudentId: prestigeBorders } = useEquippedPrestigeBorders(
+    (state?.participants ?? []).map((participant) => Number(participant.student_id)),
+  );
   const audioProfile = audioProfileQuery.data;
 
   const handleRealtimeFeedback = useCallback((row: BroadcastFeedbackRow) => {
@@ -381,8 +386,8 @@ export default function RaidBroadcastPage() {
           <div className="pointer-events-none absolute inset-0 z-[15] bg-red-600/20 shadow-[inset_0_0_120px_rgba(239,68,68,0.42)]" />
         )}
 
-        <ParticipantRail participants={leftParticipants} side="left" correctedNow={correctedNow} reactions={activeParticipantReactions} teamPulse={teamPulse} />
-        <ParticipantRail participants={rightParticipants} side="right" correctedNow={correctedNow} reactions={activeParticipantReactions} teamPulse={teamPulse} />
+        <ParticipantRail participants={leftParticipants} side="left" correctedNow={correctedNow} reactions={activeParticipantReactions} teamPulse={teamPulse} prestigeBorders={prestigeBorders} />
+        <ParticipantRail participants={rightParticipants} side="right" correctedNow={correctedNow} reactions={activeParticipantReactions} teamPulse={teamPulse} prestigeBorders={prestigeBorders} />
         {hiddenParticipantCount > 0 && (
           <div className="pointer-events-none absolute bottom-[18%] right-5 z-[35] rounded-full border border-white/25 bg-black/70 px-3 py-1 text-[10px] font-black text-white">+{hiddenParticipantCount}명</div>
         )}
@@ -574,12 +579,14 @@ function ParticipantRail({
   correctedNow,
   reactions,
   teamPulse,
+  prestigeBorders,
 }: {
   participants: TeacherRaidBroadcastState['participants'];
   side: 'left' | 'right';
   correctedNow: number;
   reactions: Record<number, ParticipantReaction>;
   teamPulse: boolean;
+  prestigeBorders: Map<number, OwnedPrestigeBorder>;
 }) {
   return (
     <aside
@@ -596,6 +603,7 @@ function ParticipantRail({
           correctedNow={correctedNow}
           side={side}
           reaction={reactions[participant.student_id]}
+          prestigeBorder={prestigeBorders.get(participant.student_id) ?? null}
         />
       ))}
     </aside>
@@ -607,11 +615,13 @@ function ParticipantCard({
   correctedNow,
   side,
   reaction,
+  prestigeBorder,
 }: {
   participant: TeacherRaidBroadcastState['participants'][number];
   correctedNow: number;
   side: 'left' | 'right';
   reaction?: ParticipantReaction;
+  prestigeBorder: OwnedPrestigeBorder | null;
 }) {
   const latestAt = participant.latest_batch?.created_at ? Date.parse(participant.latest_batch.created_at) : NaN;
   const recent = Number.isFinite(latestAt) && correctedNow - latestAt <= 2200 && correctedNow >= latestAt - 1200;
@@ -622,6 +632,7 @@ function ParticipantCard({
   const realtimeDevastating = realtimeActive && reaction?.tier === 'DEVASTATING';
   const name = participant.brand_name || participant.name;
   return (
+    <PrestigeFrame border={prestigeBorder} compact>
     <div className={cn(
       'relative flex h-[39px] items-center gap-1.5 overflow-hidden rounded-card-md border bg-black/68 px-1.5 py-1 backdrop-blur-sm transition-all duration-200',
       side === 'right' && 'flex-row-reverse text-right',
@@ -648,15 +659,16 @@ function ParticipantCard({
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <div className="truncate text-[10px] font-black text-white">{name}</div>
+          <div className="truncate text-[12px] font-black text-white">{name}</div>
           {realtimeDevastating ? <span className="flex-none text-[9px] font-black text-yellow-100">압도!</span> : realtimePowerful ? <span className="flex-none text-[9px] font-black text-cyan-100">강타!</span> : (realtimeCrit || recentCrit) ? <span className="flex-none text-[10px] font-black text-yellow-200">CRIT!</span> : null}
         </div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[8px] font-black text-cyan-100">
+        <div className="mt-0.5 flex items-center gap-1.5 text-[10px] font-black text-cyan-100">
           <span className="truncate">{participant.guild_name || '무소속'}</span>
           <span className="flex-none font-mono text-yellow-100">{formatNumber(participant.total_damage)}</span>
         </div>
       </div>
     </div>
+    </PrestigeFrame>
   );
 }
 

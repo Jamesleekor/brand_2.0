@@ -10,6 +10,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { LoadingSpinner } from '@/components/shared/components';
+import { PrestigeFrame } from '@/components/shared/PrestigeFrame';
+import { useEquippedPrestigeBorders, type OwnedPrestigeBorder } from '@/hooks/usePrestigeBorders';
 import { supabase } from '@/lib/supabase/client';
 import {
   raidStudentRpc,
@@ -226,6 +228,7 @@ export default function RaidLobbyPage() {
     () => buildLobbyLayout(displayPlayers),
     [displayPlayers],
   );
+  const { byStudentId: prestigeBorders } = useEquippedPrestigeBorders(displayPlayers.map((player) => player.student_id));
 
   const sendMessage = async (event: FormEvent) => {
     event.preventDefault();
@@ -370,6 +373,7 @@ export default function RaidLobbyPage() {
               y={y}
               isMe={player.student_id === me?.student_id}
               bubble={bubbles[player.student_id] ?? null}
+              prestigeBorder={prestigeBorders.get(player.student_id) ?? null}
             />
           ))}
 
@@ -564,12 +568,14 @@ function RaidLobbyAvatar({
   y,
   isMe,
   bubble,
+  prestigeBorder,
 }: {
   player: LobbyPlayer;
   x: number;
   y: number;
   isMe: boolean;
   bubble: RaidLobbyMessage | null;
+  prestigeBorder: OwnedPrestigeBorder | null;
 }) {
   return (
     <div
@@ -608,11 +614,13 @@ function RaidLobbyAvatar({
         )}
       </div>
 
-      <div className="mt-2 min-w-[130px] -translate-x-[12px] text-center">
-        <div className="truncate text-xs font-black text-white">
+      <div className="mt-2 w-[160px] -translate-x-[27px]">
+      <PrestigeFrame border={prestigeBorder} compact>
+      <div className="w-full rounded-card-md bg-[#07111f]/80 px-2 py-1.5 text-center backdrop-blur">
+        <div className="truncate text-[14px] font-black text-white">
           {player.brand_name || player.name}
         </div>
-        <div className="mt-0.5 flex items-center justify-center gap-1 text-[10px] font-bold text-cyan-100">
+        <div className="mt-0.5 flex items-center justify-center gap-1 text-[12px] font-bold text-cyan-100">
           {player.guild_logo_url ? (
             <img
               src={player.guild_logo_url}
@@ -627,6 +635,8 @@ function RaidLobbyAvatar({
             {player.guild_name || '무소속'}
           </span>
         </div>
+      </div>
+      </PrestigeFrame>
       </div>
     </div>
   );

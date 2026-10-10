@@ -8,6 +8,8 @@ import { formatNumber, getKstDateString } from '@/lib/utils/format';
 import { guild5RpcError, guild5StudentRpc } from '@/lib/rpc/guild5_rpc';
 import { useClassroomAchievementTitles } from '@/hooks/useAchievementTitles';
 import { AchievementTitleBadge } from '@/components/shared/AchievementTitleBadge';
+import { PrestigeFrame } from '@/components/shared/PrestigeFrame';
+import { useEquippedPrestigeBorders, type OwnedPrestigeBorder } from '@/hooks/usePrestigeBorders';
 import type { EquippedAchievementTitle } from '@/lib/rpc/achievement_a1_rpc';
 import { getEquippedCharacterImageUrl, useClassroomEquippedCharacters, type EquippedCharacterIdentity } from '@/hooks/useEquippedCharacters';
 
@@ -27,6 +29,7 @@ export default function GuildPage(){
   const finalHistoryQ=useGuild5StudentHistory(!!studentId&&!!classroomId);
   const {byStudentId:achievementTitles}=useClassroomAchievementTitles();
   const {byStudentId:equippedCharacters}=useClassroomEquippedCharacters();
+  const {byStudentId:prestigeBorders}=useEquippedPrestigeBorders((q.data?.members??[]).map((member:any)=>Number(member.student_id)));
   const currentFinal=(finalHistoryQ.data??[]).find((row:any)=>row.year_month===q.data?.currentMonth)??null;
 
   useEffect(()=>{
@@ -63,7 +66,7 @@ export default function GuildPage(){
       <Link to="/guild/monthly" className={`text-center rounded-card-sm px-1 py-2 text-xs font-black hover:bg-gold/10 ${currentFinal ? 'text-gold' : 'text-text-secondary'}`}>월간결산<div className={`text-[9px] font-bold mt-0.5 ${currentFinal ? 'text-gold/80' : 'text-text-muted'}`}>{currentFinal ? 'FINAL' : '마감 전'}</div></Link>
     </div>
     <ContributionCard data={contributionQ.data} isLoading={contributionQ.isLoading} error={contributionQ.error} finalRow={currentFinal}/>
-    <MembersCard data={d} achievementTitles={achievementTitles} equippedCharacters={equippedCharacters}/><SessionSummary data={d}/><MembershipHistory data={d}/>
+    <MembersCard data={d} achievementTitles={achievementTitles} equippedCharacters={equippedCharacters} prestigeBorders={prestigeBorders}/><SessionSummary data={d}/><MembershipHistory data={d}/>
     <div className="glass-card border-brand-primary/20 p-4"><div className="font-black text-sm text-white">🕹️ Arcade 월간 연결</div><p className="mt-1 text-xs leading-relaxed text-text-secondary">게임별 월간 Top 10을 확정하면 원본 보너스가 개인 기여도에 연결됩니다. 원본 합계는 보존하고, Guild 2 반영값은 최대 +90점입니다.</p><Link to="/arcade" className="btn-secondary mt-3 inline-flex text-xs">아케이드로 가기</Link></div>
   </div></>;
 }
@@ -145,10 +148,12 @@ function MembersCard({
   data,
   achievementTitles,
   equippedCharacters,
+  prestigeBorders,
 }:{
   data:any;
   achievementTitles:Map<number,EquippedAchievementTitle>;
   equippedCharacters:Map<number,EquippedCharacterIdentity>;
+  prestigeBorders:Map<number,OwnedPrestigeBorder>;
 }){
   return (
     <section className="glass-card p-4">
@@ -163,7 +168,8 @@ function MembersCard({
           const title=achievementTitles.get(Number(m.student_id));
           const character=equippedCharacters.get(Number(m.student_id))??null;
           return (
-            <div key={m.student_id} className="bg-bg-deep border border-line rounded-card-md p-3">
+            <PrestigeFrame key={m.student_id} border={prestigeBorders.get(Number(m.student_id))}>
+            <div className="bg-bg-deep border border-line rounded-card-md p-3">
               <div className="flex items-center gap-3">
                 <GuildMemberCharacterAvatar character={character}/>
                 <div className="min-w-0 flex-1">
@@ -181,6 +187,7 @@ function MembersCard({
                 </div>
               </div>
             </div>
+            </PrestigeFrame>
           );
         })}
       </div>

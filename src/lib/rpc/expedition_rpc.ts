@@ -358,6 +358,7 @@ export interface ExpeditionLuxuryItem {
 export interface ExpeditionLuxuryShop {
   open: boolean;
   access_level: number;
+  trial_open?: boolean;
   active_effect: ExpeditionChronicle['active_world_effect'];
   items: ExpeditionLuxuryItem[];
   assets_pending: boolean;

@@ -1,5 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
+import { PrestigeFrame } from '@/components/shared/PrestigeFrame';
+import { selectMyCosmetic } from '@/features/font/fontCosmeticRpc';
+import { PRESTIGE_BORDER_CATEGORY, useMyPrestigeBorders, type OwnedPrestigeBorder } from '@/hooks/usePrestigeBorders';
+import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/auth_store';
 import type { ExpeditionLuxuryItem, ExpeditionLuxuryShop } from '@/lib/rpc/expedition_rpc';
 
@@ -35,7 +40,7 @@ const FRAME_PALETTE: Record<FrameTheme, {
   },
 };
 
-function themeFor(item: ExpeditionLuxuryItem): FrameTheme {
+function themeFor(item: { item_uid: string; name: string }): FrameTheme {
   const code = `${item.item_uid} ${item.name}`.toLowerCase();
   if (/dragon|용|황금/.test(code)) return 'DRAGON';
   if (/tree|forest|world|세계수|숲/.test(code)) return 'TREE';
@@ -86,14 +91,59 @@ export function LuxuryShopSection({
   busyAction: string | null;
   onBuy: (item: ExpeditionLuxuryItem, pricingId: number) => Promise<void>;
 }) {
+  const queryClient = useQueryClient();
+  const previewRef = useRef<HTMLDivElement | null>(null);
   const studentName = useAuthStore((state) => state.context?.studentName);
+  const myBordersQuery = useMyPrestigeBorders();
   const [theme, setTheme] = useState<FrameTheme>('MOON');
   const [place, setPlace] = useState<PreviewPlace>('FRIENDS');
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  const [previewOwned, setPreviewOwned] = useState<OwnedPrestigeBorder | null>(null);
+  const [busyBorderId, setBusyBorderId] = useState<number | null>(null);
+  const [equipNotice, setEquipNotice] = useState<string | null>(null);
   const items = shop?.items ?? [];
   const selectedItem = items.find((item) => item.item_id === selectedItemId) ?? null;
-  const currentTheme = selectedItem ? themeFor(selectedItem) : theme;
+  const currentTheme = previewOwned
+    ? themeFor({ item_uid: previewOwned.itemUid, name: previewOwned.name })
+    : selectedItem ? themeFor(selectedItem) : theme;
   const isOpen = shop?.open === true;
+  const previewBorder = previewOwned ?? (selectedItem?.presentation_kind === 'PRESTIGE_BORDER_IMAGE'
+    ? {
+      ownershipId: 0,
+      studentId: 0,
+      itemId: selectedItem.item_id,
+      itemUid: selectedItem.item_uid,
+      name: selectedItem.name,
+      resourceUrl: selectedItem.resource_url,
+      isEquipped: false,
+    }
+    : null);
+
+  const selectBorder = async (border: OwnedPrestigeBorder) => {
+    if (busyBorderId !== null) return;
+    setBusyBorderId(border.ownershipId);
+    setEquipNotice(null);
+    try {
+      const result = await selectMyCosmetic(
+        supabase,
+        PRESTIGE_BORDER_CATEGORY,
+        border.isEquipped ? null : border.ownershipId,
+      );
+      if (result.success === false) {
+        setEquipNotice(result.error || '테두리를 변경하지 못했습니다.');
+        return;
+      }
+      setEquipNotice(border.isEquipped ? '명예 테두리를 해제했습니다.' : `${border.name} 장착 완료!`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['my-prestige-borders'] }),
+        queryClient.invalidateQueries({ queryKey: ['equipped-prestige-borders'] }),
+      ]);
+    } catch (error) {
+      setEquipNotice(error instanceof Error ? error.message : '테두리 변경 중 오류가 발생했습니다.');
+    } finally {
+      setBusyBorderId(null);
+    }
+  };
 
   return (
     <section className="overflow-hidden rounded-card-xl border border-[#D9B977]/45 bg-[#171522] shadow-card" aria-labelledby="luxury-shop-title">
@@ -102,7 +152,7 @@ export function LuxuryShopSection({
         <h2 id="luxury-shop-title" className="mt-1 font-display text-2xl font-black text-white">명품관</h2>
         <p className="mt-1 text-sm font-semibold leading-relaxed text-[#F6EFE7]">원정의 명예를 프로필에 남기는 한정 꾸미기. 구매 전 실제 목록 크기로 확인해 보세요.</p>
         <div className="mt-3 inline-flex rounded-full border border-white/25 bg-black/25 px-3 py-1.5 text-[13px] font-black text-[#FFF0C8]">
-          {loading ? '개방 상태 확인 중' : error ? '상점 상태를 불러오지 못했습니다' : isOpen ? `개방 중 · Lv.${shop?.access_level ?? 0}` : '월드효과 활성화 시 판매 개방'}
+          {loading ? '개방 상태 확인 중' : error ? '상점 상태를 불러오지 못했습니다' : shop?.trial_open ? `명예 테두리 특별 개방 중 · Lv.${shop.access_level}` : isOpen ? `개방 중 · Lv.${shop?.access_level ?? 0}` : '월드효과 활성화 시 판매 개방'}
         </div>
       </div>
 
@@ -120,9 +170,9 @@ export function LuxuryShopSection({
             <button
               key={concept.theme}
               type="button"
-              onClick={() => { setTheme(concept.theme); setSelectedItemId(null); }}
-              aria-pressed={!selectedItem && currentTheme === concept.theme}
-              className={`min-w-0 rounded-xl border px-2 py-3 text-left transition-colors sm:px-3 ${!selectedItem && currentTheme === concept.theme ? 'border-[#FFD58A] bg-[#FFD58A]/15' : 'border-white/20 bg-white/[0.04] hover:bg-white/10'}`}
+              onClick={() => { setTheme(concept.theme); setSelectedItemId(null); setPreviewOwned(null); }}
+              aria-pressed={!selectedItem && !previewOwned && currentTheme === concept.theme}
+              className={`min-w-0 rounded-xl border px-2 py-3 text-left transition-colors sm:px-3 ${!selectedItem && !previewOwned && currentTheme === concept.theme ? 'border-[#FFD58A] bg-[#FFD58A]/15' : 'border-white/20 bg-white/[0.04] hover:bg-white/10'}`}
             >
               <span className="block text-[12px] font-black text-[#FFD58A]">0{index + 1} {concept.symbol}</span>
               <span className="mt-1 block truncate text-[13px] font-black text-white sm:text-[15px]">{concept.name}</span>
@@ -145,11 +195,13 @@ export function LuxuryShopSection({
           ))}
         </div>
 
-        <div className="mt-3 rounded-2xl border border-white/15 bg-[#0B0D19] px-3 py-6 sm:px-6 sm:py-8">
+        <div ref={previewRef} className="mt-3 rounded-2xl border border-white/15 bg-[#0B0D19] px-3 py-6 sm:px-6 sm:py-8">
           {selectedItem && selectedItem.presentation_kind !== 'PRESTIGE_BORDER_IMAGE' ? (
             <img src={selectedItem.resource_url} alt={`${selectedItem.name} 적용 이미지 미리보기`} className="mx-auto max-h-52 w-full object-contain" />
           ) : (
-            <PrestigeCard theme={currentTheme} place={place} name={studentName || '학생 이름'} />
+            <PrestigeFrame border={previewBorder} className="mx-auto max-w-[530px]">
+              <PrestigeCard theme={currentTheme} place={place} name={studentName || '학생 이름'} />
+            </PrestigeFrame>
           )}
           <p className="mt-3 text-center text-[12px] font-semibold text-[#E7D7C4]">
             {selectedItem && selectedItem.presentation_kind !== 'PRESTIGE_BORDER_IMAGE'
@@ -169,6 +221,36 @@ export function LuxuryShopSection({
         )}
 
         <div className="mt-7 border-t border-white/15 pt-5">
+          <h3 className="text-lg font-black text-white">내 명예 테두리</h3>
+          {equipNotice && <p role="status" className="mt-2 rounded-xl border border-[#D9B977]/35 bg-white/[0.05] p-3 text-sm font-bold text-white">{equipNotice}</p>}
+          {myBordersQuery.isLoading ? (
+            <p className="mt-2 text-sm font-semibold text-[#F6EFE7]">보유 테두리를 확인하는 중입니다.</p>
+          ) : myBordersQuery.isError ? (
+            <button type="button" onClick={() => void myBordersQuery.refetch()} className="mt-2 rounded-full border border-white/30 px-3 py-2 text-sm font-bold text-white">보유 내역 다시 불러오기</button>
+          ) : (myBordersQuery.data ?? []).length === 0 ? (
+            <p className="mt-2 text-sm font-semibold text-[#F6EFE7]">보유한 명예 테두리가 없습니다.</p>
+          ) : (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {(myBordersQuery.data ?? []).map((border) => (
+                <div key={border.ownershipId} className="rounded-xl border border-white/20 bg-white/[0.04] p-3">
+                  <div className="flex items-center gap-2">
+                    <img src={border.resourceUrl} alt="" className="h-12 w-12 rounded-md object-contain" loading="lazy" />
+                    <div className="min-w-0 flex-1 truncate text-sm font-black text-white">{border.name}</div>
+                    {border.isEquipped && <span className="shrink-0 text-[12px] font-black text-[#B9E9D0]">장착 중</span>}
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button type="button" onClick={() => { setPreviewOwned(border); setSelectedItemId(null); setTheme(themeFor({ item_uid: border.itemUid, name: border.name })); previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }} className="flex-1 rounded-full border border-white/30 px-2 py-2 text-[13px] font-black text-white">미리보기</button>
+                    <button type="button" disabled={busyBorderId !== null} onClick={() => void selectBorder(border)} className="flex-1 rounded-full border border-[#FFD58A]/60 bg-[#FFD58A]/15 px-2 py-2 text-[13px] font-black text-white disabled:opacity-50">
+                      {busyBorderId === border.ownershipId ? '처리 중…' : border.isEquipped ? '해제' : '장착'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-7 border-t border-white/15 pt-5">
           <h3 className="text-lg font-black text-white">판매 상품</h3>
           {loading ? (
             <p className="mt-3 text-sm font-semibold text-[#F6EFE7]">상품을 불러오는 중입니다.</p>
@@ -184,7 +266,7 @@ export function LuxuryShopSection({
                 <article key={item.item_id} className="min-w-0 overflow-hidden rounded-xl border border-[#D9B977]/35 bg-[#0D101C]">
                   <button
                     type="button"
-                    onClick={() => { setSelectedItemId(item.item_id); setTheme(themeFor(item)); }}
+                    onClick={() => { setSelectedItemId(item.item_id); setPreviewOwned(null); setTheme(themeFor(item)); previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}
                     className="flex w-full flex-col items-start p-3 text-left hover:bg-white/[0.05]"
                     aria-label={`${item.name} 미리보기`}
                   >
