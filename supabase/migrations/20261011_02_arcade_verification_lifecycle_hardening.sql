@@ -1166,6 +1166,11 @@ BEGIN
     WHERE period_id=v_session.period_id
       AND game_id=v_session.game_id;
 
+    IF NOT FOUND THEN
+      RAISE EXCEPTION '[ARCADE VERIFY] frozen game verification config is missing.'
+        USING ERRCODE='P0260';
+    END IF;
+
     v_seed_visible:=
       coalesce(v_period_game.seed_strategy,'RANDOM_PER_ATTEMPT')='RANDOM_PER_ATTEMPT'
       OR v_run.play_started_at IS NOT NULL;
@@ -1400,7 +1405,69 @@ BEGIN
   WHERE id=v_run.rule_version_id;
 
   -- Idempotent begin recovery if the first response was lost.
+  -- Also normalizes a verification run that was already PLAYING when this
+  -- migration was deployed under the legacy "consume at terminal" behavior.
   IF v_run.status='PLAYING' AND v_run.play_started_at IS NOT NULL THEN
+    IF v_run.run_context='VERIFICATION' THEN
+      SELECT *
+      INTO v_attempt
+      FROM public.arcade_verification_attempts
+      WHERE run_id=v_run.id
+      FOR UPDATE;
+
+      IF NOT FOUND THEN
+        RAISE EXCEPTION '[ARCADE VERIFY] verification attempt link is missing.'
+          USING ERRCODE='P0254';
+      END IF;
+
+      SELECT *
+      INTO v_session
+      FROM public.arcade_verification_sessions
+      WHERE id=v_attempt.session_id
+      FOR UPDATE;
+
+      IF NOT FOUND OR v_session.status<>'ACTIVE' THEN
+        RAISE EXCEPTION '[ARCADE VERIFY] active verification session is missing.'
+          USING ERRCODE='P0255';
+      END IF;
+
+      SELECT *
+      INTO v_period_game
+      FROM public.arcade_verification_period_games
+      WHERE period_id=v_session.period_id
+        AND game_id=v_session.game_id
+      FOR UPDATE;
+
+      IF NOT FOUND OR v_period_game.verification_closed_at IS NOT NULL THEN
+        RAISE EXCEPTION '[ARCADE VERIFY] this game verification is closed.'
+          USING ERRCODE='P0277';
+      END IF;
+
+      IF NOT v_attempt.consumed THEN
+        UPDATE public.arcade_verification_attempts
+        SET consumed=true,
+            consumed_at=coalesce(consumed_at,v_run.play_started_at)
+        WHERE id=v_attempt.id
+        RETURNING * INTO v_attempt;
+
+        INSERT INTO public.arcade_verification_audit_events(
+          classroom_id,period_id,game_id,student_id,session_id,attempt_id,
+          event_kind,metadata,actor_user_id
+        )
+        VALUES(
+          v_session.classroom_id,v_session.period_id,v_session.game_id,
+          v_session.student_id,v_session.id,v_attempt.id,
+          'VERIFICATION_ATTEMPT_CONSUMED_ON_PLAY',
+          jsonb_build_object(
+            'run_id',v_run.id,
+            'opportunity_number',v_attempt.opportunity_number,
+            'legacy_playing_normalized',true
+          ),
+          auth.uid()
+        );
+      END IF;
+    END IF;
+
     RETURN jsonb_build_object(
       'run_id',v_run.id,
       'run_nonce',v_run.run_nonce,
@@ -1960,6 +2027,11 @@ BEGIN
   FROM public.arcade_verification_period_games
   WHERE period_id=v_session.period_id
     AND game_id=v_game_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION '[ARCADE VERIFY] frozen game verification config is missing.'
+      USING ERRCODE='P0260';
+  END IF;
 
   SELECT count(*)::integer
   INTO v_used
