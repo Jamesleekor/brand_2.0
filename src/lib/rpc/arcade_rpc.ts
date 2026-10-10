@@ -22,11 +22,12 @@ async function safeArcadeRpc<TInput, TOutput>(
 
 export interface ArcadeRunBootstrap {
   run_id: number;
+  run_nonce: string;
   game_code: string;
   rule_version: string;
   countdown_started_at: string;
   countdown_ends_at: string;
-  schedule_seed: number;
+  schedule_seed: number | null;
   config: Record<string, unknown>;
   is_prerelease_test: boolean;
   /** Pure Reaction #02 일반 플레이의 KST 일일 도전 제한. 다른 게임/QA 계정은 null 또는 생략. */
@@ -41,6 +42,7 @@ export interface ArcadeRunBootstrap {
 
 export interface ArcadeRunStarted {
   run_id: number;
+  run_nonce: string;
   play_started_at: string;
   schedule_seed: number;
   config: Record<string, unknown>;
@@ -128,6 +130,7 @@ export interface ArcadeVerificationAttempt {
   run_id: number;
   status: string;
   consumed: boolean;
+  consumed_at?: string | null;
   valid_run: boolean;
   terminal_outcome: string | null;
   official_score: number | null;
@@ -156,6 +159,9 @@ export interface ArcadeVerificationState {
   result_status?: 'SUCCESS' | 'FAILURE_VALID' | 'FAILURE_NO_VALID' | null;
   current_rank?: number | null;
   active_run_id?: number | null;
+  active_run_status?: string | null;
+  active_run_play_started_at?: string | null;
+  game_verification_closed?: boolean;
   can_attempt?: boolean;
   attempts?: ArcadeVerificationAttempt[];
 }
@@ -202,6 +208,29 @@ export interface ArcadeVerificationOverview {
   rows: ArcadeVerificationOverviewRow[];
 }
 
+export interface ArcadeForceFinalizePreviewGame {
+  game_code: string;
+  target_rank_count: number;
+  verification_closed: boolean;
+  unresolved_reward_range: number;
+  active_sessions: number;
+  active_runs: number;
+  will_adopt_frozen_provisional: number;
+}
+
+export interface ArcadeForceFinalizePreview {
+  period_id: number;
+  period_name: string;
+  period_status: string;
+  already_finalized: boolean;
+  games: ArcadeForceFinalizePreviewGame[];
+  active_verification_sessions: number;
+  active_verification_runs: number;
+  already_decided_records: number;
+  will_adopt_frozen_provisional: number;
+  rakaruka_active_sessions: number;
+}
+
 export interface ArcadeRunResult {
   run_id: number;
   status: string;
@@ -221,6 +250,8 @@ export const arcadeStudentRpc = {
     safeArcadeRpc<ArcadeSchemas.StudentCreateArcadeRunInput, ArcadeRunBootstrap>(client, 'student_create_arcade_run', ArcadeSchemas.StudentCreateArcadeRunSchema, input),
   beginRun: (client: SupabaseClient, input: ArcadeSchemas.StudentBeginArcadeRunInput) =>
     safeArcadeRpc<ArcadeSchemas.StudentBeginArcadeRunInput, ArcadeRunStarted>(client, 'student_begin_arcade_run', ArcadeSchemas.StudentBeginArcadeRunSchema, input),
+  abandonRun: (client: SupabaseClient, input: ArcadeSchemas.StudentAbandonArcadeRunInput) =>
+    safeArcadeRpc<ArcadeSchemas.StudentAbandonArcadeRunInput, Record<string, unknown>>(client, 'student_abandon_arcade_run', ArcadeSchemas.StudentAbandonArcadeRunSchema, input),
   submitFocusReactionRun: (client: SupabaseClient, input: ArcadeSchemas.StudentSubmitFocusReactionRunInput) =>
     safeArcadeRpc<ArcadeSchemas.StudentSubmitFocusReactionRunInput, ArcadeRunSubmissionResult>(client, 'student_submit_focus_reaction_01_run', ArcadeSchemas.StudentSubmitFocusReactionRunSchema, input),
   submitPureReactionRun: (client: SupabaseClient, input: ArcadeSchemas.StudentSubmitPureReactionRunInput) =>
@@ -253,6 +284,10 @@ export const arcadeTeacherRpc = {
     safeArcadeRpc<ArcadeSchemas.TeacherEndArcadeRankingPeriodNowInput, { period_id: number; classroom_id: number; status: string; ended_at: string; already_ended: boolean }>(client, 'teacher_end_arcade_ranking_period_now', ArcadeSchemas.TeacherEndArcadeRankingPeriodNowSchema, input),
   finalizeMonthlySnapshot: (client: SupabaseClient, input: ArcadeSchemas.TeacherFinalizeArcadeMonthlySnapshotInput) =>
     safeArcadeRpc<ArcadeSchemas.TeacherFinalizeArcadeMonthlySnapshotInput, Record<string, unknown>>(client, 'teacher_finalize_arcade_monthly_snapshot', ArcadeSchemas.TeacherFinalizeArcadeMonthlySnapshotSchema, input),
+  getForceFinalizePreview: (client: SupabaseClient, input: ArcadeSchemas.TeacherGetArcadeForceFinalizePreviewInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherGetArcadeForceFinalizePreviewInput, ArcadeForceFinalizePreview>(client, 'teacher_get_arcade_force_finalize_preview', ArcadeSchemas.TeacherGetArcadeForceFinalizePreviewSchema, input),
+  forceFinalizePeriod: (client: SupabaseClient, input: ArcadeSchemas.TeacherForceFinalizeArcadePeriodInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherForceFinalizeArcadePeriodInput, Record<string, unknown>>(client, 'teacher_force_finalize_arcade_period', ArcadeSchemas.TeacherForceFinalizeArcadePeriodSchema, input),
   getRunAudit: (client: SupabaseClient, input: ArcadeSchemas.TeacherArcadeRunAuditInput) =>
     safeArcadeRpc<ArcadeSchemas.TeacherArcadeRunAuditInput, Array<Record<string, unknown>>>(client, 'teacher_get_arcade_run_audit', ArcadeSchemas.TeacherArcadeRunAuditSchema, input),
   invalidateRun: (client: SupabaseClient, input: ArcadeSchemas.TeacherInvalidateArcadeRunInput) =>
@@ -343,6 +378,15 @@ export function arcadeErrorMessage(error: { type: string; code?: string; error: 
     P0274: '오늘 순수 반응속도 도전 50회를 모두 사용했어요. 내일 00:00에 다시 도전할 수 있어요.',
     P0277: '이 게임의 공인 인증은 이미 마감되었어요.',
     P0278: '게임 인증 강제 종료 중 해결되지 않은 보상권 기록이 남았어요. 인증 현황을 새로고침한 뒤 다시 시도해주세요.',
+    P0280: '이미 잠긴 공인 인증 Seed Pack은 변경할 수 없어요.',
+    P0281: '학생별 공인 인증 Seed 배정은 변경할 수 없어요.',
+    P0282: '공인 인증 Seed Pack 준비가 완전하지 않아요. 운영국에 알려주세요.',
+    P0283: '동시에 열린 랭킹 기간의 게임 규칙 버전이 충돌해요. 운영국에 알려주세요.',
+    P0284: '같은 랭킹 기간에 서로 다른 게임 규칙 기록이 섞여 있어 동결할 수 없어요.',
+    P0285: '이 게임의 공인 인증 Seed Pack 생성기가 아직 준비되지 않았어요.',
+    P0286: '학생의 공인 인증 Seed 배정 정보를 확인하지 못했어요.',
+    P0287: '먼저 월간 일반 기록을 종료하고 동결한 뒤 강제 확정해주세요.',
+    P0288: '남은 인증을 정리했지만 최종 확정 준비 상태가 되지 않았어요. 운영 현황을 확인해주세요.',
   };
   if (messages[error.code ?? '']) return messages[error.code ?? ''];
   if (error.type === 'VALIDATION') return error.error;
