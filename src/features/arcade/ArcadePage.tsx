@@ -6,6 +6,7 @@ import { PureReactionGame, type PureReactionPlaySummary } from '@/features/arcad
 import { TikatukaGame } from '@/features/arcade/tikatuka/ui/TikatukaGame';
 import { RakarukaCompetitionPanel } from '@/features/arcade/tikatuka/ui/RakarukaCompetitionPanel';
 import { formatReactionAverage } from '@/features/arcade/pure_reaction_engine';
+import { arcadeGameMeta, STANDARD_ARCADE_GAME_CODES } from './arcadeGameRegistry';
 import { arcadeErrorMessage, arcadeStudentRpc, type ArcadeRunBootstrap, type ArcadeRunSubmissionResult, type ArcadeVerificationState, type ArcadeVerificationAttempt, type ArcadeLeaderboardRow, type ArcadeGuildTotalRow } from '@/lib/rpc/arcade_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId, useStudentId } from '@/stores/auth_store';
@@ -66,7 +67,10 @@ export default function ArcadePage() {
 
   const visiblePeriods = useMemo(() => (arcadeQuery.data?.periods ?? []).filter((period) => ['ACTIVE', 'VERIFICATION', 'READY_TO_FINALIZE', 'FINALIZED'].includes(period.status)), [arcadeQuery.data?.periods]);
   const selectedPeriod = visiblePeriods.find((period) => period.id === selectedPeriodId) ?? visiblePeriods[0] ?? null;
-  const playableGames = (arcadeQuery.data?.games ?? []).filter((entry) => entry.is_active && ['focus_reaction_01', 'pure_reaction_02'].includes(entry.code));
+  const playableGames = (arcadeQuery.data?.games ?? []).filter((entry) =>
+    entry.is_active && STANDARD_ARCADE_GAME_CODES.includes(entry.code as (typeof STANDARD_ARCADE_GAME_CODES)[number])
+      && entry.code !== 'starlink_04',
+  );
   const isRakarukaSelected = selectedGameCode === RAKARUKA_CODE;
   const game = isRakarukaSelected ? null : (playableGames.find((entry) => entry.code === selectedGameCode) ?? playableGames[0] ?? null);  const gameAccessQuery = useQuery({
     queryKey: ['arcade', 'game-access', studentId, game?.code],
@@ -368,7 +372,9 @@ function formatScore(value: number | null | undefined) { return value === undefi
 function attemptStatusLabel(attempt: ArcadeVerificationAttempt) { if (attempt.status === 'TECHNICAL_CANCELLED') return '기술 취소'; if (attempt.status === 'RESTORED') return '복구됨'; if (attempt.status !== 'TERMINAL') return '진행 중'; if (!attempt.valid_run) return '유효 기록 없음'; return attempt.official_score === null ? '종료' : `${Number(attempt.official_score).toLocaleString('ko-KR')}점`; }
 function studentRankLabel(rank: number) { return rank === 1 ? '👑 1' : rank === 2 ? '🥈 2' : rank === 3 ? '🥉 3' : String(rank); }
 function periodStatusLabel(status: ArcadePeriodRow['status']) { return status === 'FINALIZED' ? '확정' : status === 'VERIFICATION' ? '인증 중' : status === 'READY_TO_FINALIZE' ? '확정 대기' : '진행 중'; }
-function gameMeta(code: string) { if (code === 'pure_reaction_02') return { emoji: '⚡', title: '순수 반응속도 #02', subtitle: 'Pure Visual Reaction · 5 Trials', number: 'Game #02', rules: ['마력핵이 점화되는 순간 Space 또는 화면을 누릅니다.', '총 5회 반응의 평균 속도로 SCORE를 계산합니다.', '신호 전 입력, 120ms 미만 입력, 3000ms 이상 반응은 즉시 GAME OVER입니다.'] }; return { emoji: '🎯', title: '집중 반응 #01', subtitle: '4-Lane Visual Reaction · Go / No-Go', number: 'Game #01', rules: ['D / F / J / K 또는 터치로 4개 레인을 조작합니다.', '파란 신호는 누르고, 빨간 ✕ 신호는 누르지 않습니다.', 'Life 3, Combo, 실제 경과시간 기반 판정입니다.'] }; }
+function gameMeta(code: string) {
+  return arcadeGameMeta(code) ?? arcadeGameMeta('focus_reaction_01')!;
+}
 function Bonus({ rank, points }: { rank: string; points: string }) { return <div className="rounded-card-md border border-line bg-bg-card px-3 py-2"><span className="text-xs text-text-secondary">{rank}</span><b className="float-right text-gold">{points}</b></div>; }
 function LoadError({ detail, retry }: { detail: string; retry: () => void }) { return <div className="glass-card border-danger/40 p-5"><div className="font-black text-danger">Arcade 정보를 불러오지 못했습니다.</div><p className="mt-2 break-all text-xs text-text-secondary">{detail}</p><button className="btn-secondary mt-3" onClick={retry}>다시 시도</button></div>; }
 function formatElapsed(ms: number) { const seconds = Math.floor(ms / 1000); return `${Math.floor(seconds / 60)}분 ${String(seconds % 60).padStart(2, '0')}초`; }
