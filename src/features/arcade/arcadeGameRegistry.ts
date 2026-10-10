@@ -11,6 +11,9 @@ export interface ArcadeGameUiMeta {
   periodRecordsSupported: boolean;
 }
 
+export const STANDARD_ARCADE_GAME_CODES = ['focus_reaction_01', 'pure_reaction_02', 'starlink_04'] as const;
+export const PERIOD_RECORD_GAME_CODES = ['focus_reaction_01', 'pure_reaction_02', 'rakaruka_03', 'starlink_04'] as const;
+
 export const ARCADE_GAME_UI: Record<string, ArcadeGameUiMeta> = {
   focus_reaction_01: {
     code: 'focus_reaction_01',
