@@ -16,7 +16,7 @@ export const ArcadePeriodRecordsResultSchema = z.object({
     student_id: PositiveId,
     student_name: z.string(),
     brand_name: z.string().nullable(),
-    game_code: z.enum(['focus_reaction_01', 'pure_reaction_02', 'rakaruka_03']),
+    game_code: z.enum(['focus_reaction_01', 'pure_reaction_02', 'rakaruka_03', 'starlink_04']),
     play_count: z.number().int().nonnegative(),
     completed_count: z.number().int().nonnegative(),
     rejected_count: z.number().int().nonnegative(),
@@ -52,6 +52,11 @@ export const StudentBeginArcadeRunSchema = z.object({
   p_run_id: PositiveId,
 });
 export type StudentBeginArcadeRunInput = z.infer<typeof StudentBeginArcadeRunSchema>;
+
+export const StudentAbandonArcadeRunSchema = z.object({
+  p_run_id: PositiveId,
+});
+export type StudentAbandonArcadeRunInput = z.infer<typeof StudentAbandonArcadeRunSchema>;
 
 export const ArcadeInputEventSchema = z.object({
   elapsed_ms: z.number().int().min(0).max(3_600_000),
@@ -139,6 +144,17 @@ export const TeacherFinalizeArcadeMonthlySnapshotSchema = z.object({
   p_period_id: PositiveId,
 });
 export type TeacherFinalizeArcadeMonthlySnapshotInput = z.infer<typeof TeacherFinalizeArcadeMonthlySnapshotSchema>;
+
+export const TeacherGetArcadeForceFinalizePreviewSchema = z.object({
+  p_period_id: PositiveId,
+});
+export type TeacherGetArcadeForceFinalizePreviewInput = z.infer<typeof TeacherGetArcadeForceFinalizePreviewSchema>;
+
+export const TeacherForceFinalizeArcadePeriodSchema = z.object({
+  p_period_id: PositiveId,
+  p_reason: z.string().trim().min(2, '강제 확정 사유는 2자 이상이어야 합니다.').max(500),
+});
+export type TeacherForceFinalizeArcadePeriodInput = z.infer<typeof TeacherForceFinalizeArcadePeriodSchema>;
 
 export const TeacherArcadeRunAuditSchema = z.object({
   p_period_id: PositiveId,
