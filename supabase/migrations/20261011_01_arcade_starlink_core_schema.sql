@@ -228,7 +228,7 @@ EXECUTE FUNCTION public.arcade_validate_period_game_rule_pin();
 CREATE TABLE IF NOT EXISTS public.arcade_verification_seed_pack_slots (
   id bigserial PRIMARY KEY,
   period_game_id bigint NOT NULL
-    REFERENCES public.arcade_verification_period_games(id) ON DELETE CASCADE,
+    REFERENCES public.arcade_verification_period_games(id) ON DELETE RESTRICT,
   slot_code text NOT NULL,
   slot_number smallint NOT NULL,
   gameplay_seed bigint NOT NULL,
@@ -362,7 +362,7 @@ EXECUTE FUNCTION public.arcade_guard_locked_verification_pack_header();
 CREATE TABLE IF NOT EXISTS public.arcade_verification_seed_assignments (
   id bigserial PRIMARY KEY,
   period_game_id bigint NOT NULL
-    REFERENCES public.arcade_verification_period_games(id) ON DELETE CASCADE,
+    REFERENCES public.arcade_verification_period_games(id) ON DELETE RESTRICT,
   student_id integer NOT NULL REFERENCES public.students(id),
   opportunity_number smallint NOT NULL,
   seed_slot_id bigint NOT NULL,
@@ -389,13 +389,19 @@ CREATE OR REPLACE FUNCTION public.arcade_validate_verification_seed_assignment()
 RETURNS trigger
 LANGUAGE plpgsql
 SET search_path = public, pg_temp
-AS $$
+AS $
 DECLARE
   v_strategy text;
   v_max_attempts integer;
   v_student_classroom integer;
   v_period_classroom integer;
+  v_slot_ready boolean;
 BEGIN
+  IF TG_OP IN ('UPDATE','DELETE') THEN
+    RAISE EXCEPTION '[ARCADE VERIFY SEED] seed assignments are immutable.'
+      USING ERRCODE = 'P0281';
+  END IF;
+
   SELECT pg.seed_strategy, pg.max_attempts, pg.classroom_id
   INTO v_strategy, v_max_attempts, v_period_classroom
   FROM public.arcade_verification_period_games pg
@@ -427,19 +433,25 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
 
-  IF TG_OP = 'UPDATE' THEN
-    RAISE EXCEPTION '[ARCADE VERIFY SEED] seed assignments are immutable.'
-      USING ERRCODE = 'P0281';
+  SELECT (slot.preflight_status = 'READY')
+  INTO v_slot_ready
+  FROM public.arcade_verification_seed_pack_slots slot
+  WHERE slot.id = NEW.seed_slot_id
+    AND slot.period_game_id = NEW.period_game_id;
+
+  IF coalesce(v_slot_ready,false) = false THEN
+    RAISE EXCEPTION '[ARCADE VERIFY SEED] only READY seed slots may be assigned.'
+      USING ERRCODE = '23514';
   END IF;
 
   RETURN NEW;
 END;
-$$;
+$;
 
 DROP TRIGGER IF EXISTS trg_arcade_validate_verification_seed_assignment
   ON public.arcade_verification_seed_assignments;
 CREATE TRIGGER trg_arcade_validate_verification_seed_assignment
-BEFORE INSERT OR UPDATE
+BEFORE INSERT OR UPDATE OR DELETE
 ON public.arcade_verification_seed_assignments
 FOR EACH ROW
 EXECUTE FUNCTION public.arcade_validate_verification_seed_assignment();
