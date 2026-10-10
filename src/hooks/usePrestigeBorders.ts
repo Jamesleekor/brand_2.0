@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
+import { prestigeBorderArtwork } from '@/components/shared/prestigeBorderAssets';
 import { supabase } from '@/lib/supabase/client';
 import { useStudentId } from '@/stores/auth_store';
 
@@ -41,7 +42,7 @@ async function fetchBorders(studentIds: number[], equippedOnly: boolean): Promis
       itemId: Number(row.item_id),
       itemUid: String(item.item_uid),
       name: String(item.name),
-      resourceUrl: String(item.resource_url),
+      resourceUrl: prestigeBorderArtwork(String(item.item_uid), String(item.resource_url)),
       isEquipped: Boolean(row.is_equipped),
     }];
   });

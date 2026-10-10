@@ -1,0 +1,74 @@
+.prestige-art-frame {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 8px;
+  overflow: visible;
+}
+
+.prestige-art-frame__content {
+  position: relative;
+  z-index: 10;
+}
+
+.prestige-art-frame__art {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  user-select: none;
+}
+
+.prestige-art-frame[data-prestige-kind='tree'] {
+  box-shadow: 0 0 14px rgba(96, 211, 137, .17), inset 0 0 12px rgba(52, 133, 76, .12);
+}
+
+.prestige-art-frame[data-prestige-kind='dragon'] {
+  box-shadow: 0 0 16px rgba(255, 182, 64, .20), inset 0 0 12px rgba(154, 45, 31, .13);
+}
+
+.prestige-art-frame[data-prestige-variant='friend'],
+.prestige-art-frame[data-prestige-variant='guild'] {
+  padding: 8px 10px;
+}
+
+.prestige-art-frame[data-prestige-variant='rankingChampion'] {
+  padding: 13px 11px 11px;
+}
+
+.prestige-art-frame[data-prestige-variant='rankingPodium'] {
+  padding: 11px 9px 9px;
+}
+
+.prestige-art-frame[data-prestige-variant='rankingElite'] {
+  padding: 8px;
+}
+
+.prestige-art-frame[data-prestige-variant='rankingTopTen'] {
+  padding: 7px;
+}
+
+.prestige-art-frame[data-prestige-variant='rankingStandard'] {
+  padding: 6px 8px;
+}
+
+.prestige-art-frame[data-prestige-variant='raidLobby'] {
+  border-radius: 7px;
+  padding: 4px 5px;
+}
+
+.prestige-art-frame[data-prestige-variant='raidBroadcast'] {
+  border-radius: 6px;
+  padding: 3px 4px;
+}
+
+@media (max-width: 640px) {
+  .prestige-art-frame[data-prestige-variant='rankingChampion'] { padding: 10px 8px 8px; }
+  .prestige-art-frame[data-prestige-variant='rankingPodium'] { padding: 9px 7px 7px; }
+  .prestige-art-frame[data-prestige-variant='rankingTopTen'] { padding: 6px; }
+}

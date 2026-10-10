@@ -1,0 +1,97 @@
+.prestige-art-frame {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 8px;
+  overflow: visible;
+}
+
+.prestige-art-frame__content {
+  position: relative;
+  z-index: 10;
+}
+
+.prestige-art-frame__art {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  object-position: center;
+  user-select: none;
+}
+
+.prestige-art-frame[data-prestige-kind='tree'] {
+  box-shadow: 0 0 14px rgba(96, 211, 137, .17), inset 0 0 12px rgba(52, 133, 76, .12);
+}
+
+.prestige-art-frame[data-prestige-kind='dragon'] {
+  box-shadow: 0 0 16px rgba(255, 182, 64, .20), inset 0 0 12px rgba(154, 45, 31, .13);
+}
+
+.prestige-art-frame[data-prestige-kind='tree'][data-prestige-variant='friend'],
+.prestige-art-frame[data-prestige-kind='tree'][data-prestige-variant='guild'] {
+  padding: 10px clamp(52px, 13%, 74px) 10px clamp(58px, 14%, 82px);
+}
+
+.prestige-art-frame[data-prestige-kind='dragon'][data-prestige-variant='friend'],
+.prestige-art-frame[data-prestige-kind='dragon'][data-prestige-variant='guild'] {
+  padding: 10px clamp(20px, 5%, 30px) 10px clamp(82px, 18%, 106px);
+}
+
+.prestige-art-frame[data-prestige-variant='rankingChampion'],
+.prestige-art-frame[data-prestige-variant='rankingPodium'] {
+  padding: 64px 32px 52px;
+}
+
+.prestige-art-frame[data-prestige-kind='dragon'][data-prestige-variant='rankingChampion'],
+.prestige-art-frame[data-prestige-kind='dragon'][data-prestige-variant='rankingPodium'] {
+  padding-top: 78px;
+}
+
+.prestige-art-frame[data-prestige-kind='tree'][data-prestige-variant='rankingElite'] {
+  padding: 12px 46px 12px 56px;
+}
+
+.prestige-art-frame[data-prestige-kind='dragon'][data-prestige-variant='rankingElite'] {
+  padding: 12px 24px 12px 70px;
+}
+
+.prestige-art-frame[data-prestige-variant='rankingTopTen'] {
+  padding: 40px 34px 36px;
+}
+
+.prestige-art-frame[data-prestige-kind='tree'][data-prestige-variant='rankingStandard'] {
+  padding: 8px 52px 8px 62px;
+}
+
+.prestige-art-frame[data-prestige-kind='dragon'][data-prestige-variant='rankingStandard'] {
+  padding: 8px 18px 8px 82px;
+}
+
+.prestige-art-frame[data-prestige-kind='tree'][data-prestige-variant='raidLobby'],
+.prestige-art-frame[data-prestige-kind='tree'][data-prestige-variant='raidBroadcast'] {
+  border-radius: 7px;
+  padding: 4px 18px 4px 24px;
+}
+
+.prestige-art-frame[data-prestige-kind='dragon'][data-prestige-variant='raidLobby'],
+.prestige-art-frame[data-prestige-kind='dragon'][data-prestige-variant='raidBroadcast'] {
+  border-radius: 7px;
+  padding: 4px 7px 4px 30px;
+}
+
+.luxury-prestige-preview.prestige-art-frame {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .prestige-art-frame[data-prestige-variant='rankingChampion'],
+  .prestige-art-frame[data-prestige-variant='rankingPodium'] { padding: 48px 22px 40px; }
+  .prestige-art-frame[data-prestige-kind='dragon'][data-prestige-variant='rankingChampion'],
+  .prestige-art-frame[data-prestige-kind='dragon'][data-prestige-variant='rankingPodium'] { padding-top: 58px; }
+  .prestige-art-frame[data-prestige-variant='rankingTopTen'] { padding: 28px 22px 26px; }
+}

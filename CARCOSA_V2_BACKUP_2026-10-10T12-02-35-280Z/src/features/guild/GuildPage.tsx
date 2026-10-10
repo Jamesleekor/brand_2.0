@@ -168,7 +168,7 @@ function MembersCard({
           const title=achievementTitles.get(Number(m.student_id));
           const character=equippedCharacters.get(Number(m.student_id))??null;
           return (
-            <PrestigeFrame key={m.student_id} border={prestigeBorders.get(Number(m.student_id))} variant="guild">
+            <PrestigeFrame key={m.student_id} border={prestigeBorders.get(Number(m.student_id))}>
             <div className="bg-bg-deep border border-line rounded-card-md p-3">
               <div className="flex items-center gap-3">
                 <GuildMemberCharacterAvatar character={character}/>

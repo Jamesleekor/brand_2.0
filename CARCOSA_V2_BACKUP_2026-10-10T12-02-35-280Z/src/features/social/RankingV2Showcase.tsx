@@ -104,7 +104,7 @@ export function RankingV2Showcase({ ranks, achievementTitles, heading, beforeRan
         <div className={cn('grid grid-cols-3 items-end gap-1.5 sm:gap-3 lg:gap-5', podium.some((item) => item.groupBanner) ? 'mt-12 sm:mt-14' : 'mt-14 sm:mt-16')}>
           {podiumDisplayOrder.map(({ item, rank }) => (
             <div key={item.studentId} className={cn('min-w-0', rank === 1 && 'relative -top-3 sm:-top-5 lg:-top-6')}>
-              <PrestigeFrame border={item.prestigeBorder} variant={rank === 1 ? "rankingChampion" : "rankingPodium"}>
+              <PrestigeFrame border={item.prestigeBorder}>
                 <PodiumCard rank={rank} item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
               </PrestigeFrame>
             </div>
@@ -124,7 +124,7 @@ export function RankingV2Showcase({ ranks, achievementTitles, heading, beforeRan
           )}
           <div className={cn('grid gap-2.5 md:grid-cols-3', elite.some((item) => item.groupBanner) ? 'mt-2' : 'mt-3')}>
             {elite.map((item) => (
-              <PrestigeFrame key={item.studentId} border={item.prestigeBorder} variant="rankingElite">
+              <PrestigeFrame key={item.studentId} border={item.prestigeBorder}>
                 <EliteRankCard item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
               </PrestigeFrame>
             ))}
@@ -144,7 +144,7 @@ export function RankingV2Showcase({ ranks, achievementTitles, heading, beforeRan
           )}
           <div className={cn('grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4', top10.some((item) => item.groupBanner) ? 'mt-2' : 'mt-3')}>
             {top10.map((item) => (
-              <PrestigeFrame key={item.studentId} border={item.prestigeBorder} variant="rankingTopTen">
+              <PrestigeFrame key={item.studentId} border={item.prestigeBorder}>
                 <TopTenCard item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
               </PrestigeFrame>
             ))}
@@ -164,7 +164,7 @@ export function RankingV2Showcase({ ranks, achievementTitles, heading, beforeRan
           )}
           <div className={cn('grid grid-cols-1 gap-2 md:grid-cols-2', standard.some((item) => item.groupBanner) ? 'mt-2' : 'mt-3')}>
             {standard.map((item) => (
-              <PrestigeFrame key={item.studentId} border={item.prestigeBorder} variant="rankingStandard">
+              <PrestigeFrame key={item.studentId} border={item.prestigeBorder}>
                 <StandardRankRow item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
               </PrestigeFrame>
             ))}

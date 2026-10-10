@@ -4,7 +4,6 @@ import { prestigeBorderArtwork, PRESTIGE_BORDER_ARTWORK } from '@/components/sha
 import type { OwnedPrestigeBorder } from '@/hooks/usePrestigeBorders';
 import { cn } from '@/lib/utils/cn';
 import './prestigeFrameCarcosa.css';
-import './prestigeFrameNatureDragon.css';
 
 export type PrestigeFrameVariant =
   | 'friend' | 'guild' | 'rankingChampion' | 'rankingPodium'
@@ -20,7 +19,6 @@ type PrestigeFrameProps = {
 };
 
 const LOCAL_CARCOSA_ASSETS = `${import.meta.env.BASE_URL}prestige-borders/carcosa-v2/`;
-const LOCAL_COMPOSABLE_ASSETS = `${import.meta.env.BASE_URL}prestige-borders/composable-v7/`;
 const MOON_ORNAMENT_URL = 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/expedition/prestige/prestige_border_carcosa_moon_ornament_v2.webp';
 
 function accentFor(border: OwnedPrestigeBorder) {
@@ -30,28 +28,12 @@ function accentFor(border: OwnedPrestigeBorder) {
   return { edge: '#AECDF8', glow: 'rgba(117,190,255,.32)' };
 }
 
-function composableAssetStyles(kind: 'tree' | 'dragon'): CSSProperties {
-  const prefix = kind === 'tree' ? 'worldtree' : 'golden_dragon';
-  return {
-    '--prestige-rail-horizontal': `url("${LOCAL_COMPOSABLE_ASSETS}prestige_border_${prefix}_rail_horizontal_v7.webp")`,
-    '--prestige-rail-vertical': `url("${LOCAL_COMPOSABLE_ASSETS}prestige_border_${prefix}_rail_vertical_v7.webp")`,
-    '--prestige-main-ornament': `url("${LOCAL_COMPOSABLE_ASSETS}prestige_border_${prefix}_ornament_v4.webp")`,
-    '--prestige-corner-ornament': kind === 'dragon'
-      ? `url("${LOCAL_COMPOSABLE_ASSETS}prestige_border_golden_dragon_ruby_corner_v7.webp")`
-      : 'none',
-  } as CSSProperties;
-}
-
-/**
- * Prestige art is composed from repeatable rails and fixed-ratio ornaments.
- * It never stretches a complete frame image or changes the underlying card's proportions.
- */
+/** Independent rails and ornaments retain their aspect ratio at every card width. */
 export function PrestigeFrame({ border, children, className, compact = false, variant }: PrestigeFrameProps) {
   if (!border) return <>{children}</>;
 
-  const frameVariant = variant ?? (compact ? 'raidLobby' : 'friend');
-
   if (border.itemUid === 'PRESTIGE_MOON_2026') {
+    const frameVariant = variant ?? (compact ? 'raidLobby' : 'friend');
     const assetStyles = {
       '--carcosa-horizontal': `url("${LOCAL_CARCOSA_ASSETS}prestige_border_carcosa_glass_horizontal_v2.webp")`,
       '--carcosa-vertical': `url("${LOCAL_CARCOSA_ASSETS}prestige_border_carcosa_glass_vertical_v2.webp")`,
@@ -66,27 +48,6 @@ export function PrestigeFrame({ border, children, className, compact = false, va
         <div className="carcosa-frame__rail carcosa-frame__rail--right" aria-hidden="true" />
         <img className="carcosa-frame__ornament carcosa-frame__ornament--moon" aria-hidden="true" alt="" src={MOON_ORNAMENT_URL} onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = `${LOCAL_CARCOSA_ASSETS}prestige_border_carcosa_moon_ornament_v2.webp`; }} />
         <span className="carcosa-frame__ornament carcosa-frame__ornament--orb" aria-hidden="true" />
-      </div>
-    );
-  }
-
-  if (border.itemUid === 'PRESTIGE_TREE_2026' || border.itemUid === 'PRESTIGE_DRAGON_2026') {
-    const kind = border.itemUid === 'PRESTIGE_TREE_2026' ? 'tree' : 'dragon';
-    return (
-      <div
-        className={cn('prestige-composite-frame relative isolate min-w-0', className)}
-        data-prestige-border={border.itemUid}
-        data-prestige-kind={kind}
-        data-prestige-variant={frameVariant}
-        style={composableAssetStyles(kind)}
-      >
-        <div className="prestige-composite-frame__content relative z-10 h-full min-w-0">{children}</div>
-        <span className="prestige-composite-frame__rail prestige-composite-frame__rail--top" aria-hidden="true" />
-        <span className="prestige-composite-frame__rail prestige-composite-frame__rail--bottom" aria-hidden="true" />
-        <span className="prestige-composite-frame__rail prestige-composite-frame__rail--left" aria-hidden="true" />
-        <span className="prestige-composite-frame__rail prestige-composite-frame__rail--right" aria-hidden="true" />
-        <span className="prestige-composite-frame__ornament" aria-hidden="true" />
-        {kind === 'dragon' && <span className="prestige-composite-frame__corner" aria-hidden="true" />}
       </div>
     );
   }

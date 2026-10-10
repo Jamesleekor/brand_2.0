@@ -2,8 +2,6 @@ import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { AchievementTitleBadge } from '@/components/shared/AchievementTitleBadge';
 import { GuildNameBadge } from '@/components/shared/GuildNameBadge';
-import { PrestigeFrame } from '@/components/shared/PrestigeFrame';
-import type { OwnedPrestigeBorder } from '@/hooks/usePrestigeBorders';
 import { cn } from '@/lib/utils/cn';
 import { formatNumber } from '@/lib/utils/format';
 import type { EquippedAchievementTitle } from '@/lib/rpc/achievement_a1_rpc';
@@ -22,7 +20,6 @@ export type AchievementRankingEntry = {
   equippedCharacterUrl?: string | null;
   profileImageUrl?: string | null;
   characterEmoji?: string | null;
-  prestigeBorder?: OwnedPrestigeBorder | null;
 };
 
 type Props = {
@@ -85,13 +82,11 @@ export function AchievementRankingShowcase({ ranks, achievementTitles }: Props) 
         <div className="mt-14 grid grid-cols-3 items-end gap-1.5 sm:mt-16 sm:gap-3 lg:gap-5">
           {podiumDisplayOrder.map(({ item, rank }) => (
             <div key={item.studentId} className={cn('min-w-0', rank === 1 && 'relative -top-3 sm:-top-5 lg:-top-6')}>
-              <PrestigeFrame border={item.prestigeBorder} variant={rank === 1 ? "rankingChampion" : "rankingPodium"}>
-                <PodiumCard
-                  rank={rank as 1 | 2 | 3}
-                  item={item}
-                  achievementTitle={achievementTitles.get(item.studentId) ?? null}
-                />
-              </PrestigeFrame>
+              <PodiumCard
+                rank={rank as 1 | 2 | 3}
+                item={item}
+                achievementTitle={achievementTitles.get(item.studentId) ?? null}
+              />
             </div>
           ))}
         </div>
@@ -107,13 +102,12 @@ export function AchievementRankingShowcase({ ranks, achievementTitles }: Props) 
           />
           <div className="mt-3 grid gap-2.5 md:grid-cols-3">
             {elite.map((item, idx) => (
-              <PrestigeFrame key={item.studentId} border={item.prestigeBorder} variant="rankingElite">
-                <EliteRankCard
-                  rank={idx + 4}
-                  item={item}
-                  achievementTitle={achievementTitles.get(item.studentId) ?? null}
-                />
-              </PrestigeFrame>
+              <EliteRankCard
+                key={item.studentId}
+                rank={idx + 4}
+                item={item}
+                achievementTitle={achievementTitles.get(item.studentId) ?? null}
+              />
             ))}
           </div>
         </section>
@@ -129,13 +123,12 @@ export function AchievementRankingShowcase({ ranks, achievementTitles }: Props) 
           />
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {top10.map((item, idx) => (
-              <PrestigeFrame key={item.studentId} border={item.prestigeBorder} variant="rankingTopTen">
-                <TopTenCard
-                  rank={idx + 7}
-                  item={item}
-                  achievementTitle={achievementTitles.get(item.studentId) ?? null}
-                />
-              </PrestigeFrame>
+              <TopTenCard
+                key={item.studentId}
+                rank={idx + 7}
+                item={item}
+                achievementTitle={achievementTitles.get(item.studentId) ?? null}
+              />
             ))}
           </div>
         </section>
@@ -150,13 +143,12 @@ export function AchievementRankingShowcase({ ranks, achievementTitles }: Props) 
           />
           <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
             {standard.map((item, idx) => (
-              <PrestigeFrame key={item.studentId} border={item.prestigeBorder} variant="rankingStandard">
-                <StandardRankRow
-                  rank={idx + 11}
-                  item={item}
-                  achievementTitle={achievementTitles.get(item.studentId) ?? null}
-                />
-              </PrestigeFrame>
+              <StandardRankRow
+                key={item.studentId}
+                rank={idx + 11}
+                item={item}
+                achievementTitle={achievementTitles.get(item.studentId) ?? null}
+              />
             ))}
           </div>
         </section>

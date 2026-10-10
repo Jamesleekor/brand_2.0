@@ -1,0 +1,88 @@
+.carcosa-frame {
+  --carcosa-thickness: 10px;
+  --carcosa-rail-h: 210px 70px;
+  --carcosa-rail-v: 64px 130px;
+  --carcosa-moon-size: 79px;
+  --carcosa-orb-size: 49px;
+  position: relative;
+  border: 1px solid rgba(203, 220, 255, .72);
+  border-radius: 12px;
+  background: radial-gradient(ellipse at 12% 8%, rgba(53, 62, 100, .55), rgba(15, 19, 35, .45) 72%);
+  box-shadow: 0 0 12px rgba(138, 181, 250, .48), inset 0 0 18px rgba(149, 180, 245, .16);
+  padding: 8px 10px;
+  overflow: visible;
+}
+
+.carcosa-frame__rail,
+.carcosa-frame__ornament {
+  pointer-events: none;
+  position: absolute;
+  user-select: none;
+}
+.carcosa-frame__rail { z-index: 2; }
+.carcosa-frame__rail--top,
+.carcosa-frame__rail--bottom {
+  left: 0;
+  right: 0;
+  height: var(--carcosa-thickness);
+  background-image: var(--carcosa-horizontal);
+  background-size: var(--carcosa-rail-h);
+  background-repeat: repeat-x;
+  background-position: center;
+}
+.carcosa-frame__rail--top { top: calc(var(--carcosa-thickness) * -.40); }
+.carcosa-frame__rail--bottom { bottom: calc(var(--carcosa-thickness) * -.40); }
+.carcosa-frame__rail--left,
+.carcosa-frame__rail--right {
+  top: 0;
+  bottom: 0;
+  width: var(--carcosa-thickness);
+  background-image: var(--carcosa-vertical);
+  background-size: var(--carcosa-rail-v);
+  background-repeat: repeat-y;
+  background-position: center;
+}
+.carcosa-frame__rail--left { left: calc(var(--carcosa-thickness) * -.40); }
+.carcosa-frame__rail--right { right: calc(var(--carcosa-thickness) * -.40); }
+.carcosa-frame__ornament { z-index: 12; display: block; object-fit: contain; }
+.carcosa-frame__ornament--moon {
+  width: var(--carcosa-moon-size);
+  height: var(--carcosa-moon-size);
+  left: -12px;
+  top: -15px;
+}
+.carcosa-frame__ornament--orb {
+  width: var(--carcosa-orb-size);
+  height: var(--carcosa-orb-size);
+  right: -12px;
+  bottom: -12px;
+  background: var(--carcosa-orb) center / contain no-repeat;
+}
+
+.carcosa-frame[data-carcosa-variant='rankingChampion'] { --carcosa-moon-size: 113px; --carcosa-orb-size: 71px; padding: 13px 9px 9px; }
+.carcosa-frame[data-carcosa-variant='rankingPodium'] { --carcosa-moon-size: 101px; --carcosa-orb-size: 62px; padding: 12px 8px 8px; }
+.carcosa-frame[data-carcosa-variant='rankingElite'] { --carcosa-moon-size: 83px; --carcosa-orb-size: 52px; padding: 9px 8px; }
+.carcosa-frame[data-carcosa-variant='rankingTopTen'] { --carcosa-moon-size: 67px; --carcosa-orb-size: 43px; padding: 8px 7px; }
+.carcosa-frame[data-carcosa-variant='rankingStandard'] { --carcosa-moon-size: 57px; --carcosa-orb-size: 36px; padding: 7px 8px; }
+.carcosa-frame[data-carcosa-variant='friend'],
+.carcosa-frame[data-carcosa-variant='guild'] { --carcosa-moon-size: 70px; --carcosa-orb-size: 44px; padding: 8px; }
+
+.carcosa-frame[data-carcosa-variant='raidLobby'],
+.carcosa-frame[data-carcosa-variant='raidBroadcast'] {
+  --carcosa-thickness: 5px;
+  --carcosa-rail-h: 105px 37px;
+  --carcosa-rail-v: 34px 68px;
+  --carcosa-moon-size: 30px;
+  --carcosa-orb-size: 22px;
+  padding: 4px 5px;
+  border-radius: 7px;
+}
+.carcosa-frame[data-carcosa-variant='raidBroadcast'] { --carcosa-moon-size: 27px; --carcosa-orb-size: 19px; padding: 3px 4px; }
+.carcosa-frame[data-carcosa-variant^='raid'] .carcosa-frame__ornament--moon { left: -7px; top: -8px; }
+.carcosa-frame[data-carcosa-variant^='raid'] .carcosa-frame__ornament--orb { right: -6px; bottom: -6px; }
+
+@media (max-width: 640px) {
+  .carcosa-frame[data-carcosa-variant='rankingChampion'] { --carcosa-moon-size: 82px; --carcosa-orb-size: 52px; }
+  .carcosa-frame[data-carcosa-variant='rankingPodium'] { --carcosa-moon-size: 72px; --carcosa-orb-size: 46px; }
+  .carcosa-frame[data-carcosa-variant='rankingTopTen'] { --carcosa-moon-size: 59px; }
+}

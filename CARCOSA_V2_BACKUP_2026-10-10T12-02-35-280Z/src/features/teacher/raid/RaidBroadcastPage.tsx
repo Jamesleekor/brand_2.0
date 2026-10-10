@@ -632,7 +632,7 @@ function ParticipantCard({
   const realtimeDevastating = realtimeActive && reaction?.tier === 'DEVASTATING';
   const name = participant.brand_name || participant.name;
   return (
-    <PrestigeFrame border={prestigeBorder} compact variant="raidBroadcast">
+    <PrestigeFrame border={prestigeBorder} compact>
     <div className={cn(
       'relative flex h-[39px] items-center gap-1.5 overflow-hidden rounded-card-md border bg-black/68 px-1.5 py-1 backdrop-blur-sm transition-all duration-200',
       side === 'right' && 'flex-row-reverse text-right',

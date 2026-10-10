@@ -1,0 +1,26 @@
+{
+  "prestige_tree_wide_v5.webp": {
+    "width": 2141,
+    "height": 454
+  },
+  "prestige_tree_medium_v5.webp": {
+    "width": 2158,
+    "height": 690
+  },
+  "prestige_tree_tall_v5.webp": {
+    "width": 1240,
+    "height": 1233
+  },
+  "prestige_dragon_wide_v5.webp": {
+    "width": 2134,
+    "height": 333
+  },
+  "prestige_dragon_medium_v5.webp": {
+    "width": 2172,
+    "height": 658
+  },
+  "prestige_dragon_tall_v5.webp": {
+    "width": 1231,
+    "height": 1209
+  }
+}

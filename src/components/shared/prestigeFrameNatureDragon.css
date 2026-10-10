@@ -1,0 +1,144 @@
+.prestige-composite-frame {
+  --prestige-rail-box: 68px;
+  --prestige-rail-h-size: 204px 68px;
+  --prestige-rail-v-size: 68px 204px;
+  --prestige-ornament-size: 80px;
+  --prestige-corner-size: 42px;
+  position: relative;
+  overflow: visible;
+  border: 1px solid rgba(145, 219, 177, .62);
+  border-radius: 12px;
+  padding: 8px;
+  background: radial-gradient(ellipse at 14% 8%, rgba(37, 88, 59, .24), rgba(13, 22, 25, .16) 72%);
+  box-shadow: 0 0 13px rgba(96, 211, 137, .24), inset 0 0 16px rgba(52, 133, 76, .10);
+}
+
+.prestige-composite-frame[data-prestige-kind='dragon'] {
+  border-color: rgba(255, 194, 90, .68);
+  background: radial-gradient(ellipse at 14% 8%, rgba(115, 45, 25, .25), rgba(28, 18, 21, .17) 72%);
+  box-shadow: 0 0 14px rgba(255, 182, 64, .26), inset 0 0 16px rgba(154, 45, 31, .10);
+}
+
+.prestige-composite-frame__content {
+  position: relative;
+  z-index: 10;
+}
+
+.prestige-composite-frame__rail,
+.prestige-composite-frame__ornament,
+.prestige-composite-frame__corner {
+  pointer-events: none;
+  position: absolute;
+  display: block;
+  user-select: none;
+}
+
+.prestige-composite-frame__rail { z-index: 2; }
+.prestige-composite-frame__rail--top,
+.prestige-composite-frame__rail--bottom {
+  left: 0;
+  right: 0;
+  height: var(--prestige-rail-box);
+  background-image: var(--prestige-rail-horizontal);
+  background-size: var(--prestige-rail-h-size);
+  background-repeat: repeat-x;
+  background-position: center;
+}
+.prestige-composite-frame__rail--top { top: calc(var(--prestige-rail-box) * -.5); }
+.prestige-composite-frame__rail--bottom { bottom: calc(var(--prestige-rail-box) * -.5); }
+.prestige-composite-frame__rail--left,
+.prestige-composite-frame__rail--right {
+  top: 0;
+  bottom: 0;
+  width: var(--prestige-rail-box);
+  background-image: var(--prestige-rail-vertical);
+  background-size: var(--prestige-rail-v-size);
+  background-repeat: repeat-y;
+  background-position: center;
+}
+.prestige-composite-frame__rail--left { left: calc(var(--prestige-rail-box) * -.5); }
+.prestige-composite-frame__rail--right { right: calc(var(--prestige-rail-box) * -.5); }
+
+.prestige-composite-frame__ornament {
+  z-index: 12;
+  width: var(--prestige-ornament-size);
+  height: var(--prestige-ornament-size);
+  left: calc(var(--prestige-ornament-size) * -.18);
+  top: calc(var(--prestige-ornament-size) * -.22);
+  background: var(--prestige-main-ornament) left top / contain no-repeat;
+}
+
+.prestige-composite-frame__corner {
+  z-index: 12;
+  width: var(--prestige-corner-size);
+  height: var(--prestige-corner-size);
+  right: calc(var(--prestige-corner-size) * -.22);
+  bottom: calc(var(--prestige-corner-size) * -.22);
+  background: var(--prestige-corner-ornament) center / contain no-repeat;
+}
+
+.prestige-composite-frame[data-prestige-variant='friend'],
+.prestige-composite-frame[data-prestige-variant='guild'] {
+  --prestige-ornament-size: 82px;
+  --prestige-corner-size: 42px;
+  padding: 8px;
+}
+.prestige-composite-frame[data-prestige-variant='rankingChampion'] {
+  --prestige-ornament-size: 112px;
+  --prestige-corner-size: 66px;
+  padding: 11px 9px 9px;
+}
+.prestige-composite-frame[data-prestige-variant='rankingPodium'] {
+  --prestige-ornament-size: 101px;
+  --prestige-corner-size: 58px;
+  padding: 10px 8px 8px;
+}
+.prestige-composite-frame[data-prestige-variant='rankingElite'] {
+  --prestige-ornament-size: 82px;
+  --prestige-corner-size: 48px;
+  padding: 8px;
+}
+.prestige-composite-frame[data-prestige-variant='rankingTopTen'] {
+  --prestige-ornament-size: 68px;
+  --prestige-corner-size: 40px;
+  padding: 7px;
+}
+.prestige-composite-frame[data-prestige-variant='rankingStandard'] {
+  --prestige-ornament-size: 59px;
+  --prestige-corner-size: 34px;
+  padding: 7px 8px;
+}
+
+.prestige-composite-frame[data-prestige-variant='raidLobby'],
+.prestige-composite-frame[data-prestige-variant='raidBroadcast'] {
+  --prestige-rail-box: 36px;
+  --prestige-rail-h-size: 108px 36px;
+  --prestige-rail-v-size: 36px 108px;
+  --prestige-ornament-size: 32px;
+  --prestige-corner-size: 20px;
+  border-radius: 7px;
+  padding: 4px 5px;
+}
+.prestige-composite-frame[data-prestige-variant='raidBroadcast'] {
+  --prestige-ornament-size: 28px;
+  --prestige-corner-size: 18px;
+  padding: 3px 4px;
+}
+
+.luxury-prestige-preview.prestige-composite-frame { width: 100%; }
+
+@media (max-width: 640px) {
+  .prestige-composite-frame[data-prestige-variant='rankingChampion'] {
+    --prestige-ornament-size: 83px;
+    --prestige-corner-size: 50px;
+    padding: 9px 7px 7px;
+  }
+  .prestige-composite-frame[data-prestige-variant='rankingPodium'] {
+    --prestige-ornament-size: 73px;
+    --prestige-corner-size: 44px;
+    padding: 8px 6px 6px;
+  }
+  .prestige-composite-frame[data-prestige-variant='rankingTopTen'] {
+    --prestige-ornament-size: 59px;
+  }
+}

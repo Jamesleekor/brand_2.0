@@ -212,7 +212,7 @@ export function LuxuryShopSection({
           {selectedItem && selectedItem.presentation_kind !== 'PRESTIGE_BORDER_IMAGE' ? (
             <img src={selectedItem.resource_url} alt={`${selectedItem.name} 적용 이미지 미리보기`} className="mx-auto max-h-52 w-full object-contain" />
           ) : (
-            <PrestigeFrame border={previewBorder} variant={place === "FRIENDS" ? "friend" : place === "GUILD" ? "guild" : "rankingStandard"} className="luxury-prestige-preview mx-auto max-w-[530px]">
+            <PrestigeFrame border={previewBorder} className="mx-auto max-w-[530px]">
               <PrestigeCard theme={currentTheme} place={place} name={studentName || '학생 이름'} />
             </PrestigeFrame>
           )}
@@ -247,7 +247,7 @@ export function LuxuryShopSection({
               {(myBordersQuery.data ?? []).map((border) => (
                 <div key={border.ownershipId} className="rounded-xl border border-white/20 bg-white/[0.04] p-3">
                   <div className="flex items-center gap-2">
-                    <img src={border.resourceUrl} alt="" className="h-12 rounded-md object-contain w-24 shrink-0" loading="lazy" />
+                    <img src={border.resourceUrl} alt="" className="h-12 w-12 rounded-md object-contain" loading="lazy" />
                     <div className="min-w-0 flex-1 truncate text-sm font-black text-white">{border.name}</div>
                     {border.isEquipped && <span className="shrink-0 text-[12px] font-black text-[#B9E9D0]">장착 중</span>}
                   </div>

@@ -293,14 +293,9 @@ function RankingList({ type, collectionMode }: { type: RankingType; collectionMo
     staleTime: 15_000,
     queryFn: () => getClassroomRankingV2(supabase),
   });
-  const prestigeStudentIds = boardQuery.data ? [
-    ...boardQuery.data.bv_ranks,
-    ...boardQuery.data.asset_ranks,
-    ...boardQuery.data.achievement_ranks,
-    ...boardQuery.data.shard_ranks,
-    ...boardQuery.data.collection_ranks,
-  ].map((row) => Number(row.student_id)) : [];
-  const { byStudentId: prestigeBorders } = useEquippedPrestigeBorders(prestigeStudentIds);
+  const { byStudentId: prestigeBorders } = useEquippedPrestigeBorders(
+    (boardQuery.data?.bv_ranks ?? []).map((row) => Number(row.student_id)),
+  );
 
   if (boardQuery.isLoading) {
     return <div className="py-8 flex justify-center"><LoadingSpinner size="lg" /></div>;

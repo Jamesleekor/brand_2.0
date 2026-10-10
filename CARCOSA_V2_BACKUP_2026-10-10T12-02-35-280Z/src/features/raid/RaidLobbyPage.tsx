@@ -615,7 +615,7 @@ function RaidLobbyAvatar({
       </div>
 
       <div className="mt-2 w-[160px] -translate-x-[27px]">
-      <PrestigeFrame border={prestigeBorder} compact variant="raidLobby">
+      <PrestigeFrame border={prestigeBorder} compact>
       <div className="w-full rounded-card-md bg-[#07111f]/80 px-2 py-1.5 text-center backdrop-blur">
         <div className="truncate text-[14px] font-black text-white">
           {player.brand_name || player.name}

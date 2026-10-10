@@ -20,7 +20,7 @@ type PrestigeFrameProps = {
 };
 
 const LOCAL_CARCOSA_ASSETS = `${import.meta.env.BASE_URL}prestige-borders/carcosa-v2/`;
-const LOCAL_COMPOSABLE_ASSETS = `${import.meta.env.BASE_URL}prestige-borders/composable-v7/`;
+const LOCAL_NATURE_DRAGON_ASSETS = `${import.meta.env.BASE_URL}prestige-borders/nature-dragon-v5/`;
 const MOON_ORNAMENT_URL = 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/expedition/prestige/prestige_border_carcosa_moon_ornament_v2.webp';
 
 function accentFor(border: OwnedPrestigeBorder) {
@@ -30,22 +30,18 @@ function accentFor(border: OwnedPrestigeBorder) {
   return { edge: '#AECDF8', glow: 'rgba(117,190,255,.32)' };
 }
 
-function composableAssetStyles(kind: 'tree' | 'dragon'): CSSProperties {
-  const prefix = kind === 'tree' ? 'worldtree' : 'golden_dragon';
-  return {
-    '--prestige-rail-horizontal': `url("${LOCAL_COMPOSABLE_ASSETS}prestige_border_${prefix}_rail_horizontal_v7.webp")`,
-    '--prestige-rail-vertical': `url("${LOCAL_COMPOSABLE_ASSETS}prestige_border_${prefix}_rail_vertical_v7.webp")`,
-    '--prestige-main-ornament': `url("${LOCAL_COMPOSABLE_ASSETS}prestige_border_${prefix}_ornament_v4.webp")`,
-    '--prestige-corner-ornament': kind === 'dragon'
-      ? `url("${LOCAL_COMPOSABLE_ASSETS}prestige_border_golden_dragon_ruby_corner_v7.webp")`
-      : 'none',
-  } as CSSProperties;
+function artworkShape(variant: PrestigeFrameVariant): 'wide' | 'medium' | 'tall' {
+  if (variant === 'rankingChampion' || variant === 'rankingPodium') return 'tall';
+  if (variant === 'rankingElite' || variant === 'rankingTopTen' || variant === 'raidLobby' || variant === 'raidBroadcast') return 'medium';
+  return 'wide';
 }
 
-/**
- * Prestige art is composed from repeatable rails and fixed-ratio ornaments.
- * It never stretches a complete frame image or changes the underlying card's proportions.
- */
+function natureDragonArtwork(itemUid: string, variant: PrestigeFrameVariant): string {
+  const kind = itemUid === 'PRESTIGE_TREE_2026' ? 'tree' : 'dragon';
+  return `${LOCAL_NATURE_DRAGON_ASSETS}prestige_${kind}_${artworkShape(variant)}_v5.webp`;
+}
+
+/** Each screen group uses a complete frame image, preserving its ratio inside the card boundary. */
 export function PrestigeFrame({ border, children, className, compact = false, variant }: PrestigeFrameProps) {
   if (!border) return <>{children}</>;
 
@@ -74,19 +70,19 @@ export function PrestigeFrame({ border, children, className, compact = false, va
     const kind = border.itemUid === 'PRESTIGE_TREE_2026' ? 'tree' : 'dragon';
     return (
       <div
-        className={cn('prestige-composite-frame relative isolate min-w-0', className)}
+        className={cn('prestige-art-frame relative isolate min-w-0', className)}
         data-prestige-border={border.itemUid}
         data-prestige-kind={kind}
         data-prestige-variant={frameVariant}
-        style={composableAssetStyles(kind)}
       >
-        <div className="prestige-composite-frame__content relative z-10 h-full min-w-0">{children}</div>
-        <span className="prestige-composite-frame__rail prestige-composite-frame__rail--top" aria-hidden="true" />
-        <span className="prestige-composite-frame__rail prestige-composite-frame__rail--bottom" aria-hidden="true" />
-        <span className="prestige-composite-frame__rail prestige-composite-frame__rail--left" aria-hidden="true" />
-        <span className="prestige-composite-frame__rail prestige-composite-frame__rail--right" aria-hidden="true" />
-        <span className="prestige-composite-frame__ornament" aria-hidden="true" />
-        {kind === 'dragon' && <span className="prestige-composite-frame__corner" aria-hidden="true" />}
+        <div className="prestige-art-frame__content relative z-10 h-full min-w-0">{children}</div>
+        <img
+          className="prestige-art-frame__art"
+          aria-hidden="true"
+          alt=""
+          src={natureDragonArtwork(border.itemUid, frameVariant)}
+          draggable={false}
+        />
       </div>
     );
   }
