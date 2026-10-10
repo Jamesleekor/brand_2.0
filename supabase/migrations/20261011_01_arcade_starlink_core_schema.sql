@@ -132,6 +132,7 @@ ALTER TABLE public.arcade_verification_period_games
     OR
     (
       seed_strategy = 'PERIOD_PACK_PERMUTED'
+      AND rule_version_id IS NOT NULL
       AND (
         (
           seed_pack_status = 'DRAFT'
@@ -154,6 +155,48 @@ COMMENT ON COLUMN public.arcade_verification_period_games.seed_strategy IS
   'Frozen copy of the game verification seed strategy for this ranking period.';
 COMMENT ON COLUMN public.arcade_verification_period_games.seed_pack_status IS
   'NONE for random-per-attempt games; DRAFT/LOCKED for fixed period seed packs.';
+
+CREATE INDEX IF NOT EXISTS ix_arcade_verification_period_games_rule
+  ON public.arcade_verification_period_games(rule_version_id)
+  WHERE rule_version_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_arcade_verification_period_games_locked_run
+  ON public.arcade_verification_period_games(seed_pack_locked_by_run_id)
+  WHERE seed_pack_locked_by_run_id IS NOT NULL;
+
+CREATE OR REPLACE FUNCTION public.arcade_validate_verification_period_game_rule()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public, pg_temp
+AS $
+DECLARE
+  v_rule_game bigint;
+BEGIN
+  IF NEW.rule_version_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT rv.game_id
+  INTO v_rule_game
+  FROM public.arcade_game_rule_versions rv
+  WHERE rv.id = NEW.rule_version_id;
+
+  IF v_rule_game IS NULL
+     OR v_rule_game IS DISTINCT FROM NEW.game_id THEN
+    RAISE EXCEPTION '[ARCADE VERIFY] frozen rule version/game mismatch.'
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$;
+
+DROP TRIGGER IF EXISTS trg_arcade_validate_verification_period_game_rule
+  ON public.arcade_verification_period_games;
+CREATE TRIGGER trg_arcade_validate_verification_period_game_rule
+BEFORE INSERT OR UPDATE OF game_id, rule_version_id
+ON public.arcade_verification_period_games
+FOR EACH ROW
+EXECUTE FUNCTION public.arcade_validate_verification_period_game_rule();
 
 -- -----------------------------------------------------------------------------
 -- 4. Ranking-period / game rule-version pin.
@@ -233,13 +276,19 @@ CREATE TABLE IF NOT EXISTS public.arcade_verification_seed_pack_slots (
   slot_number smallint NOT NULL,
   gameplay_seed bigint NOT NULL,
   preflight_status text NOT NULL DEFAULT 'READY',
-  initial_board_hash text,
+  initial_board_hash text NOT NULL,
   preflight_metrics jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT arcade_verification_seed_slot_code_check
     CHECK (slot_code IN ('A','B','C')),
   CONSTRAINT arcade_verification_seed_slot_number_check
     CHECK (slot_number BETWEEN 1 AND 3),
+  CONSTRAINT arcade_verification_seed_slot_code_number_check
+    CHECK (
+      (slot_code = 'A' AND slot_number = 1)
+      OR (slot_code = 'B' AND slot_number = 2)
+      OR (slot_code = 'C' AND slot_number = 3)
+    ),
   CONSTRAINT arcade_verification_seed_slot_seed_check
     CHECK (gameplay_seed BETWEEN 1 AND 4294967295),
   CONSTRAINT arcade_verification_seed_slot_preflight_check
@@ -252,6 +301,8 @@ CREATE TABLE IF NOT EXISTS public.arcade_verification_seed_pack_slots (
     UNIQUE(period_game_id, slot_number),
   CONSTRAINT arcade_verification_seed_slot_seed_unique
     UNIQUE(period_game_id, gameplay_seed),
+  CONSTRAINT arcade_verification_seed_slot_board_hash_unique
+    UNIQUE(period_game_id, initial_board_hash),
   CONSTRAINT arcade_verification_seed_slot_id_period_unique
     UNIQUE(id, period_game_id)
 );
@@ -292,8 +343,8 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
 
-  IF v_pack_status = 'LOCKED' THEN
-    RAISE EXCEPTION '[ARCADE VERIFY SEED] locked seed pack is immutable.'
+  IF v_pack_status <> 'DRAFT' THEN
+    RAISE EXCEPTION '[ARCADE VERIFY SEED] seed slots may only be written while the pack is DRAFT.'
       USING ERRCODE = 'P0280';
   END IF;
 
@@ -333,13 +384,22 @@ BEGIN
   END IF;
 
   IF OLD.seed_pack_status <> 'LOCKED'
-     AND NEW.seed_pack_status = 'LOCKED'
-     AND (
-       NEW.seed_pack_locked_at IS NULL
-       OR NEW.seed_pack_locked_by_run_id IS NULL
-     ) THEN
-    RAISE EXCEPTION '[ARCADE VERIFY SEED] lock metadata is required.'
-      USING ERRCODE = '23514';
+     AND NEW.seed_pack_status = 'LOCKED' THEN
+    IF NEW.seed_pack_locked_at IS NULL
+       OR NEW.seed_pack_locked_by_run_id IS NULL THEN
+      RAISE EXCEPTION '[ARCADE VERIFY SEED] lock metadata is required.'
+        USING ERRCODE = '23514';
+    END IF;
+
+    IF (
+      SELECT count(*)
+      FROM public.arcade_verification_seed_pack_slots slot
+      WHERE slot.period_game_id = NEW.id
+        AND slot.preflight_status = 'READY'
+    ) <> 3 THEN
+      RAISE EXCEPTION '[ARCADE VERIFY SEED] exactly three READY A/B/C seed slots are required before lock.'
+        USING ERRCODE = 'P0282';
+    END IF;
   END IF;
 
   RETURN NEW;
@@ -479,6 +539,8 @@ REVOKE ALL ON SEQUENCE public.arcade_verification_seed_assignments_id_seq
   FROM PUBLIC, anon, authenticated;
 
 -- Internal guard helpers should not be callable from clients.
+REVOKE ALL ON FUNCTION public.arcade_validate_verification_period_game_rule()
+  FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.arcade_validate_period_game_rule_pin()
   FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.arcade_guard_verification_seed_slot_write()
