@@ -38,3 +38,70 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_CLASSROOM_ID: ${{ secrets.VITE_CLASSROOM_ID }}
+
+
+  sql-golden:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: starlink_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d starlink_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PGPASSWORD: postgres
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+
+      - name: Prepare minimal Arcade SQL baseline
+        run: |
+          psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+
+          CREATE OR REPLACE FUNCTION public.arcade_xorshift32_next(p_state bigint)
+          RETURNS bigint
+          LANGUAGE plpgsql
+          IMMUTABLE
+          STRICT
+          SET search_path = public, pg_temp
+          AS $function$
+          DECLARE
+            v_state bigint := p_state;
+          BEGIN
+            IF p_state NOT BETWEEN 1 AND 4294967295 THEN
+              RAISE EXCEPTION '[ARCADE] xorshift32 state must be a non-zero unsigned 32-bit integer.'
+                USING ERRCODE = 'P0190';
+            END IF;
+
+            v_state := (v_state # ((v_state << 13) & 4294967295)) & 4294967295;
+            v_state := (v_state # (v_state >> 17)) & 4294967295;
+            v_state := (v_state # ((v_state << 5) & 4294967295)) & 4294967295;
+            RETURN v_state;
+          END;
+          $function$;
+          SQL
+
+      - name: Apply Starlink deterministic SQL engine
+        run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/migrations/20261011_05_starlink_04_deterministic_board_engine.sql
+
+      - name: Run SQL golden postcheck
+        run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/tests/starlink_04_deterministic_board_golden.sql
