@@ -82,33 +82,33 @@ STRICT
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  ax integer:=p_a0%7; ay integer:=p_a0/7;
-  bx integer:=p_a1%7; by integer:=p_a1/7;
-  cx integer:=p_b0%7; cy integer:=p_b0/7;
-  dx integer:=p_b1%7; dy integer:=p_b1/7;
-  o1 integer; o2 integer; o3 integer; o4 integer;
-  c1 integer; c2 integer; c3 integer; c4 integer;
+  v_ax integer:=p_a0%7; v_ay integer:=p_a0/7;
+  v_bx integer:=p_a1%7; v_by integer:=p_a1/7;
+  v_cx integer:=p_b0%7; v_cy integer:=p_b0/7;
+  v_dx integer:=p_b1%7; v_dy integer:=p_b1/7;
+  v_o1 integer; v_o2 integer; v_o3 integer; v_o4 integer;
+  v_c1 integer; v_c2 integer; v_c3 integer; v_c4 integer;
 BEGIN
-  c1:=(bx-ax)*(cy-ay)-(by-ay)*(cx-ax);
-  c2:=(bx-ax)*(dy-ay)-(by-ay)*(dx-ax);
-  c3:=(dx-cx)*(ay-cy)-(dy-cy)*(ax-cx);
-  c4:=(dx-cx)*(by-cy)-(dy-cy)*(bx-cx);
+  v_c1:=(v_bx-v_ax)*(v_cy-v_ay)-(v_by-v_ay)*(v_cx-v_ax);
+  v_c2:=(v_bx-v_ax)*(v_dy-v_ay)-(v_by-v_ay)*(v_dx-v_ax);
+  v_c3:=(v_dx-v_cx)*(v_ay-v_cy)-(v_dy-v_cy)*(v_ax-v_cx);
+  v_c4:=(v_dx-v_cx)*(v_by-v_cy)-(v_dy-v_cy)*(v_bx-v_cx);
 
-  o1:=CASE WHEN c1=0 THEN 0 WHEN c1>0 THEN 1 ELSE -1 END;
-  o2:=CASE WHEN c2=0 THEN 0 WHEN c2>0 THEN 1 ELSE -1 END;
-  o3:=CASE WHEN c3=0 THEN 0 WHEN c3>0 THEN 1 ELSE -1 END;
-  o4:=CASE WHEN c4=0 THEN 0 WHEN c4>0 THEN 1 ELSE -1 END;
+  v_o1:=CASE WHEN v_c1=0 THEN 0 WHEN v_c1>0 THEN 1 ELSE -1 END;
+  v_o2:=CASE WHEN v_c2=0 THEN 0 WHEN v_c2>0 THEN 1 ELSE -1 END;
+  v_o3:=CASE WHEN v_c3=0 THEN 0 WHEN v_c3>0 THEN 1 ELSE -1 END;
+  v_o4:=CASE WHEN v_c4=0 THEN 0 WHEN v_c4>0 THEN 1 ELSE -1 END;
 
-  IF o1<>o2 AND o3<>o4 THEN RETURN true; END IF;
+  IF v_o1<>v_o2 AND v_o3<>v_o4 THEN RETURN true; END IF;
 
-  IF o1=0 AND cx BETWEEN least(ax,bx) AND greatest(ax,bx)
-          AND cy BETWEEN least(ay,by) AND greatest(ay,by) THEN RETURN true; END IF;
-  IF o2=0 AND dx BETWEEN least(ax,bx) AND greatest(ax,bx)
-          AND dy BETWEEN least(ay,by) AND greatest(ay,by) THEN RETURN true; END IF;
-  IF o3=0 AND ax BETWEEN least(cx,dx) AND greatest(cx,dx)
-          AND ay BETWEEN least(cy,dy) AND greatest(cy,dy) THEN RETURN true; END IF;
-  IF o4=0 AND bx BETWEEN least(cx,dx) AND greatest(cx,dx)
-          AND by BETWEEN least(cy,dy) AND greatest(cy,dy) THEN RETURN true; END IF;
+  IF v_o1=0 AND v_cx BETWEEN least(v_ax,v_bx) AND greatest(v_ax,v_bx)
+            AND v_cy BETWEEN least(v_ay,v_by) AND greatest(v_ay,v_by) THEN RETURN true; END IF;
+  IF v_o2=0 AND v_dx BETWEEN least(v_ax,v_bx) AND greatest(v_ax,v_bx)
+            AND v_dy BETWEEN least(v_ay,v_by) AND greatest(v_ay,v_by) THEN RETURN true; END IF;
+  IF v_o3=0 AND v_ax BETWEEN least(v_cx,v_dx) AND greatest(v_cx,v_dx)
+            AND v_ay BETWEEN least(v_cy,v_dy) AND greatest(v_cy,v_dy) THEN RETURN true; END IF;
+  IF v_o4=0 AND v_bx BETWEEN least(v_cx,v_dx) AND greatest(v_cx,v_dx)
+            AND v_by BETWEEN least(v_cy,v_dy) AND greatest(v_cy,v_dy) THEN RETURN true; END IF;
 
   RETURN false;
 END;
