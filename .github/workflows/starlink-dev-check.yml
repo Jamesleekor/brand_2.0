@@ -97,10 +97,15 @@ jobs:
             g.id,
             'starlink_04_v0.3',
             jsonb_build_object(
-              'loopMinUniqueCount',4,
+              'loopMinUniqueCount',5,
+              'loopMinTwiceArea',2,
               'initialGenerationAttempts',64,
               'reshuffleAttempts',64,
-              'fallbackTargetCells',jsonb_build_array(23,24,25)
+              'fallbackTargetCells',jsonb_build_array(23,24,25),
+              'rngInitialDomain',2738958700,
+              'rngRefillDomain',3355524772,
+              'rngReshuffleDomain',2911926141,
+              'rngZeroFallback',1831565813
             )
           FROM public.arcade_games g
           WHERE g.code='starlink_04';
@@ -131,5 +136,11 @@ jobs:
       - name: Apply Starlink deterministic SQL engine
         run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/migrations/20261011_05_starlink_04_deterministic_board_engine.sql
 
-      - name: Run SQL golden postcheck
+      - name: Run deterministic board SQL golden postcheck
         run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/tests/starlink_04_deterministic_board_golden.sql
+
+      - name: Apply Starlink path loop scoring SQL engine
+        run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/migrations/20261011_06_starlink_04_path_scoring_engine.sql
+
+      - name: Run path loop scoring SQL golden postcheck
+        run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/tests/starlink_04_path_scoring_golden.sql
