@@ -91,8 +91,6 @@ SELECT
     'reshuffleAttempts',64,
     'fallbackTargetCells',jsonb_build_array(23,24,25),
 
-    'fallbackTargetCells',jsonb_build_array(23,24,25),
-
     'countdown_ms',5000,
     'max_input_events',5000,
     'max_client_elapsed_ms',180000,
