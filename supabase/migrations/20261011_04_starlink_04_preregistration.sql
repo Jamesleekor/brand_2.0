@@ -73,8 +73,7 @@ SELECT
     'cols',7,
     'starTypeCount',6,
     'minLinkCount',3,
-    'loopMinUniqueCount',5,
-    'loopMinAreaTwice',2,
+    'loopMinUniqueCount',4,
     'allowDiagonal',true,
     'allowImmediateBacktrack',true,
 
@@ -92,10 +91,7 @@ SELECT
     'reshuffleAttempts',64,
     'fallbackTargetCells',jsonb_build_array(23,24,25),
 
-    'rngInitialDomain',2738958700,
-    'rngRefillDomain',3355524772,
-    'rngReshuffleDomain',2911926141,
-    'rngZeroFallback',1831565813,
+    'fallbackTargetCells',jsonb_build_array(23,24,25),
 
     'countdown_ms',5000,
     'max_input_events',5000,
