@@ -1,4 +1,4 @@
-import { assertNonZeroUint32, nextModulo, xorshift32Next } from '../../arcade_rng';
+import { assertNonZeroUint32, deriveStarlinkRngStreams, nextModulo, xorshift32Next } from '../../arcade_rng';
 import { STARLINK_V03_BOARD_RULES } from './starlinkRules';
 import type {
   StarlinkBoard,
@@ -189,7 +189,8 @@ export function generateStarlinkInitialBoard(
   seed: number,
   rules = STARLINK_V03_BOARD_RULES,
 ): StarlinkInitialBoardResult {
-  let state = assertNonZeroUint32(seed, 'Starlink seed');
+  const streams = deriveStarlinkRngStreams(seed);
+  let state = streams.initial;
   let firstPlayable: StarlinkBoard | null = null;
   let firstPlayableMetrics: StarlinkBoardMetrics | null = null;
   let lastCandidate: StarlinkBoard | null = null;
