@@ -29,7 +29,8 @@ CREATE TABLE public.arcade_verification_period_games(
   id bigint PRIMARY KEY,period_id bigint NOT NULL,game_id bigint NOT NULL,
   rule_version_id bigint,max_attempts integer NOT NULL,
   seed_strategy text NOT NULL,seed_pack_status text NOT NULL,
-  verification_closed_at timestamptz
+  verification_closed_at timestamptz,
+  UNIQUE(period_id,game_id)
 );
 CREATE TABLE public.arcade_verification_seed_pack_slots(
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
