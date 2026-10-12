@@ -159,3 +159,6 @@ jobs:
 
       - name: Verify full Arcade Core bridge end-to-end
         run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/tests/starlink_04_arcade_core_bridge_e2e.sql
+
+      - name: Simulate 24 parallel Starlink certification clients
+        run: bash scripts/check-starlink-24-concurrent.sh
