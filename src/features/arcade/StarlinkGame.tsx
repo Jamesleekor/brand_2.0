@@ -3,6 +3,7 @@ import { arcadeStudentRpc, type ArcadeRunBootstrap, type ArcadeRunSubmissionResu
 import { supabase } from '@/lib/supabase/client';
 import { applyStarlinkEvent, advanceStarlinkRun, createStarlinkRun, starlinkActiveGameMs, type StarlinkInputEvent, type StarlinkRuntimeState } from './games/starlink_04/starlinkRuntime';
 import { parseStarlinkRules, type StarlinkGameplayRules } from './games/starlink_04/starlinkRules';
+import { enterStarlinkCell } from './games/starlink_04/starlinkPath';
 
 type Phase = 'COUNTDOWN' | 'STARTING' | 'PLAYING' | 'SUBMITTING' | 'RESULT' | 'ERROR';
 const STAR_SYMBOLS = ['✦','✧','✶','✷','✳','✴'] as const;
