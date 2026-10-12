@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { arcadeStudentRpc, type ArcadeRunBootstrap, type ArcadeRunSubmissionResult } from '@/lib/rpc/arcade_rpc';
+import { arcadeErrorMessage, arcadeStudentRpc, type ArcadeRunBootstrap, type ArcadeRunSubmissionResult } from '@/lib/rpc/arcade_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { applyStarlinkEvent, advanceStarlinkRun, createStarlinkRun, starlinkActiveGameMs, type StarlinkInputEvent, type StarlinkRuntimeState } from './games/starlink_04/starlinkRuntime';
 import { parseStarlinkRules, type StarlinkGameplayRules } from './games/starlink_04/starlinkRules';
@@ -82,7 +82,7 @@ export function StarlinkGame({bootstrap,myRank,myBestScore,isRankingUpdating,onR
         p_input_events:payload.events,
         p_client_game_over_elapsed_ms:payload.endWallMs,
       });
-      if(!response.success) throw new Error(response.error);
+      if(response.success === false) throw new Error(arcadeErrorMessage(response));
       setServerResult(response.data);
       onRecorded(response.data,payload.summary);
       setPhase('RESULT');
@@ -97,7 +97,7 @@ export function StarlinkGame({bootstrap,myRank,myBestScore,isRankingUpdating,onR
   const begin=useCallback(async()=>{
     setPhase('STARTING');
     const rpc=await arcadeStudentRpc.beginRun(supabase,{p_run_id:bootstrap.run_id});
-    if(!rpc.success){setError(rpc.error);setPhase('ERROR');return;}
+    if(rpc.success === false){setError(arcadeErrorMessage(rpc));setPhase('ERROR');return;}
     try {
       if(rpc.data.run_nonce!==bootstrap.run_nonce) throw new Error('실행 식별값이 일치하지 않습니다.');
       const rules=parseStarlinkRules(rpc.data.config);
@@ -221,7 +221,7 @@ export function StarlinkGame({bootstrap,myRank,myBestScore,isRankingUpdating,onR
         : '진행 중인 게임을 종료하면 이번 기록은 저장되지 않습니다. 종료할까요?';
       if(!window.confirm(prompt))return;
       const response=await arcadeStudentRpc.abandonRun(supabase,{p_run_id:bootstrap.run_id});
-      if(!response.success){setError(response.error);setPhase('ERROR');return;}
+      if(response.success === false){setError(arcadeErrorMessage(response));setPhase('ERROR');return;}
     }
     onExit();
   };
@@ -255,10 +255,10 @@ export function StarlinkGame({bootstrap,myRank,myBestScore,isRankingUpdating,onR
       </div>
       <div className="grid grid-cols-2 gap-3 p-5 text-center sm:grid-cols-4">
         {[
-          ['제거한 별',serverResult.stats?.totalRemovedStars??0],
-          ['완성한 고리',serverResult.stats?.loopCount??0],
-          ['최대 콤보',serverResult.stats?.maxCombo??0],
-          ['재배치',serverResult.stats?.reshuffleCount??0],
+          ['제거한 별',Number(serverResult.stats?.totalRemovedStars??0)],
+          ['완성한 고리',Number(serverResult.stats?.loopCount??0)],
+          ['최대 콤보',Number(serverResult.stats?.maxCombo??0)],
+          ['재배치',Number(serverResult.stats?.reshuffleCount??0)],
         ].map(([label,value])=><div key={String(label)} className="rounded-card-md border border-line bg-bg-deep p-3"><div className="text-xs text-text-muted">{label}</div><div className="mt-1 text-xl font-black text-white">{value}</div></div>)}
       </div>
       <p className="px-5 text-center text-xs text-text-secondary">{bootstrap.is_prerelease_test?'사전 테스트 기록은 랭킹에 반영되지 않습니다.':bootstrap.run_context==='VERIFICATION'?'공인 인증 도전 결과입니다.':isRankingUpdating?'현재 순위 반영 중':`내 최고 점수 ${(myBestScore??0).toLocaleString('ko-KR')} · ${myRank?myRank+'위':'Top 10 밖'}`}</p>
