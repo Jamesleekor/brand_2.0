@@ -173,9 +173,11 @@ BEGIN
   END IF;
 
   -- Verify Starlink's 3 immutable pack slots are all playable, unique and ready.
+  -- Independent period: production schema uniquely scopes (period_id,game_id).
+  INSERT INTO public.arcade_ranking_periods(id,status) VALUES(200,'VERIFICATION');
   INSERT INTO public.arcade_verification_period_games(
     id,period_id,game_id,rule_version_id,max_attempts,seed_strategy,seed_pack_status
-  ) VALUES(102,100,v_game_id,v_rule_id,3,'PERIOD_PACK_PERMUTED','DRAFT');
+  ) VALUES(102,200,v_game_id,v_rule_id,3,'PERIOD_PACK_PERMUTED','DRAFT');
 
   PERFORM public.arcade_starlink_04_prepare_seed_pack(102);
   PERFORM public.arcade_starlink_04_prepare_seed_pack(102); -- safe idempotent retry
