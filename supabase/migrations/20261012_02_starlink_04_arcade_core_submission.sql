@@ -156,9 +156,37 @@ DECLARE
   v_session public.arcade_verification_sessions%ROWTYPE;
   v_pg public.arcade_verification_period_games%ROWTYPE;
   v_period public.arcade_ranking_periods%ROWTYPE;
+  v_lock_period_id bigint;
 BEGIN
   IF v_student_id IS NULL OR v_classroom_id IS NULL THEN
     RAISE EXCEPTION '[ARCADE] active student context is required.' USING ERRCODE='P0195';
+  END IF;
+
+  -- Lock order mirrors teacher_force_close_arcade_game_verification:
+  -- PERIOD -> PERIOD_GAME -> SESSION -> RUN -> ATTEMPT. This prevents a
+  -- teacher/student force-close vs submit deadlock from the old RUN-first order.
+  -- First ownership check is a non-locking read; re-check after locking.
+  SELECT * INTO v_run FROM public.arcade_runs WHERE id=p_run_id;
+  IF NOT FOUND OR v_run.student_id IS DISTINCT FROM v_student_id
+     OR v_run.classroom_id IS DISTINCT FROM v_classroom_id THEN
+    RAISE EXCEPTION '[ARCADE] run not found for student.' USING ERRCODE='P0199';
+  END IF;
+
+  IF v_run.run_context='VERIFICATION' AND v_run.status='PLAYING' THEN
+    SELECT s.period_id INTO v_lock_period_id
+    FROM public.arcade_verification_sessions s
+    WHERE s.id=v_run.verification_session_id;
+
+    IF v_lock_period_id IS NOT NULL THEN
+      PERFORM p.id FROM public.arcade_ranking_periods p
+      WHERE p.id=v_lock_period_id FOR UPDATE;
+
+      PERFORM pg.id FROM public.arcade_verification_period_games pg
+      WHERE pg.period_id=v_lock_period_id AND pg.game_id=v_run.game_id FOR UPDATE;
+
+      PERFORM s.id FROM public.arcade_verification_sessions s
+      WHERE s.id=v_run.verification_session_id FOR UPDATE;
+    END IF;
   END IF;
 
   SELECT * INTO v_run FROM public.arcade_runs
