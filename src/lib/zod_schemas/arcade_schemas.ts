@@ -85,6 +85,22 @@ export const StudentSubmitPureReactionRunSchema = z.object({
 });
 export type StudentSubmitPureReactionRunInput = z.infer<typeof StudentSubmitPureReactionRunSchema>;
 
+export const StarlinkInputEventSchema = z.discriminatedUnion('type', [
+  z.object({ type:z.literal('PATH_START'), elapsed_ms:z.number().int().min(0).max(180_000), cell:z.number().int().min(0).max(48) }).strict(),
+  z.object({ type:z.literal('CELL_ENTER'), elapsed_ms:z.number().int().min(0).max(180_000), cell:z.number().int().min(0).max(48) }).strict(),
+  z.object({ type:z.literal('PATH_RELEASE'), elapsed_ms:z.number().int().min(0).max(180_000) }).strict(),
+  z.object({ type:z.literal('PATH_CANCEL'), elapsed_ms:z.number().int().min(0).max(180_000) }).strict(),
+]);
+export type StarlinkInputEventInput = z.infer<typeof StarlinkInputEventSchema>;
+
+export const StudentSubmitStarlinkRunSchema = z.object({
+  p_run_id: PositiveId,
+  p_run_nonce: z.string().uuid('실행 인증 식별자가 올바르지 않습니다.'),
+  p_input_events: z.array(StarlinkInputEventSchema).max(5000,'입력 기록이 너무 많습니다.'),
+  p_client_game_over_elapsed_ms: z.number().int().min(60_000).max(180_000),
+});
+export type StudentSubmitStarlinkRunInput = z.infer<typeof StudentSubmitStarlinkRunSchema>;
+
 export const ArcadeLeaderboardSchema = z.object({
   p_game_code: ArcadeGameCodeSchema,
   p_period_id: PositiveId,
