@@ -75,8 +75,8 @@ export const ARCADE_GAME_UI: Record<string, ArcadeGameUiMeta> = {
       '긴 연결과 콤보로 점수를 높이고, 별 5개 이상의 고리를 완성할 수 있습니다.',
       '고리를 완성하면 같은 종류의 별 전체가 제거됩니다.',
     ],
-    // Flip only after the actual Starlink React game/validator is integrated.
-    studentImplemented: false,
+    // React runtime and internal server validator are implemented; DB remains disabled pending E2E rollout.
+    studentImplemented: true,
     teacherManaged: true,
     periodRecordsSupported: true,
   },
