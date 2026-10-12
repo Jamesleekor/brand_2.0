@@ -16,6 +16,14 @@ DECLARE
   v_threw boolean;
   v_game_id bigint;
   v_rule_id bigint;
+  v_pause_events jsonb:='[]'::jsonb;
+  v_pause_paths integer[][]:=ARRAY[
+    [0,1,9],[2,9,16],[4,10,11],[8,16,10],[24,30,36],
+    [1,8,16],[0,1,7],[2,9,16],[2,8,7]
+  ]::integer[][];
+  v_pause_starts integer[]:=ARRAY[100,330,560,790,1020,1250,1480,1710,2290];
+  v_i integer;
+  v_start integer;
 BEGIN
   IF NOT has_function_privilege(
     'authenticated','public.student_submit_starlink_04_run(bigint,uuid,jsonb,integer)','EXECUTE'
@@ -128,6 +136,40 @@ BEGIN
      OR (SELECT status FROM public.arcade_runs WHERE id=21)<>'PLAYING'
      OR EXISTS(SELECT 1 FROM public.arcade_run_submissions WHERE run_id=21) THEN
     RAISE EXCEPTION '[CORE INTEGRATION] forced-close gate failed.';
+  END IF;
+
+  -- End-to-end server commit of a real dead-board run (9 clears, 350ms freeze).
+  INSERT INTO public.arcade_runs(
+    id,classroom_id,student_id,game_id,rule_version_id,status,schedule_seed,run_nonce,
+    play_started_at,run_context
+  ) VALUES (
+    40,1,1,v_game_id,v_rule_id,'PLAYING',8,
+    'ee0f51c3-43d4-4dc1-8260-03d8fa7898b3',
+    clock_timestamp()-interval '60.350 seconds','STANDARD'
+  );
+
+  FOR v_i IN 1..9 LOOP
+    v_start:=v_pause_starts[v_i];
+    v_pause_events:=v_pause_events||jsonb_build_array(
+      jsonb_build_object('type','PATH_START','elapsed_ms',v_start,'cell',v_pause_paths[v_i][1]),
+      jsonb_build_object('type','CELL_ENTER','elapsed_ms',v_start+10,'cell',v_pause_paths[v_i][2]),
+      jsonb_build_object('type','CELL_ENTER','elapsed_ms',v_start+20,'cell',v_pause_paths[v_i][3]),
+      jsonb_build_object('type','PATH_RELEASE','elapsed_ms',v_start+30)
+    );
+  END LOOP;
+
+  v_out:=public.student_submit_starlink_04_run(
+    40,'ee0f51c3-43d4-4dc1-8260-03d8fa7898b3',v_pause_events,60350
+  );
+  IF NOT (v_out->>'accepted')::boolean
+     OR (v_out->>'official_score')::integer<>1618
+     OR (v_out->'stats'->>'reshuffleCount')::integer<>1
+     OR (v_out->'stats'->>'maxCombo')::integer<>9
+     OR (SELECT official_duration_ms FROM public.arcade_runs WHERE id=40)<>60000
+     OR (SELECT game_over_at FROM public.arcade_runs WHERE id=40)
+         IS DISTINCT FROM
+        (SELECT play_started_at+interval '60.350 seconds' FROM public.arcade_runs WHERE id=40) THEN
+    RAISE EXCEPTION '[CORE INTEGRATION] 350ms pause source-run score/stats mismatch: %',v_out;
   END IF;
 
   -- Verify Starlink's 3 immutable pack slots are all playable, unique and ready.
