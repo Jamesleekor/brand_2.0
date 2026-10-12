@@ -144,3 +144,9 @@ jobs:
 
       - name: Run path loop scoring SQL golden postcheck
         run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/tests/starlink_04_path_scoring_golden.sql
+
+      - name: Apply Starlink internal full-run replay
+        run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/migrations/20261012_01_starlink_04_full_run_replay.sql
+
+      - name: Run full-run replay Golden and timing postcheck
+        run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/tests/starlink_04_full_run_replay_golden.sql
