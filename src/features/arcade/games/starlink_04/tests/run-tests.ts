@@ -12,6 +12,14 @@ import {
   starlinkBoardSignature,
 } from '../starlinkBoard';
 import { resolveStarlinkClearBoard } from '../starlinkClear';
+import {
+  createStarlinkRun,
+  advanceStarlinkRun,
+  starlinkActiveGameMs,
+  applyStarlinkEvent,
+  replayStarlinkRun,
+  type StarlinkInputEvent,
+} from '../starlinkRuntime';
 import { STARLINK_BOARD_GOLDEN_V03 } from '../starlinkGoldenFixture';
 import {
   canCloseStarlinkLoop,
@@ -234,6 +242,123 @@ function testGuards() {
   assert.throws(() => xorshift32Next(0), /non-zero unsigned 32-bit/);
 }
 
+
+const STARLINK_REPLAY_GOLDEN_EVENTS: StarlinkInputEvent[] = [
+  { type: 'PATH_START', elapsed_ms: 100, cell: 22 },
+  { type: 'CELL_ENTER', elapsed_ms: 150, cell: 29 },
+  { type: 'CELL_ENTER', elapsed_ms: 200, cell: 30 },
+  { type: 'CELL_ENTER', elapsed_ms: 220, cell: 36 },
+  { type: 'PATH_RELEASE', elapsed_ms: 250 },
+  { type: 'PATH_START', elapsed_ms: 450, cell: 3 },
+  { type: 'CELL_ENTER', elapsed_ms: 470, cell: 9 },
+  { type: 'CELL_ENTER', elapsed_ms: 490, cell: 10 },
+  { type: 'PATH_RELEASE', elapsed_ms: 500 },
+];
+
+function testRuntimeTwoClearsAndComboGolden() {
+  const result = replayStarlinkRun(6059, STARLINK_REPLAY_GOLDEN_EVENTS, 60_000);
+  assert.equal(result.phase, 'GAME_OVER');
+  assert.equal(result.official_score, 457);
+  assert.equal(result.official_duration_ms, 60_000);
+  assert.equal(result.game_end_wall_ms, 60_000);
+  assert.equal(result.paused_total_ms, 0);
+  assert.equal(result.refill_rng_state, 1054902790);
+  assert.equal(result.reshuffle_rng_state, 3968834942);
+  assert.deepEqual(result.stats, {
+    totalRemovedStars: 7,
+    normalClearCount: 2,
+    loopCount: 0,
+    maxLinkLength: 4,
+    maxCombo: 2,
+    largestLoopRemovedCount: 0,
+    reshuffleCount: 0,
+  });
+  assert.deepEqual(result.clear_log.map(c => c.awardedScore), [300,157]);
+  assert.deepEqual(result.clear_log.map(c => c.activeCommitMs), [250,500]);
+  assert.deepEqual(result.board, [
+    2,4,2,4,3,1,0,1,5,4,3,5,0,1,5,5,1,4,5,5,1,1,4,2,0,4,0,4,
+    0,2,1,1,1,2,3,5,5,0,4,5,4,2,0,0,2,3,1,5,5,
+  ]);
+}
+
+function testRuntimeTerminalDuringSettle() {
+  const events: StarlinkInputEvent[] = [
+    { type: 'PATH_START', elapsed_ms: 59_900, cell: 22 },
+    { type: 'CELL_ENTER', elapsed_ms: 59_910, cell: 29 },
+    { type: 'CELL_ENTER', elapsed_ms: 59_920, cell: 30 },
+    { type: 'CELL_ENTER', elapsed_ms: 59_930, cell: 36 },
+    { type: 'PATH_RELEASE', elapsed_ms: 59_999 },
+  ];
+  const result = replayStarlinkRun(6059,events,60_000);
+  assert.equal(result.official_score,300);
+  assert.equal(result.stats.normalClearCount,1);
+  assert.equal(result.stats.totalRemovedStars,4);
+  assert.equal(result.game_end_wall_ms,60_000);
+  assert.equal(result.refill_rng_state,150626425);
+  assert.deepEqual(result.board, STARLINK_BOARD_GOLDEN_V03.initial.board);
+
+  const expired = replayStarlinkRun(6059,[
+    ...events.slice(0,-1),
+    {type:'PATH_RELEASE',elapsed_ms:60_000},
+  ],60_000);
+  assert.equal(expired.official_score,0);
+  assert.equal(expired.stats.normalClearCount,0);
+}
+
+function testRuntimeLockedInputAndIncomplete() {
+  const first = STARLINK_REPLAY_GOLDEN_EVENTS.slice(0,5);
+  assert.throws(() => replayStarlinkRun(6059,[
+    ...first,
+    {type:'PATH_START',elapsed_ms:300,cell:3},
+  ],60_000),/lock/);
+  assert.throws(() => replayStarlinkRun(6059,first,59_999),/earlier than game end/);
+  assert.throws(() => replayStarlinkRun(6059,[
+    {type:'PATH_START',elapsed_ms:150,cell:22},
+    {type:'CELL_ENTER',elapsed_ms:149,cell:29},
+  ],60_000),/backwards/);
+  assert.throws(() => replayStarlinkRun(6059,[
+    {type:'CELL_ENTER',elapsed_ms:100,cell:22},
+  ],60_000),/without PATH_START/);
+  assert.throws(() => replayStarlinkRun(6059,[
+    {type:'PATH_START',elapsed_ms:100,cell:22},
+    {type:'PATH_START',elapsed_ms:120,cell:29},
+  ],60_000),/while path is active/);
+
+  const cancelResult = replayStarlinkRun(6059,[
+    {type:'PATH_START',elapsed_ms:100,cell:22},
+    {type:'CELL_ENTER',elapsed_ms:150,cell:29},
+    {type:'PATH_CANCEL',elapsed_ms:170},
+  ],60_000);
+  assert.equal(cancelResult.official_score,0);
+}
+
+function testRuntimeReshuffleClockFreeze() {
+  const initial = createStarlinkRun(6059);
+  const artificialPause = {
+    ...initial,
+    phase: 'RESHUFFLING' as const,
+    wallMs: 650,
+    reshuffleUntilWallMs: 1000,
+    stats: {...initial.stats,reshuffleCount:1},
+  };
+  const middle = advanceStarlinkRun(artificialPause,900);
+  assert.equal(middle.phase,'RESHUFFLING');
+  assert.equal(starlinkActiveGameMs(middle),650);
+  const completed = advanceStarlinkRun(middle,1000);
+  assert.equal(completed.phase,'PLAYING');
+  assert.equal(completed.pausedTotalMs,350);
+  assert.equal(starlinkActiveGameMs(completed),650);
+  const later = advanceStarlinkRun(completed,1030);
+  assert.equal(starlinkActiveGameMs(later),680);
+  assert.equal(nextStarlinkComboCount(1,500,650),2);
+  assert.equal(advanceStarlinkRun(completed,60_350).phase,'GAME_OVER');
+  assert.equal(advanceStarlinkRun(completed,60_350).finalEndWallMs,60_350);
+
+  const start = applyStarlinkEvent(initial,{type:'PATH_START',elapsed_ms:100,cell:22});
+  const dropped = applyStarlinkEvent(start,{type:'PATH_CANCEL',elapsed_ms:150});
+  assert.deepEqual(dropped.path.path,[]);
+}
+
 const tests: Array<[string, () => void]> = [
   ['derived RNG stream golden', testDerivedRngStreams],
   ['initial board golden', testInitialBoardGolden],
@@ -243,6 +368,10 @@ const tests: Array<[string, () => void]> = [
   ['path precedence + loop geometry', testPathPrecedenceAndLoopGeometry],
   ['release + scoring + combo boundaries', testReleaseAndScoring],
   ['validation guards', testGuards],
+  ['full runtime two-clear scoring golden', testRuntimeTwoClearsAndComboGolden],
+  ['GAME_END outranks settle and late release', testRuntimeTerminalDuringSettle],
+  ['runtime lock/error/cancel boundaries', testRuntimeLockedInputAndIncomplete],
+  ['350ms reshuffle clock freeze', testRuntimeReshuffleClockFreeze],
 ];
 
 let failed = 0;
