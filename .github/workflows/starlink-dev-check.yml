@@ -150,3 +150,12 @@ jobs:
 
       - name: Run full-run replay Golden and timing postcheck
         run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/tests/starlink_04_full_run_replay_golden.sql
+
+      - name: Prepare isolated Arcade Core bridge fixture
+        run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/tests/starlink_04_core_integration_ephemeral_baseline.sql
+
+      - name: Apply server nonce-bound Starlink submission and seed pack
+        run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/migrations/20261012_02_starlink_04_arcade_core_submission.sql
+
+      - name: Verify full Arcade Core bridge end-to-end
+        run: psql -h 127.0.0.1 -U postgres -d starlink_ci -v ON_ERROR_STOP=1 -f supabase/tests/starlink_04_arcade_core_bridge_e2e.sql
