@@ -359,6 +359,52 @@ function testRuntimeReshuffleClockFreeze() {
   assert.deepEqual(dropped.path.path,[]);
 }
 
+
+function testRuntimeRealReshuffleGolden() {
+  // Seed 8 triggers its first dead-board immediately after clear #8.
+  // The next start at 2290ms is exactly on the 350ms pause-resume boundary.
+  const actions: ReadonlyArray<readonly [number,number,number,number]> = [
+    [100,0,1,9],[330,2,9,16],[560,4,10,11],
+    [790,8,16,10],[1020,24,30,36],[1250,1,8,16],
+    [1480,0,1,7],[1710,2,9,16],[2290,2,8,7],
+  ];
+  const events: StarlinkInputEvent[] = actions.flatMap(([t,a,b,c]) => [
+    {type:'PATH_START' as const,elapsed_ms:t,cell:a},
+    {type:'CELL_ENTER' as const,elapsed_ms:t+10,cell:b},
+    {type:'CELL_ENTER' as const,elapsed_ms:t+20,cell:c},
+    {type:'PATH_RELEASE' as const,elapsed_ms:t+30},
+  ]);
+  const result = replayStarlinkRun(8,events,60350);
+  assert.equal(result.official_score,1618);
+  assert.equal(result.game_end_wall_ms,60350);
+  assert.equal(result.paused_total_ms,350);
+  assert.equal(result.refill_rng_state,627960630);
+  assert.equal(result.reshuffle_rng_state,3318130477);
+  assert.deepEqual(result.stats,{
+    totalRemovedStars:27,
+    normalClearCount:9,
+    loopCount:0,
+    maxLinkLength:3,
+    maxCombo:9,
+    largestLoopRemovedCount:0,
+    reshuffleCount:1,
+  });
+  assert.deepEqual(result.clear_log.map(x=>x.awardedScore),[150,157,165,172,180,187,195,202,210]);
+  assert.deepEqual(result.clear_log.map(x=>x.activeCommitMs),[130,360,590,820,1050,1280,1510,1740,1970]);
+  assert.deepEqual(result.board,[
+    3,5,0,2,3,4,3,0,4,1,0,4,2,0,1,0,5,1,2,1,0,5,0,4,3,5,3,0,
+    1,2,1,1,4,4,1,1,1,2,4,5,5,0,2,0,1,1,5,0,4,
+  ]);
+  assert.throws(
+    ()=>replayStarlinkRun(8,[
+      ...events.slice(0,32),
+      {type:'PATH_START',elapsed_ms:2050,cell:2},
+    ],60350),
+    /lock/,
+  );
+  assert.throws(()=>replayStarlinkRun(8,events,60349),/earlier than game end/);
+}
+
 const tests: Array<[string, () => void]> = [
   ['derived RNG stream golden', testDerivedRngStreams],
   ['initial board golden', testInitialBoardGolden],
@@ -372,6 +418,7 @@ const tests: Array<[string, () => void]> = [
   ['GAME_END outranks settle and late release', testRuntimeTerminalDuringSettle],
   ['runtime lock/error/cancel boundaries', testRuntimeLockedInputAndIncomplete],
   ['350ms reshuffle clock freeze', testRuntimeReshuffleClockFreeze],
+  ['real dead-board reshuffle full replay golden', testRuntimeRealReshuffleGolden],
 ];
 
 let failed = 0;
