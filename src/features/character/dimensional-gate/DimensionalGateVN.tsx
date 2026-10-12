@@ -630,7 +630,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
                     className="rounded-card-md border border-violet-300/25 bg-violet-500/10 px-3 py-3 text-left text-xs font-black text-white transition-colors hover:bg-violet-500/20"
                   >
                     <span className="mr-2 text-violet-200">{choiceIndex + 1}.</span>{choice.label}
-                    {previewMode && <span className="ml-2 text-[10px] font-black text-amber-200/80">→ CUT {choice.to}</span>}
+                    
                   </button>
                 ))}
               </div>
