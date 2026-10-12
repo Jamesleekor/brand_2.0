@@ -266,7 +266,7 @@ BEGIN
       RAISE EXCEPTION '[STARLINK VERIFY] session is not active/matching.' USING ERRCODE='P0255';
     END IF;
     SELECT * INTO v_pg FROM public.arcade_verification_period_games
-    WHERE period_id=v_session.period_id AND game_id=v_run.game_id FOR UPDATE;
+    WHERE period_id=v_session.period_id AND game_id=v_run.game_id FOR SHARE;
     SELECT * INTO v_period FROM public.arcade_ranking_periods
     WHERE id=v_session.period_id;
     IF v_pg.id IS NULL OR v_pg.verification_closed_at IS NOT NULL
