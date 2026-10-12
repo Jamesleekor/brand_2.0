@@ -131,7 +131,7 @@ export function starlinkActiveGameMs(state: StarlinkRuntimeState, wallMs = state
   return elapsed;
 }
 
-function terminate(state: StarlinkRuntimeState, deadline: number): StarlinkRuntimeState {
+function terminate(state: StarlinkRuntimeState, deadline: number, observedWallMs: number): StarlinkRuntimeState {
   return {
     ...state,
     phase: 'GAME_OVER',
@@ -140,7 +140,7 @@ function terminate(state: StarlinkRuntimeState, deadline: number): StarlinkRunti
     settleUntilWallMs: null,
     reshuffleUntilWallMs: null,
     finalEndWallMs: deadline,
-    wallMs: deadline,
+    wallMs: observedWallMs,
   };
 }
 
@@ -155,7 +155,7 @@ export function advanceStarlinkRun(
 ): StarlinkRuntimeState {
   validMs(wallMs);
   if (wallMs < previous.wallMs) throw new Error('Starlink event time moved backwards.');
-  if (previous.phase === 'GAME_OVER') return previous;
+  if (previous.phase === 'GAME_OVER') return { ...previous, wallMs };
 
   let state = previous;
   for (let transitions = 0; transitions < 8; transitions += 1) {
@@ -167,7 +167,7 @@ export function advanceStarlinkRun(
         throw new Error('Starlink settle state is incomplete.');
       }
       // No refill if timer reaches 60 seconds during (or at end of) settling.
-      if (deadline <= wallMs && deadline <= settleEnd) return terminate(state, deadline);
+      if (deadline <= wallMs && deadline <= settleEnd) return terminate(state, deadline, wallMs);
       if (wallMs < settleEnd) return { ...state, wallMs };
 
       const nextBoard = resolveStarlinkClearBoard(
@@ -206,7 +206,7 @@ export function advanceStarlinkRun(
       continue;
     }
 
-    if (wallMs >= deadline) return terminate(state, deadline);
+    if (wallMs >= deadline) return terminate(state, deadline, wallMs);
     return { ...state, wallMs };
   }
   throw new Error('Starlink clock transition did not converge.');
