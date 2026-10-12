@@ -2,9 +2,9 @@
 # Starlink / ephemeral PostgreSQL-only 24 parallel certification submissions.
 set -euo pipefail
 
-: "${PGHOST:=127.0.0.1}"
-: "${PGUSER:=postgres}"
-: "${PGDATABASE:=starlink_ci}"
+export PGHOST="${PGHOST:-127.0.0.1}"
+export PGUSER="${PGUSER:-postgres}"
+export PGDATABASE="${PGDATABASE:-starlink_ci}"
 
 psql -v ON_ERROR_STOP=1 <<'SQL'
 BEGIN;
