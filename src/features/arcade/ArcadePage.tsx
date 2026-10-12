@@ -3,10 +3,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader, LoadingSpinner } from '@/components/shared/components';
 import { FocusReactionGame, type FocusPlaySummary } from '@/features/arcade/FocusReactionGame';
 import { PureReactionGame, type PureReactionPlaySummary } from '@/features/arcade/PureReactionGame';
+import { StarlinkGame, type StarlinkPlaySummary } from '@/features/arcade/StarlinkGame';
 import { TikatukaGame } from '@/features/arcade/tikatuka/ui/TikatukaGame';
 import { RakarukaCompetitionPanel } from '@/features/arcade/tikatuka/ui/RakarukaCompetitionPanel';
 import { formatReactionAverage } from '@/features/arcade/pure_reaction_engine';
-import { arcadeGameMeta, STANDARD_ARCADE_GAME_CODES } from './arcadeGameRegistry';
+import { arcadeGameMeta, isStudentArcadeGameImplemented } from './arcadeGameRegistry';
 import { arcadeErrorMessage, arcadeStudentRpc, type ArcadeRunBootstrap, type ArcadeRunSubmissionResult, type ArcadeVerificationState, type ArcadeVerificationAttempt, type ArcadeLeaderboardRow, type ArcadeGuildTotalRow } from '@/lib/rpc/arcade_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId, useStudentId } from '@/stores/auth_store';
@@ -42,7 +43,7 @@ export default function ArcadePage() {
   const [selectedGameCode, setSelectedGameCode] = useState('focus_reaction_01');
   const [bootstrap, setBootstrap] = useState<ArcadeRunBootstrap | null>(null);
   const [result, setResult] = useState<ArcadeRunSubmissionResult | null>(null);
-  const [playSummary, setPlaySummary] = useState<FocusPlaySummary | PureReactionPlaySummary | null>(null);
+  const [playSummary, setPlaySummary] = useState<FocusPlaySummary | PureReactionPlaySummary | StarlinkPlaySummary | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);  const [isCreatingRun, setIsCreatingRun] = useState(false);
   const creatingRunRef = useRef(false);
   const verificationRequestRef = useRef<{ sessionId: number; key: string } | null>(null);
@@ -68,8 +69,7 @@ export default function ArcadePage() {
   const visiblePeriods = useMemo(() => (arcadeQuery.data?.periods ?? []).filter((period) => ['ACTIVE', 'VERIFICATION', 'READY_TO_FINALIZE', 'FINALIZED'].includes(period.status)), [arcadeQuery.data?.periods]);
   const selectedPeriod = visiblePeriods.find((period) => period.id === selectedPeriodId) ?? visiblePeriods[0] ?? null;
   const playableGames = (arcadeQuery.data?.games ?? []).filter((entry) =>
-    entry.is_active && STANDARD_ARCADE_GAME_CODES.includes(entry.code as (typeof STANDARD_ARCADE_GAME_CODES)[number])
-      && entry.code !== 'starlink_04',
+    entry.is_active && isStudentArcadeGameImplemented(entry.code),
   );
   const isRakarukaSelected = selectedGameCode === RAKARUKA_CODE;
   const game = isRakarukaSelected ? null : (playableGames.find((entry) => entry.code === selectedGameCode) ?? playableGames[0] ?? null);  const gameAccessQuery = useQuery({
@@ -201,7 +201,7 @@ export default function ArcadePage() {
     }
   };
 
-const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPlaySummary | PureReactionPlaySummary) => {
+const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPlaySummary | PureReactionPlaySummary | StarlinkPlaySummary) => {
     setResult({ ...nextResult, is_prerelease_test: bootstrap?.is_prerelease_test ?? false });
     setPlaySummary(summary);if (bootstrap?.is_prerelease_test) return;
     setIsResultRankingUpdating(true);
@@ -230,7 +230,7 @@ const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPla
       <section className="overflow-hidden rounded-card-xl border border-brand-primary/30 bg-gradient-to-br from-brand-primary/15 via-bg-card to-gold/10 p-5">
         <div className="text-xs font-black tracking-[0.18em] text-brand-primary">B.R.A.N.D ARCADE</div>
         <h1 className="mt-2 font-display text-3xl text-white">집중력·반응·전략의 시험장</h1>
-        <p className="mt-2 max-w-3xl text-sm text-text-secondary">집중 반응, 순수 반응속도, 라카루카를 하나의 Arcade 기간 안에서 플레이하고 랭킹을 확인합니다.</p>
+        <p className="mt-2 max-w-3xl text-sm text-text-secondary">집중 반응, 순수 반응속도, 라카루카, 스타링크를 하나의 Arcade 기간 안에서 플레이하고 랭킹을 확인합니다.</p>
       </section>
 
       {arcadeQuery.isLoading && <div className="py-16 text-center"><LoadingSpinner size="lg" /></div>}
@@ -257,6 +257,7 @@ const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPla
         {!isRakarukaSelected && !bootstrap && verificationState?.available && <VerificationChallengeCard state={verificationState} isLoading={verificationQuery.isFetching || isCreatingRun} onStart={() => void startVerificationGame(verificationState)} onAbandon={() => void abandonVerificationRun(verificationState)} />}
         {bootstrap?.game_code === 'focus_reaction_01' && <FocusReactionGame bootstrap={bootstrap} myRank={leaderboardQuery.data?.my_rank ?? null} myBestScore={leaderboardQuery.data?.my_score ?? null} isRankingUpdating={isResultRankingUpdating || leaderboardQuery.isFetching} onRecorded={handleRecorded} onExit={handleFinished} onInlineError={setActionError} />}
         {bootstrap?.game_code === 'pure_reaction_02' && <PureReactionGame bootstrap={bootstrap} myRank={leaderboardQuery.data?.my_rank ?? null} myBestScore={leaderboardQuery.data?.my_score ?? null} isRankingUpdating={isResultRankingUpdating || leaderboardQuery.isFetching} onRecorded={handleRecorded} onExit={handleFinished} onInlineError={setActionError} />}
+        {bootstrap?.game_code === 'starlink_04' && <StarlinkGame bootstrap={bootstrap} myRank={leaderboardQuery.data?.my_rank ?? null} myBestScore={leaderboardQuery.data?.my_score ?? null} isRankingUpdating={isResultRankingUpdating || leaderboardQuery.isFetching} onRecorded={handleRecorded} onExit={handleFinished} onInlineError={setActionError} />}
 
         {!bootstrap && isRakarukaSelected && <section className="glass-card overflow-hidden border-gold/25">
           <div className="grid gap-0 md:grid-cols-[1.1fr_.9fr]">
@@ -350,7 +351,7 @@ function CertifiedScore({ score, status }: { score: number | null; status: Arcad
   return <span className="text-text-muted">—</span>;
 }
 
-function ResultCard({ gameCode, result, isVerification, summary, myRank, myBestScore, isRankingUpdating, onRetry }: { gameCode: string; result: ArcadeRunSubmissionResult; isVerification: boolean; summary: FocusPlaySummary | PureReactionPlaySummary | null; myRank: number | null; myBestScore: number | null; isRankingUpdating: boolean; onRetry: () => void }) {
+function ResultCard({ gameCode, result, isVerification, summary, myRank, myBestScore, isRankingUpdating, onRetry }: { gameCode: string; result: ArcadeRunSubmissionResult; isVerification: boolean; summary: FocusPlaySummary | PureReactionPlaySummary | StarlinkPlaySummary | null; myRank: number | null; myBestScore: number | null; isRankingUpdating: boolean; onRetry: () => void }) {
   const accepted = result.accepted;
   const prerelease = result.is_prerelease_test === true;
   const focusSummary = summary && 'maxCombo' in summary ? summary : null;
