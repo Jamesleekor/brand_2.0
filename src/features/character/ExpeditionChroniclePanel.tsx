@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { LoadingSpinner } from '@/components/shared/components';
-import { LuxuryShopSection } from './expedition/LuxuryShopSection';
+import { LuxuryShopSectionV2 } from './expedition/LuxuryShopSectionV2';
+import { CompactChronicleSection } from './expedition/CompactChronicleSection';
 import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -565,7 +566,7 @@ export default function ExpeditionChroniclePanel() {
         busyAction={busyAction}
       />
 
-      <LuxuryShopSection
+      <LuxuryShopSectionV2
         shop={luxuryQuery.data ?? null}
         loading={luxuryQuery.isLoading}
         error={luxuryQuery.isError}
@@ -1338,103 +1339,14 @@ function ChronicleSection({
   busyAction: string | null;
 }) {
   return (
-    <section className="rounded-card-xl border border-line bg-bg-card/90 p-4 shadow-card lg:p-5">
-      <div className="flex items-center gap-3">
-        <img src={EXPEDITION_ASSETS.weeklySummary} alt="" className="h-12 w-12 flex-none object-contain" loading="lazy" decoding="async" />
-        <div>
-          <div className="text-[13px] font-black uppercase tracking-[0.14em] text-[#FFD58A]">원정 연대기</div>
-          <h2 className="mt-1 font-display text-xl text-[#FFF7ED]">15개 탐사지 기록</h2>
-          <p className="mt-1 text-sm font-semibold text-[#F6EFE7]">학급이 쌓은 누적 흔적과 내가 발견한 기록은 시즌 동안 계속 보존됩니다.</p>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="flex min-h-[160px] items-center justify-center"><LoadingSpinner size="sm" /></div>
-      ) : (
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {sites.map((site) => (
-            <ChronicleSiteCard key={site.site_code} site={site} onStory={() => void onStory(site.site_code)} />
-          ))}
-        </div>
-      )}
-
-      {recentRuns.length > 0 && (
-        <div className="mt-5 border-t border-line pt-4">
-          <div className="text-sm font-black text-[#FFF7ED]">최근 내 원정</div>
-          <div className="mt-3 space-y-3">
-            {recentRuns.slice(0, 4).map((run) => (
-              <RunResultCard
-                key={run.run_id}
-                run={run}
-                busyAction={busyAction}
-                onClaim={() => void onClaim(run)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ChronicleSiteCard({ site, onStory }: { site: ExpeditionChronicleSite; onStory: () => void }) {
-  const specialty = SPECIALTY_META[site.specialty_code];
-  const siteAsset = getExpeditionSiteAsset(site.site_code);
-  return (
-    <button
-      type="button"
-      onClick={onStory}
-      className="overflow-hidden rounded-card-lg border border-line bg-bg-deep/55 text-left transition hover:border-brand-primary/40"
-    >
-      {siteAsset && (
-        <div className="relative h-20 overflow-hidden bg-black/20">
-          <img src={siteAsset} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
-          <img
-            src={getExpeditionMasteryAsset(site.mastery_level)}
-            alt=""
-            className="absolute bottom-1.5 right-1.5 h-7 w-7 object-contain drop-shadow"
-            loading="lazy"
-            decoding="async"
-          />
-        </div>
-      )}
-      <div className="p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="inline-flex items-center gap-1 text-xs font-black text-[#FFD58A]"><img src={EXPEDITION_ASSETS.specialty[site.specialty_code]} alt="" className="h-3.5 w-3.5 object-contain" loading="lazy" decoding="async" />{specialty.label}</div>
-          <div className="mt-1 text-sm font-black text-[#FFF7ED]">{site.site_name}</div>
-        </div>
-        {site.discovery_unlocked && <img src={EXPEDITION_ASSETS.common.discoverySuccess} alt="발굴 기록 발견" className="h-6 w-6 object-contain" loading="lazy" decoding="async" />}
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-1.5">
-        <MiniStat label="누적 흔적" value={`${site.cumulative_trace}`} />
-        <MiniStat label="탐사" value={site.story_stage_label} />
-        <MiniStat label="숙련" value={site.mastery_label} />
-        <MiniStat label="내 기록" value={site.discovery_unlocked ? '발굴 완료' : site.field_record_unlocked ? '현장 기록' : '미방문'} />
-      </div>
-
-      <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 text-sm">
-          <span className="flex-none whitespace-nowrap font-bold text-[#F6EFE7]">핵심 보상</span>
-          <span className="min-w-0 text-right font-black text-[#FFD58A]">{site.core_reward_label}</span>
-        </div>
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
-          <span className="flex-none whitespace-nowrap text-sm font-bold text-[#F6EFE7]">주도지역 효과</span>
-          <span className="flex min-w-0 items-center justify-end gap-2">
-            <img
-              src={getExpeditionWorldEffectAsset(site.world_effect_code) ?? undefined}
-              alt=""
-              className="h-7 w-7 flex-none object-contain"
-              loading="lazy"
-              decoding="async"
-            />
-            <span className="min-w-0 break-keep text-right text-sm font-black leading-tight text-[#D9C3FF]">{site.world_effect_label}</span>
-          </span>
-        </div>
-      </div>
-      </div>
-    </button>
+    <CompactChronicleSection
+      sites={sites}
+      recentRuns={recentRuns}
+      loading={loading}
+      onStory={onStory}
+      onClaim={onClaim}
+      busyAction={busyAction}
+    />
   );
 }
 

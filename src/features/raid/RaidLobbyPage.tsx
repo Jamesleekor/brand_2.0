@@ -11,7 +11,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { LoadingSpinner } from '@/components/shared/components';
 import { PrestigeFrame } from '@/components/shared/PrestigeFrame';
+import { NameplateEffect } from '@/components/shared/NameplateEffect';
 import { useEquippedPrestigeBorders, type OwnedPrestigeBorder } from '@/hooks/usePrestigeBorders';
+import { useEquippedNameplateEffects, type OwnedNameplateEffect } from '@/hooks/useNameplateEffects';
 import { supabase } from '@/lib/supabase/client';
 import {
   raidStudentRpc,
@@ -229,6 +231,7 @@ export default function RaidLobbyPage() {
     [displayPlayers],
   );
   const { byStudentId: prestigeBorders } = useEquippedPrestigeBorders(displayPlayers.map((player) => player.student_id));
+  const { byStudentId: nameplateEffects } = useEquippedNameplateEffects(displayPlayers.map((player) => player.student_id));
 
   const sendMessage = async (event: FormEvent) => {
     event.preventDefault();
@@ -374,6 +377,7 @@ export default function RaidLobbyPage() {
               isMe={player.student_id === me?.student_id}
               bubble={bubbles[player.student_id] ?? null}
               prestigeBorder={prestigeBorders.get(player.student_id) ?? null}
+              nameplateEffect={nameplateEffects.get(player.student_id) ?? null}
             />
           ))}
 
@@ -569,6 +573,7 @@ function RaidLobbyAvatar({
   isMe,
   bubble,
   prestigeBorder,
+  nameplateEffect,
 }: {
   player: LobbyPlayer;
   x: number;
@@ -576,6 +581,7 @@ function RaidLobbyAvatar({
   isMe: boolean;
   bubble: RaidLobbyMessage | null;
   prestigeBorder: OwnedPrestigeBorder | null;
+  nameplateEffect: OwnedNameplateEffect | null;
 }) {
   return (
     <div
@@ -615,6 +621,7 @@ function RaidLobbyAvatar({
       </div>
 
       <div className="mt-2 w-[160px] -translate-x-[27px]">
+      <NameplateEffect effect={nameplateEffect} variant="raidLobby" replayKey={player.joined_at}>
       <PrestigeFrame border={prestigeBorder} compact variant="raidLobby">
       <div className="w-full rounded-card-md bg-[#07111f]/80 px-2 py-1.5 text-center backdrop-blur">
         <div className="truncate text-[14px] font-black text-white">
@@ -637,6 +644,7 @@ function RaidLobbyAvatar({
         </div>
       </div>
       </PrestigeFrame>
+      </NameplateEffect>
       </div>
     </div>
   );

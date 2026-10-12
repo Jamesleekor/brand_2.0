@@ -3,7 +3,9 @@ import { motion } from 'framer-motion';
 import { AchievementTitleBadge } from '@/components/shared/AchievementTitleBadge';
 import { GuildNameBadge } from '@/components/shared/GuildNameBadge';
 import { PrestigeFrame } from '@/components/shared/PrestigeFrame';
+import { NameplateEffect } from '@/components/shared/NameplateEffect';
 import type { OwnedPrestigeBorder } from '@/hooks/usePrestigeBorders';
+import type { OwnedNameplateEffect } from '@/hooks/useNameplateEffects';
 import { cn } from '@/lib/utils/cn';
 import type { EquippedAchievementTitle } from '@/lib/rpc/achievement_a1_rpc';
 import type { Tier } from '@/types/database_types';
@@ -20,6 +22,7 @@ export type RankingV2VisualEntry = {
   equippedCharacterUrl?: string | null;
   characterEmoji?: string | null;
   prestigeBorder?: OwnedPrestigeBorder | null;
+  nameplateEffect?: OwnedNameplateEffect | null;
   metric: ReactNode;
   detail?: ReactNode;
   privateDetail?: ReactNode;
@@ -104,9 +107,11 @@ export function RankingV2Showcase({ ranks, achievementTitles, heading, beforeRan
         <div className={cn('grid grid-cols-3 items-end gap-1.5 sm:gap-3 lg:gap-5', podium.some((item) => item.groupBanner) ? 'mt-12 sm:mt-14' : 'mt-14 sm:mt-16')}>
           {podiumDisplayOrder.map(({ item, rank }) => (
             <div key={item.studentId} className={cn('min-w-0', rank === 1 && 'relative -top-3 sm:-top-5 lg:-top-6')}>
+              <NameplateEffect effect={item.nameplateEffect} variant={rank === 1 ? "rankingChampion" : "rankingPodium"}>
               <PrestigeFrame border={item.prestigeBorder} variant={rank === 1 ? "rankingChampion" : "rankingPodium"}>
                 <PodiumCard rank={rank} item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
               </PrestigeFrame>
+              </NameplateEffect>
             </div>
           ))}
         </div>
@@ -124,9 +129,11 @@ export function RankingV2Showcase({ ranks, achievementTitles, heading, beforeRan
           )}
           <div className={cn('grid gap-2.5 md:grid-cols-3', elite.some((item) => item.groupBanner) ? 'mt-2' : 'mt-3')}>
             {elite.map((item) => (
-              <PrestigeFrame key={item.studentId} border={item.prestigeBorder} variant="rankingElite">
-                <EliteRankCard item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
-              </PrestigeFrame>
+              <NameplateEffect key={item.studentId} effect={item.nameplateEffect} variant="rankingElite">
+                <PrestigeFrame border={item.prestigeBorder} variant="rankingElite">
+                  <EliteRankCard item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+                </PrestigeFrame>
+              </NameplateEffect>
             ))}
           </div>
         </section>
@@ -144,9 +151,11 @@ export function RankingV2Showcase({ ranks, achievementTitles, heading, beforeRan
           )}
           <div className={cn('grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4', top10.some((item) => item.groupBanner) ? 'mt-2' : 'mt-3')}>
             {top10.map((item) => (
-              <PrestigeFrame key={item.studentId} border={item.prestigeBorder} variant="rankingTopTen">
-                <TopTenCard item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
-              </PrestigeFrame>
+              <NameplateEffect key={item.studentId} effect={item.nameplateEffect} variant="rankingTopTen">
+                <PrestigeFrame border={item.prestigeBorder} variant="rankingTopTen">
+                  <TopTenCard item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+                </PrestigeFrame>
+              </NameplateEffect>
             ))}
           </div>
         </section>
@@ -164,9 +173,11 @@ export function RankingV2Showcase({ ranks, achievementTitles, heading, beforeRan
           )}
           <div className={cn('grid grid-cols-1 gap-2 md:grid-cols-2', standard.some((item) => item.groupBanner) ? 'mt-2' : 'mt-3')}>
             {standard.map((item) => (
-              <PrestigeFrame key={item.studentId} border={item.prestigeBorder} variant="rankingStandard">
-                <StandardRankRow item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
-              </PrestigeFrame>
+              <NameplateEffect key={item.studentId} effect={item.nameplateEffect} variant="rankingStandard">
+                <PrestigeFrame border={item.prestigeBorder} variant="rankingStandard">
+                  <StandardRankRow item={item} achievementTitle={achievementTitles.get(item.studentId) ?? null} />
+                </PrestigeFrame>
+              </NameplateEffect>
             ))}
           </div>
         </section>

@@ -8,6 +8,7 @@ import { PRESTIGE_BORDER_CATEGORY, useMyPrestigeBorders, type OwnedPrestigeBorde
 import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/auth_store';
 import type { ExpeditionLuxuryItem, ExpeditionLuxuryShop } from '@/lib/rpc/expedition_rpc';
+import { LuxuryNameplateEffects, isNameplateLuxuryItem } from '@/features/character/expedition/LuxuryNameplateEffects';
 
 type FrameTheme = 'MOON' | 'TREE' | 'DRAGON';
 type PreviewPlace = 'FRIENDS' | 'GUILD' | 'RANKING';
@@ -106,7 +107,9 @@ export function LuxuryShopSection({
   const [busyBorderId, setBusyBorderId] = useState<number | null>(null);
   const [equipNotice, setEquipNotice] = useState<string | null>(null);
   const items = shop?.items ?? [];
-  const selectedItem = items.find((item) => item.item_id === selectedItemId) ?? null;
+  const borderItems = items.filter((item) => !isNameplateLuxuryItem(item));
+  const nameplateItems = items.filter(isNameplateLuxuryItem);
+  const selectedItem = borderItems.find((item) => item.item_id === selectedItemId) ?? null;
   const currentTheme = previewOwned
     ? themeFor({ item_uid: previewOwned.itemUid, name: previewOwned.name })
     : selectedItem ? themeFor(selectedItem) : theme;
@@ -165,7 +168,7 @@ export function LuxuryShopSection({
         <h2 id="luxury-shop-title" className="mt-1 font-display text-2xl font-black text-white">명품관</h2>
         <p className="mt-1 text-sm font-semibold leading-relaxed text-[#F6EFE7]">원정의 명예를 프로필에 남기는 한정 꾸미기. 구매 전 실제 목록 크기로 확인해 보세요.</p>
         <div className="mt-3 inline-flex rounded-full border border-white/25 bg-black/25 px-3 py-1.5 text-[13px] font-black text-[#FFF0C8]">
-          {loading ? '개방 상태 확인 중' : error ? '상점 상태를 불러오지 못했습니다' : shop?.trial_open ? `명예 테두리 특별 개방 중 · Lv.${shop.access_level}` : isOpen ? `개방 중 · Lv.${shop?.access_level ?? 0}` : '월드효과 활성화 시 판매 개방'}
+          {loading ? '개방 상태 확인 중' : error ? '상점 상태를 불러오지 못했습니다' : shop?.trial_open ? `명품관 특별 개방 중 · Lv.${shop.access_level}` : isOpen ? `개방 중 · Lv.${shop?.access_level ?? 0}` : '월드효과 활성화 시 판매 개방'}
         </div>
       </div>
 
@@ -264,18 +267,18 @@ export function LuxuryShopSection({
         </div>
 
         <div className="mt-7 border-t border-white/15 pt-5">
-          <h3 className="text-lg font-black text-white">판매 상품</h3>
+          <h3 className="text-lg font-black text-white">명예 테두리 판매 상품</h3>
           {loading ? (
             <p className="mt-3 text-sm font-semibold text-[#F6EFE7]">상품을 불러오는 중입니다.</p>
           ) : error ? (
             <p className="mt-3 text-sm font-semibold text-[#F6EFE7]">상품 정보를 확인할 수 없습니다. 잠시 후 다시 열어 주세요.</p>
           ) : !isOpen ? (
             <p className="mt-3 rounded-xl border border-white/15 bg-white/[0.04] p-4 text-sm font-semibold text-[#F6EFE7]">명품관 개방 월드효과가 활성화되면 이곳에서 한정 상품을 구매할 수 있습니다. 위 시안은 지금 미리 볼 수 있습니다.</p>
-          ) : items.length === 0 ? (
+          ) : borderItems.length === 0 ? (
             <p className="mt-3 rounded-xl border border-white/15 bg-white/[0.04] p-4 text-sm font-semibold text-[#F6EFE7]">현재 판매 중인 상품이 없습니다. 다음 입고를 기다려 주세요.</p>
           ) : (
             <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {items.map((item) => (
+              {borderItems.map((item) => (
                 <article key={item.item_id} className="min-w-0 overflow-hidden rounded-xl border border-[#D9B977]/35 bg-[#0D101C]">
                   <button
                     type="button"
@@ -312,6 +315,16 @@ export function LuxuryShopSection({
             </div>
           )}
         </div>
+
+        <LuxuryNameplateEffects
+          items={nameplateItems}
+          studentName={studentName || '학생 이름'}
+          isOpen={isOpen}
+          loading={loading}
+          error={error}
+          busyAction={busyAction}
+          onBuy={onBuy}
+        />
       </div>
     </section>
   );

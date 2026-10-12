@@ -28,6 +28,8 @@ import { useClassroomStudentGuilds } from '@/hooks/useStudentGuilds';
 import { GuildNameBadge } from '@/components/shared/GuildNameBadge';
 import { PrestigeFrame } from '@/components/shared/PrestigeFrame';
 import { useEquippedPrestigeBorders, type OwnedPrestigeBorder } from '@/hooks/usePrestigeBorders';
+import { NameplateEffect } from '@/components/shared/NameplateEffect';
+import { useEquippedNameplateEffects, type OwnedNameplateEffect } from '@/hooks/useNameplateEffects';
 import { RankingV2Showcase, type RankingV2VisualEntry } from '@/features/social/RankingV2Showcase';
 import { RankingCollectionDetailModal } from '@/features/social/RankingCollectionDetailModal';
 import {
@@ -73,6 +75,7 @@ export function FriendsPage() {
     enabled: classroomId !== null,
   });
   const { byStudentId: prestigeBorders } = useEquippedPrestigeBorders((classmates ?? []).map((student) => student.id));
+  const { byStudentId: nameplateEffects } = useEquippedNameplateEffects((classmates ?? []).map((student) => student.id));
   
   const filtered = (classmates ?? []).filter((c) => {
     if (!search.trim()) return true;
@@ -114,6 +117,7 @@ export function FriendsPage() {
                   achievementTitle={achievementTitles.get(classmate.id) ?? null}
                   guildName={guildsByStudentId.get(classmate.id)?.guildName ?? null}
                   prestigeBorder={prestigeBorders.get(classmate.id) ?? null}
+                  nameplateEffect={nameplateEffects.get(classmate.id) ?? null}
                 />
               ))}
             </div>
@@ -136,13 +140,16 @@ function FriendCard({
   achievementTitle,
   guildName,
   prestigeBorder,
+  nameplateEffect,
 }: { 
   friend: { id: number; name: string; brandName: string | null; tier: Tier; isMe: boolean };
   achievementTitle: EquippedAchievementTitle | null;
   guildName: string | null;
   prestigeBorder: OwnedPrestigeBorder | null;
+  nameplateEffect: OwnedNameplateEffect | null;
 }) {
   return (
+    <NameplateEffect effect={nameplateEffect} variant="friend">
     <PrestigeFrame border={prestigeBorder} variant="friend">
     <motion.div
       whileTap={{ scale: 0.98 }}
@@ -206,6 +213,7 @@ function FriendCard({
       </div>
     </motion.div>
     </PrestigeFrame>
+    </NameplateEffect>
   );
 }
 
@@ -301,6 +309,7 @@ function RankingList({ type, collectionMode }: { type: RankingType; collectionMo
     ...boardQuery.data.collection_ranks,
   ].map((row) => Number(row.student_id)) : [];
   const { byStudentId: prestigeBorders } = useEquippedPrestigeBorders(prestigeStudentIds);
+  const { byStudentId: nameplateEffects } = useEquippedNameplateEffects(prestigeStudentIds);
 
   if (boardQuery.isLoading) {
     return <div className="py-8 flex justify-center"><LoadingSpinner size="lg" /></div>;
@@ -334,6 +343,7 @@ function RankingList({ type, collectionMode }: { type: RankingType; collectionMo
       equippedCharacterUrl: getEquippedCharacterImageUrl(character, 'avatar'),
       characterEmoji: character?.emoji ?? null,
       prestigeBorder: prestigeBorders.get(studentId) ?? null,
+      nameplateEffect: nameplateEffects.get(studentId) ?? null,
     };
   };
 
