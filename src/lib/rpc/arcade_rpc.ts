@@ -256,6 +256,8 @@ export const arcadeStudentRpc = {
     safeArcadeRpc<ArcadeSchemas.StudentSubmitFocusReactionRunInput, ArcadeRunSubmissionResult>(client, 'student_submit_focus_reaction_01_run', ArcadeSchemas.StudentSubmitFocusReactionRunSchema, input),
   submitPureReactionRun: (client: SupabaseClient, input: ArcadeSchemas.StudentSubmitPureReactionRunInput) =>
     safeArcadeRpc<ArcadeSchemas.StudentSubmitPureReactionRunInput, ArcadeRunSubmissionResult>(client, 'student_submit_pure_reaction_02_run', ArcadeSchemas.StudentSubmitPureReactionRunSchema, input),
+  submitStarlinkRun: (client: SupabaseClient, input: ArcadeSchemas.StudentSubmitStarlinkRunInput) =>
+    safeArcadeRpc<ArcadeSchemas.StudentSubmitStarlinkRunInput, ArcadeRunSubmissionResult>(client, 'student_submit_starlink_04_run', ArcadeSchemas.StudentSubmitStarlinkRunSchema, input),
   getLeaderboard: (client: SupabaseClient, input: ArcadeSchemas.ArcadeLeaderboardInput) =>
     safeArcadeRpc<ArcadeSchemas.ArcadeLeaderboardInput, ArcadeLeaderboardResult>(client, 'get_arcade_leaderboard', ArcadeSchemas.ArcadeLeaderboardSchema, input),
   getRunResult: (client: SupabaseClient, input: ArcadeSchemas.StudentArcadeRunResultInput) =>
@@ -387,6 +389,9 @@ export function arcadeErrorMessage(error: { type: string; code?: string; error: 
     P0286: '학생의 공인 인증 Seed 배정 정보를 확인하지 못했어요.',
     P0287: '먼저 월간 일반 기록을 종료하고 동결한 뒤 강제 확정해주세요.',
     P0288: '남은 인증을 정리했지만 최종 확정 준비 상태가 되지 않았어요. 운영 현황을 확인해주세요.',
+    P0291: '게임 실행 식별값이 일치하지 않습니다. 운영국에 알려주세요.',
+    P0292: '스타링크 기록 제출 형식이 올바르지 않습니다.',
+    P0293: '이미 제출한 기록과 다른 데이터로 다시 제출할 수 없습니다.',
   };
   if (messages[error.code ?? '']) return messages[error.code ?? ''];
   if (error.type === 'VALIDATION') return error.error;
