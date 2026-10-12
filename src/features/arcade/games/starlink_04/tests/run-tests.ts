@@ -324,6 +324,11 @@ function testRuntimeLockedInputAndIncomplete() {
     {type:'PATH_START',elapsed_ms:120,cell:29},
   ],60_000),/while path is active/);
 
+  assert.throws(() => replayStarlinkRun(6059,[
+    {type:'PATH_START',elapsed_ms:61_000,cell:22},
+    {type:'CELL_ENTER',elapsed_ms:60_500,cell:29},
+  ],61_000),/backwards/);
+
   const cancelResult = replayStarlinkRun(6059,[
     {type:'PATH_START',elapsed_ms:100,cell:22},
     {type:'CELL_ENTER',elapsed_ms:150,cell:29},
