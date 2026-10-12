@@ -143,15 +143,18 @@ BEGIN
   v_threw := false;
   BEGIN
     PERFORM public.arcade_starlink_04_replay(
-      8, (v_actions-'_unused') || jsonb_build_array(
-        jsonb_build_object('type','PATH_START','elapsed_ms',2050,'cell',2)
-      ),60350
+      8, (SELECT coalesce(jsonb_agg(value ORDER BY ord),'[]'::jsonb)
+          FROM jsonb_array_elements(v_actions) WITH ORDINALITY AS j(value,ord)
+          WHERE ord<=32)
+         || jsonb_build_array(
+           jsonb_build_object('type','PATH_START','elapsed_ms',2050,'cell',2)
+         ),60350
     );
   EXCEPTION WHEN SQLSTATE '22023' THEN
     v_threw := true;
   END;
-  -- The appended input is out of chronological order and is correctly rejected.
-  IF NOT v_threw THEN RAISE EXCEPTION '[STARLINK REPLAY PAUSE] invalid timestamp accepted.'; END IF;
+  -- Valid chronological timestamp, but 2050ms falls INSIDE the 1940..2290 pause.
+  IF NOT v_threw THEN RAISE EXCEPTION '[STARLINK REPLAY PAUSE] input inside reshuffle pause accepted.'; END IF;
 
   RAISE NOTICE '[STARLINK REPLAY PAUSE] real dead board + 350ms freeze + combo clock passed.';
 END;
