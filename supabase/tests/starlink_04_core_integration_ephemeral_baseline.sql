@@ -44,7 +44,9 @@ CREATE TABLE public.arcade_verification_seed_assignments(
   opportunity_number integer NOT NULL,seed_slot_id bigint NOT NULL,
   UNIQUE(period_game_id,student_id,opportunity_number)
 );
-CREATE FUNCTION public.current_student_id() RETURNS integer LANGUAGE sql STABLE AS $$ SELECT 1 $$;
+CREATE FUNCTION public.current_student_id() RETURNS integer LANGUAGE sql STABLE AS $
+  SELECT coalesce(nullif(current_setting('app.starlink_student_id',true),'')::integer,1)
+$;
 CREATE FUNCTION public.current_classroom_id() RETURNS integer LANGUAGE sql STABLE AS $$ SELECT 1 $$;
 CREATE FUNCTION public.arcade_sha256_hex(p_text text) RETURNS text LANGUAGE sql IMMUTABLE STRICT
 AS $$ SELECT md5(p_text) $$; -- Fixture stub only: production uses real sha256 helper.
