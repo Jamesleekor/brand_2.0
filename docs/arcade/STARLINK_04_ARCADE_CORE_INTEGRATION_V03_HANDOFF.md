@@ -80,6 +80,30 @@ Before enabling the actual game:
 6. End/finalize with at least one unfinished Starlink challenge and one unfinished Rakaruka challenge. Verify screenshot/DB that teacher can immediately finalize while preserving existing decided results.
 7. Only then explicitly change `arcade_games.is_active=true` and `arcade_verification_game_configs.is_enabled=true`. The prereg migration intentionally sets both **false**.
 
+## 7. Ephemeral 24-client stress regression
+
+The isolated Postgres CI now additionally executes `scripts/check-starlink-24-concurrent.sh`.
+It creates **24 distinct verification sessions and runs**, issues simultaneous independent
+`student_submit_starlink_04_run` calls, and verifies:
+- all 24 unique runs become VERIFIED at 457 points,
+- exactly one `arcade_run_submissions` row per run,
+- all 24 attempt rows are captured as TERMINAL,
+- no FOR SHARE → FOR UPDATE row-lock upgrade deadlock.
+
+This fixture uncovered and fixed one genuine concurrency deadlock in the Starlink submit RPC:
+later reading `arcade_verification_period_games FOR UPDATE` upgraded a prior
+`FOR SHARE` lock, creating a cycle between parallel students. Both reads now use
+`FOR SHARE`, while teacher `FOR UPDATE` closes/locks the game exclusively.
+
+A different earlier failure came from the ephemeral fixture accidentally allowing two
+`arcade_verification_period_games` entries for the same period/game; production has a
+uniqueness constraint, so the fixture was aligned and the A/B/C preflight uses a
+separate test period.
+
+**Limitation:** this is 24 concurrent direct SQL clients against an isolated mocked
+baseline, not 24 real browser sessions against full Supabase RLS nor simultaneous
+teacher force-close. Those require additional staged operational verification.
+
 ## 7. Known operational constraints
 
 - HTML UI is mounted only for *active* catalog entries; an unactivated Starlink row is invisible and cannot be played by students.
