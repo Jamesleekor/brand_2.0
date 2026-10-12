@@ -165,6 +165,8 @@ BEGIN
   -- Lock order mirrors teacher_force_close_arcade_game_verification:
   -- PERIOD -> PERIOD_GAME -> SESSION -> RUN -> ATTEMPT. This prevents a
   -- teacher/student force-close vs submit deadlock from the old RUN-first order.
+  -- Shared row locks on period/game avoid serializing the whole class: many
+  -- students can submit concurrently, but a teacher's FOR UPDATE waits.
   -- First ownership check is a non-locking read; re-check after locking.
   SELECT * INTO v_run FROM public.arcade_runs WHERE id=p_run_id;
   IF NOT FOUND OR v_run.student_id IS DISTINCT FROM v_student_id
@@ -179,10 +181,10 @@ BEGIN
 
     IF v_lock_period_id IS NOT NULL THEN
       PERFORM p.id FROM public.arcade_ranking_periods p
-      WHERE p.id=v_lock_period_id FOR UPDATE;
+      WHERE p.id=v_lock_period_id FOR SHARE;
 
       PERFORM pg.id FROM public.arcade_verification_period_games pg
-      WHERE pg.period_id=v_lock_period_id AND pg.game_id=v_run.game_id FOR UPDATE;
+      WHERE pg.period_id=v_lock_period_id AND pg.game_id=v_run.game_id FOR SHARE;
 
       PERFORM s.id FROM public.arcade_verification_sessions s
       WHERE s.id=v_run.verification_session_id FOR UPDATE;
