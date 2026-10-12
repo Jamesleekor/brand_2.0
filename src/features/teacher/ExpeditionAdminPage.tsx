@@ -704,13 +704,11 @@ function SiteCard({ site }: { site: ExpeditionAdminSite }) {
           <span className="text-xs font-black text-[#F0DEC3]">{specialty.label} · SLOT {site.slot}</span>
         </div>
 
-        <div className="mt-2 flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <h3 className="text-base font-black text-white">{site.site_name}</h3>
-            <p className="mt-0.5 truncate text-xs font-bold text-[#F6EFE7]">{site.environment_label}</p>
-          </div>
+        <div className="mt-2 min-w-0">
+          <h3 className="whitespace-nowrap text-base font-black leading-tight text-white">{site.site_name}</h3>
+          <p className="mt-1 truncate text-xs font-bold text-[#F6EFE7]">{site.environment_label}</p>
 
-          <div className="flex flex-none items-stretch gap-1.5">
+          <div className="mt-2 flex flex-wrap items-stretch gap-1.5">
             <SiteElementBadge code={site.saturday_major_element} role="주속성" label={satMajor.label} strong />
             <SiteElementBadge code={site.saturday_minor_element} role="부속성" label={satMinor.label} />
           </div>
