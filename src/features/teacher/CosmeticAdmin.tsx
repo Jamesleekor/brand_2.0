@@ -145,7 +145,15 @@ export default function CosmeticAdmin() {
 
   const filteredItems = useMemo(() => {
     const needle = itemSearch.trim().toLocaleLowerCase('ko-KR');
-    return (query.data?.items ?? []).filter((item) => {
+    const items = query.data?.items ?? [];
+    return items.filter((item) => {
+      // 이전 버전의 비활성 레코드가 현재 상품과 같은 이미지를 가리키면 한 번만 표시합니다.
+      if (!item.is_active && item.resource_url && items.some((current) =>
+        current.item_id !== item.item_id
+        && current.is_active
+        && current.category === item.category
+        && current.resource_url === item.resource_url
+      )) return false;
       if (category !== 'ALL' && item.category !== category) return false;
       if (!needle) return true;
       return [item.name, item.item_uid, item.description]
