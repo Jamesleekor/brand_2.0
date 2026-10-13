@@ -129,8 +129,9 @@ export default function CosmeticAdmin() {
           value_token: String(row.value_token ?? ''),
           price: Number(row.price ?? 0),
         }));
-        visibility = new Map((visibilityResult.data ?? []).map((row: any) =>
-          [Number(row.id), Boolean(row.is_market_visible)]));
+        visibility = new Map<number, boolean>((visibilityResult.data ?? []).map(
+          (row: any): [number, boolean] => [Number(row.id), Boolean(row.is_market_visible)],
+        ));
       }
 
       return { ...result.data, items: result.data.items.map((item) => ({
@@ -359,7 +360,7 @@ export default function CosmeticAdmin() {
                         </div>
                         <span className={cn(
                           'shrink-0 rounded-pill border px-2 py-1 text-[9px] font-black',
-                          item.is_active
+                          (item.category === 'background' ? item.is_market_visible : item.is_active)
                             ? 'border-success/40 bg-success-bg text-success'
                             : 'border-warning/40 bg-warning/10 text-warning',
                         )}>
@@ -429,7 +430,7 @@ export default function CosmeticAdmin() {
                         </span>
                         <span className={cn(
                           'rounded-pill border px-2.5 py-1 text-[10px] font-black',
-                          selectedItem.category === 'background' ? selectedItem.is_market_visible : selectedItem.is_active
+                          (selectedItem.category === 'background' ? selectedItem.is_market_visible : selectedItem.is_active)
                             ? 'border-success/40 bg-success-bg text-success'
                             : 'border-warning/40 bg-warning/10 text-warning',
                         )}>
