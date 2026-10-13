@@ -8,7 +8,7 @@ import { PRESTIGE_BORDER_CATEGORY, useMyPrestigeBorders, type OwnedPrestigeBorde
 import type { ExpeditionLuxuryItem, ExpeditionLuxuryShop } from '@/lib/rpc/expedition_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/auth_store';
-import { LuxuryNameplateEffects, isNameplateLuxuryItem } from './LuxuryNameplateEffects';
+import { LuxuryNameplateEffects, isNameplateLuxuryItem } from './LuxuryNameplateGallery';
 
 type LuxuryClass = 'A' | 'B' | 'C';
 type FrameTheme = 'MOON' | 'TREE' | 'DRAGON';

@@ -1,0 +1,18 @@
+[
+  {
+    "file": "src/features/character/expedition/LuxuryShopSection.tsx",
+    "existed": true
+  },
+  {
+    "file": "src/features/character/expedition/LuxuryShopSectionV2.tsx",
+    "existed": true
+  },
+  {
+    "file": "src/features/character/expedition/LuxuryNameplateGallery.tsx",
+    "existed": false
+  },
+  {
+    "file": "src/features/character/expedition/luxuryNameplateGallery.css",
+    "existed": false
+  }
+]
