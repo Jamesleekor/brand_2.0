@@ -47,6 +47,7 @@ interface CosmeticAdminOwnership {
 }
 
 interface CosmeticAdminPricing {
+  id: number;
   item_id: number;
   value_token: string;
   price: number;
@@ -68,7 +69,8 @@ const CATEGORIES: { value: CategoryFilter; label: string; emoji: string }[] = [
 
 async function rpcResult<T>(
   name: 'teacher_get_cosmetic_grant_board' | 'teacher_grant_cosmetic_item' | 'teacher_revoke_cosmetic_item'
-    | 'teacher_set_cosmetic_price' | 'teacher_set_cosmetic_market_visibility',
+    | 'teacher_set_cosmetic_price' | 'teacher_reset_cosmetic_price'
+    | 'teacher_set_cosmetic_market_visibility',
   params: Record<string, unknown>,
 ): Promise<RpcResult<T>> {
   const { data, error } = await supabase.rpc(name as any, params as any);
@@ -118,13 +120,14 @@ export default function CosmeticAdmin() {
 
       if (itemIds.length > 0) {
         const [pricingResult, visibilityResult] = await Promise.all([
-          supabase.from('cosmetic_item_pricings').select('item_id,value_token,price,is_active')
+          supabase.from('cosmetic_item_pricings').select('id,item_id,value_token,price,is_active')
             .in('item_id', itemIds).eq('is_active', true),
           supabase.from('cosmetic_items').select('id,is_market_visible').in('id', itemIds),
         ]);
         if (pricingResult.error) throw pricingResult.error;
         if (visibilityResult.error) throw visibilityResult.error;
         pricings = (pricingResult.data ?? []).map((row: any) => ({
+          id: Number(row.id),
           item_id: Number(row.item_id),
           value_token: String(row.value_token ?? ''),
           price: Number(row.price ?? 0),
@@ -234,6 +237,17 @@ export default function CosmeticAdmin() {
         p_value_token: token, p_price: price,
       }),
       { successTitle: '가격을 저장했습니다', onSuccess: () => void refresh() },
+    );
+  };
+
+  const resetPrice = async (itemId: number, pricingId: number | null) => {
+    if (!classroomId) return;
+    await call(
+      () => rpcResult('teacher_reset_cosmetic_price', {
+        p_classroom_id: classroomId, p_item_id: itemId, p_pricing_id: pricingId,
+      }),
+      { successTitle: pricingId === null ? '가격을 모두 초기화했습니다' : '가격 옵션을 삭제했습니다',
+        onSuccess: () => void refresh() },
     );
   };
 
@@ -474,6 +488,7 @@ export default function CosmeticAdmin() {
                     pricings={pricingByItem.get(selectedItem.item_id) ?? []}
                     disabled={isMutating}
                     onSavePrice={savePrice}
+                    onResetPrice={resetPrice}
                     onVisibility={setVisibility}
                   />
                 )}
@@ -548,12 +563,13 @@ export default function CosmeticAdmin() {
 }
 
 function BackgroundMarketControls({
-  item, pricings, disabled, onSavePrice, onVisibility,
+  item, pricings, disabled, onSavePrice, onResetPrice, onVisibility,
 }: {
   item: CosmeticAdminItem;
   pricings: CosmeticAdminPricing[];
   disabled: boolean;
   onSavePrice: (itemId: number, token: string, price: number) => Promise<void>;
+  onResetPrice: (itemId: number, pricingId: number | null) => Promise<void>;
   onVisibility: (itemId: number, visible: boolean) => Promise<void>;
 }) {
   const [token, setToken] = useState(pricings[0]?.value_token ?? 'GOLD');
@@ -563,7 +579,8 @@ function BackgroundMarketControls({
     <section className="rounded-card-lg border border-line bg-bg-card p-4">
       <h2 className="font-display text-lg text-white">가격 및 상점 공개</h2>
       <p className="mt-1 text-xs font-bold text-text-secondary">
-        가격을 저장한 후 공개하세요. 비공개여도 이미 지급한 배경은 학생이 사용할 수 있습니다.
+        가격을 저장한 후 공개하세요. 여러 가격은 각각 독립된 구매 선택지입니다.
+        비공개여도 이미 지급한 배경은 학생이 사용할 수 있습니다.
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <label className="text-xs font-bold text-text-secondary">
@@ -590,9 +607,34 @@ function BackgroundMarketControls({
           {item.is_market_visible ? '상점 비공개' : '상점 공개'}
         </button>
       </div>
-      {pricings.length > 0 && <p className="mt-2 text-xs text-text-secondary">
-        현재 가격: {pricings.map(formatPricing).join(' · ')}
-      </p>}
+      {pricings.length > 0 && (
+        <div className="mt-4 space-y-2 border-t border-line pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xs font-black text-white">현재 구매 옵션</h3>
+            <button type="button" disabled={disabled}
+              onClick={() => {
+                if (confirm(`"${item.name}"의 모든 가격 옵션을 초기화할까요?`)) {
+                  void onResetPrice(item.item_id, null).then(() => setPrice(''));
+                }
+              }}
+              className="text-xs font-black text-danger disabled:opacity-50">전체 가격 초기화</button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {pricings.map((pricing) => (
+              <div key={pricing.id}
+                className="flex items-center gap-2 rounded-card-md border border-line bg-bg-deep px-3 py-2 text-xs text-text-primary">
+                <span>{formatPricing(pricing)}</span>
+                <button type="button" disabled={disabled}
+                  onClick={() => void onResetPrice(item.item_id, pricing.id).then(() => {
+                    if (token === pricing.value_token) setPrice('');
+                  })}
+                  className="font-black text-danger disabled:opacity-50"
+                  aria-label={`${pricing.value_token} 가격 옵션 삭제`}>삭제</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

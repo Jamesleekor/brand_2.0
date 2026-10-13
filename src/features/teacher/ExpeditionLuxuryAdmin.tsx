@@ -57,6 +57,12 @@ export function ExpeditionLuxuryAdmin({ classroomId }: { classroomId: number }) 
       p_classroom_id: classroomId, p_item_id: itemId, p_value_token: token, p_price: price,
     }), { successTitle: '명품관 가격을 저장했습니다', onSuccess: () => void refresh() });
   };
+  const resetPrice = async (itemId: number, pricingId: number | null) => {
+    await call(() => rpc('teacher_reset_cosmetic_price', {
+      p_classroom_id: classroomId, p_item_id: itemId, p_pricing_id: pricingId,
+    }), { successTitle: pricingId === null ? '가격을 모두 초기화했습니다' : '가격 옵션을 삭제했습니다',
+      onSuccess: () => void refresh() });
+  };
   const grant = async (student: Student) => {
     if (!selected || owned.has(student.student_id)) return;
     await call(() => rpc('teacher_grant_expedition_luxury_item', {
@@ -70,6 +76,9 @@ export function ExpeditionLuxuryAdmin({ classroomId }: { classroomId: number }) 
       <h2 className="text-base font-black text-white">명품관 아이템 관리</h2>
       <p className="mt-1 text-xs font-bold text-text-secondary">
         가격 변경과 학생별 이벤트 지급을 관리합니다. 구매는 원정 명품관 개방 조건과 판매 기간을 만족할 때만 가능합니다.
+      </p>
+      <p className="mt-1 text-xs text-text-secondary">
+        가격 옵션이 여러 개면 학생은 그중 하나를 선택해 구매합니다.
       </p>
       {query.isLoading && <p className="mt-4 text-sm text-text-secondary">명품관 목록을 불러오는 중…</p>}
       {query.isError && <div className="mt-4 text-sm text-danger">
@@ -99,7 +108,7 @@ export function ExpeditionLuxuryAdmin({ classroomId }: { classroomId: number }) 
               </div>
             </div>
             <LuxuryPriceEditor key={selected.item_id} item={selected}
-              disabled={busy} onSave={savePrice} />
+              disabled={busy} onSave={savePrice} onReset={resetPrice} />
             <div className="border-t border-line pt-3">
               <h3 className="text-sm font-black text-white">학생별 지급</h3>
               <input value={studentSearch} onChange={(event) => setStudentSearch(event.target.value)}
@@ -129,33 +138,64 @@ export function ExpeditionLuxuryAdmin({ classroomId }: { classroomId: number }) 
   );
 }
 
-function LuxuryPriceEditor({ item, disabled, onSave }: {
+function LuxuryPriceEditor({ item, disabled, onSave, onReset }: {
   item: Item;
   disabled: boolean;
   onSave: (itemId: number, token: string, price: number) => Promise<void>;
+  onReset: (itemId: number, pricingId: number | null) => Promise<void>;
 }) {
   const [token, setToken] = useState(item.pricings[0]?.value_token ?? 'GOLD');
   const [price, setPrice] = useState(item.pricings[0]?.price?.toString() ?? '');
   return (
-    <div className="flex flex-wrap items-end gap-2">
-      <label className="text-xs font-bold text-text-secondary">화폐
-        <select value={token} onChange={(event) => {
-          const next = event.target.value;
-          setToken(next);
-          setPrice(item.pricings.find((entry) => entry.value_token === next)?.price?.toString() ?? '');
-        }} className="mt-1 block rounded-card-md border border-line bg-bg-deep px-3 py-2 text-white">
-          <option value="GOLD">GOLD</option><option value="BV">BV</option>
-          <option value="CRYSTAL">CRYSTAL</option>
-        </select>
-      </label>
-      <label className="text-xs font-bold text-text-secondary">가격
-        <input type="number" min="1" max="100000000" step="1" value={price}
-          onChange={(event) => setPrice(event.target.value)}
-          className="mt-1 block w-40 rounded-card-md border border-line bg-bg-deep px-3 py-2 text-white" />
-      </label>
-      <button type="button" className="btn-secondary"
-        disabled={disabled || !Number.isInteger(Number(price)) || Number(price) < 1}
-        onClick={() => void onSave(item.item_id, token, Number(price))}>가격 저장</button>
+    <div>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="text-xs font-bold text-text-secondary">화폐
+          <select value={token} onChange={(event) => {
+            const next = event.target.value;
+            setToken(next);
+            setPrice(item.pricings.find((entry) => entry.value_token === next)?.price?.toString() ?? '');
+          }} className="mt-1 block rounded-card-md border border-line bg-bg-deep px-3 py-2 text-white">
+            <option value="GOLD">GOLD</option><option value="BV">BV</option>
+            <option value="CRYSTAL">CRYSTAL</option>
+          </select>
+        </label>
+        <label className="text-xs font-bold text-text-secondary">가격
+          <input type="number" min="1" max="100000000" step="1" value={price}
+            onChange={(event) => setPrice(event.target.value)}
+            className="mt-1 block w-40 rounded-card-md border border-line bg-bg-deep px-3 py-2 text-white" />
+        </label>
+        <button type="button" className="btn-secondary"
+          disabled={disabled || !Number.isInteger(Number(price)) || Number(price) < 1}
+          onClick={() => void onSave(item.item_id, token, Number(price))}>가격 저장</button>
+      </div>
+      {item.pricings.length > 0 && (
+        <div className="mt-4 space-y-2 border-t border-line pt-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-black text-white">현재 구매 옵션</span>
+            <button type="button" disabled={disabled}
+              onClick={() => {
+                if (confirm(`"${item.name}"의 모든 가격 옵션을 초기화할까요?`)) {
+                  void onReset(item.item_id, null).then(() => setPrice(''));
+                }
+              }}
+              className="text-xs font-black text-danger disabled:opacity-50">전체 가격 초기화</button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {item.pricings.map((entry) => (
+              <div key={entry.id}
+                className="flex items-center gap-2 rounded-card-md border border-line bg-bg-deep px-3 py-2 text-xs text-text-primary">
+                <span>{entry.price.toLocaleString('ko-KR')} {entry.value_token}</span>
+                <button type="button" disabled={disabled}
+                  onClick={() => void onReset(item.item_id, entry.id).then(() => {
+                    if (token === entry.value_token) setPrice('');
+                  })}
+                  className="font-black text-danger disabled:opacity-50"
+                  aria-label={`${entry.value_token} 가격 옵션 삭제`}>삭제</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
