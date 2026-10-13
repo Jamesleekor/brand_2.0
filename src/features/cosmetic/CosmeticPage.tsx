@@ -434,11 +434,11 @@ function useCosmeticItems() {
     queryFn: async () => {
       if (!studentId) return [];
       
-      // 1. 모든 활성 꾸미기 아이템 + 첫 번째 가격 옵션
+      // 공개된 상점 아이템과 이미 소유한 아이템을 함께 조회합니다.
       const { data: items } = await supabase
         .from('cosmetic_items')
         .select(`
-          id, item_uid, name, description, category, resource_url,
+          id, item_uid, name, description, category, resource_url, is_market_visible,
           pricing:cosmetic_item_pricings(id, value_token, price, condition_description, is_active)
         `)
         .eq('is_active', true);
@@ -453,7 +453,7 @@ function useCosmeticItems() {
         (ownership ?? []).map((o) => [o.item_id, { id: o.id, isEquipped: o.is_equipped }])
       );
       
-      return (items ?? []).map((i: any) => {
+      return (items ?? []).filter((i: any) => i.is_market_visible || ownMap.has(i.id)).map((i: any) => {
         const own = ownMap.get(i.id);
         const pricingOptions: CosmeticPricingOption[] = (i.pricing ?? [])
           .filter((price: any) => price.is_active !== false)
