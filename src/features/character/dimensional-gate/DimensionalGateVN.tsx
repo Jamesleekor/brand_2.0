@@ -378,6 +378,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
     setEnded(true);
     void queryClient.invalidateQueries({ queryKey: ['dimensional-gate-stories', character.character_id] });
     void queryClient.invalidateQueries({ queryKey: ['dimensional-gate-gallery', character.character_id] });
+    void queryClient.invalidateQueries({ queryKey: ['cosmetics'] });
   }, [character.character_id, ended, previewMode, queryClient, saving, script]);
 
   const primeAudioForIndex = useCallback((targetIndex: number) => {

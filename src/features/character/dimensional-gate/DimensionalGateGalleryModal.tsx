@@ -109,7 +109,9 @@ export default function DimensionalGateGalleryModal({ character, onClose }: Prop
                       <div className="flex items-center justify-between gap-2 px-2.5 py-2 text-[9px] font-bold text-text-muted">
                         <span>{asset.asset_type === 'SPECIAL_CG' ? '특별 일러스트' : '스토리 CG'}</span>
                         {!asset.unlocked && asset.unlock_affinity != null && <span>호감도 {asset.unlock_affinity}</span>}
-                        {asset.unlocked && asset.home_background_allowed && <span className="text-brand-glow">홈 배경 가능</span>}
+                        {asset.unlocked && asset.home_background_allowed && (
+                          <span className="text-brand-glow">{asset.ownership_id != null ? '배경 보유' : '배경 별도 구매'}</span>
+                        )}
                       </div>
                     </button>
                   );
@@ -117,7 +119,7 @@ export default function DimensionalGateGalleryModal({ character, onClose }: Prop
               </div>
             )}
             <div className="mt-3 rounded-card-md border border-line bg-bg-deep/55 px-3 py-2 text-[10px] font-bold text-text-muted">
-              홈 배경 사용이 허용된 장면은 크게 열어 바로 홈 배경으로 설정할 수 있습니다.
+              해금된 CG는 이 화첩에서 자유롭게 감상할 수 있습니다. 홈 배경으로 사용하려면 꾸미기 상점에서 별도로 구매해야 합니다. 이미 보유한 배경은 바로 설정할 수 있습니다.
             </div>
           </div>
         </motion.div>
@@ -160,7 +162,7 @@ export default function DimensionalGateGalleryModal({ character, onClose }: Prop
             )}
             {lightbox.unlocked && lightbox.home_background_allowed && lightbox.ownership_id == null && (
               <span className="rounded-card-md border border-line bg-bg-card/90 px-3 py-2 text-[10px] font-bold text-text-muted">
-                홈 배경 권한을 동기화하는 중입니다.
+                🛒 홈 배경 사용권은 꾸미기 상점에서 크리스탈로 별도 구매할 수 있습니다.
               </span>
             )}
             {backgroundNotice && (

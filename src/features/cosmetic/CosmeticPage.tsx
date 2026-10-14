@@ -42,6 +42,7 @@ interface CosmeticItem {
   description: string;
   category: CosmeticCategory;
   imageUrl: string | null;
+  galleryLocked: boolean;
   pricingOptions: CosmeticPricingOption[];
   
   // 학생 보유 상태
@@ -65,7 +66,7 @@ export default function CosmeticPage({ embedded = false }: { embedded?: boolean 
   const [category, setCategory] = useState<CosmeticCategory | 'ALL'>('ALL');
   const [selected, setSelected] = useState<CosmeticItem | null>(null);
   
-  const { data: items, isLoading } = useCosmeticItems();
+  const { data: items, isLoading, isError } = useCosmeticItems();
   
   const filtered = useMemo(() => {
     if (!items) return [];
@@ -108,6 +109,10 @@ export default function CosmeticPage({ embedded = false }: { embedded?: boolean 
         
         {isLoading ? (
           <div className="py-8 flex justify-center"><LoadingSpinner size="lg" /></div>
+        ) : isError ? (
+          <div className="rounded-card-md border border-danger/30 bg-danger-bg p-4 text-center text-xs font-bold text-danger">
+            꾸미기 상점 정보를 불러오지 못했어요. 잠시 후 다시 확인해 주세요.
+          </div>
         ) : filtered.length === 0 ? (
           <EmptyState emoji="🎨" title="이 카테고리에 아이템이 없어요" />
         ) : (
@@ -156,7 +161,12 @@ function CosmeticCard({ item, onClick }: { item: CosmeticItem; onClick: () => vo
         'bg-bg-deep relative overflow-hidden',
         item.category === 'font' ? 'h-32 md:h-36' : 'aspect-square',
       )}>
-        {item.category === 'font' ? (
+        {item.galleryLocked ? (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-[#0e1224] to-[#24223a] px-3 text-center">
+            <span className="text-4xl" aria-hidden="true">🔒</span>
+            <span className="text-[10px] font-bold text-white/75">스토리 미공개 CG</span>
+          </div>
+        ) : item.category === 'font' ? (
           <div className="flex h-full w-full flex-col justify-center px-3 py-3">
             <div className="font-system text-[8px] font-black uppercase tracking-[0.14em] text-text-muted">FONT PREVIEW</div>
             <FontPreview itemUid={item.itemUid} className="mt-2 break-keep text-center text-base leading-snug text-white md:text-lg" />
@@ -208,6 +218,10 @@ function CosmeticCard({ item, onClick }: { item: CosmeticItem; onClick: () => vo
           )}>
             {item.isEquipped ? '✓ 장착중' : '장착하기'}
           </button>
+        ) : item.galleryLocked ? (
+          <div className="rounded-md border border-violet-200/20 bg-violet-500/10 px-2 py-1.5 text-center text-[10px] font-black text-violet-100">
+            🔒 스토리 감상 후 공개
+          </div>
         ) : teacherOnly ? (
           <div className="font-system flex items-center justify-between gap-2 text-[10px] font-black">
             <span className="text-danger">품절</span>
@@ -234,10 +248,10 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
   const [fontPreviewText, setFontPreviewText] = useState('나의 B.R.A.N.D.를 꾸며 보세요! 123 ABC');
   const selectedPricing = item.pricingOptions.find((option) => option.id === selectedPricingId) ?? null;
   const teacherOnly = isTeacherOnlyFont(item.itemUid);
-  const canBuy = !teacherOnly && !item.isOwned && !!selectedPricing && canAffordPricing(selectedPricing, wallet);
+  const canBuy = !item.galleryLocked && !teacherOnly && !item.isOwned && !!selectedPricing && canAffordPricing(selectedPricing, wallet);
   
   const handleBuy = async () => {
-    if (teacherOnly || !studentId || !selectedPricing) return;
+    if (item.galleryLocked || teacherOnly || !studentId || !selectedPricing) return;
     
     await call(
       () => purchaseMyCosmetic(supabase, item.id, selectedPricing.id),
@@ -273,7 +287,12 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
       <div>
         {/* 이미지 미리보기 */}
         <div className="aspect-square bg-bg-deep rounded-card-lg overflow-hidden mb-4 max-w-xs mx-auto">
-          {item.category === 'font' ? (
+          {item.galleryLocked ? (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#111529] px-5 text-center">
+              <span className="text-6xl" aria-hidden="true">🔒</span>
+              <span className="text-xs font-bold text-white/80">화첩에서 해금하기 전에는 공개되지 않는 장면입니다.</span>
+            </div>
+          ) : item.category === 'font' ? (
             <div className="flex h-full w-full items-center justify-center p-4">
               <FontPreview itemUid={item.itemUid} text={fontPreviewText} mode="runtime" className="break-keep text-center text-2xl leading-relaxed text-white" />
             </div>
@@ -325,7 +344,12 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
           <div className="space-y-3">
             <div className="bg-bg-deep border border-line rounded-card-md p-3">
               <div className="text-2xs font-extrabold text-text-secondary uppercase mb-2">구매 옵션</div>
-              {teacherOnly ? (
+              {item.galleryLocked ? (
+                <div className="rounded-card-md border border-violet-300/25 bg-violet-500/10 p-3">
+                  <div className="text-sm font-black text-violet-100">🔒 스토리 감상 후 구매 가능</div>
+                  <div className="mt-1 text-xs font-bold text-text-secondary">해당 CG를 화첩에서 해금하면 이곳에서 크리스탈로 홈 배경 사용권을 별도 구매할 수 있습니다.</div>
+                </div>
+              ) : teacherOnly ? (
                 <div className="rounded-card-md border border-danger/30 bg-danger-bg p-3">
                   <div className="text-sm font-black text-danger">품절 · 교사 지급 전용</div>
                   <div className="mt-1 text-xs font-bold text-text-secondary">이 특별 폰트는 크리스탈로 구매할 수 없으며 교사가 직접 지급합니다.</div>
@@ -361,11 +385,13 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
             
             <button
               onClick={handleBuy}
-              disabled={teacherOnly || !canBuy || isLoading}
+              disabled={item.galleryLocked || teacherOnly || !canBuy || isLoading}
               className="btn-primary w-full"
             >
               {isLoading
                 ? '구매 중...'
+                : item.galleryLocked
+                  ? '🔒 스토리 감상 후 구매 가능'
                 : teacherOnly
                   ? '🔒 품절 · 교사 지급 전용'
                   : item.pricingOptions.length === 0
@@ -434,28 +460,14 @@ function useCosmeticItems() {
     queryFn: async () => {
       if (!studentId) return [];
       
-      // 공개된 상점 아이템과 이미 소유한 아이템을 함께 조회합니다.
-      const { data: items } = await supabase
-        .from('cosmetic_items')
-        .select(`
-          id, item_uid, name, description, category, resource_url, is_market_visible,
-          pricing:cosmetic_item_pricings(id, value_token, price, condition_description, is_active)
-        `)
-        .eq('is_active', true);
-      
-      // 2. 본인이 보유한 꾸미기
-      const { data: ownership } = await supabase
-        .from('student_cosmetic_ownerships')
-        .select('id, item_id, is_equipped')
-        .eq('student_id', studentId);
-      
-      const ownMap = new Map(
-        (ownership ?? []).map((o) => [o.item_id, { id: o.id, isEquipped: o.is_equipped }])
-      );
-      
-      return (items ?? []).filter((i: any) => i.is_market_visible || ownMap.has(i.id)).map((i: any) => {
-        const own = ownMap.get(i.id);
-        const pricingOptions: CosmeticPricingOption[] = (i.pricing ?? [])
+      // 학생별 해금 여부는 서버에서 검증하고, 미감상 CG는 제목/이미지 URL까지 마스킹합니다.
+      // 직접 cosmetic_items를 조회하면 아직 감상하지 않은 CG의 정보가 노출될 수 있습니다.
+      const { data, error } = await supabase.rpc('student_get_cosmetic_store');
+      if (error) throw error;
+
+      const rows = Array.isArray(data) ? data : [];
+      return rows.map((item: any): CosmeticItem => {
+        const pricingOptions: CosmeticPricingOption[] = (item.pricing ?? [])
           .filter((price: any) => price.is_active !== false)
           .map((price: any) => ({
             id: Number(price.id),
@@ -463,18 +475,19 @@ function useCosmeticItems() {
             price: Number(price.price ?? 0),
             conditionDescription: price.condition_description ? String(price.condition_description) : null,
           }));
-        
+
         return {
-          id: i.id,
-          itemUid: String(i.item_uid ?? ''),
-          name: i.name,
-          description: i.description ?? '',
-          category: i.category,
-          imageUrl: i.resource_url ?? null,
+          id: Number(item.id),
+          itemUid: String(item.item_uid ?? ''),
+          name: String(item.name ?? ''),
+          description: String(item.description ?? ''),
+          category: item.category as CosmeticCategory,
+          imageUrl: item.resource_url ?? null,
+          galleryLocked: Boolean(item.gallery_locked),
           pricingOptions,
-          isOwned: !!own,
-          isEquipped: own?.isEquipped ?? false,
-          ownershipId: own?.id ?? null,
+          isOwned: Boolean(item.is_owned),
+          isEquipped: Boolean(item.is_equipped),
+          ownershipId: item.ownership_id != null ? Number(item.ownership_id) : null,
         };
       });
     },
