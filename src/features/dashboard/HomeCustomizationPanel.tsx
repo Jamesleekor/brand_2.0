@@ -30,6 +30,7 @@ type ShowcaseCharacterRow = StudentCharacterCollectionRow & {
   showcase_image_url_3: string | null;
   gated_visual_variant_no: 2 | 3 | null;
   unlocked_visual_variants: Array<1 | 2 | 3>;
+  visual_variant_labels?: Record<string, string>;
 };
 
 type HomeCustomizationSection = 'showcase' | 'background' | 'font';
@@ -540,7 +541,7 @@ function ShowcaseSection({
                         <div className="absolute inset-0 grid place-items-center bg-black/55 text-center">
                           <div>
                             <div className="text-xl">🔒</div>
-                            <div className="mt-1 text-[10px] font-black text-white">신뢰 100에서 해금</div>
+                            <div className="mt-1 text-[10px] font-black text-white">{variant.luxury ? '명품관에서 구매 후 해금' : '신뢰 100에서 해금'}</div>
                           </div>
                         </div>
                       )}
@@ -548,7 +549,7 @@ function ShowcaseSection({
                     <div className="flex items-center justify-between gap-2 px-2.5 py-2">
                       <span className="text-xs font-black text-white">{variant.label}</span>
                       {selected && <span className="text-[10px] font-black text-brand-glow">현재</span>}
-                      {variant.locked && <span className="text-[9px] font-black text-text-muted">신뢰 보상</span>}
+                      {variant.locked && <span className="text-[9px] font-black text-[#F1E4D1]">{variant.luxury ? '명품관' : '신뢰 보상'}</span>}
                     </div>
                   </button>
                 );
@@ -614,10 +615,11 @@ function getShowcaseImages(character: ShowcaseCharacterRow) {
     ?? character.resource_url;
 
   const unlocked = new Set(character.unlocked_visual_variants ?? [1]);
-  const images: Array<{ no: 1 | 2 | 3; label: string; url: string; locked: boolean }> = [];
+  const labels = character.visual_variant_labels ?? {};
+  const images: Array<{ no: 1 | 2 | 3; label: string; url: string; locked: boolean; luxury?: boolean }> = [];
   if (base) images.push({ no: 1, label: '기본 이미지', url: base, locked: false });
-  if (character.showcase_image_url_2) images.push({ no: 2, label: '이미지 2', url: character.showcase_image_url_2, locked: !unlocked.has(2) });
-  if (character.showcase_image_url_3) images.push({ no: 3, label: '이미지 3', url: character.showcase_image_url_3, locked: !unlocked.has(3) });
+  if (character.showcase_image_url_2) images.push({ no: 2, label: labels['2'] || '이미지 2', url: character.showcase_image_url_2, locked: !unlocked.has(2), luxury: Boolean(labels['2']) });
+  if (character.showcase_image_url_3) images.push({ no: 3, label: labels['3'] || '이미지 3', url: character.showcase_image_url_3, locked: !unlocked.has(3), luxury: Boolean(labels['3']) });
   return images;
 }
 
@@ -742,6 +744,7 @@ function useOwnedCharacters(enabled: boolean) {
         showcase_image_url_3: visualById.get(row.character_id)?.showcase_image_url_3 ?? null,
         gated_visual_variant_no: entitlementById.get(row.character_id)?.gated_visual_variant_no ?? null,
         unlocked_visual_variants: entitlementById.get(row.character_id)?.unlocked_visual_variants ?? [1],
+        visual_variant_labels: entitlementById.get(row.character_id)?.visual_variant_labels ?? {},
       }));
     },
   });

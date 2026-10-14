@@ -9,13 +9,14 @@ import type { ExpeditionLuxuryItem, ExpeditionLuxuryShop } from '@/lib/rpc/exped
 import { supabase } from '@/lib/supabase/client';
 import { useAuthStore } from '@/stores/auth_store';
 import { LuxuryNameplateEffects, isNameplateLuxuryItem } from './LuxuryNameplateGallery';
+import { LuxuryHiddenShardGallery } from './LuxuryHiddenShardGallery';
 
 type LuxuryClass = 'A' | 'B' | 'C';
 type FrameTheme = 'MOON' | 'TREE' | 'DRAGON';
 type PreviewPlace = 'FRIENDS' | 'GUILD' | 'RANKING';
 
 const CLASS_TABS: Array<{ key: LuxuryClass; title: string; subtitle: string; level: number }> = [
-  { key: 'A', title: 'A클래스', subtitle: '기본 명품', level: 1 },
+  { key: 'A', title: 'A클래스', subtitle: '히든 편린', level: 1 },
   { key: 'B', title: 'B클래스', subtitle: '명예 테두리', level: 2 },
   { key: 'C', title: 'C클래스', subtitle: '이름 등장 효과', level: 3 },
 ];
@@ -191,9 +192,7 @@ export function LuxuryShopSectionV2({
 
       <div className="p-4 sm:p-5">
         {activeClass === 'A' && (
-          <GenericClassCatalog
-            title="A클래스 상품"
-            description="가볍게 사용할 수 있는 기본 명품 아이템입니다."
+          <LuxuryHiddenShardGallery
             items={aItems}
             isOpen={isOpen}
             loading={loading}
@@ -302,38 +301,6 @@ export function LuxuryShopSectionV2({
         )}
       </div>
     </section>
-  );
-}
-
-function GenericClassCatalog(props: {
-  title: string;
-  description: string;
-  items: ExpeditionLuxuryItem[];
-  isOpen: boolean;
-  loading: boolean;
-  error: boolean;
-  busyAction: string | null;
-  onBuy: (item: ExpeditionLuxuryItem, pricingId: number) => Promise<void>;
-}) {
-  return (
-    <div role="tabpanel" aria-label={props.title}>
-      <div className="mb-3">
-        <div className="text-[11px] font-black tracking-[0.16em] text-[#EBD29A]">A CLASS · ESSENTIAL</div>
-        <h3 className="mt-1 text-xl font-black text-white">{props.title}</h3>
-        <p className="mt-1 text-[12px] font-semibold text-[#DCCFBE]">{props.description}</p>
-      </div>
-      <CompactProductGrid
-        title={props.title}
-        items={props.items}
-        isOpen={props.isOpen}
-        loading={props.loading}
-        error={props.error}
-        busyAction={props.busyAction}
-        onBuy={props.onBuy}
-        onPreview={() => undefined}
-        columns="sm:grid-cols-2 lg:grid-cols-4"
-      />
-    </div>
   );
 }
 

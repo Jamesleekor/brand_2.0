@@ -32,6 +32,7 @@ export interface HomePersonalization {
 
 export interface HomeVisualEntitlement {
   character_id: number;
+  visual_variant_labels?: Record<string, string>;
   gated_visual_variant_no: 2 | 3 | null;
   unlocked_visual_variants: Array<1 | 2 | 3>;
 }

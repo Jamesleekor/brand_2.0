@@ -362,6 +362,8 @@ export default function ExpeditionChroniclePanel() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['expedition-luxury-shop'] }),
       queryClient.invalidateQueries({ queryKey: ['my-prestige-borders'] }),
+      queryClient.invalidateQueries({ queryKey: ['character-collection'] }),
+      queryClient.invalidateQueries({ queryKey: ['home-customization'] }),
       queryClient.invalidateQueries({ queryKey: ['wallet'] }),
     ]);
   };

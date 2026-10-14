@@ -1,0 +1,38 @@
+[
+  {
+    "file": "docs/BRAND_CURRENT_STATE_2026-10-03.md",
+    "existed": true
+  },
+  {
+    "file": "src/features/character/ExpeditionChroniclePanel.tsx",
+    "existed": true
+  },
+  {
+    "file": "src/features/character/expedition/LuxuryShopSectionV2.tsx",
+    "existed": true
+  },
+  {
+    "file": "src/features/dashboard/HomeCustomizationPanel.tsx",
+    "existed": true
+  },
+  {
+    "file": "src/lib/rpc/expedition_rpc.ts",
+    "existed": true
+  },
+  {
+    "file": "src/lib/rpc/home_personalization_rpc.ts",
+    "existed": true
+  },
+  {
+    "file": "docs/A_CLASS_HIDDEN_VISUALS_2026-10-14.md",
+    "existed": false
+  },
+  {
+    "file": "src/features/character/expedition/LuxuryHiddenShardGallery.tsx",
+    "existed": false
+  },
+  {
+    "file": "supabase/APPLY_A_CLASS_HIDDEN_VISUALS_20261014.sql",
+    "existed": false
+  }
+]
