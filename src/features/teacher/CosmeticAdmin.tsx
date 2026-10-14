@@ -580,8 +580,10 @@ function BackgroundMarketControls({
   onResetPrice: (itemId: number, pricingId: number | null) => Promise<void>;
   onVisibility: (itemId: number, visible: boolean) => Promise<void>;
 }) {
-  const [token, setToken] = useState(pricings[0]?.value_token ?? 'GOLD');
-  const [price, setPrice] = useState(pricings[0]?.price?.toString() ?? '');
+  const isGateCg = item.item_uid.startsWith('DG_BG_') || item.item_uid.startsWith('DG_SPECIAL_');
+  const initialPrice = isGateCg ? pricings.find((entry) => entry.value_token === 'CRYSTAL') : pricings[0];
+  const [token, setToken] = useState(isGateCg ? 'CRYSTAL' : (pricings[0]?.value_token ?? 'GOLD'));
+  const [price, setPrice] = useState(initialPrice?.price?.toString() ?? '');
   const selectedPrice = pricings.find((entry) => entry.value_token === token);
   return (
     <section className="rounded-card-lg border border-line bg-bg-card p-4">
@@ -590,15 +592,20 @@ function BackgroundMarketControls({
         가격을 저장한 후 공개하세요. 여러 가격은 각각 독립된 구매 선택지입니다.
         비공개여도 이미 지급한 배경은 학생이 사용할 수 있습니다.
       </p>
+      {isGateCg && (
+        <p className="mt-2 rounded-card-md border border-violet-300/20 bg-violet-500/10 px-3 py-2 text-[11px] font-bold text-violet-100">
+          🔒 차원관문 CG는 해당 장면을 화첩에서 해금한 학생에게만 이미지와 판매 가격이 공개됩니다. 홈 배경은 크리스탈로만 구매할 수 있습니다.
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <label className="text-xs font-bold text-text-secondary">
           화폐
-          <select value={token} onChange={(event) => {
+          <select value={token} disabled={isGateCg} onChange={(event) => {
             const next = event.target.value;
             setToken(next);
             setPrice(pricings.find((entry) => entry.value_token === next)?.price?.toString() ?? '');
           }} className="mt-1 block rounded-card-md border border-line bg-bg-deep px-3 py-2 text-white">
-            <option value="GOLD">GOLD</option><option value="BV">BV</option>
+            {!isGateCg && <><option value="GOLD">GOLD</option><option value="BV">BV</option></>}
             <option value="CRYSTAL">CRYSTAL</option>
           </select>
         </label>
@@ -609,7 +616,7 @@ function BackgroundMarketControls({
             className="mt-1 block w-40 rounded-card-md border border-line bg-bg-deep px-3 py-2 text-white" />
         </label>
         <button type="button" className="btn-secondary" disabled={disabled || !Number.isInteger(Number(price)) || Number(price) < 1}
-          onClick={() => void onSavePrice(item.item_id, token, Number(price))}>가격 저장</button>
+          onClick={() => void onSavePrice(item.item_id, isGateCg ? 'CRYSTAL' : token, Number(price))}>가격 저장</button>
         <button type="button" className="btn-secondary" disabled={disabled || (!item.is_market_visible && !item.is_active)}
           onClick={() => void onVisibility(item.item_id, !item.is_market_visible)}>
           {item.is_market_visible ? '상점 비공개' : '상점 공개'}
