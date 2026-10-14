@@ -19,6 +19,7 @@ import {
 } from '@/lib/rpc/raid_v15_admin_rpc';
 import type { RaidStatus } from '@/lib/rpc/raid_admin_rpc';
 import { cn } from '@/lib/utils/cn';
+import RaidPatternGenerator from './RaidPatternGenerator';
 
 type TabKey = 'COMBAT' | 'PATTERNS' | 'AUDIO';
 
@@ -92,7 +93,7 @@ const TRIGGERS: Array<{ value: RaidV15TriggerKind; label: string }> = [
   { value: 'MANUAL', label: '수동 발동(MANUAL)' },
 ];
 
-export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, bossVideoUrl }: { raidId: number; raidStatus: RaidStatus; bossImageUrl?: string | null; bossVideoUrl?: string | null }) {
+export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, bossVideoUrl, bossName, visualReady, rewardEnabled, raidMaxHp, damageCoefficient, varianceMin, varianceMax, critMultiplier, tapRateLimit, focusGenerator = false, onOpenLobby }: { raidId: number; raidStatus: RaidStatus; bossImageUrl?: string | null; bossVideoUrl?: string | null; bossName: string; visualReady: boolean; rewardEnabled: boolean; raidMaxHp: number; damageCoefficient: number; varianceMin: number; varianceMax: number; critMultiplier: number; tapRateLimit: number; focusGenerator?: boolean; onOpenLobby?: () => void }) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>('COMBAT');
   const [collapsed, setCollapsed] = useState(true);
@@ -103,6 +104,9 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
   const [audioScope, setAudioScope] = useState<'DEFAULT'|'OVERRIDE'>('OVERRIDE');
   const [loadedRaid, setLoadedRaid] = useState<number | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  useEffect(() => {
+    if (focusGenerator) { setCollapsed(false); setTab('PATTERNS'); }
+  }, [focusGenerator, raidId]);
 
   const combatQuery = useQuery({
     queryKey: ['teacher-raid-v15-combat', raidId],
@@ -309,6 +313,23 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
       {tab === 'COMBAT' ? <CombatEditor value={combat} onChange={setCombat} disabled={!editableCombat} saving={saving === 'COMBAT'} onSave={saveCombat} /> : null}
       {tab === 'PATTERNS' ? (
         <div className="mt-5 space-y-6">
+          {editableCombat && <RaidPatternGenerator
+            raidId={raidId}
+            bossName={bossName}
+            visualReady={visualReady}
+            rewardEnabled={rewardEnabled}
+            maxHp={raidMaxHp}
+            damageCoefficient={damageCoefficient}
+            varianceMin={varianceMin}
+            varianceMax={varianceMax}
+            critMultiplier={critMultiplier}
+            tapRateLimit={tapRateLimit}
+            patterns={patterns}
+            combat={combat}
+            disabled={!editableCombat || saving !== null}
+            onApplied={refresh}
+            onOpenLobby={raidStatus === 'DRAFT' ? onOpenLobby : undefined}
+          />}
           <PatternSection
             title="공통 기믹"
             description="약점 노출(WEAK_POINT) · 무력화(BREAK) · 광폭화(ENRAGE). 패턴별 무력화/광폭화 값이 있으면 전투 기믹 탭의 기본값보다 우선합니다."

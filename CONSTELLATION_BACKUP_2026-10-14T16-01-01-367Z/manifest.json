@@ -1,0 +1,14 @@
+[
+  {
+    "file": "src/components/shared/NameplateEffect.tsx",
+    "existed": true
+  },
+  {
+    "file": "src/components/shared/nameplateEffect.css",
+    "existed": true
+  },
+  {
+    "file": "docs/CONSTELLATION_HEXAGRAM_2026-10-15.md",
+    "existed": false
+  }
+]

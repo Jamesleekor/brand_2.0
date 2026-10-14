@@ -157,12 +157,12 @@ export function LuxuryShopSectionV2({
       <div className="border-b border-[#D9B977]/25 bg-gradient-to-r from-[#34271E] via-[#23202F] to-[#151F2D] px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[11px] font-black tracking-[0.16em] text-[#FFD58A]">EXPEDITION · LUXURY GALLERY</p>
+            <p className="text-[11px] font-black tracking-[0.16em] text-[#FFD58A]">EXPEDITION · LUXURY GALLERY · 상시 전시 v2</p>
             <h2 id="luxury-shop-title" className="mt-1 font-display text-2xl font-black text-white">명품관</h2>
             <p className="mt-1 text-[13px] font-semibold text-[#F6EFE7]">클래스를 선택해 미리보기·보유 상품·판매 상품을 한 화면에서 확인하세요.</p>
           </div>
           <div className="rounded-full border border-white/20 bg-black/25 px-3 py-1.5 text-[12px] font-black text-[#FFF0C8]">
-            {loading ? '확인 중' : error ? '불러오기 실패' : shop?.trial_open ? `특별 개방 · Lv.${shop.access_level}` : isOpen ? `개방 중 · Lv.${shop?.access_level ?? 0}` : '현재 판매 잠김'}
+            {loading ? '확인 중' : error ? '불러오기 실패' : shop?.trial_open ? `특별 개방 · Lv.${shop.access_level}` : isOpen ? `구매 개방 중 · Lv.${shop?.access_level ?? 0}` : '상시 전시 · 구매 개방 대기'}
           </div>
         </div>
 
@@ -181,8 +181,8 @@ export function LuxuryShopSectionV2({
               >
                 <span className={`block text-[13px] font-black ${active ? 'text-[#FFE2A7]' : 'text-white'}`}>{entry.title}</span>
                 <span className="mt-0.5 block truncate text-[11px] font-semibold text-[#DCCFBE]">{entry.subtitle}</span>
-                <span className={`mt-1 block text-[10px] font-black ${accessible ? 'text-[#9DDDBD]' : 'text-white/40'}`}>
-                  {classCounts[entry.key] > 0 ? `${classCounts[entry.key]}개 판매 중` : accessible ? '입고 준비 중' : `Lv.${entry.level} 개방`}
+                <span className={`mt-1 block text-[10px] font-black ${accessible ? 'text-[#9DDDBD]' : 'text-[#F1E4D1]'}`}>
+                  {classCounts[entry.key] > 0 ? `${classCounts[entry.key]}개 전시 중` : accessible ? '입고 준비 중' : `Lv.${entry.level} 개방`}
                 </span>
               </button>
             );
@@ -272,7 +272,7 @@ export function LuxuryShopSectionV2({
               </div>
 
               <CompactProductGrid
-                title="B클래스 판매 상품"
+                title="B클래스 전시 상품"
                 items={borderItems}
                 isOpen={isOpen}
                 loading={loading}
@@ -332,8 +332,6 @@ function CompactProductGrid({
         <p className="mt-3 text-[12px] font-semibold text-[#DCCFBE]">상품을 불러오는 중입니다.</p>
       ) : error ? (
         <p className="mt-3 text-[12px] font-semibold text-[#F5B7B7]">상품 정보를 확인할 수 없습니다.</p>
-      ) : !isOpen ? (
-        <p className="mt-3 rounded-lg border border-white/10 bg-black/15 p-3 text-[12px] font-semibold text-[#DCCFBE]">현재 클래스가 잠겨 있습니다.</p>
       ) : items.length === 0 ? (
         <p className="mt-3 rounded-lg border border-white/10 bg-black/15 p-3 text-[12px] font-semibold text-[#DCCFBE]">현재 판매 중인 상품이 없습니다.</p>
       ) : (
@@ -349,11 +347,11 @@ function CompactProductGrid({
                 <button
                   key={pricing.pricing_id}
                   type="button"
-                  disabled={busyAction !== null}
+                  disabled={busyAction !== null || !isOpen || item.available_for_purchase !== true || item.purchase_eligible === false}
                   onClick={() => void onBuy(item, pricing.pricing_id)}
                   className="mt-2 w-full rounded-full border border-[#FFD58A]/45 bg-[#FFD58A]/10 px-2 py-1.5 text-[11px] font-black text-white disabled:opacity-50"
                 >
-                  {pricing.value_token === 'CRYSTAL' ? '💎' : '🪙'} {pricing.price.toLocaleString('ko-KR')} 구매
+                  {pricing.value_token === 'CRYSTAL' ? '💎' : '🪙'} {pricing.price.toLocaleString('ko-KR')} {isOpen && item.available_for_purchase === true ? '구매' : '개방 대기'}
                 </button>
               ))}
             </article>

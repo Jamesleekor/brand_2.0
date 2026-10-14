@@ -347,6 +347,7 @@ export interface ExpeditionLuxuryItem {
   required_effect_level: number;
   presentation_kind: string;
   owned: boolean;
+  available_for_purchase?: boolean;
   purchase_eligible?: boolean;
   required_character_name?: string | null;
   pricing: Array<{

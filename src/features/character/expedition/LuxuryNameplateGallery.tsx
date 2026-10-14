@@ -129,7 +129,7 @@ export function LuxuryNameplateEffects({
   const pending = busyOwnershipId !== null || busyAction !== null;
   const knownOwned = Boolean(owned || catalogItem?.owned);
   const purchase = async (pricingId: number) => {
-    if (!catalogItem || pending) return;
+    if (!catalogItem || pending || !isOpen || catalogItem.available_for_purchase !== true || catalogItem.purchase_eligible === false) return;
     setNotice(null);
     try {
       await onBuy(catalogItem, pricingId);
@@ -194,10 +194,10 @@ export function LuxuryNameplateEffects({
               : knownOwned ? <><p>소장 중인 상품입니다. 장착 정보를 새로 확인해 주세요.</p><button type="button" className="lux-c-secondary" onClick={() => void myEffectsQuery.refetch()}>장착 정보 새로고침</button></>
               : loading ? <p role="status">상품 정보를 불러오고 있습니다.</p>
               : error ? <p role="alert">상품을 불러오지 못했습니다. 명품관을 다시 열어 주세요.</p>
-              : !isOpen ? <p>명품관 개방 후 구매할 수 있습니다.</p>
               : !catalogItem ? <p>현재 판매 중인 상품이 아닙니다.</p>
               : catalogItem.pricing.length === 0 ? <p>판매 가격 준비 중</p>
-              : catalogItem.pricing.map((pricing) => <button type="button" className="lux-c-primary" key={pricing.pricing_id} disabled={pending} onClick={() => void purchase(pricing.pricing_id)}><span>{pricing.price.toLocaleString('ko-KR')} {pricing.value_token === 'CRYSTAL' ? '크리스탈' : '골드'}</span><span>{busyAction !== null ? '처리 중…' : '구매하기 →'}</span></button>)}
+              : catalogItem.pricing.map((pricing) => <button type="button" className="lux-c-primary" key={pricing.pricing_id} disabled={pending || !isOpen || catalogItem.available_for_purchase !== true || catalogItem.purchase_eligible === false} onClick={() => void purchase(pricing.pricing_id)}><span>{pricing.price.toLocaleString('ko-KR')} {pricing.value_token === 'CRYSTAL' ? '크리스탈' : '골드'}</span><span>{busyAction !== null ? '처리 중…' : !isOpen || catalogItem.available_for_purchase !== true ? '개방 대기' : catalogItem.purchase_eligible === false ? '구매 조건 미충족' : '구매하기 →'}</span></button>)}
+            {!knownOwned && catalogItem && (!isOpen || catalogItem.available_for_purchase !== true) && <p>해당 클래스 개방 기간에 구매할 수 있습니다.</p>}
             {notice && <p className="lux-c-notice" role="status">{notice}</p>}
           </div>
         </div>

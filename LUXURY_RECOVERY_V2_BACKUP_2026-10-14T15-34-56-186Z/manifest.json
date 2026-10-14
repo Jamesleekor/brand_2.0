@@ -1,0 +1,22 @@
+[
+  {
+    "file": "src/features/character/expedition/LuxuryHiddenShardGallery.tsx",
+    "existed": true
+  },
+  {
+    "file": "src/features/character/expedition/LuxuryNameplateGallery.tsx",
+    "existed": true
+  },
+  {
+    "file": "src/features/character/expedition/LuxuryShopSectionV2.tsx",
+    "existed": true
+  },
+  {
+    "file": "src/lib/rpc/expedition_rpc.ts",
+    "existed": true
+  },
+  {
+    "file": "docs/LUXURY_DISPLAY_RECOVERY_2026-10-15.md",
+    "existed": false
+  }
+]

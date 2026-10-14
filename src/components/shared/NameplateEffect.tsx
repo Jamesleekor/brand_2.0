@@ -62,11 +62,29 @@ export function NameplateEffect({ effect, children, className, variant, replayKe
       {effect.effectKind === 'CONSTELLATION' && (
         <>
           <span className="nameplate-fx__nebula" aria-hidden="true" />
-          <svg className="nameplate-fx__constellation" viewBox="0 0 360 120" preserveAspectRatio="none" aria-hidden="true">
-            <path pathLength="1" d="M8 88L44 24L94 13L151 42L212 9L273 27L348 73L314 108L252 103L183 89L111 110L45 101Z" />
-            {[['8','88'],['44','24'],['94','13'],['151','42'],['212','9'],['273','27'],['348','73'],['314','108'],['252','103'],['183','89'],['111','110'],['45','101']].map(([cx, cy], index) => (
-              <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="2.6" style={style({ '--node-delay': `${0.16 + index * 0.1}s`, '--node-idle-delay': `${2.9 - index * 0.35}s` })} />
-            ))}
+          <svg className="nameplate-fx__constellation" viewBox="0 0 360 120" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <g className="nameplate-fx__astral-seal">
+              <path className="nameplate-fx__orbit" pathLength="1" d="M180 5a55 55 0 1 1 0 110a55 55 0 1 1 0-110" />
+              <path className="nameplate-fx__triangle" pathLength="1" d="M180 12L221.57 84L138.43 84Z" style={style({ '--draw-delay': '.3s' })} />
+              <path className="nameplate-fx__triangle" pathLength="1" d="M180 108L138.43 36L221.57 36Z" style={style({ '--draw-delay': '1.2s' })} />
+              <path className="nameplate-fx__inner" pathLength="1" d="M180 36L200.78 48L200.78 72L180 84L159.22 72L159.22 48Z" />
+              {[[180,12],[221.57,84],[138.43,84],[180,108],[138.43,36],[221.57,36]].map(([cx, cy], index) => (
+                <g key={`${cx}-${cy}`} transform={`translate(${cx} ${cy})`}>
+                  <g className="nameplate-fx__star" style={style({ '--node-delay': `${.28 + index * .32}s`, '--node-idle-delay': `${3.7 + index * .23}s` })}>
+                    <circle className="nameplate-fx__star-halo" r="5.5" />
+                    <path className="nameplate-fx__star-cut" d="M0-5L1.15-1.15L5 0L1.15 1.15L0 5L-1.15 1.15L-5 0L-1.15-1.15Z" />
+                    <circle className="nameplate-fx__star-core" r="1.15" />
+                  </g>
+                </g>
+              ))}
+              <g transform="translate(180 60)">
+                <g className="nameplate-fx__star nameplate-fx__star--heart" style={style({ '--node-delay': '2.45s', '--node-idle-delay': '4.2s' })}>
+                  <path className="nameplate-fx__star-cut" d="M0-11L2-2L11 0L2 2L0 11L-2 2L-11 0L-2-2Z" />
+                  <circle className="nameplate-fx__star-core" r="2" />
+                </g>
+              </g>
+            </g>
+            <path className="nameplate-fx__wing" pathLength="1" d="M125 60H72L48 44L24 60M235 60H288L312 76L336 60" />
           </svg>
           <span className="nameplate-fx__comet" aria-hidden="true" />
         </>

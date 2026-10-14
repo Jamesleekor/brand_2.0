@@ -117,7 +117,7 @@
 /* C-02: the card is woven from a central line after the constellation completes. */
 .nameplate-fx[data-nameplate-effect='constellation'] .nameplate-fx__content {
   opacity: 0;
-  animation: nameplate-starlace-card 1.75s 1.35s cubic-bezier(.2,.75,.2,1) forwards;
+  animation: nameplate-starlace-card 1.75s 2.45s cubic-bezier(.2,.75,.2,1) forwards;
 }
 
 .nameplate-fx__constellation {
@@ -129,24 +129,60 @@
   overflow: visible;
 }
 
-.nameplate-fx__constellation path {
+.nameplate-fx__constellation { pointer-events: none; }
+.nameplate-fx__astral-seal {
+  animation: nameplate-seal-settle 1.4s 3.2s forwards;
+}
+.nameplate-fx__constellation .nameplate-fx__triangle,
+.nameplate-fx__constellation .nameplate-fx__orbit,
+.nameplate-fx__constellation .nameplate-fx__inner,
+.nameplate-fx__constellation .nameplate-fx__wing {
   fill: none;
-  stroke: #cdbfff;
-  stroke-width: 1.4;
+  stroke: #d5c9ff;
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  filter: drop-shadow(0 0 4px #9c86ff);
-  animation: nameplate-constellation-draw 1.85s .12s linear forwards, nameplate-constellation-fade 1.1s 2.25s forwards;
+  filter: drop-shadow(0 0 3px #9c86ff);
+  animation: nameplate-constellation-draw 1.4s var(--draw-delay, .3s) cubic-bezier(.25,.5,.4,1) forwards;
 }
-
-.nameplate-fx__constellation circle {
-  fill: #fff;
+.nameplate-fx__constellation .nameplate-fx__orbit {
+  stroke: #b3cfff;
+  stroke-width: .65;
+  opacity: .45;
+  --draw-delay: .15s;
+  animation-duration: 2.4s;
+}
+.nameplate-fx__constellation .nameplate-fx__inner {
+  stroke: #f3dca7;
+  stroke-width: .7;
+  opacity: .65;
+  --draw-delay: 1.8s;
+}
+.nameplate-fx__constellation .nameplate-fx__wing {
+  opacity: .55;
+  --draw-delay: 2.4s;
+  animation: nameplate-constellation-draw 1.3s var(--draw-delay) ease-out forwards,
+    nameplate-constellation-fade 1.4s 3.7s forwards;
+}
+.nameplate-fx__star {
   opacity: 0;
   transform-box: fill-box;
   transform-origin: center;
-  animation: nameplate-star-node .45s var(--node-delay) both,
-    nameplate-star-pulse 5.6s var(--node-idle-delay) infinite ease-in-out;
+  animation: nameplate-star-node .65s var(--node-delay) forwards,
+    nameplate-star-pulse 6.8s var(--node-idle-delay) infinite ease-in-out;
 }
+.nameplate-fx__constellation .nameplate-fx__star-cut {
+  fill: #f3ebff;
+  stroke: none;
+  filter: drop-shadow(0 0 3px #c3adff);
+}
+.nameplate-fx__star-halo { fill: #b69bff; opacity: .16; }
+.nameplate-fx__star-core { fill: #fff8db; }
+.nameplate-fx__star--heart .nameplate-fx__star-cut { fill: #ffe7b3; }
+@keyframes nameplate-seal-settle { to { opacity: .14; } }
 
 .nameplate-fx__nebula {
   position: absolute;
@@ -154,7 +190,7 @@
   inset: -75% -20%;
   opacity: 0;
   background: radial-gradient(ellipse at center, rgba(150,110,255,.58) 0, rgba(255,110,190,.25) 34%, transparent 66%);
-  animation: nameplate-nebula 2.45s 1.5s ease-out forwards;
+  animation: nameplate-nebula 2.45s 2.45s ease-out forwards;
 }
 
 .nameplate-fx__comet {
@@ -169,7 +205,7 @@
   background: linear-gradient(90deg, transparent, #fff);
   box-shadow: 0 0 8px #fff;
   transform: rotate(16deg);
-  animation: nameplate-comet .9s 2.45s ease-in forwards;
+  animation: nameplate-comet 1.2s 3.3s ease-in forwards;
 }
 
 @keyframes nameplate-starlace-card {

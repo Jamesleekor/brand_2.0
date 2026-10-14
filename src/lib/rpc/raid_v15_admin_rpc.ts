@@ -85,7 +85,17 @@ async function callRpc<T>(supabase: SupabaseClient, fn: string, args: Record<str
   return { success: true, data: data as T };
 }
 
+export interface RaidGeneratorPowerProfileResponse {
+  raid_id: number;
+  eligible_count: number;
+  total_raid_power: number;
+  average_raid_power: number;
+}
+
 export const raidV15AdminRpc = {
+  generatorPower: (supabase: SupabaseClient, raidId: number) =>
+    callRpc<RaidGeneratorPowerProfileResponse>(supabase, 'teacher_get_raid_generator_power_profile', { p_raid_id: raidId }),
+
   combat: (supabase: SupabaseClient, raidId: number) =>
     callRpc<RaidV15CombatResponse>(supabase, 'teacher_get_raid_combat_config', { p_raid_id: raidId }),
 

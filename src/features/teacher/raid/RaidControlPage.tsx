@@ -95,6 +95,7 @@ export default function RaidControlPage() {
   const [deletingRaidId, setDeletingRaidId] = useState<number | null>(null);
   const [pendingBossPresetKey, setPendingBossPresetKey] = useState<RaidBossPresetKey | null>(null);
   const [raidConfigRevision, setRaidConfigRevision] = useState(0);
+  const [focusPatternRaidId, setFocusPatternRaidId] = useState<number | null>(null);
 
   const boardQuery = useQuery({
     queryKey: ['teacher-raid-control-board', classroomId],
@@ -166,6 +167,7 @@ export default function RaidControlPage() {
 
   const beginCreate = () => {
     setIsCreating(true);
+    setFocusPatternRaidId(null);
     setSelectedRaidId(null);
     setForm({ ...EMPTY_FORM });
     setFormLoadedFor(null);
@@ -174,6 +176,7 @@ export default function RaidControlPage() {
 
   const selectRaid = (raidId: number) => {
     setIsCreating(false);
+    setFocusPatternRaidId(null);
     setSelectedRaidId(raidId);
     setFormLoadedFor(null);
     setPendingBossPresetKey(null);
@@ -379,6 +382,7 @@ export default function RaidControlPage() {
             if (presetApplied) setPendingBossPresetKey(null);
           }
           setIsCreating(false);
+          setFocusPatternRaidId(newId);
           await refreshAll(newId);
         }
         return;
@@ -719,6 +723,21 @@ export default function RaidControlPage() {
                     key={`raid-config-${detail.raid.id}-${raidConfigRevision}`}
                     raidId={detail.raid.id}
                     raidStatus={detail.raid.status}
+                    bossName={detail.raid.boss_name}
+                    visualReady={detail.phases.some((phase) => Boolean(phase.image_url || phase.loop_video_url))}
+                    rewardEnabled={detail.raid.reward_config?.rewards_enabled === true}
+                    raidMaxHp={detail.raid.max_hp}
+                    damageCoefficient={detail.raid.damage_coefficient}
+                    varianceMin={detail.raid.variance_min}
+                    varianceMax={detail.raid.variance_max}
+                    critMultiplier={detail.raid.crit_multiplier}
+                    tapRateLimit={detail.raid.tap_rate_limit_per_second}
+                    focusGenerator={focusPatternRaidId === detail.raid.id}
+                    onOpenLobby={() => runStateAction(
+                      'OPEN_LOBBY',
+                      '레이드 로비를 개방할까요?\n학생들이 레이드 로비에 입장할 수 있게 됩니다.',
+                      () => raidAdminRpc.openLobby(supabase, detail.raid.id),
+                    )}
                     bossImageUrl={detail.phases.find((phase) => phase.phase_no === 1)?.image_url ?? null}
                     bossVideoUrl={detail.phases.find((phase) => phase.phase_no === 1)?.loop_video_url ?? null}
                   />
