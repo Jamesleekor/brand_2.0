@@ -59,7 +59,12 @@ export default function DimensionalGateStoryModal({ character, onClose, onPlay }
           ) : (
             <div className="space-y-2.5">
               {query.data?.stories.map((story) => (
-                <StoryCard key={story.episode_id} story={story} onPlay={() => onPlay(story)} />
+                <StoryCard
+                  key={story.episode_id}
+                  story={story}
+                  showLongEpisodeNotice={character.character_uid === 'CHAR-081'}
+                  onPlay={() => onPlay(story)}
+                />
               ))}
             </div>
           )}
@@ -69,7 +74,7 @@ export default function DimensionalGateStoryModal({ character, onClose, onPlay }
   );
 }
 
-function StoryCard({ story, onPlay }: { story: DimensionalGateStoryListItem; onPlay: () => void }) {
+function StoryCard({ story, onPlay, showLongEpisodeNotice }: { story: DimensionalGateStoryListItem; onPlay: () => void; showLongEpisodeNotice: boolean }) {
   return (
     <button
       type="button"
@@ -106,6 +111,11 @@ function StoryCard({ story, onPlay }: { story: DimensionalGateStoryListItem; onP
           {story.estimated_minutes != null && <span>약 {story.estimated_minutes}분</span>}
           {story.headphone_recommended && <span>🎧 이어폰 권장</span>}
         </div>
+        {showLongEpisodeNotice && (
+          <div className="mt-2 rounded-md border border-amber-300/20 bg-amber-300/5 px-2.5 py-2 text-[10px] font-semibold leading-relaxed text-amber-100/90">
+            📖 장편 스토리입니다. 내용이 길기 때문에 충분한 여유 시간을 확보한 뒤 감상하는 것을 권장합니다.
+          </div>
+        )}
       </div>
       {story.unlocked && <div className="text-sm text-text-muted">›</div>}
     </button>
