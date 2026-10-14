@@ -78,7 +78,7 @@ export function LuxuryShopSectionV2({
   const previewRef = useRef<HTMLDivElement | null>(null);
   const studentName = useAuthStore((state) => state.context?.studentName);
   const myBordersQuery = useMyPrestigeBorders();
-  const [activeClass, setActiveClass] = useState<LuxuryClass>('C');
+  const [activeClass, setActiveClass] = useState<LuxuryClass>('A');
   const [theme, setTheme] = useState<FrameTheme>('MOON');
   const [place, setPlace] = useState<PreviewPlace>('FRIENDS');
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
