@@ -635,7 +635,7 @@ function CharacterCard({
         )}
       </div>
 
-      <div className="min-h-[108px] p-2.5 lg:p-3">
+      <div className="min-h-[132px] p-2.5 lg:p-3">
         <p className="truncate text-[10px] font-bold text-text-secondary">
           {character.epithet || 'B.R.A.N.D 편린'}
         </p>
@@ -673,28 +673,32 @@ function CharacterElementLine({
   const specialty = expeditionProfile ? EXPEDITION_SPECIALTY_META[expeditionProfile.specialty_code] : null;
 
   return (
-    <div className="mt-2 flex min-w-0 items-center gap-1.5 overflow-hidden text-[10px] font-black text-text-primary">
-      <span className="inline-flex flex-shrink-0 items-center gap-1">
-        <img src={primary.asset} alt="" className="h-4 w-4 object-contain" loading="lazy" decoding="async" />
-        {profile.primary_points}
-      </span>
-      {secondary && profile.secondary_element && profile.secondary_points > 0 && (
+    <div className="mt-2 flex min-w-0 flex-col gap-1.5 text-[10px] font-black text-text-primary">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <span className="inline-flex flex-shrink-0 items-center gap-1">
-          <img src={secondary.asset} alt="" className="h-4 w-4 object-contain" loading="lazy" decoding="async" />
-          {profile.secondary_points}
+          <img src={primary.asset} alt="" className="h-4 w-4 object-contain" loading="lazy" decoding="async" />
+          {profile.primary_points}
         </span>
-      )}
-      <span className="truncate rounded-pill border border-line bg-bg-deep/70 px-1.5 py-0.5 text-[9px] text-[#F5E9D4]">
-        {getTendencyShortLabel(getElementTendency(profile))}
-      </span>
+        {secondary && profile.secondary_element && profile.secondary_points > 0 && (
+          <span className="inline-flex flex-shrink-0 items-center gap-1">
+            <img src={secondary.asset} alt="" className="h-4 w-4 object-contain" loading="lazy" decoding="async" />
+            {profile.secondary_points}
+          </span>
+        )}
+        <span className="whitespace-nowrap rounded-pill border border-line bg-bg-deep/70 px-1.5 py-0.5 text-[9px] text-[#F5E9D4]">
+          {getTendencyShortLabel(getElementTendency(profile))}
+        </span>
+      </div>
       {specialty && (
-        <span className={cn(
-          'inline-flex flex-shrink-0 items-center gap-1 rounded-pill border px-1.5 py-0.5 text-[9px]',
-          specialty.className,
-        )}>
-          <img src={specialty.asset} alt="" className="h-4 w-4 flex-none object-contain" loading="lazy" decoding="async" />
-          {specialty.label}
-        </span>
+        <div className="flex min-w-0 justify-end">
+          <span className={cn(
+            'inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-pill border px-1.5 py-0.5 text-[9px]',
+            specialty.className,
+          )}>
+            <img src={specialty.asset} alt="" className="h-4 w-4 flex-none object-contain" loading="lazy" decoding="async" />
+            <span>원정 · {specialty.label}</span>
+          </span>
+        </div>
       )}
     </div>
   );
