@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { EmptyState, LoadingSpinner } from '@/components/shared/components';
 import { RecordsHonorOfficialPanels } from '@/features/feature4/RecordsHonorOfficialPanels';
+import { RecordsArcadeRulersHall } from '@/features/feature4/RecordsArcadeRulersHall';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
 import { RecordsPioneersHall } from '@/features/feature4/RecordsPioneersHall';
 import { RecordsThroneHall } from '@/features/feature4/RecordsThroneHall';
@@ -126,7 +127,7 @@ const HALLS: HallDefinition[] = [
     key: 'ARCADE_RULERS',
     icon: Gamepad2,
     title: '아케이드의 지배자',
-    subtitle: 'FINALIZED 기록으로 증명되는 게임의 왕좌',
+    subtitle: '공인기록으로 증명되는 게임의 왕좌',
     portalClass: 'border-sky-300/20 bg-[radial-gradient(circle_at_50%_0%,rgba(67,134,196,0.11),transparent_42%),linear-gradient(180deg,rgba(23,33,51,0.52),rgba(15,11,26,0.90))] hover:border-sky-300/42',
     iconClass: 'border-sky-300/28 bg-sky-300/[0.06] text-sky-200',
     hallLabelClass: 'text-sky-200',
@@ -418,6 +419,10 @@ function HallTransitionOverlay({ hall, visible }: { hall: HallDefinition | null;
 }
 
 function HallSection({ hall, entries, index }: { hall: HallDefinition; entries: HallOfGloryEntry[]; index: number }) {
+  if (hall.key === 'ARCADE_RULERS') {
+    return <RecordsArcadeRulersHall entries={entries} />;
+  }
+
   if (hall.key === 'PIONEERS') {
     return <RecordsPioneersHall entries={entries} />;
   }

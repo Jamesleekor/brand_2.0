@@ -14,13 +14,15 @@ import { CharacterRecruitmentAdminPanel } from './CharacterRecruitmentAdminPanel
 import { DimensionalGateAdminPanel } from './DimensionalGateAdminPanel';
 import { DimensionalGateAiQaPanel } from './DimensionalGateAiQaPanel';
 import { DimensionalGateContentAdminPanel } from './DimensionalGateContentAdminPanel';
+import { GateChatArchivePanel } from './GateChatArchivePanel';
+// BRAND_GATE_CHAT_ARCHIVE_V1
 
 // =====================================================================
 // B.R.A.N.D 2.0 — Character Core C3 Teacher Operations UI
 // 편린 Master / 영입 조건 / 학생 보유 / 영입 이력
 // =====================================================================
 
-type TabKey = 'MASTER' | 'RECRUITMENT' | 'COLLECTIONS' | 'GATE_CONTENT' | 'GATE' | 'GATE_QA' | 'STUDENTS' | 'EVENTS';
+type TabKey = 'MASTER' | 'RECRUITMENT' | 'COLLECTIONS' | 'GATE_CONTENT' | 'GATE' | 'GATE_QA' | 'STUDENTS' | 'EVENTS' | 'GATE_ARCHIVE';
 type MasterFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'DRAFT';
 
 type MasterForm = {
@@ -141,7 +143,7 @@ export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?:
 
   return (
     <TeacherShell>
-      <div className="space-y-5 pb-10">
+      <div className={tab === 'GATE_ARCHIVE' ? 'space-y-3 pb-0' : "space-y-5 pb-10"}>
         <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="mb-1 text-xs font-black uppercase tracking-[0.16em] text-brand-primary">Character Core · C3–C4 · S1</div>
@@ -172,19 +174,20 @@ export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?:
           </div>
         ) : (
           <>
-            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {tab !== 'GATE_ARCHIVE' && (<section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard emoji="✦" label="편린 Master" value={board.characters.length} color="bv" />
               <StatCard emoji="⏳" label="정책 초안" value={draftCount} color={draftCount ? 'gold' : 'success'} />
               <StatCard emoji="🎒" label="전체 보유권" value={totalOwned} color="crystal" />
               <StatCard emoji="👤" label="장착 학생" value={`${equippedCount} / ${board.students.length}`} color="success" />
-            </section>
+            </section>)}
 
-            <nav className="flex gap-1 rounded-card-lg border border-line bg-bg-card p-1.5">
+            <nav className="flex gap-1 rounded-card-lg border border-line bg-bg-card p-1.5 flex-wrap">
               <TabButton active={tab === 'MASTER'} onClick={() => setTab('MASTER')} label="편린 Master" icon="✦" />
               <TabButton active={tab === 'RECRUITMENT'} onClick={() => setTab('RECRUITMENT')} label="영입 설정" icon="🪙" />
               <TabButton active={tab === 'COLLECTIONS'} onClick={() => setTab('COLLECTIONS')} label="콜렉션 관리" icon="🧩" />
               <TabButton active={tab === 'GATE_CONTENT'} onClick={() => setTab('GATE_CONTENT')} label="관문 콘텐츠" icon="📖" />
               <TabButton active={tab === 'GATE'} onClick={() => setTab('GATE')} label="관문 운영" icon="🌀" />
+              <TabButton active={tab === 'GATE_ARCHIVE'} onClick={() => setTab('GATE_ARCHIVE')} label="대화 기록" icon="💬" />
               <TabButton active={tab === 'GATE_QA'} onClick={() => setTab('GATE_QA')} label="AI QA" icon="🧪" />
               <TabButton active={tab === 'STUDENTS'} onClick={() => setTab('STUDENTS')} label="학생 보유" icon="🎒" />
               <TabButton active={tab === 'EVENTS'} onClick={() => setTab('EVENTS')} label="영입 기록" icon="🧾" />
@@ -226,6 +229,10 @@ export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?:
 
             {tab === 'GATE_QA' && classroomId !== null && (
               <DimensionalGateAiQaPanel classroomId={classroomId} />
+            )}
+
+            {tab === 'GATE_ARCHIVE' && classroomId !== null && (
+              <GateChatArchivePanel key={classroomId} classroomId={classroomId} />
             )}
 
             {tab === 'STUDENTS' && (

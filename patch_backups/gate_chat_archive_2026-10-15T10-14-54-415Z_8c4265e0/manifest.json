@@ -1,0 +1,45 @@
+{
+  "root": "C:\\brand_2.0\\brand_2.0",
+  "files": [
+    {
+      "path": "src/features/teacher/GateChatArchivePanel.tsx",
+      "before": null,
+      "after": "fc1c26b0fc64b38d2989e83879ef40f378f238d37c3d414d966dd9b514577ff6"
+    },
+    {
+      "path": "src/features/teacher/gate-chat-archive.css",
+      "before": null,
+      "after": "8c28bf60ef05903de7972ada86e34fff5c9cf78a221ba37448f9e43385ccf2ae"
+    },
+    {
+      "path": "src/lib/rpc/gate_chat_archive_rpc.ts",
+      "before": null,
+      "after": "2acaecccc4feaa19f9d8914747ab54d855ee8ce93831799130a02bb2d0f1863e"
+    },
+    {
+      "path": "src/lib/utils/gate_chat_archive_xlsx.ts",
+      "before": null,
+      "after": "9ba2eb274cc19a2e682601a10a6ad14b862c7379df7f45e2d09892446ef66dc2"
+    },
+    {
+      "path": "docs/GATE_CHAT_ARCHIVE_2026-10-15.md",
+      "before": null,
+      "after": "57fe48d95a806d579a6aa5020b269dc10e0bdbc51c240be223ed4857719ad8ed"
+    },
+    {
+      "path": "supabase/APPLY_GATE_CHAT_ARCHIVE_20261015.sql",
+      "before": null,
+      "after": "dfc412773c2d11c738687e00e527ee7fc27cb96c946fd4b2bdff7e52b3115966"
+    },
+    {
+      "path": "supabase/migrations/20261015094235_gate_chat_teacher_archive.sql",
+      "before": null,
+      "after": "dfc412773c2d11c738687e00e527ee7fc27cb96c946fd4b2bdff7e52b3115966"
+    },
+    {
+      "path": "src/features/teacher/CharacterAdmin.tsx",
+      "before": "dfd3d0c9640e82c7400966bfe0bb6b71e4a826d5cc2dee085eef092dc26cedfa",
+      "after": "fdba48bbee6f0b7b56067eff67d229ed8621c5d33e490e5fd33a9acf18fa13f3"
+    }
+  ]
+}

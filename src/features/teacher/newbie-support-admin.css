@@ -1,0 +1,21 @@
+.newbie-admin .newbie-stats{display:flex;flex-wrap:wrap;gap:12px 32px;padding:12px 0;border-bottom:1px solid rgba(255,241,215,.12)}
+.newbie-admin .newbie-tabs{display:flex;flex-wrap:wrap;gap:8px 24px;border-bottom:1px solid rgba(255,241,215,.12)}
+.newbie-admin .newbie-tab{padding:10px 0;color:#fff1d7;font-size:14px;font-weight:700;border-bottom:2px solid transparent}
+.newbie-admin .newbie-tab.is-active{color:#ffd93d;border-bottom-color:#ffd93d}
+.newbie-admin .newbie-section-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid rgba(255,241,215,.12)}
+.newbie-admin .newbie-program-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:12px}
+.newbie-admin .newbie-program-tile{min-width:0;text-align:left;padding:14px 16px;border:1px solid rgba(255,241,215,.14);border-radius:12px;background:#130e1e;transition:border-color .15s,background-color .15s}
+.newbie-admin .newbie-program-tile:hover{border-color:rgba(255,217,61,.5)}
+.newbie-admin .newbie-program-tile.is-selected{border-color:#ffd93d;background:#2a2234;box-shadow:inset 3px 0 0 #ffd93d}
+.newbie-admin .newbie-progress{display:block;appearance:none;width:100%;height:4px;margin-top:12px;border:0;border-radius:4px;overflow:hidden;background:rgba(255,241,215,.12);color:#ffd93d}
+.newbie-admin .newbie-progress::-webkit-progress-bar{background:rgba(255,241,215,.12)}
+.newbie-admin .newbie-progress::-webkit-progress-value{background:#ffd93d}
+.newbie-admin .newbie-progress::-moz-progress-bar{background:#ffd93d}
+.newbie-admin .newbie-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.newbie-admin .newbie-facts{display:grid;grid-template-columns:auto minmax(0,1fr);align-content:start;gap:14px 20px;padding:20px;font-size:13px;color:#fff1d7}
+.newbie-admin .newbie-facts dd{margin:0;overflow-wrap:anywhere}
+.newbie-admin .newbie-mentor-detail{min-width:0;padding:20px;border-left:1px solid rgba(255,241,215,.12)}
+.newbie-admin .newbie-claim-row{display:flex;align-items:start;justify-content:space-between;gap:12px;padding:14px 16px}
+.newbie-admin .newbie-claim-row>details{flex:1}
+.newbie-admin button:focus-visible,.newbie-admin summary:focus-visible{outline:2px solid #ffd93d;outline-offset:3px}
+@media(max-width:639px){.newbie-admin .newbie-program-grid,.newbie-admin .newbie-detail-grid{grid-template-columns:minmax(0,1fr)}.newbie-admin .newbie-mentor-detail{border-left:0;border-top:1px solid rgba(255,241,215,.12)}.newbie-admin .newbie-claim-row{flex-wrap:wrap}.newbie-admin .newbie-claim-row>details{flex-basis:100%}.newbie-admin .newbie-facts{gap:12px}.newbie-admin .newbie-stats{gap:12px 22px}}
