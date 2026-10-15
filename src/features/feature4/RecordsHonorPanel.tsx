@@ -177,7 +177,7 @@ export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; gro
     setTransitionHall(hall);
     window.setTimeout(() => setTransitionVisible(true), 20);
     window.setTimeout(() => {
-      document.getElementById(`hall-${hall.key.toLowerCase()}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.getElementById(`hall-${String(hall.key).toLowerCase()}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 260);
     window.setTimeout(() => setTransitionVisible(false), 560);
     window.setTimeout(() => setTransitionHall(null), 980);
@@ -462,7 +462,7 @@ if (hall.key === 'SOVEREIGN_PROOF') {
 
   return (
     <section
-      id={`hall-${hall.key.toLowerCase()}`}
+      id={`hall-${String(hall.key).toLowerCase()}`}
       className={`scroll-mt-24 overflow-hidden rounded-card-lg border ${hall.special ? 'border-gold/40 bg-[radial-gradient(circle_at_92%_0%,rgba(255,217,61,0.11),transparent_28%),linear-gradient(145deg,rgba(255,217,61,0.055),rgba(177,151,252,0.075),rgba(15,11,26,0.92))] shadow-[0_0_34px_rgba(255,217,61,0.07)]' : 'border-line bg-bg-card'}`}
     >
       <header className="relative border-b border-line/80 px-5 py-6 sm:px-7 sm:py-7">
