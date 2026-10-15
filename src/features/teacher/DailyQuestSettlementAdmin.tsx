@@ -267,6 +267,17 @@ export default function DailyQuestSettlementAdmin() {
         ) : dayState.report_exists && board && report ? (
           <>
             <TeacherQuestHero board={board} />
+            {/* BRAND_DAILY_MESSAGE_V1 */}
+            <section className="rounded-card-xl border border-gold/35 bg-bg-card p-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base font-black text-amber-100">관리자 전달사항</h2>
+                {report.manager_message && report.manager_message !== '전달사항 없음' &&
+                  <span className="rounded-pill bg-gold/15 px-3 py-1 text-xs font-black text-gold">전달사항 있음</span>}
+              </div>
+              <p className="mt-3 whitespace-pre-wrap break-words text-sm font-bold leading-relaxed text-amber-50">
+                {report.manager_message || '등록된 전달사항이 없습니다.'}
+              </p>
+            </section>
             <TeacherSummary board={board} />
 
             {report.status === 'RETURNED' && report.return_reason && (

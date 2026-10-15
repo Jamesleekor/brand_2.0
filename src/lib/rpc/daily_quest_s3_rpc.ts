@@ -63,6 +63,7 @@ export interface DailyQuestManagerBoard {
     quest_date: string;
     manager_student_id: number | null;
     status: DailyQuestReportStatus;
+    manager_message?: string | null;
     submitted_at: string | null;
     return_reason: string | null;
   };
@@ -90,6 +91,7 @@ export interface DailyQuestTeacherBoard {
     status: DailyQuestReportStatus;
     manager_student_id: number | null;
     submitted_at: string | null;
+    manager_message?: string | null;
     returned_at: string | null;
     return_reason: string | null;
     settled_at: string | null;
@@ -196,12 +198,24 @@ async function callRpc<T>(
   return { success: true, data: data as T };
 }
 
+async function withReportMessage<T extends { report: { id: number; manager_message?: string | null } | null }>(
+  supabase: SupabaseClient, fn: string, date?: string | null,
+): Promise<RpcResult<T>> {
+  const board = await callRpc<T>(supabase, fn, { p_date: date || null });
+  if (board.success === false || !board.data.report) return board;
+  const message = await callRpc<{ manager_message: string | null }>(supabase, 'get_daily_quest_report_message', {
+    p_report_id: board.data.report.id,
+  });
+  if (message.success === false) return message;
+  return { ...board, data: { ...board.data, report: { ...board.data.report, ...message.data } } };
+}
+
 export const dailyQuestS3Rpc = {
   getManagerAccess: (supabase: SupabaseClient) =>
     callRpc<DailyQuestManagerAccess>(supabase, 'get_my_daily_quest_manager_access'),
 
   getManagerBoard: (supabase: SupabaseClient, date?: string | null) =>
-    callRpc<DailyQuestManagerBoard>(supabase, 'get_daily_quest_manager_board', { p_date: date || null }),
+    withReportMessage<DailyQuestManagerBoard>(supabase, 'get_daily_quest_manager_board', date),
 
   setManagerCheck: (
     supabase: SupabaseClient,
@@ -214,8 +228,10 @@ export const dailyQuestS3Rpc = {
     p_reason: reason?.trim() || null,
   }),
 
-  submitManagerReport: (supabase: SupabaseClient, reportId: number) =>
-    callRpc<DailyQuestMutationResult>(supabase, 'daily_quest_manager_submit', { p_report_id: reportId }),
+  submitManagerReport: (supabase: SupabaseClient, reportId: number, message?: string) =>
+    callRpc<DailyQuestMutationResult>(supabase, 'daily_quest_manager_submit_with_message', {
+      p_report_id: reportId, p_message: message?.trim() || null,
+    }),
 
   getTeacherDayState: (supabase: SupabaseClient, date?: string | null) =>
     callRpc<DailyQuestTeacherDayState>(supabase, 'teacher_get_daily_quest_day_state', { p_date: date || null }),
@@ -227,7 +243,7 @@ export const dailyQuestS3Rpc = {
     callRpc<DailyQuestLegacyArchive>(supabase, 'teacher_get_legacy_daily_quest_archive', { p_date: date || null }),
 
   getTeacherBoard: (supabase: SupabaseClient, date?: string | null) =>
-    callRpc<DailyQuestTeacherBoard>(supabase, 'teacher_get_daily_quest_settlement_board', { p_date: date || null }),
+    withReportMessage<DailyQuestTeacherBoard>(supabase, 'teacher_get_daily_quest_settlement_board', date),
 
   overrideCheck: (
     supabase: SupabaseClient,

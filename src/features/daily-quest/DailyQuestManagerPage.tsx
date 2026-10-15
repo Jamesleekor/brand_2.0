@@ -37,6 +37,8 @@ const QUEST_META: Record<DailyQuestCode, { label: string; short: string; emoji: 
 
 export default function DailyQuestManagerPage() {
   const queryClient = useQueryClient();
+  // BRAND_DAILY_MESSAGE_V1: drafts survive polling; report identity prevents cross-date leakage.
+  const [messageDraft, setMessageDraft] = useState<{ reportId: number; text: string; none: boolean; previous: string } | null>(null);
   const [onlyUnchecked, setOnlyUnchecked] = useState(false);
   const [savingCheckId, setSavingCheckId] = useState<number | null>(null);
   const { call, isLoading: mutationLoading } = useRpcCall();
@@ -110,6 +112,10 @@ export default function DailyQuestManagerPage() {
 
   const board = boardQuery.data;
   const editable = board.report.status === 'DRAFT' || board.report.status === 'RETURNED';
+  const savedMessage = board.report.manager_message ?? '';
+  const draft = messageDraft?.reportId === board.report.id ? messageDraft : {
+    reportId: board.report.id, text: savedMessage, none: savedMessage === '전달사항 없음', previous: '',
+  };
 
   const setCheck = async (check: DailyQuestCheck, next: 'PASS' | 'FAIL') => {
     if (!editable || check.teacher_override) return;
@@ -132,12 +138,12 @@ export default function DailyQuestManagerPage() {
 
   const submit = async () => {
     if (!editable || board.summary.unchecked_count > 0) return;
-    if (!window.confirm('오늘 일일퀘스트 결과를 선생님께 제출할까요? 제출 후에는 반려되기 전까지 수정할 수 없습니다.')) return;
+    if (!window.confirm('오늘 일일퀘스트 결과와 전달사항을 운영국에 제출할까요? 제출 후에는 반려되기 전까지 수정할 수 없습니다.')) return;
     const result = await call(
-      () => dailyQuestS3Rpc.submitManagerReport(supabase, board.report.id),
+      () => dailyQuestS3Rpc.submitManagerReport(supabase, board.report.id, draft.text),
       {
         successTitle: '오늘 결과를 제출했어요',
-        successDescription: '이제 선생님의 최종 확인과 보상 지급을 기다리면 됩니다.',
+        successDescription: '이제 운영국의 최종 확인과 보상 지급을 기다리면 됩니다.',
       },
     );
     if (result) await refresh();
@@ -194,6 +200,29 @@ export default function DailyQuestManagerPage() {
             savingCheckId={savingCheckId}
             onSet={setCheck}
           />
+        </section>
+
+        <section className="rounded-card-xl border border-gold/35 bg-bg-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <label htmlFor="daily-manager-message" className="text-sm font-black text-amber-100">운영국에 전달할 특이사항</label>
+            {editable && <label className="flex cursor-pointer items-center gap-2 text-sm font-bold text-amber-100">
+              <input type="checkbox" checked={draft.none} disabled={mutationLoading}
+                onChange={(event) => setMessageDraft(event.target.checked
+                  ? { ...draft, previous: draft.text, text: '전달사항 없음', none: true }
+                  : { ...draft, text: draft.previous, none: false })} />
+              전달사항 없음
+            </label>}
+            {!editable && savedMessage && savedMessage !== '전달사항 없음' &&
+              <span className="rounded-pill bg-gold/15 px-3 py-1 text-xs font-black text-gold">전달사항 있음</span>}
+          </div>
+          <p className="mt-2 text-xs font-bold text-amber-100">대신 수행한 업무나 운영국에 알려야 할 내용을 적어 주세요. 제출할 때 함께 저장됩니다.</p>
+          <textarea id="daily-manager-message" rows={3} maxLength={2000}
+            value={editable ? draft.text : savedMessage}
+            readOnly={!editable || draft.none} disabled={mutationLoading}
+            onChange={(event) => setMessageDraft({ ...draft, text: event.target.value })}
+            placeholder="예: 김○○ 결석으로 박○○이 급식 정리 업무를 대신했습니다."
+            className="input-field mt-3 w-full resize-y text-amber-50 placeholder:text-amber-100/70" />
+          <div className="mt-1 text-right text-xs font-bold text-amber-100">{(editable ? draft.text : savedMessage).length} / 2000</div>
         </section>
 
         <SubmitPanel
@@ -386,7 +415,7 @@ function SubmitPanel({ board, editable, busy, onSubmit }: {
     return (
       <div className="rounded-card-xl border border-bv/30 bg-bv/10 p-5 text-center">
         <Send className="mx-auto h-7 w-7 text-bv" />
-        <div className="mt-2 font-display text-lg text-white">선생님께 제출했습니다</div>
+        <div className="mt-2 font-display text-lg text-white">운영국에 제출했습니다</div>
         <p className="mt-1 text-sm font-bold text-text-secondary">최종 확인 후 보상이 지급됩니다. 반려되기 전에는 수정할 수 없습니다.</p>
       </div>
     );
@@ -406,7 +435,7 @@ function SubmitPanel({ board, editable, busy, onSubmit }: {
         <div>
           <div className="flex items-center gap-2 text-sm font-black text-white"><ClipboardCheck className="h-5 w-5 text-gold" />오늘 결과 제출</div>
           <p className="mt-1 text-xs font-bold text-text-secondary">
-            {unchecked > 0 ? `아직 ${unchecked}건이 미확인입니다.` : '모든 항목을 확인했습니다. 선생님께 제출할 수 있습니다.'}
+            {unchecked > 0 ? `아직 ${unchecked}건이 미확인입니다.` : '모든 항목을 확인했습니다. 운영국에 제출할 수 있습니다.'}
           </p>
         </div>
         <button
@@ -415,7 +444,7 @@ function SubmitPanel({ board, editable, busy, onSubmit }: {
           onClick={onSubmit}
           className="btn-primary min-w-[180px] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? '처리 중...' : '교사에게 제출'}
+          {busy ? '처리 중...' : '운영국에 제출'}
         </button>
       </div>
     </div>
