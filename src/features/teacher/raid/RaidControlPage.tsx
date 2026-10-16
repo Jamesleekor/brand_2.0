@@ -42,6 +42,8 @@ type RaidForm = {
   chatEnabled: boolean;
   chatSlowMode: string;
   includeTestAccounts: boolean;
+  // RAID_ELEMENT_V1_20261017
+  elementDamageEnabled: boolean;
   imageUrl: string;
   loopVideoUrl: string;
   actionVideoUrl: string;
@@ -75,6 +77,7 @@ const EMPTY_FORM: RaidForm = {
   chatEnabled: true,
   chatSlowMode: '2',
   includeTestAccounts: false,
+  elementDamageEnabled: true,
   imageUrl: '',
   loopVideoUrl: '',
   actionVideoUrl: '',
@@ -330,9 +333,11 @@ export default function RaidControlPage() {
       image_url: form.imageUrl.trim() || null,
       loop_video_url: form.loopVideoUrl.trim() || null,
       reward_config: { ...(detail?.raid.reward_config ?? {}), base_gold: baseRewardGold, rewards_enabled: form.rewardsEnabled },
-      metadata: pendingBossPresetKey
-        ? { ...(detail?.raid.metadata ?? {}), boss_preset_key: pendingBossPresetKey, boss_preset_version: 1 }
-        : (detail?.raid.metadata ?? {}),
+      metadata: {
+        ...(detail?.raid.metadata ?? {}),
+        ...(pendingBossPresetKey ? { boss_preset_key: pendingBossPresetKey, boss_preset_version: 1 } : {}),
+        element_damage_rules_version: form.elementDamageEnabled ? 'V1' : 'OFF',
+      },
     };
   };
 
@@ -1256,6 +1261,11 @@ function RaidEditor({
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+        <label className="flex items-center gap-2 rounded-card-md border border-emerald-300/30 bg-emerald-500/10 px-3 py-2">
+          <input type="checkbox" checked={form.elementDamageEnabled} disabled={!editable}
+            onChange={(e) => update('elementDamageEnabled', e.target.checked)} className="h-4 w-4 accent-emerald-400" />
+          <span className="text-xs font-black text-emerald-100">장착 편린 속성 보정 사용 (V1)</span>
+        </label>
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -1952,6 +1962,7 @@ function formFromDetail(detail: TeacherRaidDetail): RaidForm {
     chatEnabled: detail.raid.chat_enabled,
     chatSlowMode: String(detail.raid.chat_slow_mode_seconds),
     includeTestAccounts: detail.raid.include_test_accounts,
+    elementDamageEnabled: detail.raid.metadata?.element_damage_rules_version === 'V1',
     imageUrl: phase?.image_url ?? '',
     loopVideoUrl: phase?.loop_video_url ?? '',
     actionVideoUrl: visual.media.action_video_url ?? '',

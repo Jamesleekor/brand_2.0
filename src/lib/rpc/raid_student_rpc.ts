@@ -3,6 +3,40 @@ import type { RpcResult } from './student_rpc';
 import type { RaidVisualConfigV1 } from '@/features/raid/visual/raidVisualTypes';
 
 export type RaidElement = 'FIRE' | 'WATER' | 'WIND' | 'EARTH' | 'LIGHT' | 'DARK';
+// RAID_ELEMENT_V1_20261017
+export interface RaidElementEffect {
+  version?: 'OFF' | 'V1';
+  type?: string;
+  total_multiplier_bp: number;
+  grade_bonus_bp?: number;
+  matchup_bonus_bp?: number;
+  focus_bp?: number;
+  [key: string]: unknown;
+}
+export interface RaidElementOption {
+  character_id: number;
+  name: string;
+  image_url: string | null;
+  is_equipped: boolean;
+  primary_element: RaidElement;
+  primary_points: number;
+  secondary_element: RaidElement | null;
+  secondary_points: number;
+  element_budget: number;
+  effect: RaidElementEffect;
+}
+export interface RaidElementOptions {
+  rules_version: 'OFF' | 'V1';
+  raid_status: RaidStatus;
+  boss_element: RaidElement;
+  equipped_character_id: number | null;
+  locked_equipped_character_id?: number | null;
+  locked_equipped_character_name?: string | null;
+  locked_equipped_character_image_url?: string | null;
+  preview: RaidElementEffect;
+  options: RaidElementOption[];
+}
+
 export type RaidStatus =
   | 'DRAFT'
   | 'LOBBY_OPEN'
@@ -195,6 +229,8 @@ export interface RaidBattleState {
   me: {
     participant_id: number;
     raid_power: number;
+    element_multiplier_bp: number;
+    element_effect: RaidElementEffect | null;
     base_crit_bp: number;
     shard_crit_bp: number;
     collection_crit_bp: number;
@@ -385,6 +421,12 @@ export const raidStudentRpc = {
     callRpc<RaidLobbySnapshot>(supabase, 'get_raid_lobby_snapshot', {
       p_raid_id: raidId,
     }),
+
+  elementOptions: (supabase: SupabaseClient, raidId: number) =>
+    callRpc<RaidElementOptions>(supabase, 'get_my_raid_element_options', { p_raid_id: raidId }),
+
+  equipCharacter: (supabase: SupabaseClient, characterId: number) =>
+    callRpc<void>(supabase, 'equip_character', { p_character_id: characterId }),
 
   sendLobbyMessage: (
     supabase: SupabaseClient,

@@ -306,6 +306,7 @@ export default function RaidBattlePage() {
             coefficient *
             variance *
             critMultiplier *
+            (Number(state.me.element_multiplier_bp ?? 10000) / 10000) * // RAID_ELEMENT_V1_20261017
             patternMultiplier *
             groggyMultiplier *
             enrageMultiplier,
@@ -635,6 +636,7 @@ export default function RaidBattlePage() {
 
         <PlayerHud
           resonance={Number(state.me.raid_power)}
+          elementBp={Number(state.me.element_multiplier_bp ?? 10000)}
           critBp={Number(state.me.final_crit_bp)}
           totalDamage={totalDamage}
         />
@@ -1506,10 +1508,12 @@ function PatternFeedbackLayer({ items }: { items: PatternFeedback[] }) {
 
 function PlayerHud({
   resonance,
+  elementBp,
   critBp,
   totalDamage,
 }: {
   resonance: number;
+  elementBp: number;
   critBp: number;
   totalDamage: number;
 }) {
@@ -1521,6 +1525,8 @@ function PlayerHud({
       <div className="mt-3 grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-xs font-black">
         <span className="text-white">공명력</span>
         <span className="font-mono text-cyan-100">{formatNumber(resonance)}</span>
+        <span className="text-white">장착 속성 배율</span>
+        <span className="font-mono text-emerald-200">{(elementBp / 100).toFixed(2)}%</span>
         <span className="text-white">치명타율</span>
         <span className="font-mono text-yellow-100">
           {(critBp / 100).toFixed(2)}%

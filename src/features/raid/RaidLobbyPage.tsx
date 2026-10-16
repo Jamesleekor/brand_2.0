@@ -23,6 +23,8 @@ import {
 } from '@/lib/rpc/raid_student_rpc';
 import { cn } from '@/lib/utils/cn';
 import { useRaidLobbyRealtime } from '@/features/raid/hooks/useRaidLobbyRealtime';
+// RAID_ELEMENT_V1_20261017
+import RaidElementLobbyCard from '@/features/raid/RaidElementLobbyCard';
 
 // RAID_BETA1_LOBBY_PRESENCE_CHAT_FIX_20260918
 type BubbleState = Record<number, RaidLobbyMessage>;
@@ -392,6 +394,7 @@ export default function RaidLobbyPage() {
         </main>
 
         <aside className="relative z-20 flex min-h-[520px] flex-col border-l border-cyan-300/20 bg-[#07111f]/92 backdrop-blur xl:min-h-0">
+          <RaidElementLobbyCard raidId={raidId} status={snapshot.raid.status} bossElement={snapshot.raid.boss_element} />
           <div className="border-b border-cyan-300/20 p-4">
             <div className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100">
               관문 대화
