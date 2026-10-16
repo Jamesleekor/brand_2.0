@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { LoadingSpinner } from '@/components/shared/components';
 import { LuxuryShopSectionV2 } from './expedition/LuxuryShopSectionV2';
 import { CompactChronicleSection } from './expedition/CompactChronicleSection';
+import { getExpeditionCounterElement } from './expedition/expeditionFit';
+import { ExpeditionBoxOpeningModal } from './expedition/ExpeditionBoxOpeningModal';
 import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -78,6 +80,13 @@ type RestoreRevealState = {
   phase: 'RESTORING' | 'REVEALED';
 };
 
+type BoxOpeningPopupState = {
+  itemId: number;
+  tier: string;
+  result: ExpeditionBoxOpenResult | null;
+  error: string | null;
+};
+
 function newRequestId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -99,7 +108,8 @@ export default function ExpeditionChroniclePanel() {
   const [storyLoading, setStoryLoading] = useState(false);
   const [dismissedPopup, setDismissedPopup] = useState(false);
   const [boxResults, setBoxResults] = useState<Record<number, ExpeditionBoxOpenResult>>({});
-  const [boxOpeningPopup, setBoxOpeningPopup] = useState<ExpeditionBoxOpenResult | null>(null);
+  const [boxOpeningPopup, setBoxOpeningPopup] = useState<BoxOpeningPopupState | null>(null);
+  const boxOpeningActive = useRef(false);
   const [restoreReveal, setRestoreReveal] = useState<RestoreRevealState | null>(null);
 
   const boardQuery = useQuery<ExpeditionBoard>({
@@ -190,7 +200,7 @@ export default function ExpeditionChroniclePanel() {
       : board?.my_sun_run ?? board?.my_sat_run ?? null;
 
   const previewQuery = useQuery({
-    queryKey: ['expedition-preview', activeSiteId, [...selectedCharacterIds].sort((a, b) => a - b).join(',')],
+    queryKey: ['expedition-preview', 'counter-v2', activeSiteId, [...selectedCharacterIds].sort((a, b) => a - b).join(',')],
     queryFn: async () => {
       const result = await expeditionRpc.preview(
         supabase,
@@ -274,18 +284,40 @@ export default function ExpeditionChroniclePanel() {
   };
 
   const openBoxItem = async (itemId: number) => {
+    if (boxOpeningActive.current) return;
+    const box = boxInventoryQuery.data?.boxes.find((entry) => entry.item_id === itemId);
+    if (!box || box.available_quantity < 1) return;
+    boxOpeningActive.current = true;
+    setBoxOpeningPopup({ itemId, tier: box.tier, result: null, error: null });
     setBusyAction(`box-item-${itemId}`);
     setNotice(null);
-    const result = await expeditionRpc.openBox(supabase, itemId, newRequestId());
-    setBusyAction(null);
-    if (result.success === false) {
-      setNotice(toStudentError(result.error));
-      return;
+    try {
+      const result = await expeditionRpc.openBox(supabase, itemId, newRequestId());
+      if (result.success === false) {
+        setBoxOpeningPopup((current) => current && ({ ...current, error: toStudentError(result.error) }));
+        return;
+      }
+      setBoxOpeningPopup((current) => current && ({ ...current, tier: result.data.box_tier, result: result.data }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '상자 개봉 결과를 확인하지 못했습니다.';
+      setBoxOpeningPopup((current) => current && ({ ...current, error: toStudentError(message) }));
+    } finally {
+      setBusyAction(null);
+      void refreshExpedition();
     }
-    setBoxResults((current) => ({ ...current, [itemId]: result.data }));
-    setBoxOpeningPopup(result.data);
-    setNotice(`상자를 열었습니다: ${result.data.final_reward_label}`);
-    await refreshExpedition();
+  };
+
+  const closeBoxOpening = () => {
+    if (!boxOpeningPopup || (!boxOpeningPopup.result && !boxOpeningPopup.error)) return;
+    const { itemId, result, error } = boxOpeningPopup;
+    if (result) {
+      setBoxResults((current) => ({ ...current, [itemId]: result }));
+      setNotice(`상자를 열었습니다: ${result.final_reward_label}`);
+    } else {
+      setNotice(error);
+    }
+    setBoxOpeningPopup(null);
+    boxOpeningActive.current = false;
   };
 
   const restoreCharacter = async (characterId: number) => {
@@ -554,7 +586,7 @@ export default function ExpeditionChroniclePanel() {
       <ExpeditionBoxInventorySection
         inventory={boxInventoryQuery.data ?? null}
         loading={boxInventoryQuery.isLoading}
-        busyAction={busyAction}
+        busyAction={boxOpeningPopup ? 'box-opening' : busyAction}
         results={boxResults}
         onOpen={openBoxItem}
       />
@@ -584,9 +616,12 @@ export default function ExpeditionChroniclePanel() {
       )}
 
       {boxOpeningPopup && (
-        <BoxOpeningResultModal
-          result={boxOpeningPopup}
-          onClose={() => setBoxOpeningPopup(null)}
+        <ExpeditionBoxOpeningModal
+          key={boxOpeningPopup.itemId}
+          tier={boxOpeningPopup.tier}
+          result={boxOpeningPopup.result}
+          error={boxOpeningPopup.error}
+          onClose={closeBoxOpening}
         />
       )}
 
@@ -791,6 +826,9 @@ function SiteCard({
           <ElementChip code={site.major_element} strong />
           <ElementChip code={site.minor_element} />
         </div>
+        <div className="mt-2 text-xs font-bold leading-relaxed text-[#FFF7ED]">
+          유리한 편린 속성: {ELEMENT_META[getExpeditionCounterElement(site.major_element)].label} (주) · {ELEMENT_META[getExpeditionCounterElement(site.minor_element)].label} (부)
+        </div>
                 {/* PATCH: EXPEDITION_CARD_REWARD_EFFECT_V3 */}
         <div className="mt-3 overflow-hidden rounded-card-md border border-white/10 bg-white/[0.04]">
           <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-3 py-2.5">
@@ -945,6 +983,9 @@ function PreviewCard({
         <span>·</span>
         <span className="whitespace-nowrap">부속성: {ELEMENT_META[preview.minor_element as ExpeditionElementCode]?.label}</span>
       </div>
+      <p className="mt-2 text-xs font-bold text-[#FFF7ED]">
+        탐사지에 유리한 속성으로 계산 · {ELEMENT_META[getExpeditionCounterElement(site.major_element)].label} 70% / {ELEMENT_META[getExpeditionCounterElement(site.minor_element)].label} 30% · 특기 보너스 최대 +10
+      </p>
     </div>
   );
 }
@@ -1305,7 +1346,7 @@ function ExpeditionBoxInventorySection({
               </div>
               <button
                 type="button"
-                disabled={busyAction === `box-item-${box.item_id}`}
+                disabled={busyAction?.startsWith('box-item-') || busyAction === 'box-opening'}
                 onClick={() => void onOpen(box.item_id)}
                 className="mt-3 w-full rounded-pill border border-gold/40 bg-gold/10 px-3 py-2.5 text-sm font-black text-gold disabled:opacity-45"
               >
@@ -1475,80 +1516,6 @@ function RestoreRevealModal({
             </div>
           </>
         )}
-      </div>
-    </div>
-  );
-}
-
-function BoxOpeningResultModal({
-  result,
-  onClose,
-}: {
-  result: ExpeditionBoxOpenResult;
-  onClose: () => void;
-}) {
-  const chestAsset = getExpeditionRewardChestAsset(result.box_tier);
-  const tierAsset = getExpeditionRewardTierAsset(result.box_tier);
-  const tierLabel = result.box_tier === 'RARE'
-    ? '희귀'
-    : result.box_tier === 'INTERMEDIATE'
-      ? '중급'
-      : '일반';
-
-  return (
-    <div
-      className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md overflow-hidden rounded-card-xl border border-gold/45 bg-[#100C18] shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="border-b border-white/10 bg-gradient-to-r from-gold/15 via-brand-primary/10 to-transparent px-5 py-4 text-center">
-          <div className="text-[13px] font-black uppercase tracking-[0.16em] text-[#FFD58A]">
-            {tierLabel} 원정 상자 개봉
-          </div>
-          <div className="mt-3 flex items-center justify-center gap-3">
-            {chestAsset && (
-              <img
-                src={chestAsset}
-                alt=""
-                className="h-20 w-20 object-contain drop-shadow-[0_8px_24px_rgba(255,198,77,0.25)]"
-                decoding="async"
-              />
-            )}
-            {tierAsset && (
-              <img
-                src={tierAsset}
-                alt=""
-                className="h-12 w-12 object-contain"
-                decoding="async"
-              />
-            )}
-          </div>
-        </div>
-
-        <div className="px-5 py-6 text-center">
-          <div className="text-sm font-black text-[#FFF7ED]">획득 보상</div>
-          <div className="mt-2 break-keep font-display text-2xl font-black text-white">
-            {result.final_reward_label}
-          </div>
-          {result.cosmetic_fallback_crystal && (
-            <div className="mx-auto mt-4 max-w-sm rounded-card-md border border-crystal/30 bg-crystal/10 px-3 py-2 text-sm font-bold text-[#E8FBFF]">
-              획득 가능한 꾸미기 아이템을 모두 보유해 CRYSTAL 보상으로 전환되었습니다.
-            </div>
-          )}
-        </div>
-
-        <div className="border-t border-white/10 bg-black/15 p-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-card-lg border border-gold/45 bg-gold/15 px-4 py-3 text-base font-black text-[#FFF7ED] transition hover:bg-gold/25"
-          >
-            확인
-          </button>
-        </div>
       </div>
     </div>
   );

@@ -1,0 +1,172 @@
+.expedition-chest-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1750;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(3, 3, 12, .88);
+  backdrop-filter: blur(10px);
+  animation: expedition-chest-overlay-in 180ms ease-out both;
+}
+
+.expedition-chest-dialog {
+  position: relative;
+  width: min(100%, 460px);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  border: 1px solid rgba(var(--chest-glow), .5);
+  border-radius: 24px;
+  background: radial-gradient(ellipse at 50% 30%, rgba(var(--chest-glow), .13), transparent 62%), #0d0b17;
+  color: #fff7ed;
+  box-shadow: 0 24px 100px #000a, 0 0 60px rgba(var(--chest-glow), .12);
+  outline: none;
+}
+
+.expedition-chest-heading { padding: 26px 24px 0; text-align: center; }
+.expedition-chest-eyebrow { color: var(--chest-accent); font-size: 12px; font-weight: 900; letter-spacing: .16em; }
+.expedition-chest-heading h2 { margin-top: 7px; font-size: 24px; font-weight: 900; }
+.expedition-chest-stage { position: relative; display: grid; place-items: center; height: 240px; overflow: hidden; isolation: isolate; }
+.expedition-chest-aura {
+  position: absolute;
+  width: 210px;
+  height: 170px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(var(--chest-glow), .3), transparent 70%);
+  animation: expedition-chest-breathe 1.2s ease-in-out infinite alternate;
+}
+.expedition-chest-ring {
+  position: absolute;
+  width: 205px;
+  height: 205px;
+  border: 1px solid rgba(var(--chest-glow), .35);
+  border-radius: 50%;
+}
+.expedition-chest-ring-outer { border-style: dashed; animation: expedition-chest-orbit 18s linear infinite; }
+.expedition-chest-ring-inner { width: 165px; height: 165px; border-color: rgba(var(--chest-glow), .15); animation: expedition-chest-orbit 12s linear infinite reverse; }
+.expedition-chest-image {
+  position: relative;
+  z-index: 2;
+  width: 170px;
+  height: 170px;
+  object-fit: contain;
+  filter: drop-shadow(0 12px 24px rgba(var(--chest-glow), .35));
+  animation: expedition-chest-shake .72s ease-in-out infinite;
+}
+.expedition-chest-dialog[data-tier="RARE"] .expedition-chest-image { animation-duration: .55s; }
+.expedition-chest-rays { position: absolute; inset: 0; opacity: .35; }
+.expedition-chest-rays span {
+  position: absolute;
+  left: calc(50% - 1px);
+  top: 50%;
+  width: 2px;
+  height: 105px;
+  transform-origin: 50% 0;
+  transform: rotate(calc(var(--ray) * 30deg));
+  background: linear-gradient(var(--chest-accent), transparent);
+}
+.expedition-chest-bloom {
+  position: absolute;
+  z-index: 3;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  background: radial-gradient(circle, #fff9dc 0%, rgba(var(--chest-glow), .75) 18%, transparent 67%);
+}
+.expedition-chest-particles { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.expedition-chest-particles span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--chest-accent);
+  opacity: 0;
+  transform: rotate(calc(var(--particle) * 45deg)) translateY(-72px);
+}
+.expedition-chest-dialog[data-phase="BURST"] .expedition-chest-image { animation: expedition-chest-open .5s ease-in forwards; }
+.expedition-chest-dialog[data-phase="BURST"] .expedition-chest-bloom { animation: expedition-chest-burst .65s ease-out both; }
+.expedition-chest-dialog[data-phase="BURST"] .expedition-chest-ring { animation: expedition-chest-ring-expand .6s ease-out both; }
+.expedition-chest-dialog[data-phase="BURST"] .expedition-chest-particles span,
+.expedition-chest-dialog[data-phase="REVEALED"] .expedition-chest-particles span { animation: expedition-chest-particle 1.1s ease-out both; }
+.expedition-chest-dialog[data-phase="REVEALED"] .expedition-chest-rays { opacity: .25; }
+.expedition-chest-dialog[data-phase="REVEALED"] .expedition-chest-ring { animation-play-state: paused; opacity: .3; }
+.expedition-chest-dialog[data-phase="ERROR"] .expedition-chest-stage { height: 180px; opacity: .55; }
+.expedition-chest-dialog[data-phase="ERROR"] .expedition-chest-image,
+.expedition-chest-dialog[data-phase="ERROR"] .expedition-chest-aura,
+.expedition-chest-dialog[data-phase="ERROR"] .expedition-chest-ring { animation: none; }
+.expedition-chest-reward-emblem {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: 132px;
+  height: 132px;
+  border: 1px solid rgba(var(--chest-glow), .65);
+  border-radius: 32px;
+  background: linear-gradient(145deg, rgba(var(--chest-glow), .2), #141020);
+  box-shadow: 0 0 48px rgba(var(--chest-glow), .25), inset 0 0 25px rgba(var(--chest-glow), .1);
+  animation: expedition-chest-reward-in .6s cubic-bezier(.16, 1, .3, 1) both;
+}
+.expedition-chest-reward-emblem > span { font-size: 64px; font-weight: 900; color: var(--chest-accent); }
+.expedition-chest-reward-emblem > img { position: absolute; right: -13px; bottom: -13px; width: 48px; height: 48px; object-fit: contain; }
+.expedition-chest-reward-emblem[data-preview="background"],
+.expedition-chest-reward-emblem[data-preview="font"] { width: min(280px, calc(100% - 64px)); height: 165px; border-radius: 18px; }
+.expedition-chest-cosmetic-preview { width: 100%; height: 100%; overflow: hidden; border-radius: 17px; }
+.expedition-chest-cosmetic-preview img { width: 100%; height: 100%; object-fit: cover; }
+.expedition-chest-font-preview { padding: 16px; font-size: 22px; color: #fff7ed; text-align: center; word-break: keep-all; }
+.expedition-chest-content { min-height: 122px; padding: 0 24px 20px; text-align: center; }
+.expedition-chest-content h3 { margin: 8px 0 10px; font-size: 20px; font-weight: 900; line-height: 1.45; word-break: keep-all; overflow-wrap: anywhere; }
+.expedition-chest-content p { margin-top: 8px; color: #f4e7d4; font-size: 13px; font-weight: 600; line-height: 1.6; word-break: keep-all; }
+.expedition-chest-content .expedition-chest-error { color: #ffc1bd; }
+.expedition-chest-reward-copy { animation: expedition-chest-copy-in .45s .1s ease-out both; }
+.expedition-chest-reward-copy h3 { font-size: 26px; }
+.expedition-chest-footer { padding: 16px 24px 22px; border-top: 1px solid #ffffff12; text-align: center; }
+.expedition-chest-confirm,
+.expedition-chest-skip {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 14px;
+  padding: 11px 16px;
+  color: #fff7ed;
+  font-size: 14px;
+  font-weight: 900;
+}
+.expedition-chest-confirm { border: 1px solid rgba(var(--chest-glow), .5); background: rgba(var(--chest-glow), .15); }
+.expedition-chest-confirm:hover { background: rgba(var(--chest-glow), .24); }
+.expedition-chest-skip { border: 1px solid #ffffff20; background: #ffffff06; }
+.expedition-chest-skip:disabled { opacity: .4; cursor: wait; }
+.expedition-chest-confirm:focus-visible,
+.expedition-chest-skip:focus-visible { outline: 2px solid var(--chest-accent); outline-offset: 3px; }
+
+@keyframes expedition-chest-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes expedition-chest-breathe { from { transform: scale(.85); opacity: .5; } to { transform: scale(1.15); opacity: 1; } }
+@keyframes expedition-chest-orbit { to { transform: rotate(360deg); } }
+@keyframes expedition-chest-shake {
+  0%, 100% { transform: translateY(2px) rotate(0); }
+  20% { transform: translateY(-3px) rotate(-3deg); }
+  45% { transform: translateY(-5px) rotate(3deg); }
+  70% { transform: translateY(-2px) rotate(-2deg); }
+}
+@keyframes expedition-chest-open { 0% { transform: scale(1); opacity: 1; } 35% { transform: scale(1.12) translateY(-8px); opacity: 1; } 100% { transform: scale(.65); opacity: 0; } }
+@keyframes expedition-chest-burst { 0% { transform: scale(.2); opacity: 0; } 45% { transform: scale(1.15); opacity: .72; } 100% { transform: scale(1.9); opacity: 0; } }
+@keyframes expedition-chest-ring-expand { to { transform: scale(1.45); opacity: 0; } }
+@keyframes expedition-chest-particle { 0% { opacity: 0; transform: rotate(calc(var(--particle) * 45deg)) translateY(-45px); } 25% { opacity: .85; } 100% { opacity: 0; transform: rotate(calc(var(--particle) * 45deg)) translateY(-120px); } }
+@keyframes expedition-chest-reward-in { from { transform: translateY(18px) scale(.7); opacity: 0; } to { transform: translateY(0) scale(1); opacity: 1; } }
+@keyframes expedition-chest-copy-in { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+@media (max-height: 650px) {
+  .expedition-chest-heading { padding-top: 18px; }
+  .expedition-chest-stage { height: 190px; }
+  .expedition-chest-content { min-height: 100px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .expedition-chest-overlay,
+  .expedition-chest-dialog * { animation: none !important; }
+  .expedition-chest-bloom,
+  .expedition-chest-particles { display: none; }
+}

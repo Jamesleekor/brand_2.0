@@ -192,6 +192,9 @@ export interface ExpeditionBoard {
 
 export interface ExpeditionPreview {
   fit_formula_version: string;
+  element_match_rule?: 'COUNTER_ELEMENT' | 'SAME_ELEMENT';
+  major_counter_element?: ExpeditionElementCode;
+  minor_counter_element?: ExpeditionElementCode;
   week_id: number;
   week_site_id: number;
   phase: 'SAT' | 'SUN';
