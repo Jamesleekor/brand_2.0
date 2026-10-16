@@ -1,0 +1,118 @@
+[
+  {
+    "partyName": "earth_team",
+    "site": {
+      "major_element": "WATER",
+      "minor_element": "FIRE",
+      "specialty_code": "SANCTUARY"
+    },
+    "party": [
+      {
+        "slot": 1,
+        "character_id": 1,
+        "major_points": 6,
+        "minor_points": 2,
+        "character_uid": "CHAR-001",
+        "character_name": "고양이 마스코트",
+        "element_budget": 8,
+        "primary_points": 6,
+        "specialty_code": "NATURE",
+        "primary_element": "EARTH",
+        "secondary_points": 2,
+        "secondary_element": "WATER",
+        "specialty_matched": false
+      },
+      {
+        "slot": 2,
+        "character_id": 2,
+        "major_points": 6,
+        "minor_points": 2,
+        "character_uid": "CHAR-002",
+        "character_name": "여우 탐정",
+        "element_budget": 8,
+        "primary_points": 6,
+        "specialty_code": "RUINS",
+        "primary_element": "EARTH",
+        "secondary_points": 2,
+        "secondary_element": "WATER",
+        "specialty_matched": false
+      },
+      {
+        "slot": 3,
+        "character_id": 54,
+        "major_points": 7,
+        "minor_points": 3,
+        "character_uid": "CHAR-051",
+        "character_name": "네리아",
+        "element_budget": 10,
+        "primary_points": 7,
+        "specialty_code": "RUINS",
+        "primary_element": "EARTH",
+        "secondary_points": 3,
+        "secondary_element": "WATER",
+        "specialty_matched": false
+      }
+    ],
+    "expectedFit": 110,
+    "expectedGrade": "STRONG",
+    "expectedTrace": 3
+  },
+  {
+    "partyName": "water_team",
+    "site": {
+      "major_element": "WATER",
+      "minor_element": "FIRE",
+      "specialty_code": "SANCTUARY"
+    },
+    "party": [
+      {
+        "slot": 1,
+        "character_id": 12,
+        "major_points": 0,
+        "minor_points": 7,
+        "character_uid": "CHAR-012",
+        "character_name": "루미",
+        "element_budget": 8,
+        "primary_points": 7,
+        "specialty_code": "NATURE",
+        "primary_element": "WATER",
+        "secondary_points": 1,
+        "secondary_element": "WIND",
+        "specialty_matched": false
+      },
+      {
+        "slot": 2,
+        "character_id": 13,
+        "major_points": 0,
+        "minor_points": 8,
+        "character_uid": "CHAR-013",
+        "character_name": "아르테미아",
+        "element_budget": 8,
+        "primary_points": 8,
+        "specialty_code": "NATURE",
+        "primary_element": "WATER",
+        "secondary_points": 0,
+        "secondary_element": null,
+        "specialty_matched": false
+      },
+      {
+        "slot": 3,
+        "character_id": 18,
+        "major_points": 0,
+        "minor_points": 7,
+        "character_uid": "CHAR-018",
+        "character_name": "카일",
+        "element_budget": 8,
+        "primary_points": 7,
+        "specialty_code": "NATURE",
+        "primary_element": "WATER",
+        "secondary_points": 1,
+        "secondary_element": "WIND",
+        "specialty_matched": false
+      }
+    ],
+    "expectedFit": 36,
+    "expectedGrade": "NORMAL",
+    "expectedTrace": 1
+  }
+]

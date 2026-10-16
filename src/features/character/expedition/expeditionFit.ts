@@ -18,14 +18,30 @@ function elementPoints(character: ExpeditionCharacterBoardRow, element: Expediti
     + (character.secondary_element === element ? character.secondary_points : 0);
 }
 
+// 탐사지의 속성을 제압하는 편린 속성입니다: 지 > 수 > 화 > 풍 > 지, 광 ↔ 암.
+const COUNTER_ELEMENT: Record<ExpeditionElementCode, ExpeditionElementCode> = {
+  WATER: 'EARTH',
+  FIRE: 'WATER',
+  WIND: 'FIRE',
+  EARTH: 'WIND',
+  LIGHT: 'DARK',
+  DARK: 'LIGHT',
+};
+
+export function getExpeditionCounterElement(element: ExpeditionElementCode): ExpeditionElementCode {
+  return COUNTER_ELEMENT[element];
+}
+
 export function calculateExpeditionFitClient(
   site: ExpeditionSiteBoardRow,
   party: ExpeditionCharacterBoardRow[],
 ): ClientExpeditionFit | null {
   if (party.length !== 3 || new Set(party.map((x) => x.character_id)).size !== 3) return null;
 
-  const majorSum = party.reduce((sum, x) => sum + elementPoints(x, site.major_element), 0);
-  const minorSum = party.reduce((sum, x) => sum + elementPoints(x, site.minor_element), 0);
+  const majorCounter = getExpeditionCounterElement(site.major_element);
+  const minorCounter = getExpeditionCounterElement(site.minor_element);
+  const majorSum = party.reduce((sum, x) => sum + elementPoints(x, majorCounter), 0);
+  const minorSum = party.reduce((sum, x) => sum + elementPoints(x, minorCounter), 0);
   const specialtyMatchCount = party.filter((x) => x.specialty_code === site.specialty_code).length;
   const fitPercent = Math.round(
     70 * Math.min(majorSum / 14, 1.2)

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LoadingSpinner } from '@/components/shared/components';
 import { LuxuryShopSectionV2 } from './expedition/LuxuryShopSectionV2';
 import { CompactChronicleSection } from './expedition/CompactChronicleSection';
+import { getExpeditionCounterElement } from './expedition/expeditionFit';
 import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -190,7 +191,7 @@ export default function ExpeditionChroniclePanel() {
       : board?.my_sun_run ?? board?.my_sat_run ?? null;
 
   const previewQuery = useQuery({
-    queryKey: ['expedition-preview', activeSiteId, [...selectedCharacterIds].sort((a, b) => a - b).join(',')],
+    queryKey: ['expedition-preview', 'counter-v2', activeSiteId, [...selectedCharacterIds].sort((a, b) => a - b).join(',')],
     queryFn: async () => {
       const result = await expeditionRpc.preview(
         supabase,
@@ -791,6 +792,9 @@ function SiteCard({
           <ElementChip code={site.major_element} strong />
           <ElementChip code={site.minor_element} />
         </div>
+        <div className="mt-2 text-xs font-bold leading-relaxed text-[#FFF7ED]">
+          유리한 편린 속성: {ELEMENT_META[getExpeditionCounterElement(site.major_element)].label} (주) · {ELEMENT_META[getExpeditionCounterElement(site.minor_element)].label} (부)
+        </div>
                 {/* PATCH: EXPEDITION_CARD_REWARD_EFFECT_V3 */}
         <div className="mt-3 overflow-hidden rounded-card-md border border-white/10 bg-white/[0.04]">
           <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-3 py-2.5">
@@ -945,6 +949,9 @@ function PreviewCard({
         <span>·</span>
         <span className="whitespace-nowrap">부속성: {ELEMENT_META[preview.minor_element as ExpeditionElementCode]?.label}</span>
       </div>
+      <p className="mt-2 text-xs font-bold text-[#FFF7ED]">
+        탐사지에 유리한 속성으로 계산 · {ELEMENT_META[getExpeditionCounterElement(site.major_element)].label} 70% / {ELEMENT_META[getExpeditionCounterElement(site.minor_element)].label} 30% · 특기 보너스 최대 +10
+      </p>
     </div>
   );
 }
