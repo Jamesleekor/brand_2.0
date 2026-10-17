@@ -110,7 +110,7 @@ export function DimensionalGateProgressAdminPanel({ classroomId }: { classroomId
   }
 
   if (board.characters.length === 0) {
-    return <EmptyState icon="🌀" title="활성 차원관문 캐릭터가 없습니다" description="관문 콘텐츠에서 캐릭터를 활성화하면 진행 현황이 표시됩니다." />;
+    return <EmptyState emoji="🌀" title="활성 차원관문 캐릭터가 없습니다" description="관문 콘텐츠에서 캐릭터를 활성화하면 진행 현황이 표시됩니다." />;
   }
 
   return (
@@ -289,7 +289,7 @@ function ProgressCell({
       onClick={onClick}
       className={cn(
         'min-h-[76px] w-full rounded-card-md border px-3 py-2.5 text-left transition-all hover:-translate-y-0.5 hover:border-violet-300/35',
-        status === 'COMPLETE' && 'border-violet-300/25 bg-violet-500/8',
+        status === 'COMPLETE' && 'border-violet-300/25 bg-violet-500/10',
         status === 'IN_PROGRESS' && 'border-sky-300/20 bg-sky-500/5',
         status === 'NOT_STARTED' && 'border-line bg-bg-deep/55',
       )}
