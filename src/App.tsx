@@ -247,7 +247,7 @@ export default function App() {
         <Route path="/teacher/characters" element={<CharacterAdmin />} />
         <Route path="/teacher/expedition" element={<ExpeditionAdminPage />} />
         <Route path="/teacher/cosmetics" element={<CosmeticAdmin />} />
-        <Route path="/teacher/dimensional-gate" element={<CharacterAdmin initialTab="GATE_CONTENT" />} />
+        <Route path="/teacher/dimensional-gate" element={<CharacterAdmin scope="GATE" />} />
         <Route path="/teacher/character-stats" element={<CharacterRaidStatsAdmin />} />
         <Route path="/teacher/market" element={<MarketInventoryAdmin />} />
         <Route path="/teacher/bank" element={<SavingsBankAdmin />} />
