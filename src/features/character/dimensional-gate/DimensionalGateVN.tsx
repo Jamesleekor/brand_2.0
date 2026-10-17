@@ -44,6 +44,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   const sfxRef = useRef<HTMLAudioElement | null>(null);
   const sfxSourceRef = useRef<string | null>(null);
   const startedRef = useRef(false);
+  const lastProgressSavedRef = useRef(0);
 
   // DG_VN_FULLSCREEN_AUDIO_FIX_V1
   // Rendered through document.body below, so ancestor transforms/stacking contexts
@@ -109,6 +110,17 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
   useEffect(() => {
     if (current) setQaCutOrder(String(current.cut_order));
   }, [current?.cut_order]);
+
+  useEffect(() => {
+    if (previewMode || !script || !current) return;
+    const order = current.cut_order;
+    if (order <= lastProgressSavedRef.current) return;
+    const finalOrder = cuts[cuts.length - 1]?.cut_order ?? order;
+    const shouldSave = order === 1 || order === finalOrder || order - lastProgressSavedRef.current >= 5;
+    if (!shouldSave) return;
+    lastProgressSavedRef.current = order;
+    void dimensionalGateRpc.saveStoryProgress(supabase, script.episode_id, order);
+  }, [current?.cut_order, cuts, previewMode, script]);
 
   useEffect(() => {
     if (!current) return;
