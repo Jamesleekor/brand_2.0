@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils/cn';
 import { bakeryI2Rpc } from '@/lib/rpc/bakery_i2_rpc';
 import { economyGuardRpc } from '@/lib/rpc/economy_guard_rpc';
 import { supabase } from '@/lib/supabase/client';
+import { useToolboxBadgeCount } from '@/features/toolbox/ToolboxMenuBadge';
 
 // =====================================================================
 // UtilityRow — 출석·우편함·알림·설정
@@ -137,9 +138,17 @@ export function TopMenuRow({ guildAlertCount = 0 }: TopMenuRowProps) {
       <EconomyGuardMenuPill />
       <MenuPill to="/rankings" icon="📊" label="랭킹" />
       <MenuPill to="/assignments" icon="📝" label="과제" />
+      <ToolboxMenuPill />
       <MenuPill to="/records" icon="🏛️" label="기록실" />
     </div>
   );
+}
+
+
+// 모험가 도구함 — '과제'와 '기록실' 사이. 열린 학급 활동이 있으면 배지를 단다.
+function ToolboxMenuPill() {
+  const count = useToolboxBadgeCount();
+  return <MenuPill to="/toolbox" icon="🧰" label="모험가 도구함" badge={count} />;
 }
 
 

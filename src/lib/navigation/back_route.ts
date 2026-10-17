@@ -2,12 +2,12 @@
 export function getAppBackRoute(pathname: string): string {
   const path = pathname.replace(/\/+$/, '') || '/';
   if (path.startsWith('/teacher/')) {
-    for (const parent of ['/teacher/secondary-jobs', '/teacher/control', '/teacher/auction', '/teacher/guild', '/teacher/raid']) {
+    for (const parent of ['/teacher/secondary-jobs', '/teacher/control', '/teacher/auction', '/teacher/guild', '/teacher/raid', '/teacher/toolbox']) {
       if (path.startsWith(`${parent}/`)) return parent;
     }
     return '/teacher';
   }
-  for (const parent of ['/guild', '/achievement', '/raid']) {
+  for (const parent of ['/guild', '/achievement', '/raid', '/toolbox']) {
     if (path.startsWith(`${parent}/`)) return parent;
   }
   return '/home';

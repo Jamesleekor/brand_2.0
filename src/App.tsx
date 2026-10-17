@@ -77,6 +77,11 @@ import TestClassroomFixturePage from '@/features/teacher/TestClassroomFixturePag
 import NewbieSupportPage from '@/features/newbie/NewbieSupportPage';
 import NewbieSupportAdmin from '@/features/teacher/NewbieSupportAdmin';
 import { ProtectedRoute, AppShell } from '@/components/layout/AppShell';
+import { Suspense } from 'react';
+import {
+  StudentToolboxHome, StudentPersonalToolPage, StudentActivityPage, TeacherToolboxHub,
+  TeacherPersonalToolPage, CreateActivityPage, ActivityConsolePage, ToolboxBroadcastPage,
+} from '@/features/toolbox';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 
 // =====================================================================
@@ -216,6 +221,10 @@ export default function App() {
         <Route path="/mail" element={<AppShell><CommunicationPage /></AppShell>} />
         <Route path="/assignments" element={<AppShell><AssignmentsPage /></AppShell>} />
         <Route path="/records" element={<AppShell><RecordsPage /></AppShell>} />
+        {/* 모험가 도구함 */}
+        <Route path="/toolbox" element={<AppShell hideBottomNav><Suspense fallback={null}><StudentToolboxHome /></Suspense></AppShell>} />
+        <Route path="/toolbox/tool/:tool" element={<AppShell hideBottomNav><Suspense fallback={null}><StudentPersonalToolPage /></Suspense></AppShell>} />
+        <Route path="/toolbox/live/:id" element={<AppShell hideBottomNav><Suspense fallback={null}><StudentActivityPage /></Suspense></AppShell>} />
         <Route path="/guard" element={<AppShell hideBottomNav><EconomyGuardPage /></AppShell>} />
         <Route 
           path="/settings" 
@@ -282,6 +291,11 @@ export default function App() {
         <Route path="/teacher/learning" element={<LearningAdmin />} />
         <Route path="/teacher/records" element={<RecordsAdmin />} />
         <Route path="/teacher/test-fixture" element={<TestClassroomFixturePage />} />
+        <Route path="/teacher/toolbox" element={<Suspense fallback={null}><TeacherToolboxHub /></Suspense>} />
+        <Route path="/teacher/toolbox/tool/:tool" element={<Suspense fallback={null}><TeacherPersonalToolPage /></Suspense>} />
+        <Route path="/teacher/toolbox/new/:kind" element={<Suspense fallback={null}><CreateActivityPage /></Suspense>} />
+        <Route path="/teacher/toolbox/activity/:id" element={<Suspense fallback={null}><ActivityConsolePage /></Suspense>} />
+        <Route path="/teacher/toolbox/screen/:id" element={<Suspense fallback={null}><ToolboxBroadcastPage /></Suspense>} />
       </Route>
       
       {/* 404 */}

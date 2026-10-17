@@ -89,3 +89,7 @@ Repo authoritative source:
 ## 11. 편린 원정 명품관 명예 테두리 (2026-10-09, 소스 작업 중)
 
 원정 연대기 하단 명품관에 시안 미리보기, 보유 테두리 장착/해제, 판매 상품 구매 UI를 연결했다. 친구·길드·랭킹·레이드 로비·교사용 레이드 중계 카드에는 공통 명예 테두리 표시 컴포넌트를 연결했다. 장착은 기존 `student_set_cosmetic_selection` RPC, 조회는 학급 범위 RLS가 적용된 기존 cosmetic 테이블을 사용한다. **운영 카탈로그는 비어 있고 실제 투명 테두리 자산도 아직 등록되지 않았다. GitHub 반영, 사용자 로컬 build, 로그인 E2E는 미완료.** 등록 규칙과 화면 검증은 `docs/PRESTIGE_BORDER_INTEGRATION_2026-10-09.md`를 따른다.
+
+## 12. 모험가 도구함 v1 (2026-10-17, 소스·SQL 준비)
+
+학생 개인 도구 6종(제비뽑기·사다리·룰렛·순서·타이머·팀 만들기)과 학급 활동 5종(버저·점수판·대진표·투표·카드 구름)을 추가했다. 새 표 8개와 `brand_toolbox` 내부 스키마, 공개 RPC 19개는 `supabase/migrations/20261017_03_adventurer_toolbox.sql`에 있다. 실시간은 `toolbox_pulse` 한 표만 Realtime에 넣는 신호 방식이며 경매·레이드 경로와 섞지 않는다. 기존 표는 읽기만 한다. **운영 DB 미적용, 사용자 로컬 build·로그인 E2E·LOADTEST 실측 미완료.** 적용 순서와 확인표: `docs/ADVENTURER_TOOLBOX_2026-10-17.md`.

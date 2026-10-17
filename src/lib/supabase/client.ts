@@ -39,6 +39,8 @@ function isCriticalRestRequest(url: string): boolean {
     '/rest/v1/rpc/submit_raid_tap_batch',
     '/rest/v1/rpc/raid_combat_tick',
     '/rest/v1/rpc/place_live_auction_bid',
+    // ADVENTURER_TOOLBOX_V1: 버저 입력은 순서가 생명이라 일반 대기열 뒤에 서지 않는다.
+    '/rest/v1/rpc/student_toolbox_buzz',
     '/rest/v1/rpc/teacher_start_live_auction',
     '/rest/v1/rpc/teacher_start_live_auction_item',
     '/rest/v1/rpc/teacher_pause_live_auction_item',

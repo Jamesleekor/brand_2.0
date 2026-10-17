@@ -39,3 +39,7 @@ _patch_backups_*/
 # OS/editor noise
 .DS_Store
 Thumbs.db
+
+# Adventurer toolbox load tester (credentials/results never commit)
+tools/toolbox-load-tester/TOOLBOX_LOAD_TEST_CREDENTIALS.csv
+tools/toolbox-load-tester/results/

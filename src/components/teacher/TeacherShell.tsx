@@ -65,6 +65,7 @@ const NAV_GROUPS: readonly TeacherNavGroup[] = [
       { to: '/teacher/expedition', icon: '🧭', label: '편린 원정' },
       { to: '/teacher/dimensional-gate', icon: '🌀', label: '차원관문' },
       { to: '/teacher/operations', icon: '🚨', label: '이벤트' },
+      { to: '/teacher/toolbox', icon: '🧰', label: '모험가 도구함' },
     ],
   },
   {
