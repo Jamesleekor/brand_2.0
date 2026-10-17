@@ -1000,6 +1000,11 @@ function RunResultCard({
   onClaim: () => void;
 }) {
   const reward = run.reward;
+  const waitingForReward = reward?.can_claim_now === false &&
+    (!reward.claim_available_at || Date.now() < Date.parse(reward.claim_available_at));
+  const rewardAvailableLabel = reward?.claim_available_at
+    ? new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hourCycle: 'h23' }).format(new Date(reward.claim_available_at))
+    : '다음 날';
   const siteAsset = getExpeditionSiteAsset(run.site.site_code);
   const fitAsset = getExpeditionFitGradeAsset(run.fit_grade);
   const rewardTierAsset = reward ? getExpeditionRewardTierAsset(reward.reward_tier) : null;
@@ -1066,10 +1071,10 @@ function RunResultCard({
             <button
               type="button"
               onClick={onClaim}
-              disabled={busyAction === `claim-${run.run_id}`}
+              disabled={waitingForReward || busyAction === `claim-${run.run_id}`}
               className="mt-3 w-full rounded-pill border border-brand-primary/45 bg-brand-primary/20 px-3 py-2.5 text-sm font-black text-white disabled:opacity-45"
             >
-              {busyAction === `claim-${run.run_id}` ? '보상 처리 중...' : '보상 받기'}
+              {waitingForReward ? `${rewardAvailableLabel}부터 보상 수령 가능` : busyAction === `claim-${run.run_id}` ? '보상 처리 중...' : '보상 받기'}
             </button>
           )}
 
@@ -1767,6 +1772,7 @@ function toStudentError(message: string) {
   if (message.includes('EXPEDITION_FEATURE_DISABLED')) return '편린 원정은 현재 준비 중입니다.';
   if (message.includes('EXPEDITION_INSUFFICIENT_FRAGMENTS')) return '편린 조각이 부족합니다.';
   if (message.includes('EXPEDITION_CHARACTER_ALREADY_OWNED')) return '이미 보유한 편린입니다.';
+  if (message.includes('EXPEDITION_REWARD_NOT_READY')) return '원정 보상은 원정을 보낸 다음 날부터 받을 수 있습니다.';
   if (message.includes('EXPEDITION_LIVE_REWARD_GRANT_DISABLED')) return '현재 보상 지급이 잠겨 있습니다. 운영국에 알려주세요.';
   if (message.includes('Seasonal item not currently available') || message.includes('명품관 판매 기간')) return '현재 구매할 수 있는 기간이 아닙니다.';
   return message || '처리 중 문제가 발생했습니다. 잠시 뒤 다시 시도해주세요.';

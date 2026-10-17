@@ -91,6 +91,8 @@ export interface ExpeditionRewardResult {
   quantity: number;
   reward_label: string;
   claim_status: 'UNCLAIMED' | 'SIMULATED' | 'GRANTED' | string;
+  claim_available_at?: string | null;
+  can_claim_now?: boolean;
   claimed_at: string | null;
   asset_result: {
     item_id?: number;

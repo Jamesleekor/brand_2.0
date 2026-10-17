@@ -126,6 +126,12 @@ function CompactRunCard({
   onClaim: () => void;
 }) {
   const reward = run.reward;
+  const waitingForReward = reward?.can_claim_now === false &&
+    (!reward.claim_available_at || Date.now() < Date.parse(reward.claim_available_at));
+  const rewardAvailableLabel = reward?.claim_available_at
+    ? new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hourCycle: 'h23' }).format(new Date(reward.claim_available_at))
+    : '다음 날';
+
   const siteAsset = getExpeditionSiteAsset(run.site.site_code);
   const fitAsset = getExpeditionFitGradeAsset(run.fit_grade);
   const rewardAsset = reward?.reward_kind === 'EXPEDITION_BOX'
@@ -157,10 +163,10 @@ function CompactRunCard({
         <button
           type="button"
           onClick={onClaim}
-          disabled={busyAction === `claim-${run.run_id}`}
+          disabled={waitingForReward || busyAction === `claim-${run.run_id}`}
           className="mt-2 w-full rounded-full border border-brand-primary/45 bg-brand-primary/20 px-3 py-2 text-[12px] font-black text-white disabled:opacity-45"
         >
-          {busyAction === `claim-${run.run_id}` ? '처리 중…' : '보상 받기'}
+          {waitingForReward ? `${rewardAvailableLabel}부터 수령 가능` : busyAction === `claim-${run.run_id}` ? '처리 중…' : '보상 받기'}
         </button>
       ) : (
         <div className="mt-2 text-center text-[11px] font-black text-[#9DDDBD]">
