@@ -2,14 +2,14 @@
 // 가로줄 규칙상 출발점마다 도착점이 하나씩 정해진다(겹치는 도착점 없음).
 
 import { useMemo, useState } from 'react';
-import { Notice, randomInt } from '../ui';
-import { ParticipantSection, StageShell, ToolHeader, rememberRecent, useLocalState, useParticipants, useToolChrome, type PersonalToolProps } from './common';
+import { Modal, Notice, randomInt } from '../ui';
+import { DockChip, StageShell, ToolDock, ToolHeader, rememberRecent, useElementWidth, useLocalState, useParticipantEditor, useParticipants, useToolChrome, useViewportHeight, type PersonalToolProps } from './common';
 
 interface LadderSave { resultsText: string; rungs: boolean[][] | null; revealed: string[] }
 const INITIAL: LadderSave = { resultsText: '', rungs: null, revealed: [] };
 
-const COL_W = 76;
-const ROW_H = 24;
+/** 세로줄 사이 최소 간격. 이보다 좁아지면(휴대폰) 옆으로 밀어서 본다. */
+const MIN_COL = 40;
 
 function makeRungs(n: number): boolean[][] {
   const rows = Math.max(10, Math.min(28, n * 2 + 4));
@@ -64,8 +64,16 @@ export function LadderTool(props: PersonalToolProps) {
   };
   const revealAll = () => { setSave((s) => ({ ...s, revealed: p.units.map((u) => u.key) })); setActive(null); };
 
-  const width = Math.max(n, 1) * COL_W;
+  // 무대 폭을 재서 세로줄 간격을 정한다 → 24명도 한 화면에 모두 보인다.
+  const [measureRef, boxW] = useElementWidth<HTMLDivElement>();
+  const vh = useViewportHeight();
+  const [resultsOpen, setResultsOpen] = useState(false);
+  const COL_W = boxW > 0 ? Math.max(MIN_COL, Math.min(120, Math.floor(boxW / Math.max(n, 1)))) : 76;
+  const dense = COL_W < 60;
   const rows = save.rungs?.length ?? 10;
+  // 사다리 높이도 화면 높이에 맞춘다(머리말·이름줄·결과줄 몫을 빼고).
+  const ROW_H = Math.max(14, Math.min(26, Math.floor(((fs.on ? vh - 250 : vh - 520)) / (rows + 1.2))));
+  const width = Math.max(n, 1) * COL_W;
   const height = (rows + 1.2) * ROW_H;
   const x = (c: number) => c * COL_W + COL_W / 2;
   const y = (r: number) => (r + 0.6) * ROW_H;
@@ -73,90 +81,108 @@ export function LadderTool(props: PersonalToolProps) {
   const pathLen = (pts: [number, number][]) => pts.reduce((s, [c, r], i) => (i ? s + Math.abs(x(c) - x(pts[i - 1][0])) + Math.abs(y(r) - y(pts[i - 1][1])) : 0), 0);
   const activeIndex = p.units.findIndex((u) => u.key === active);
   const grid = { display: 'grid', gridTemplateColumns: `repeat(${Math.max(n, 1)}, ${COL_W}px)`, width } as const;
+  const cellPad = dense ? '0 2px' : '0 4px';
+  const editor = useParticipantEditor({ props, ...p, locked: started, onUnlock: () => setSave((s) => ({ ...s, rungs: null, revealed: [] })) });
+  const mismatch = n >= 2 && results.length !== n;
+  const fillNumbers = () => setSave((s) => ({ ...s, resultsText: Array.from({ length: n }, (_, i) => `${i + 1}번`).join('\n') }));
+  const fillOneWin = () => setSave((s) => ({ ...s, resultsText: ['당첨', ...Array.from({ length: n - 1 }, () => '꽝')].join('\n') }));
+
+  const dock = (
+    <ToolDock primary={!started
+      ? <button type="button" className="tbx-btn tbx-btn--brass tbx-btn--lg" disabled={n < 2 || results.length !== n} onClick={start}>사다리 만들기</button>
+      : <>
+          <button type="button" className="tbx-btn" onClick={revealAll} disabled={save.revealed.length === n}>모두 공개</button>
+          <button type="button" className="tbx-btn tbx-btn--ghost" onClick={() => setSave((s) => ({ ...s, rungs: null, revealed: [] }))}>새 사다리</button>
+        </>}>
+      {editor.chip}
+      <DockChip icon="🏁" label="아래 결과" value={`${results.length} / ${n}`} tone={mismatch ? 'ember' : undefined} disabled={started}
+        title={started ? '새 사다리를 누르면 결과를 바꿀 수 있어요' : '한 줄에 하나씩 적어요'} onClick={() => setResultsOpen(true)} />
+      {!started && mismatch && <span className="tbx-dock-warn">결과를 참가자 수({n})와 맞춰 주세요</span>}
+    </ToolDock>
+  );
 
   return (
     <div className="tbx tbx-page" data-reduce-motion={prefs.reduceMotion}>
       <ToolHeader tool="ladder" right={chrome} />
-      <div className="tbx-split">
-        <StageShell fs={fs} prefs={prefs} tall corner={fs.on ? <button className="tbx-btn tbx-btn--sm" onClick={() => void fs.toggle()}>전체 화면 끝내기</button> : undefined}>
-          {!started ? (
-            <div className="tbx-empty">
-              <p className="tbx-h2">{n >= 2 ? `${n}명의 사다리를 만들 수 있어요` : '참가자를 두 명 이상 넣어 주세요'}</p>
-              <p className="tbx-small" style={{ marginTop: 6 }}>결과도 참가자 수와 똑같이 적어야 해요.</p>
+      <StageShell fs={fs} prefs={prefs} fill dock={dock}>
+        {!started ? (
+          <div className="tbx-empty tbx-empty--stage">
+            <p className="tbx-stage-title">{n >= 2 ? `${n}명의 사다리를 만들 수 있어요` : '참가자를 두 명 이상 넣어 주세요'}</p>
+            <p className="tbx-small">결과도 참가자 수와 똑같이 적어야 해요. 지금 결과 {results.length}개.</p>
+            <div className="tbx-stage-actions">
+              {n < 2 && <button type="button" className="tbx-btn tbx-btn--lg" onClick={editor.open}>👥 참가자 고르기</button>}
+              {n >= 2 && <button type="button" className="tbx-btn tbx-btn--lg" onClick={fillNumbers}>1번부터 번호로 채우기</button>}
+              {n >= 2 && <button type="button" className="tbx-btn tbx-btn--lg" onClick={fillOneWin}>당첨 1 · 나머지 꽝</button>}
+              <button type="button" className="tbx-btn tbx-btn--lg" onClick={() => setResultsOpen(true)}>🏁 결과 직접 적기</button>
             </div>
-          ) : (
-            <div className="tbx-stack" style={{ width: '100%', gap: 12 }}>
-              <div className="tbx-row tbx-row--between">
-                <span className="tbx-h3">이름을 누르면 길을 따라 내려가요</span>
-                <span className="tbx-chip">{save.revealed.length} / {n}</span>
-              </div>
-              <div className="tbx-ladder">
-                <div style={{ width, margin: '0 auto' }}>
-                  <div style={{ ...grid, gap: 0 }}>
-                    {p.units.map((u) => (
-                      <div key={u.key} style={{ padding: '0 4px' }}>
-                        <button type="button" className="tbx-ladder__name" data-done={save.revealed.includes(u.key)} onClick={() => reveal(u.key)}>{u.label}</button>
+          </div>
+        ) : (
+          <div className="tbx-stack" style={{ width: '100%', gap: 10, alignSelf: 'flex-start' }}>
+            <div className="tbx-stage-head">
+              <span className="tbx-stage-title">이름을 누르면 길을 따라 내려가요</span>
+              <span className="tbx-chip">{save.revealed.length} / {n}</span>
+            </div>
+            <div className="tbx-ladder" ref={measureRef} data-dense={dense}>
+              <div className="tbx-ladder__inner" style={{ width }}>
+                <div style={{ ...grid, gap: 0 }}>
+                  {p.units.map((u) => (
+                    <div key={u.key} style={{ padding: cellPad }}>
+                      <button type="button" className="tbx-ladder__name" data-done={save.revealed.includes(u.key)} title={u.label} onClick={() => reveal(u.key)}>{u.label}</button>
+                    </div>
+                  ))}
+                </div>
+                <svg width={width} height={height} role="img" aria-label="사다리">
+                  {Array.from({ length: n }).map((_, c) => <line key={c} x1={x(c)} x2={x(c)} y1={y(-0.6)} y2={y(rows + 0.6)} stroke="rgba(244,236,221,.32)" strokeWidth="3" strokeLinecap="round" />)}
+                  {save.rungs!.map((row, r) => row.map((on, c) => on && (
+                    <line key={`${r}-${c}`} x1={x(c)} x2={x(c + 1)} y1={y(r + 0.5)} y2={y(r + 0.5)} stroke="rgba(244,236,221,.32)" strokeWidth="3" strokeLinecap="round" />
+                  )))}
+                  {paths.map((t, i) => {
+                    const key = p.units[i].key;
+                    if (!save.revealed.includes(key)) return null;
+                    const len = pathLen(t.pts);
+                    const isActive = i === activeIndex;
+                    return (
+                      <path key={key} d={pathD(t.pts)} fill="none" stroke={isActive ? '#f3d59a' : (p.units[i].color ?? 'rgba(228,188,114,.55)')}
+                        strokeWidth={isActive ? 5 : 3.5} strokeLinejoin="round" strokeLinecap="round"
+                        style={isActive && !prefs.reduceMotion ? { strokeDasharray: len, strokeDashoffset: len, animation: `tbx-draw ${Math.min(2.4, 0.6 + len / 900)}s ease-in-out forwards` } : undefined} />
+                    );
+                  })}
+                </svg>
+                <div style={{ ...grid, gap: 0 }}>
+                  {Array.from({ length: n }).map((_, c) => {
+                    const owner = endToUnit.get(c);
+                    const hit = owner !== undefined && save.revealed.includes(owner);
+                    const ownerLabel = hit ? p.units.find((u) => u.key === owner)?.label : undefined;
+                    return (
+                      <div key={c} style={{ padding: cellPad }}>
+                        <div className="tbx-ladder__result" data-hit={hit && owner === active} title={hit ? results[c] : undefined}>{hit ? results[c] : '?'}</div>
+                        {hit && <div className="tbx-ladder__owner" title={ownerLabel}>{ownerLabel}</div>}
                       </div>
-                    ))}
-                  </div>
-                  <svg width={width} height={height} role="img" aria-label="사다리">
-                    {Array.from({ length: n }).map((_, c) => <line key={c} x1={x(c)} x2={x(c)} y1={y(-0.6)} y2={y(rows + 0.6)} stroke="rgba(244,236,221,.32)" strokeWidth="3" strokeLinecap="round" />)}
-                    {save.rungs!.map((row, r) => row.map((on, c) => on && (
-                      <line key={`${r}-${c}`} x1={x(c)} x2={x(c + 1)} y1={y(r + 0.5)} y2={y(r + 0.5)} stroke="rgba(244,236,221,.32)" strokeWidth="3" strokeLinecap="round" />
-                    )))}
-                    {paths.map((t, i) => {
-                      const key = p.units[i].key;
-                      if (!save.revealed.includes(key)) return null;
-                      const len = pathLen(t.pts);
-                      const isActive = i === activeIndex;
-                      return (
-                        <path key={key} d={pathD(t.pts)} fill="none" stroke={isActive ? '#f3d59a' : (p.units[i].color ?? 'rgba(228,188,114,.55)')}
-                          strokeWidth={isActive ? 5 : 3.5} strokeLinejoin="round" strokeLinecap="round"
-                          style={isActive && !prefs.reduceMotion ? { strokeDasharray: len, strokeDashoffset: len, animation: `tbx-draw ${Math.min(2.4, 0.6 + len / 900)}s ease-in-out forwards` } : undefined} />
-                      );
-                    })}
-                  </svg>
-                  <div style={{ ...grid, gap: 0 }}>
-                    {Array.from({ length: n }).map((_, c) => {
-                      const owner = endToUnit.get(c);
-                      const hit = owner !== undefined && save.revealed.includes(owner);
-                      return (
-                        <div key={c} style={{ padding: '0 4px' }}>
-                          <div className="tbx-ladder__result" data-hit={hit && owner === active}>{hit ? results[c] : '?'}</div>
-                          {hit && <div className="tbx-small" style={{ textAlign: 'center', marginTop: 4, fontWeight: 800 }}>{p.units.find((u) => u.key === owner)?.label}</div>}
-                        </div>
-                      );
-                    })}
-                  </div>
+                    );
+                  })}
                 </div>
               </div>
-              <style>{'@keyframes tbx-draw { to { stroke-dashoffset: 0; } }'}</style>
+            </div>
+            <style>{'@keyframes tbx-draw { to { stroke-dashoffset: 0; } }'}</style>
+          </div>
+        )}
+      </StageShell>
+      {editor.modal}
+      <Modal open={resultsOpen} onClose={() => setResultsOpen(false)} title="아래 결과"
+        footer={<button type="button" className="tbx-btn tbx-btn--brass" onClick={() => setResultsOpen(false)}>완료</button>}>
+        <div className="tbx-stack">
+          <div className="tbx-row tbx-row--between"><span className="tbx-small">한 줄에 하나씩 적어요. 참가자 수와 같아야 해요.</span><span className="tbx-count">{results.length} / {n}</span></div>
+          <textarea className="tbx-textarea" style={{ minHeight: 220 }} disabled={started} placeholder={'한 줄에 하나씩 적어요\n예: 발표, 정리, 칠판'} value={save.resultsText}
+            onChange={(e) => setSave((s) => ({ ...s, resultsText: e.target.value }))} aria-label="결과 목록" />
+          {!started && n >= 2 && (
+            <div className="tbx-row tbx-row--wrap">
+              <button type="button" className="tbx-btn tbx-btn--sm" onClick={fillNumbers}>1번부터 번호로 채우기</button>
+              <button type="button" className="tbx-btn tbx-btn--sm" onClick={fillOneWin}>당첨 1 · 나머지 꽝</button>
             </div>
           )}
-        </StageShell>
-
-        <div className="tbx-stack tbx-stack--loose">
-          <ParticipantSection props={props} {...p} locked={started} onUnlock={() => setSave((s) => ({ ...s, rungs: null, revealed: [] }))} />
-          <section className="tbx-panel tbx-stack">
-            <div className="tbx-row tbx-row--between"><h2 className="tbx-h2">아래 결과</h2><span className="tbx-count">{results.length} / {n}</span></div>
-            <textarea className="tbx-textarea" disabled={started} placeholder={'한 줄에 하나씩 적어요\n예: 발표, 정리, 칠판'} value={save.resultsText}
-              onChange={(e) => setSave((s) => ({ ...s, resultsText: e.target.value }))} aria-label="결과 목록" />
-            {!started && n >= 2 && (
-              <div className="tbx-row tbx-row--wrap">
-                <button type="button" className="tbx-btn tbx-btn--sm" onClick={() => setSave((s) => ({ ...s, resultsText: Array.from({ length: n }, (_, i) => `${i + 1}번`).join('\n') }))}>1번부터 번호로 채우기</button>
-                <button type="button" className="tbx-btn tbx-btn--sm" onClick={() => setSave((s) => ({ ...s, resultsText: ['당첨', ...Array.from({ length: n - 1 }, () => '꽝')].join('\n') }))}>당첨 1 · 나머지 꽝</button>
-              </div>
-            )}
-            {!started && n >= 2 && results.length !== n && <Notice tone="ember" icon="⚖️">결과가 {results.length}개예요. 참가자 {n}명과 같은 수로 맞춰 주세요.</Notice>}
-            {!started
-              ? <button type="button" className="tbx-btn tbx-btn--brass tbx-btn--lg tbx-btn--block" disabled={n < 2 || results.length !== n} onClick={start}>사다리 만들기</button>
-              : <div className="tbx-row tbx-row--wrap">
-                  <button type="button" className="tbx-btn" onClick={revealAll} disabled={save.revealed.length === n}>모두 공개</button>
-                  <button type="button" className="tbx-btn tbx-btn--ghost" onClick={() => setSave((s) => ({ ...s, rungs: null, revealed: [] }))}>새 사다리</button>
-                </div>}
-          </section>
+          {!started && mismatch && <Notice tone="ember" icon="⚖️">결과가 {results.length}개예요. 참가자 {n}명과 같은 수로 맞춰 주세요.</Notice>}
         </div>
-      </div>
+      </Modal>
     </div>
   );
 }

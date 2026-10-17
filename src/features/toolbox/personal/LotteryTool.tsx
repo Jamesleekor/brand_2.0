@@ -2,8 +2,8 @@
 // 제비를 고르는 순간 그 제비에 미리 정해진 결과가 공개된다.
 
 import { useMemo, useState } from 'react';
-import { Notice, Seg, Stepper, shuffle } from '../ui';
-import { ParticipantSection, StageShell, ToolHeader, rememberRecent, useLocalState, useParticipants, useToolChrome, type PersonalToolProps } from './common';
+import { Modal, Notice, Seg, Stepper, shuffle } from '../ui';
+import { DockChip, StageShell, ToolDock, ToolHeader, rememberRecent, useLocalState, useParticipantEditor, useParticipants, useToolChrome, type PersonalToolProps } from './common';
 
 interface ResultSpec { id: string; label: string; count: number; win: boolean }
 interface Lot { result: string; win: boolean; openedBy?: string; order?: number }
@@ -27,6 +27,7 @@ export function LotteryTool(props: PersonalToolProps) {
   const { prefs, fs, chrome } = useToolChrome();
   const [save, setSave] = useLocalState<LotterySave>(`brand.toolbox.${props.ownerKey}.lottery.state`, INITIAL);
   const [newLabel, setNewLabel] = useState('');
+  const [resultsOpen, setResultsOpen] = useState(false);
   const started = save.lots !== null;
   const total = save.results.reduce((n, r) => n + r.count, 0);
   const people = p.units;
@@ -72,127 +73,138 @@ export function LotteryTool(props: PersonalToolProps) {
 
   const labelOf = (key?: string) => (key && !key.startsWith('#') ? people.find((u) => u.key === key)?.label ?? '' : key ?? '');
   const lastOpened = save.lots?.filter((l) => l.order === opened)[0];
+  const editor = useParticipantEditor({ props, ...p, locked: started, onUnlock: () => setSave((s) => ({ ...s, lots: null, current: null })) });
+
+  const resultsSummary = save.results.map((r) => `${r.label || '(빈 문구)'} ${r.count}`).join(' · ');
+  const resultsEditor = (
+    <div className="tbx-stack">
+      {save.results.map((r) => (
+        <div key={r.id} className="tbx-row" style={{ gap: 6 }}>
+          <input className="tbx-input tbx-grow" value={r.label} maxLength={20} disabled={started} aria-label="결과 문구"
+            onChange={(e) => setSave((s) => ({ ...s, results: s.results.map((x) => (x.id === r.id ? { ...x, label: e.target.value } : x)) }))} />
+          <Stepper value={r.count} min={0} max={200} label={`${r.label} 개수`}
+            onChange={(v) => !started && setSave((s) => ({ ...s, results: s.results.map((x) => (x.id === r.id ? { ...x, count: v } : x)) }))} />
+          <button type="button" className={r.win ? 'tbx-btn tbx-btn--sm tbx-btn--square tbx-btn--brass' : 'tbx-btn tbx-btn--sm tbx-btn--square'} disabled={started}
+            aria-pressed={r.win} title="당첨으로 표시하면 열었을 때 황금색으로 보여요"
+            onClick={() => setSave((s) => ({ ...s, results: s.results.map((x) => (x.id === r.id ? { ...x, win: !x.win } : x)) }))}>★</button>
+          {save.results.length > 1 && (
+            <button type="button" className="tbx-btn tbx-btn--sm tbx-btn--square tbx-btn--ghost" disabled={started} aria-label={`${r.label} 지우기`}
+              onClick={() => setSave((s) => ({ ...s, results: s.results.filter((x) => x.id !== r.id) }))}>×</button>
+          )}
+        </div>
+      ))}
+      {!started && (
+        <div className="tbx-row">
+          <input className="tbx-input tbx-grow" placeholder="결과 추가 (예: 청소 당번)" maxLength={20} value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && newLabel.trim()) { setSave((s) => ({ ...s, results: [...s.results, { id: Date.now().toString(36), label: newLabel.trim(), count: 1, win: false }] })); setNewLabel(''); } }} />
+          <button type="button" className="tbx-btn tbx-btn--sm" disabled={!newLabel.trim()}
+            onClick={() => { setSave((s) => ({ ...s, results: [...s.results, { id: Date.now().toString(36), label: newLabel.trim(), count: 1, win: false }] })); setNewLabel(''); }}>추가</button>
+        </div>
+      )}
+      <p className="tbx-hint">★을 켠 결과는 열었을 때 황금색으로 보여요. 제비는 모두 {total}개예요.</p>
+      {!started && assign && people.length > 0 && mismatch !== 0 && (
+        <Notice tone="ember" icon="⚖️">
+          참가자는 {people.length}명인데 제비는 {total}개예요. {mismatch < 0 ? `${-mismatch}개가 부족해요.` : `${mismatch}개가 많아요.`}
+          <div style={{ marginTop: 8 }}><button type="button" className="tbx-btn tbx-btn--sm" onClick={fitToPeople}>당첨이 아닌 제비로 맞추기</button></div>
+        </Notice>
+      )}
+    </div>
+  );
+  const canStart = !(total === 0 || save.results.some((r) => !r.label.trim()) || (assign && (people.length === 0 || mismatch !== 0)));
+
+  const dock = (
+    <ToolDock primary={!started
+      ? <button type="button" className="tbx-btn tbx-btn--brass tbx-btn--lg" disabled={!canStart} onClick={start}>제비 섞기</button>
+      : <>
+          <button type="button" className="tbx-btn" disabled={opened === (save.lots?.length ?? 0)} onClick={openRest}>남은 제비 모두 열기</button>
+          <button type="button" className="tbx-btn tbx-btn--ghost" onClick={() => setSave((s) => ({ ...s, lots: null, current: null }))}>새로 섞기</button>
+        </>}>
+      <Seg value={save.mode} onChange={(v) => setSave((s) => ({ ...s, mode: v }))} label="뽑는 방식"
+        options={[{ value: 'ASSIGN', label: '한 사람씩 배정' }, { value: 'FREE', label: '제비만 뽑기' }]} />
+      {assign && editor.chip}
+      <DockChip icon="🎟️" label="결과" value={resultsSummary} disabled={started} title={started ? '새로 섞기를 누르면 결과를 바꿀 수 있어요' : '결과 문구와 개수를 정해요'}
+        tone={!started && assign && people.length > 0 && mismatch !== 0 ? 'ember' : undefined} onClick={() => setResultsOpen(true)} />
+      {!started && assign && people.length > 0 && mismatch !== 0 && (
+        <>
+          <span className="tbx-dock-warn">참가 {people.length}명 · 제비 {total}개</span>
+          <button type="button" className="tbx-btn tbx-btn--sm" onClick={fitToPeople}>꽝으로 맞추기</button>
+        </>
+      )}
+    </ToolDock>
+  );
+
+  const history = started && opened > 0 ? (
+    <section className="tbx-panel tbx-stack" aria-label="뽑은 결과">
+      <div className="tbx-row tbx-row--between"><h2 className="tbx-h3">뽑은 결과</h2><span className="tbx-count">{opened} / {save.lots?.length ?? 0}</span></div>
+      <ol className="tbx-results-strip">
+        {[...(save.lots ?? [])].filter((l) => l.order).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((l) => (
+          <li key={l.order} className="tbx-results-strip__item">
+            <span className={l.win ? 'tbx-rank tbx-rank--1' : 'tbx-rank'}>{l.order}</span>
+            <span>{labelOf(l.openedBy)}</span>
+            <span className={l.win ? 'tbx-chip tbx-chip--brass' : 'tbx-chip'}>{l.result}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  ) : null;
 
   return (
     <div className="tbx tbx-page" data-reduce-motion={prefs.reduceMotion}>
       <ToolHeader tool="lottery" right={chrome} />
-      <div className="tbx-split">
-        <StageShell fs={fs} prefs={prefs} tall corner={fs.on ? <button className="tbx-btn tbx-btn--sm" onClick={() => void fs.toggle()}>전체 화면 끝내기</button> : undefined}>
-          {!started ? (
-            <div className="tbx-empty">
-              <p className="tbx-h2">제비 {total}개를 만들 준비가 됐어요</p>
-              <p className="tbx-small" style={{ marginTop: 6 }}>오른쪽에서 결과와 개수를 정하고 ‘제비 섞기’를 눌러 주세요.</p>
+      <StageShell fs={fs} prefs={prefs} fill dock={dock} below={history}>
+        {!started ? (
+          <div className="tbx-empty tbx-empty--stage">
+            <p className="tbx-stage-title">제비 {total}개를 만들 준비가 됐어요</p>
+            <p className="tbx-small">{assign ? `참가자 ${people.length}명에게 한 장씩 배정해요. ` : '참가자 없이 제비만 하나씩 열어요. '}결과는 {resultsSummary}</p>
+            <div className="tbx-stage-actions">
+              {assign && people.length === 0 && <button type="button" className="tbx-btn tbx-btn--lg" onClick={editor.open}>👥 참가자 고르기</button>}
+              <button type="button" className="tbx-btn tbx-btn--lg" onClick={() => setResultsOpen(true)}>🎟️ 결과 정하기</button>
             </div>
-          ) : (
-            <div className="tbx-stack" style={{ width: '100%', gap: 16 }}>
-              {assign && (
-                <div className="tbx-row tbx-row--between tbx-row--wrap" aria-live="polite">
-                  {save.current
-                    ? <span className="tbx-h2">지금 뽑을 사람 <span className="tbx-brass-text">{labelOf(save.current)}</span></span>
-                    : <span className="tbx-h2">모두 뽑았어요</span>}
-                  <span className="tbx-chip">남은 제비 {(save.lots?.length ?? 0) - opened}개</span>
-                </div>
-              )}
-              {assign && waiting.length > 1 && (
-                <div className="tbx-selected" aria-label="뽑을 사람 고르기">
-                  {waiting.map((u) => (
-                    <button key={u.key} type="button" className="tbx-btn tbx-btn--sm" aria-pressed={u.key === save.current}
-                      style={u.key === save.current ? { borderColor: 'var(--tbx-brass)', color: 'var(--tbx-brass-hi)' } : undefined}
-                      onClick={() => setSave((s) => ({ ...s, current: u.key }))}>{u.label}</button>
-                  ))}
-                </div>
-              )}
-              {!assign && <div className="tbx-row tbx-row--between"><span className="tbx-h2">아무 제비나 골라요</span><span className="tbx-chip">남은 제비 {(save.lots?.length ?? 0) - opened}개</span></div>}
-              <div className="tbx-lots">
-                {save.lots!.map((lot, i) => {
-                  const open = lot.openedBy !== undefined;
-                  return (
-                    <button key={i} type="button" className="tbx-lot" data-open={open} data-win={lot.win}
-                      disabled={open || (assign && !save.current)} onClick={() => pick(i)}
-                      aria-label={open ? `${lot.result}, ${labelOf(lot.openedBy)}` : `${i + 1}번 제비`}>
-                      {open ? <>{lot.result}<span className="tbx-lot__who">{labelOf(lot.openedBy)}</span></> : i + 1}
-                    </button>
-                  );
-                })}
-              </div>
-              {lastOpened && (
-                <div className="tbx-reveal" key={opened}>
-                  <div className="tbx-reveal__label">{labelOf(lastOpened.openedBy)}의 제비</div>
-                  <div className="tbx-reveal__value" style={{ color: lastOpened.win ? 'var(--tbx-brass-hi)' : 'var(--tbx-ivory)' }}>{lastOpened.result}</div>
-                </div>
-              )}
+          </div>
+        ) : (
+          <div className="tbx-stack" style={{ width: '100%', gap: 16, alignSelf: 'flex-start' }}>
+            <div className="tbx-stage-head" aria-live="polite">
+              {assign
+                ? (save.current
+                  ? <span className="tbx-stage-title">지금 뽑을 사람 <span className="tbx-brass-text">{labelOf(save.current)}</span></span>
+                  : <span className="tbx-stage-title">모두 뽑았어요</span>)
+                : <span className="tbx-stage-title">아무 제비나 골라요</span>}
+              <span className="tbx-chip">남은 제비 {(save.lots?.length ?? 0) - opened}개</span>
             </div>
-          )}
-        </StageShell>
-
-        <div className="tbx-stack tbx-stack--loose">
-          <section className="tbx-panel tbx-stack">
-            <h2 className="tbx-h2">뽑는 방식</h2>
-            <Seg block value={save.mode} onChange={(v) => setSave((s) => ({ ...s, mode: v }))} label="뽑는 방식"
-              options={[{ value: 'ASSIGN', label: '한 사람씩 배정' }, { value: 'FREE', label: '제비만 뽑기' }]} />
-            <p className="tbx-small">{assign ? '참가자마다 제비를 하나씩 뽑아요. 제비 수가 참가자 수와 같아야 해요.' : '참가자 없이 제비만 하나씩 열어요.'}</p>
-          </section>
-
-          {assign && <ParticipantSection props={props} {...p} locked={started} onUnlock={() => setSave((s) => ({ ...s, lots: null }))} />}
-
-          <section className="tbx-panel tbx-stack">
-            <div className="tbx-row tbx-row--between"><h2 className="tbx-h2">결과와 개수</h2><span className="tbx-count">제비 {total}개</span></div>
-            {save.results.map((r) => (
-              <div key={r.id} className="tbx-row" style={{ gap: 6 }}>
-                <input className="tbx-input tbx-grow" value={r.label} maxLength={20} disabled={started} aria-label="결과 문구"
-                  onChange={(e) => setSave((s) => ({ ...s, results: s.results.map((x) => (x.id === r.id ? { ...x, label: e.target.value } : x)) }))} />
-                <Stepper value={r.count} min={0} max={200} label={`${r.label} 개수`}
-                  onChange={(v) => !started && setSave((s) => ({ ...s, results: s.results.map((x) => (x.id === r.id ? { ...x, count: v } : x)) }))} />
-                <button type="button" className={r.win ? 'tbx-btn tbx-btn--sm tbx-btn--square tbx-btn--brass' : 'tbx-btn tbx-btn--sm tbx-btn--square'} disabled={started}
-                  aria-pressed={r.win} title="당첨으로 표시하면 열었을 때 황금색으로 보여요"
-                  onClick={() => setSave((s) => ({ ...s, results: s.results.map((x) => (x.id === r.id ? { ...x, win: !x.win } : x)) }))}>★</button>
-                {save.results.length > 1 && (
-                  <button type="button" className="tbx-btn tbx-btn--sm tbx-btn--square tbx-btn--ghost" disabled={started} aria-label={`${r.label} 지우기`}
-                    onClick={() => setSave((s) => ({ ...s, results: s.results.filter((x) => x.id !== r.id) }))}>×</button>
-                )}
-              </div>
-            ))}
-            {!started && (
-              <div className="tbx-row">
-                <input className="tbx-input tbx-grow" placeholder="결과 추가 (예: 청소 당번)" maxLength={20} value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && newLabel.trim()) { setSave((s) => ({ ...s, results: [...s.results, { id: Date.now().toString(36), label: newLabel.trim(), count: 1, win: false }] })); setNewLabel(''); } }} />
-                <button type="button" className="tbx-btn tbx-btn--sm" disabled={!newLabel.trim()}
-                  onClick={() => { setSave((s) => ({ ...s, results: [...s.results, { id: Date.now().toString(36), label: newLabel.trim(), count: 1, win: false }] })); setNewLabel(''); }}>추가</button>
-              </div>
-            )}
-            {!started && assign && people.length > 0 && mismatch !== 0 && (
-              <Notice tone="ember" icon="⚖️">
-                참가자는 {people.length}명인데 제비는 {total}개예요. {mismatch < 0 ? `${-mismatch}개가 부족해요.` : `${mismatch}개가 많아요.`}
-                <div style={{ marginTop: 8 }}><button type="button" className="tbx-btn tbx-btn--sm" onClick={fitToPeople}>당첨이 아닌 제비로 맞추기</button></div>
-              </Notice>
-            )}
-            {!started ? (
-              <button type="button" className="tbx-btn tbx-btn--brass tbx-btn--lg tbx-btn--block"
-                disabled={total === 0 || save.results.some((r) => !r.label.trim()) || (assign && (people.length === 0 || mismatch !== 0))} onClick={start}>제비 섞기</button>
-            ) : (
-              <div className="tbx-row tbx-row--wrap">
-                <button type="button" className="tbx-btn" disabled={opened === (save.lots?.length ?? 0)} onClick={openRest}>남은 제비 모두 열기</button>
-                <button type="button" className="tbx-btn tbx-btn--ghost" onClick={() => setSave((s) => ({ ...s, lots: null, current: null }))}>새로 섞기</button>
-              </div>
-            )}
-          </section>
-
-          {started && opened > 0 && (
-            <section className="tbx-panel">
-              <h2 className="tbx-h2" style={{ marginBottom: 6 }}>뽑은 결과</h2>
-              <ol className="tbx-list" style={{ maxHeight: 280, overflow: 'auto' }}>
-                {[...(save.lots ?? [])].filter((l) => l.order).sort((a, b) => (b.order ?? 0) - (a.order ?? 0)).map((l) => (
-                  <li key={l.order} className="tbx-list__row">
-                    <span className={l.win ? 'tbx-rank tbx-rank--1' : 'tbx-rank'}>{l.order}</span>
-                    <span className="tbx-grow tbx-h3">{labelOf(l.openedBy)}</span>
-                    <span className={l.win ? 'tbx-chip tbx-chip--brass' : 'tbx-chip'}>{l.result}</span>
-                  </li>
+            {assign && waiting.length > 1 && (
+              <div className="tbx-waiting" aria-label="뽑을 사람 고르기">
+                {waiting.map((u) => (
+                  <button key={u.key} type="button" className="tbx-btn tbx-btn--sm" aria-pressed={u.key === save.current}
+                    onClick={() => setSave((s) => ({ ...s, current: u.key }))}>{u.label}</button>
                 ))}
-              </ol>
-            </section>
-          )}
-        </div>
-      </div>
+              </div>
+            )}
+            <div className="tbx-lots">
+              {save.lots!.map((lot, i) => {
+                const open = lot.openedBy !== undefined;
+                return (
+                  <button key={i} type="button" className="tbx-lot" data-open={open} data-win={lot.win}
+                    disabled={open || (assign && !save.current)} onClick={() => pick(i)}
+                    aria-label={open ? `${lot.result}, ${labelOf(lot.openedBy)}` : `${i + 1}번 제비`}>
+                    {open ? <>{lot.result}<span className="tbx-lot__who">{labelOf(lot.openedBy)}</span></> : i + 1}
+                  </button>
+                );
+              })}
+            </div>
+            {lastOpened && (
+              <div className="tbx-reveal" key={opened}>
+                <div className="tbx-reveal__label">{labelOf(lastOpened.openedBy)}의 제비</div>
+                <div className="tbx-reveal__value" style={{ color: lastOpened.win ? 'var(--tbx-brass-hi)' : 'var(--tbx-ivory)' }}>{lastOpened.result}</div>
+              </div>
+            )}
+          </div>
+        )}
+      </StageShell>
+      {editor.modal}
+      <Modal open={resultsOpen} onClose={() => setResultsOpen(false)} title="결과와 개수"
+        footer={<button type="button" className="tbx-btn tbx-btn--brass" onClick={() => setResultsOpen(false)}>완료</button>}>
+        {resultsEditor}
+      </Modal>
     </div>
   );
 }

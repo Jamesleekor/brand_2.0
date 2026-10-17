@@ -2,8 +2,8 @@
 // 원판은 그 결과 칸에 멈추도록 돌기만 한다(연출과 결과가 항상 같다).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Notice, Toggle, randomInt } from '../ui';
-import { ParticipantSection, StageShell, ToolHeader, rememberRecent, useLocalState, useParticipants, useToolChrome, type PersonalToolProps } from './common';
+import { Notice, randomInt } from '../ui';
+import { DockToggle, StageShell, ToolDock, ToolHeader, rememberRecent, useLocalState, useParticipantEditor, useParticipants, useToolChrome, type PersonalToolProps } from './common';
 import type { Unit } from '../toolbox_types';
 
 interface RouletteSave {
@@ -23,13 +23,11 @@ export function RouletteTool(props: PersonalToolProps) {
   const [winner, setWinner] = useState<Unit | null>(null);
   // 돌리는 동안과 결과를 보여주는 동안은 그 판의 원판을 그대로 둔다.
   const [frozen, setFrozen] = useState<Unit[] | null>(null);
-  const [editing, setEditing] = useState(p.items.length === 0);
   const wheelRef = useRef<SVGGElement | null>(null);
 
   const pool = useMemo(() => (save.noRepeat ? p.units.filter((u) => !save.excluded.includes(u.key)) : p.units), [p.units, save.excluded, save.noRepeat]);
   const empty = p.units.length > 0 && pool.length === 0;
 
-  useEffect(() => { if (p.units.length === 0) setEditing(true); }, [p.units.length]);
   useEffect(() => { setFrozen(null); setWinner(null); }, [p.items]);
 
   const spin = () => {
@@ -69,65 +67,76 @@ export function RouletteTool(props: PersonalToolProps) {
 
   const restore = () => { setSave((s) => ({ ...s, excluded: [] })); setWinner(null); setFrozen(null); };
 
+  // 항목을 바꿔도 지금까지 뽑힌 기록은 그대로 둔다(예전과 같음). 도는 중에는 바꾸지 않는다.
+  const editor = useParticipantEditor({ props, ...p, title: '룰렛 항목', disabled: spinning });
+  const resetAll = () => { setSave(() => ({ ...INITIAL, noRepeat: save.noRepeat, rotation: save.rotation })); setWinner(null); setFrozen(null); };
+
+  const dock = (
+    <ToolDock primary={save.history.length > 0
+      ? <button type="button" className="tbx-btn tbx-btn--ghost" disabled={spinning} onClick={resetAll}>기록 지우고 새로 시작</button>
+      : undefined}>
+      {editor.chip}
+      <DockToggle checked={save.noRepeat} disabled={spinning} label="뽑힌 항목은 다시 안 나오게"
+        title={save.noRepeat ? '뽑힌 항목은 다음 판부터 원판에서 빠져요' : '같은 항목이 여러 번 뽑힐 수 있어요'}
+        onChange={(v) => setSave((s) => ({ ...s, noRepeat: v, excluded: v ? s.excluded : [] }))} />
+      {p.units.length > 0 && <span className="tbx-dock-field">{save.noRepeat ? `남은 ${pool.length} / 전체 ${p.units.length}` : `전체 ${p.units.length}`}</span>}
+    </ToolDock>
+  );
+
   return (
     <div className="tbx tbx-page" data-reduce-motion={prefs.reduceMotion}>
       <ToolHeader tool="roulette" right={chrome} />
-      <div className="tbx-split">
-        <StageShell fs={fs} prefs={prefs} tall corner={fs.on ? <button className="tbx-btn tbx-btn--sm" onClick={() => void fs.toggle()}>전체 화면 끝내기</button> : undefined}>
-          {p.units.length === 0 ? (
-            <div className="tbx-empty"><p className="tbx-h3">돌릴 항목을 먼저 넣어 주세요</p><p className="tbx-small" style={{ marginTop: 4 }}>학생, 길드, 직접 입력한 항목 모두 넣을 수 있어요.</p></div>
-          ) : (
-            <div className="tbx-stack" style={{ alignItems: 'center', gap: 18 }}>
-              <Wheel units={frozen ?? (pool.length ? pool : p.units)} highlight={!spinning ? winner?.key : undefined} rotation={save.rotation} spinning={spinning} reduce={prefs.reduceMotion} wheelRef={wheelRef}
-                onSpin={spin} disabled={spinning || pool.length === 0} />
-              <div style={{ minHeight: 76 }} aria-live="polite">
-                {winner && !spinning && (
+      <StageShell fs={fs} prefs={prefs} fill dock={dock}>
+        {p.units.length === 0 ? (
+          <div className="tbx-empty tbx-empty--stage">
+            <p className="tbx-stage-title">돌릴 항목을 먼저 넣어 주세요</p>
+            <p className="tbx-small">학생, 길드, 직접 입력한 항목 모두 넣을 수 있어요.</p>
+            <div className="tbx-stage-actions"><button type="button" className="tbx-btn tbx-btn--brass tbx-btn--lg" onClick={editor.open}>👥 항목 고르기</button></div>
+          </div>
+        ) : (
+          <div className="tbx-roulette">
+            <Wheel units={frozen ?? (pool.length ? pool : p.units)} highlight={!spinning ? winner?.key : undefined} rotation={save.rotation} spinning={spinning} reduce={prefs.reduceMotion} wheelRef={wheelRef}
+              onSpin={spin} disabled={spinning || pool.length === 0} />
+            <div className="tbx-roulette__side">
+              <div style={{ minHeight: 96, display: 'grid', placeItems: 'center' }} aria-live="polite">
+                {winner && !spinning ? (
                   <div className="tbx-reveal">
                     <div className="tbx-reveal__label">{save.history.length}번째로 뽑힌 항목</div>
                     <div className="tbx-reveal__value">{winner.label}</div>
                   </div>
+                ) : empty ? (
+                  <Notice icon="🎯">모든 항목이 한 번씩 뽑혔어요. 다시 모두 넣으면 처음부터 뽑을 수 있어요.</Notice>
+                ) : (
+                  <p className="tbx-small" style={{ textAlign: 'center' }}>{spinning ? '원판이 돌고 있어요…' : '가운데나 아래 버튼을 눌러 돌려요.'}</p>
                 )}
-                {empty && !winner && <Notice icon="🎯">모든 항목이 한 번씩 뽑혔어요. 다시 모두 넣으면 처음부터 뽑을 수 있어요.</Notice>}
               </div>
-              <div className="tbx-row tbx-row--wrap" style={{ justifyContent: 'center' }}>
+              <div className="tbx-stage-actions">
                 <button type="button" className="tbx-btn tbx-btn--brass tbx-btn--xl" onClick={spin} disabled={spinning || pool.length === 0}>
                   {spinning ? '도는 중…' : pool.length === 0 ? '남은 항목 없음' : '돌리기'}
                 </button>
                 {save.noRepeat && save.excluded.length > 0 && <button type="button" className="tbx-btn tbx-btn--lg" onClick={restore} disabled={spinning}>모두 다시 넣기</button>}
               </div>
+              <section className="tbx-well">
+                <div className="tbx-row tbx-row--between" style={{ marginBottom: 4 }}>
+                  <span className="tbx-h3">뽑힌 기록</span>
+                  <span className="tbx-count">{save.history.length}번</span>
+                </div>
+                {save.history.length === 0 ? <p className="tbx-small">아직 돌리지 않았어요.</p> : (
+                  <ol className="tbx-list tbx-history">
+                    {save.history.map((h, i) => (
+                      <li key={h.at + h.key} className="tbx-list__row" style={{ minHeight: 40, padding: '6px 2px' }}>
+                        <span className={i === 0 ? 'tbx-rank tbx-rank--1' : 'tbx-rank'}>{save.history.length - i}</span>
+                        <span className="tbx-h3">{h.label}</span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </section>
             </div>
-          )}
-        </StageShell>
-
-        <div className="tbx-stack tbx-stack--loose">
-          <ParticipantSection props={props} {...p} locked={!editing && p.units.length > 0} onUnlock={() => setEditing(true)} title="룰렛 항목" />
-          {editing && p.units.length > 0 && <button type="button" className="tbx-btn tbx-btn--block" onClick={() => setEditing(false)}>이 항목으로 돌리기</button>}
-          <section className="tbx-panel">
-            <Toggle checked={save.noRepeat} title="한 번 뽑힌 항목은 다시 안 나오게"
-              hint={save.noRepeat ? '뽑힌 항목은 다음 판부터 원판에서 빠져요' : '같은 항목이 여러 번 뽑힐 수 있어요'}
-              onChange={(v) => setSave((s) => ({ ...s, noRepeat: v, excluded: v ? s.excluded : [] }))} disabled={spinning} />
-            <hr className="tbx-divider" />
-            <div className="tbx-row tbx-row--between" style={{ padding: '8px 0' }}>
-              <span className="tbx-h3">뽑힌 기록</span>
-              <span className="tbx-small">{save.noRepeat ? `남은 ${pool.length} / 전체 ${p.units.length}` : `전체 ${p.units.length}`}</span>
-            </div>
-            {save.history.length === 0 ? <p className="tbx-small">아직 돌리지 않았어요.</p> : (
-              <ol className="tbx-list" style={{ maxHeight: 260, overflow: 'auto' }}>
-                {save.history.map((h, i) => (
-                  <li key={h.at + h.key} className="tbx-list__row">
-                    <span className={i === 0 ? 'tbx-rank tbx-rank--1' : 'tbx-rank'}>{save.history.length - i}</span>
-                    <span className="tbx-h3">{h.label}</span>
-                  </li>
-                ))}
-              </ol>
-            )}
-            {save.history.length > 0 && (
-              <button type="button" className="tbx-btn tbx-btn--ghost tbx-btn--sm" style={{ marginTop: 8 }} disabled={spinning}
-                onClick={() => { setSave(() => ({ ...INITIAL, noRepeat: save.noRepeat, rotation: save.rotation })); setWinner(null); setFrozen(null); }}>기록 지우고 새로 시작</button>
-            )}
-          </section>
-        </div>
-      </div>
+          </div>
+        )}
+      </StageShell>
+      {editor.modal}
     </div>
   );
 }
@@ -151,7 +160,7 @@ function Wheel({ units, highlight, rotation, spinning, reduce, wheelRef, onSpin,
   const ink = (i: number, u: Unit) => (u.color ? '#1a1422' : (i % 2 === 0 ? '#f3d59a' : '#f4ecdd'));
   const fontSize = n <= 6 ? 11 : n <= 12 ? 9 : n <= 18 ? 7.4 : 6.2;
   return (
-    <div className="tbx-wheel">
+    <div className="tbx-wheel tbx-wheel--hero">
       <svg className="tbx-wheel__pointer" viewBox="0 0 28 34" aria-hidden="true">
         <path d="M14 33 L2 6 Q14 -2 26 6 Z" fill="#f3d59a" stroke="#2a1f0e" strokeWidth="1.5" />
         <circle cx="14" cy="9" r="3" fill="#2a1f0e" />

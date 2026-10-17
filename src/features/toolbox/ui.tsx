@@ -124,7 +124,7 @@ export function Modal({ open, onClose, title, children, wide, footer }: {
           <button type="button" className="tbx-btn tbx-btn--ghost tbx-btn--sm tbx-btn--square" onClick={onClose} aria-label="닫기">✕</button>
         </div>
         {children}
-        {footer && <div className="tbx-row" style={{ justifyContent: 'flex-end', marginTop: 18, gap: 8, flexWrap: 'wrap' }}>{footer}</div>}
+        {footer && <div className="tbx-row tbx-modal__footer" style={{ justifyContent: 'flex-end', marginTop: 18, gap: 8, flexWrap: 'wrap' }}>{footer}</div>}
       </div>
     </div>,
     document.body,

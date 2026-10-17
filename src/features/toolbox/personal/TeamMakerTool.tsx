@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from 'react';
 import { Notice, Seg, Stepper, TEAM_COLORS, TEAM_COLOR_NAMES, colorAt, shuffle, useConfirm } from '../ui';
-import { ParticipantSection, ToolHeader, rememberRecent, useLocalState, useParticipants, useToolChrome, type PersonalToolProps } from './common';
+import { DockSep, StageShell, ToolDock, ToolHeader, rememberRecent, useLocalState, useParticipantEditor, useParticipants, useToolChrome, type PersonalToolProps } from './common';
 import type { RosterItem, Unit } from '../toolbox_types';
 
 interface Team { id: string; name: string; color: string; members: string[] }
@@ -33,7 +33,7 @@ function describe(plan: { sizes: number[]; waiting: number }, word: string) {
 
 export function TeamMakerTool(props: PersonalToolProps) {
   const p = useParticipants(props, 'teams');
-  const { chrome } = useToolChrome();
+  const { prefs, fs, chrome } = useToolChrome();
   const { ask, dialog } = useConfirm();
   const [save, setSave] = useLocalState<TeamSave>(`brand.toolbox.${props.ownerKey}.teams.state`, INITIAL);
   const [picked, setPicked] = useState<string | null>(null);
@@ -85,95 +85,97 @@ export function TeamMakerTool(props: PersonalToolProps) {
   const uneven = sizes.length > 0 && Math.max(...sizes) - Math.min(...sizes) > 1;
   const placed = (save.teams ?? []).reduce((acc, t) => acc + t.members.length, 0) + save.waiting.length;
 
+  const editor = useParticipantEditor({ props, ...p, locked: made,
+    onUnlock: async () => {
+      if (!(await ask('참가자를 바꿀까요?', '지금 팀 구성은 사라져요.', '바꾸기'))) return false;
+      setSave((s) => ({ ...s, teams: null, waiting: [] }));
+      return true;
+    } });
+
+  const dock = (
+    <ToolDock primary={<button type="button" className="tbx-btn tbx-btn--brass tbx-btn--lg" disabled={n === 0 || !sizeOk} onClick={() => void make()}>{made ? '전체 다시 섞기' : '팀 만들기'}</button>}>
+      {editor.chip}
+      <span className="tbx-dock-field">팀당
+        <Stepper value={save.size} min={1} max={Math.max(n, 1)} label="팀당 인원" onChange={(v) => setSave((s) => ({ ...s, size: v }))} suffix={word} />
+      </span>
+      <Seg value={save.remainder} onChange={(v) => setSave((s) => ({ ...s, remainder: v }))} label="남는 인원 처리"
+        options={[{ value: 'EVEN', label: '남는 인원 고르게' }, { value: 'WAIT', label: '남는 인원 대기' }]} />
+      {n > 0 && <><DockSep /><span className="tbx-dock-field" title="예상 편성">{sizeOk ? describe(plan, word) : `팀당 인원은 ${n}${word}보다 클 수 없어요`}</span></>}
+    </ToolDock>
+  );
+
+  const sendPanel = made && props.audience === 'teacher' && props.onSendTeams ? (
+    <section className="tbx-panel tbx-row tbx-row--wrap tbx-row--between" style={{ gap: 12 }}>
+      <div>
+        <h2 className="tbx-h3">이 팀으로 학급 활동 만들기</h2>
+        <p className="tbx-small">팀 이름·색·구성원을 그대로 가져가요. 점수는 0점부터 시작해요.</p>
+      </div>
+      <div className="tbx-row tbx-row--wrap">
+        <button type="button" className="tbx-btn" onClick={() => void send('SCOREBOARD')}>팀 점수판으로</button>
+        <button type="button" className="tbx-btn" onClick={() => void send('TOURNAMENT')}>대진표로</button>
+        <button type="button" className="tbx-btn" onClick={() => void send('BUZZER')}>버저로</button>
+      </div>
+    </section>
+  ) : null;
+
   return (
-    <div className="tbx tbx-page">
+    <div className="tbx tbx-page" data-reduce-motion={prefs.reduceMotion}>
       <ToolHeader tool="teams" right={chrome} />
-      <div className="tbx-split">
-        <div className="tbx-stack tbx-stack--loose">
-          {!made ? (
-            <div className="tbx-stage">
-              <div className="tbx-empty">
-                <p className="tbx-h2">{n ? describe(plan, word) : '참가자를 먼저 넣어 주세요'}</p>
-                <p className="tbx-small" style={{ marginTop: 6 }}>{n ? `${n}${word}을 팀당 ${save.size}${word} 기준으로 나눠요.` : '학생·길드·직접 입력으로 넣을 수 있어요.'}</p>
-              </div>
+      <StageShell fs={fs} prefs={prefs} bare dock={dock} below={sendPanel}>
+        {!made ? (
+          <div className="tbx-stage tbx-stage--fill">
+            <div className="tbx-empty tbx-empty--stage">
+              <p className="tbx-stage-title">{n ? describe(plan, word) : '참가자를 먼저 넣어 주세요'}</p>
+              <p className="tbx-small">{n ? `${n}${word}을 팀당 ${save.size}${word} 기준으로 나눠요.` : '학생·길드·직접 입력으로 넣을 수 있어요.'}</p>
+              {n === 0 && <div className="tbx-stage-actions"><button type="button" className="tbx-btn tbx-btn--lg" onClick={editor.open}>👥 참가자 고르기</button></div>}
+              {!sizeOk && n > 0 && <Notice tone="ember" icon="⚖️">팀당 인원은 참가자 수({n})보다 클 수 없어요.</Notice>}
             </div>
-          ) : (
-            <>
-              <div className="tbx-row tbx-row--between tbx-row--wrap">
-                <span className="tbx-h2">{picked ? `${unitMap.get(picked)?.label}을(를) 옮길 팀을 눌러요` : '사람을 누르면 다른 팀으로 옮길 수 있어요'}</span>
+          </div>
+        ) : (
+          <div className="tbx-stack">
+            <div className="tbx-stage-head">
+              <span className="tbx-stage-title">{picked ? `${unitMap.get(picked)?.label}을(를) 옮길 팀을 눌러요` : '사람을 누르면 다른 팀으로 옮길 수 있어요'}</span>
+              <span className="tbx-row" style={{ gap: 8 }}>
+                <span className="tbx-chip">모두 {placed}{word} · 팀 {save.teams!.length}개 · 대기 {save.waiting.length}{word}</span>
                 {picked && <button type="button" className="tbx-btn tbx-btn--sm tbx-btn--ghost" onClick={() => setPicked(null)}>옮기기 취소</button>}
-              </div>
-              {uneven && <Notice icon="ℹ️">팀 인원이 고르지 않아요: {sizes.join(' · ')}{word}</Notice>}
-              <div className="tbx-teams">
-                {save.teams!.map((t) => (
-                  <div key={t.id} className="tbx-team" style={{ ['--team' as any]: t.color }} data-target={!!picked && !t.members.includes(picked)}
-                    onClick={() => { if (picked && !t.members.includes(picked)) moveTo(t.id); }}>
-                    <div className="tbx-team__head">
-                      <button type="button" className="tbx-dot" style={{ background: t.color, width: 16, height: 16, border: 0, cursor: 'pointer' }}
-                        onClick={(e) => { e.stopPropagation(); cycleColor(t); }} aria-label={`${t.name} 색 바꾸기 (지금 ${TEAM_COLOR_NAMES[TEAM_COLORS.indexOf(t.color)] ?? ''})`} />
-                      <input value={t.name} maxLength={20} aria-label="팀 이름" onClick={(e) => e.stopPropagation()} onChange={(e) => editTeam(t.id, { name: e.target.value })} />
-                      <span className="tbx-small" style={{ fontWeight: 800 }}>{t.members.length}</span>
-                    </div>
-                    <div className="tbx-team__body">
-                      {t.members.map((k) => (
-                        <button key={k} type="button" className="tbx-member" aria-pressed={picked === k}
-                          onClick={(e) => { e.stopPropagation(); setPicked(picked === k ? null : k); }}>{unitMap.get(k)?.label ?? k}</button>
-                      ))}
-                      {t.members.length === 0 && <span className="tbx-small" style={{ padding: 8 }}>비어 있어요</span>}
-                    </div>
+              </span>
+            </div>
+            {uneven && <Notice icon="ℹ️">팀 인원이 고르지 않아요: {sizes.join(' · ')}{word}</Notice>}
+            <div className="tbx-teams">
+              {save.teams!.map((t) => (
+                <div key={t.id} className="tbx-team" style={{ ['--team' as any]: t.color }} data-target={!!picked && !t.members.includes(picked)}
+                  onClick={() => { if (picked && !t.members.includes(picked)) moveTo(t.id); }}>
+                  <div className="tbx-team__head">
+                    <button type="button" className="tbx-dot" style={{ background: t.color, width: 16, height: 16, border: 0, cursor: 'pointer' }}
+                      onClick={(e) => { e.stopPropagation(); cycleColor(t); }} aria-label={`${t.name} 색 바꾸기 (지금 ${TEAM_COLOR_NAMES[TEAM_COLORS.indexOf(t.color)] ?? ''})`} />
+                    <input value={t.name} maxLength={20} aria-label="팀 이름" onClick={(e) => e.stopPropagation()} onChange={(e) => editTeam(t.id, { name: e.target.value })} />
+                    <span className="tbx-small" style={{ fontWeight: 800 }}>{t.members.length}</span>
                   </div>
-                ))}
-                <div className="tbx-team" data-target={!!picked && !save.waiting.includes(picked)} style={{ ['--team' as any]: '#6b647a' }}
-                  onClick={() => { if (picked && !save.waiting.includes(picked)) moveTo('WAIT'); }}>
-                  <div className="tbx-team__head"><span className="tbx-h3">대기</span><span className="tbx-small" style={{ marginLeft: 'auto', fontWeight: 800 }}>{save.waiting.length}</span></div>
                   <div className="tbx-team__body">
-                    {save.waiting.map((k) => (
+                    {t.members.map((k) => (
                       <button key={k} type="button" className="tbx-member" aria-pressed={picked === k}
                         onClick={(e) => { e.stopPropagation(); setPicked(picked === k ? null : k); }}>{unitMap.get(k)?.label ?? k}</button>
                     ))}
-                    {save.waiting.length === 0 && <span className="tbx-small" style={{ padding: 8 }}>대기 인원 없음</span>}
+                    {t.members.length === 0 && <span className="tbx-small" style={{ padding: 8 }}>비어 있어요</span>}
                   </div>
                 </div>
+              ))}
+              <div className="tbx-team" data-target={!!picked && !save.waiting.includes(picked)} style={{ ['--team' as any]: '#6b647a' }}
+                onClick={() => { if (picked && !save.waiting.includes(picked)) moveTo('WAIT'); }}>
+                <div className="tbx-team__head"><span className="tbx-h3">대기</span><span className="tbx-small" style={{ marginLeft: 'auto', fontWeight: 800 }}>{save.waiting.length}</span></div>
+                <div className="tbx-team__body">
+                  {save.waiting.map((k) => (
+                    <button key={k} type="button" className="tbx-member" aria-pressed={picked === k}
+                      onClick={(e) => { e.stopPropagation(); setPicked(picked === k ? null : k); }}>{unitMap.get(k)?.label ?? k}</button>
+                  ))}
+                  {save.waiting.length === 0 && <span className="tbx-small" style={{ padding: 8 }}>대기 인원 없음</span>}
+                </div>
               </div>
-              <p className="tbx-small">모두 {placed}{word} — 팀 {save.teams!.length}개, 대기 {save.waiting.length}{word}</p>
-              {props.audience === 'teacher' && props.onSendTeams && (
-                <section className="tbx-panel tbx-stack">
-                  <h2 className="tbx-h2">이 팀으로 학급 활동 만들기</h2>
-                  <p className="tbx-small">팀 이름·색·구성원을 그대로 가져가요. 점수는 0점부터 시작해요.</p>
-                  <div className="tbx-row tbx-row--wrap">
-                    <button type="button" className="tbx-btn" onClick={() => void send('SCOREBOARD')}>팀 점수판으로</button>
-                    <button type="button" className="tbx-btn" onClick={() => void send('TOURNAMENT')}>대진표로</button>
-                    <button type="button" className="tbx-btn" onClick={() => void send('BUZZER')}>버저로</button>
-                  </div>
-                </section>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="tbx-stack tbx-stack--loose">
-          <ParticipantSection props={props} {...p} locked={made} onUnlock={async () => {
-            if (await ask('참가자를 바꿀까요?', '지금 팀 구성은 사라져요.', '바꾸기')) setSave((s) => ({ ...s, teams: null, waiting: [] }));
-          }} />
-          <section className="tbx-panel tbx-stack">
-            <h2 className="tbx-h2">팀 나누기</h2>
-            <div className="tbx-row tbx-row--between">
-              <span className="tbx-h3">팀당 희망 인원</span>
-              <Stepper value={save.size} min={1} max={Math.max(n, 1)} label="팀당 인원" onChange={(v) => setSave((s) => ({ ...s, size: v }))} suffix={word} />
             </div>
-            <div>
-              <span className="tbx-label">남는 인원</span>
-              <Seg block value={save.remainder} onChange={(v) => setSave((s) => ({ ...s, remainder: v }))} label="남는 인원 처리"
-                options={[{ value: 'EVEN', label: '고르게 나누기' }, { value: 'WAIT', label: '대기로 두기' }]} />
-            </div>
-            {n > 0 && <div className="tbx-well"><span className="tbx-small">예상 편성</span><div className="tbx-h3" style={{ marginTop: 2 }}>{describe(plan, word)}</div></div>}
-            {!sizeOk && n > 0 && <Notice tone="ember" icon="⚖️">팀당 인원은 참가자 수({n})보다 클 수 없어요.</Notice>}
-            <button type="button" className="tbx-btn tbx-btn--brass tbx-btn--lg tbx-btn--block" disabled={n === 0 || !sizeOk} onClick={() => void make()}>
-              {made ? '전체 다시 섞기' : '팀 만들기'}
-            </button>
-          </section>
-        </div>
-      </div>
+          </div>
+        )}
+      </StageShell>
+      {editor.modal}
       {dialog}
     </div>
   );

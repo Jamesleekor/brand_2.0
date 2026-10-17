@@ -135,6 +135,7 @@
 .tbx-btn--block { width: 100%; }
 .tbx-btn--square { width: 40px; padding: 0; }
 .tbx-btn--sm.tbx-btn--square { width: 32px; }
+.tbx-btn--square { flex: none; }
 
 /* ---------- 입력 ---------- */
 .tbx-label { display: block; font-size: 13px; font-weight: 800; color: var(--tbx-ivory); margin-bottom: 6px; }
@@ -603,3 +604,172 @@ button.tbx-match:hover:not(:disabled) { border-color: var(--tbx-line-strong); }
 .tbx[data-reduce-motion="true"] *, .tbx[data-reduce-motion="true"] *::before, .tbx[data-reduce-motion="true"] *::after {
   animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important;
 }
+
+/* =====================================================================
+   개인 도구 — 무대 우선 레이아웃 (2026-10-17 개편)
+   설정은 무대 위 조작줄(dock)과 대화상자로 옮기고, 무대가 화면 폭 전체와
+   남은 높이를 쓴다. 오른쪽 설정 패널 때문에 스크롤이 길어지던 문제를 없앤다.
+   ===================================================================== */
+.tbx-tool { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.tbx-tool[data-fullscreen="true"] {
+  background: var(--tbx-deep); padding: 2.4vh 2.4vw; height: 100vh; overflow: auto; gap: 14px;
+}
+.tbx-tool[data-fullscreen="true"] > .tbx-stage { flex: 1 1 auto; border: 0; min-height: 0; }
+
+.tbx-stage--fill { min-height: max(380px, calc(100dvh - 300px)); align-items: stretch; }
+.tbx-stage--fill > * { align-self: center; }
+.tbx-stage-bare { position: relative; min-width: 0; }
+.tbx-stage-bare > .tbx-stage__corner { position: static; justify-content: flex-end; margin-bottom: 8px; }
+
+/* 조작줄 */
+.tbx-dock {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  padding: 8px; border-radius: 18px;
+  background: linear-gradient(180deg, var(--tbx-raised) 0%, var(--tbx-panel) 100%);
+  border: 1px solid var(--tbx-hair);
+}
+.tbx-dock__items { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
+.tbx-dock__primary { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.tbx-dock__primary .tbx-btn { min-height: 46px; }
+.tbx-dock-sep { width: 1px; height: 28px; background: var(--tbx-hair); flex: none; }
+.tbx-dock .tbx-seg button { padding: 9px 14px; }
+.tbx-dock-chip {
+  appearance: none; display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 12px 0 14px;
+  border-radius: 14px; background: var(--tbx-deep); border: 1px solid var(--tbx-hair); color: var(--tbx-ivory);
+  cursor: pointer; font-size: 14px; font-weight: 800; white-space: nowrap; max-width: 100%;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.tbx-dock-chip:hover:not(:disabled) { border-color: var(--tbx-line-strong); background: #1a1426; }
+.tbx-dock-chip:disabled { opacity: .5; cursor: not-allowed; }
+.tbx-dock-chip__label { font-size: 12.5px; font-weight: 700; color: var(--tbx-ivory-2); }
+.tbx-dock-chip__value { font-size: 15px; color: var(--tbx-ivory); overflow: hidden; text-overflow: ellipsis; }
+.tbx-dock-chip__edit {
+  font-size: 11.5px; font-weight: 800; color: var(--tbx-brass); padding: 3px 8px; border-radius: 999px;
+  background: rgba(228,188,114,.10); border: 1px solid var(--tbx-line);
+}
+.tbx-dock-chip[data-tone="ember"] { border-color: rgba(255,123,107,.55); }
+.tbx-dock-chip[data-tone="ember"] .tbx-dock-chip__value { color: #ffb4a8; }
+.tbx-dock-toggle {
+  appearance: none; display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 14px;
+  border-radius: 14px; background: var(--tbx-deep); border: 1px solid var(--tbx-hair); color: var(--tbx-ivory);
+  font-size: 13.5px; font-weight: 800; cursor: pointer; white-space: nowrap;
+}
+.tbx-dock-toggle:disabled { opacity: .5; cursor: not-allowed; }
+.tbx-dock-toggle__switch {
+  width: 34px; height: 20px; border-radius: 999px; background: #3b3350; position: relative; flex: none;
+  border: 1px solid rgba(244,236,221,.16); transition: background-color .15s ease;
+}
+.tbx-dock-toggle__switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--tbx-ivory); transition: transform .15s ease;
+}
+.tbx-dock-toggle[aria-checked="true"] { border-color: var(--tbx-line-strong); }
+.tbx-dock-toggle[aria-checked="true"] .tbx-dock-toggle__switch { background: var(--tbx-brass); border-color: var(--tbx-brass-hi); }
+.tbx-dock-toggle[aria-checked="true"] .tbx-dock-toggle__switch::after { transform: translateX(14px); background: var(--tbx-brass-ink); }
+.tbx-dock .tbx-stepper .tbx-input { width: 64px; padding: 8px 6px; }
+.tbx-dock-field { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: var(--tbx-ivory-2); white-space: nowrap; }
+.tbx-dock-warn { font-size: 13px; font-weight: 800; color: #ffb4a8; }
+
+/* 대화상자 아래 버튼은 길게 스크롤해도 늘 보이게 */
+.tbx-modal__footer {
+  position: sticky; bottom: -20px; margin-left: -20px; margin-right: -20px; margin-bottom: -20px;
+  padding: 12px 20px 16px; background: linear-gradient(180deg, rgba(35,28,49,.0) 0%, var(--tbx-panel) 28%);
+  backdrop-filter: blur(4px);
+}
+
+/* 무대 안 공통 머리줄 */
+.tbx-stage-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; width: 100%; }
+.tbx-stage-title { font-size: clamp(18px, 1.6vw, 26px); font-weight: 800; letter-spacing: -0.02em; }
+.tbx-stage-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
+/* 빈 무대 안내 */
+.tbx-empty--stage { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.tbx-empty--stage .tbx-stage-actions { margin-top: 8px; }
+
+/* 제비 — 무대가 넓어진 만큼 더 크게 */
+.tbx-stage--fill .tbx-lots { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; }
+.tbx-stage--fill .tbx-lot { font-size: 18px; }
+.tbx-stage--fill .tbx-lot[data-open="true"] { font-size: 14px; }
+.tbx-lot__who { font-size: 11.5px; }
+.tbx-waiting { display: flex; flex-wrap: wrap; gap: 6px; }
+.tbx-waiting .tbx-btn[aria-pressed="true"] { border-color: var(--tbx-brass); color: var(--tbx-brass-hi); background: rgba(228,188,114,.12); }
+.tbx-results-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.tbx-results-strip__item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 12px;
+  background: var(--tbx-panel); border: 1px solid var(--tbx-hair); font-size: 14px; font-weight: 800; min-width: 0;
+}
+.tbx-results-strip__item .tbx-rank { width: 26px; height: 26px; font-size: 12.5px; }
+.tbx-results-strip__item > span:nth-child(2) { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 사다리 — 무대 폭에 맞춰 모든 세로줄이 한 화면에 */
+.tbx-ladder { width: 100%; overflow-x: auto; overflow-y: hidden; }
+.tbx-ladder__inner { margin: 0 auto; }
+.tbx-ladder__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbx-ladder__result { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbx-ladder__owner { text-align: center; margin-top: 4px; font-size: 12px; font-weight: 800; color: var(--tbx-ivory-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbx-ladder[data-dense="true"] .tbx-ladder__name,
+.tbx-ladder[data-dense="true"] .tbx-ladder__result { font-size: 12px; padding: 6px 1px; border-radius: 8px; }
+.tbx-ladder[data-dense="true"] .tbx-ladder__owner { font-size: 11px; }
+
+/* 룰렛 — 원판 크게, 결과·기록은 무대 오른쪽 */
+.tbx-roulette { display: grid; gap: 22px; width: 100%; grid-template-columns: minmax(0, 1fr); justify-items: center; align-items: center; }
+.tbx-roulette__side { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 420px; align-items: stretch; }
+.tbx-wheel--hero { width: min(86vw, calc(100dvh - 330px), 640px); min-width: 280px; }
+.tbx-tool[data-fullscreen="true"] .tbx-wheel--hero { width: min(60vw, calc(100vh - 140px), 960px); }
+.tbx-wheel--hero .tbx-wheel__hub { font-size: clamp(14px, 1.4vw, 22px); }
+.tbx-history { max-height: 260px; overflow: auto; }
+@media (min-width: 900px) {
+  .tbx-roulette { grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); }
+}
+
+/* 순서 — 큰 카드 여러 열(위에서 아래로 1, 2, 3… 읽힘) */
+.tbx-order-layout { display: grid; gap: 18px; width: 100%; grid-template-columns: minmax(0, 1fr); align-items: start; }
+.tbx-order-cols { columns: 150px 3; column-gap: 12px; width: 100%; }
+.tbx-order-item {
+  break-inside: avoid; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 7px 12px 7px 10px;
+  margin-bottom: 8px; border-radius: 16px; background: rgba(244,236,221,.04); border: 1px solid var(--tbx-hair);
+}
+.tbx-order-item .tbx-rank { width: 40px; height: 40px; font-size: 17px; }
+.tbx-order-item__name { flex: 1 1 auto; min-width: 0; font-size: clamp(18px, 1.5vw, 26px); font-weight: 800; letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tbx-order-item[data-now="true"] { background: linear-gradient(90deg, rgba(228,188,114,.22), rgba(228,188,114,.05)); border-color: var(--tbx-line-strong); }
+.tbx-order-item[data-done="true"] .tbx-order-item__name { opacity: .55; }
+.tbx-order-item[data-hidden="true"] .tbx-order-item__name { color: var(--tbx-ivory-3); letter-spacing: .2em; }
+.tbx-order-item .tbx-btn--sm { min-height: 28px; padding: 0 8px; font-size: 12px; }
+.tbx-order-timer { display: flex; flex-direction: column; align-items: center; gap: 10px; order: -1; }
+.tbx-dial--compact { width: min(56vw, 220px); container-type: inline-size; }
+.tbx-dial--compact .tbx-dial__time { font-size: 19cqw; }
+@media (min-width: 900px) {
+  .tbx-order-layout[data-timer="true"] { grid-template-columns: minmax(0, 1fr) auto; }
+  .tbx-order-timer { position: sticky; top: 12px; order: 0; }
+  .tbx-order-timer .tbx-dial--compact { width: clamp(220px, 20vw, 320px); }
+}
+
+/* 타이머 — 무대 높이에 맞춰 시계를 최대한 크게 */
+.tbx-dial--hero { width: min(86vw, calc(100dvh - 430px), 640px); min-width: 240px; container-type: inline-size; }
+/* 넓은 화면에서는 시계 옆에 버튼을 세워 시계 크기를 더 확보한다 */
+.tbx-timer-hero { display: flex; flex-direction: column; align-items: center; gap: 20px; width: 100%; }
+.tbx-timer-hero__controls { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.tbx-timer-hero__adjust { display: grid; grid-template-columns: repeat(4, auto); gap: 8px; }
+@media (min-width: 900px) and (min-aspect-ratio: 4/3) {
+  .tbx-timer-hero { flex-direction: row; justify-content: center; gap: clamp(28px, 4vw, 72px); }
+  .tbx-timer-hero .tbx-dial--hero { width: min(58vw, calc(100dvh - 300px), 720px); }
+  .tbx-timer-hero__controls { align-items: stretch; min-width: 240px; }
+  .tbx-timer-hero__controls .tbx-btn--xl { min-height: 72px; font-size: 20px; }
+  .tbx-timer-hero__adjust { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.tbx-dial--hero .tbx-dial__time { font-size: 20cqw; }
+.tbx-tool[data-fullscreen="true"] .tbx-dial--hero { width: min(86vw, calc(100vh - 240px), 1000px); }
+@media (min-width: 900px) and (min-aspect-ratio: 4/3) { .tbx-tool[data-fullscreen="true"] .tbx-timer-hero .tbx-dial--hero { width: min(60vw, calc(100vh - 150px), 1000px); } }
+.tbx-stopwatch { font-size: clamp(64px, min(15vw, 24dvh), 240px); line-height: 1; }
+.tbx-tool[data-fullscreen="true"] .tbx-stopwatch { font-size: clamp(80px, min(16vw, 34vh), 360px); }
+.tbx-timer-layout { display: grid; gap: 22px; width: 100%; grid-template-columns: minmax(0, 1fr); justify-items: center; align-items: center; }
+@media (min-width: 900px) {
+  .tbx-timer-layout[data-laps="true"] { grid-template-columns: minmax(0, 1fr) 320px; }
+}
+.tbx-time-input { display: inline-flex; align-items: center; gap: 4px; }
+.tbx-time-input .tbx-input { width: 52px; padding: 8px 4px; }
+.tbx-time-input span { font-size: 12.5px; font-weight: 800; color: var(--tbx-ivory-2); }
+
+/* 팀 — 카드가 무대 폭 전체를 쓴다 */
+.tbx-stage-bare .tbx-teams { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.tbx-tool[data-fullscreen="true"] .tbx-member { font-size: 18px; }

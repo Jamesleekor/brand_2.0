@@ -11,7 +11,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { ParticipantPicker, PickerSummary, type PickerOptions } from '../ParticipantPicker';
 import { buildUnits, useClassRoster, type ClassRoster } from '../roster';
 import { toolboxRpc } from '../toolbox_rpc';
-import { Glyph, PrefButtons, useFullscreen, useToolboxPrefs, type GlyphName } from '../ui';
+import { Glyph, Modal, Notice, PrefButtons, useFullscreen, useToolboxPrefs, type GlyphName } from '../ui';
 import type { PersonalToolId, RosterItem, Unit } from '../toolbox_types';
 
 export interface PersonalToolProps {
@@ -124,18 +124,143 @@ export function useToolChrome() {
   return { prefs, fs, chrome };
 }
 
-/** 전체 화면에서도 같은 무대를 쓰도록 감싼다. */
-export function StageShell({ fs, prefs, children, tall, corner }: {
+/** 전체 화면에서도 같은 무대를 쓰도록 감싼다.
+ *  dock(조작줄)을 주면 무대 바로 위에 놓고, 전체 화면에서도 함께 보인다.
+ *  fill이면 무대가 남은 화면 높이를 채운다(설정 패널 없이 무대가 주인공). */
+export function StageShell({ fs, prefs, children, tall, fill, corner, dock, below, bare }: {
   fs: ReturnType<typeof useFullscreen<HTMLDivElement>>; prefs: ReturnType<typeof useToolboxPrefs>;
-  children: ReactNode; tall?: boolean; corner?: ReactNode;
+  children: ReactNode; tall?: boolean; fill?: boolean; corner?: ReactNode; dock?: ReactNode; below?: ReactNode;
+  /** 무대 배경 없이 내용만 (팀 만들기처럼 카드가 주인공일 때) */
+  bare?: boolean;
 }) {
+  const stageClass = bare ? 'tbx-stage-bare' : ['tbx-stage', (tall || fs.on) && 'tbx-stage--tall', fill && 'tbx-stage--fill'].filter(Boolean).join(' ');
   return (
-    <div ref={fs.ref} className="tbx" data-reduce-motion={prefs.reduceMotion}
-      style={fs.on ? { background: 'var(--tbx-deep)', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '3vh 3vw', overflow: 'auto' } : undefined}>
-      <div className={tall || fs.on ? 'tbx-stage tbx-stage--tall' : 'tbx-stage'} style={fs.on ? { minHeight: '86vh', border: 0 } : undefined}>
-        {corner && <div className="tbx-stage__corner">{corner}</div>}
+    <div ref={fs.ref} className="tbx tbx-tool" data-reduce-motion={prefs.reduceMotion} data-fullscreen={fs.on}>
+      {dock}
+      <div className={stageClass}>
+        {fs.on && <div className="tbx-stage__corner"><button type="button" className="tbx-btn tbx-btn--sm" onClick={() => void fs.toggle()}>전체 화면 끝내기</button></div>}
+        {!fs.on && corner && <div className="tbx-stage__corner">{corner}</div>}
         {children}
       </div>
+      {below}
     </div>
   );
+}
+
+// ---------------------------------------------------------------------
+// 조작줄 — 설정을 오른쪽 패널 대신 무대 위 한 줄에 모은다.
+// 긴 설정(참가자 고르기, 결과 목록)은 칩을 눌러 여는 대화상자로 보낸다.
+// ---------------------------------------------------------------------
+export function ToolDock({ children, primary }: { children?: ReactNode; primary?: ReactNode }) {
+  return (
+    <div className="tbx-dock" role="toolbar" aria-label="도구 설정">
+      <div className="tbx-dock__items">{children}</div>
+      {primary && <div className="tbx-dock__primary">{primary}</div>}
+    </div>
+  );
+}
+
+/** 지금 값을 보여주고 누르면 고칠 수 있는 칩 */
+export function DockChip({ icon, label, value, onClick, tone, disabled, title }: {
+  icon?: string; label: string; value?: ReactNode; onClick: () => void; tone?: 'ember'; disabled?: boolean; title?: string;
+}) {
+  return (
+    <button type="button" className="tbx-dock-chip" data-tone={tone} onClick={onClick} disabled={disabled} title={title}>
+      {icon && <span aria-hidden="true">{icon}</span>}
+      <span className="tbx-dock-chip__label">{label}</span>
+      {value !== undefined && <span className="tbx-dock-chip__value">{value}</span>}
+      <span className="tbx-dock-chip__edit" aria-hidden="true">바꾸기</span>
+    </button>
+  );
+}
+
+/** 조작줄 안의 작은 켜기/끄기 */
+export function DockToggle({ checked, onChange, label, disabled, title }: {
+  checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean; title?: string;
+}) {
+  return (
+    <button type="button" className="tbx-dock-toggle" role="switch" aria-checked={checked} disabled={disabled} title={title} onClick={() => onChange(!checked)}>
+      <span className="tbx-dock-toggle__switch" aria-hidden="true" />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+/** 칩 묶음 사이 얇은 구분선 */
+export function DockSep() { return <span className="tbx-dock-sep" aria-hidden="true" />; }
+
+/** 참가자 칩 + 고르기 대화상자.
+ *  대화상자 안에서는 임시 명단을 고치고, '적용'을 눌러야 실제 명단이 바뀐다.
+ *  진행 중인 판이 있으면(locked) 적용할 때 onUnlock으로 판을 처음으로 돌린다.
+ *  onUnlock이 false를 돌려주면(확인 창에서 취소) 바꾸지 않는다. */
+export function useParticipantEditor({ props, roster, items, setItems, units, options, locked, onUnlock, title = '참가자', disabled }: {
+  props: PersonalToolProps; roster: ClassRoster | null; items: RosterItem[]; setItems: (v: RosterItem[]) => void; units: Unit[];
+  options?: PickerOptions; locked?: boolean; onUnlock?: () => void | boolean | Promise<void | boolean>; title?: string;
+  /** 잠깐 바꿀 수 없을 때(룰렛이 도는 중 등) */
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<RosterItem[]>(items);
+  const show = useCallback(() => { setDraft(items); setOpen(true); }, [items]);
+  const word = units.some((u) => u.type !== 'STUDENT') ? '개' : '명';
+  const preview = units.slice(0, 3).map((u) => u.label).join(', ') + (units.length > 3 ? ' 외' : '');
+  const changed = JSON.stringify(draft) !== JSON.stringify(items);
+
+  const apply = async () => {
+    if (!changed) { setOpen(false); return; }
+    if (locked && onUnlock) {
+      const ok = await onUnlock();
+      if (ok === false) return;
+    }
+    setItems(draft);
+    setOpen(false);
+  };
+
+  const chip = (
+    <DockChip icon="👥" label={title} value={units.length ? `${units.length}${word}` : '비어 있음'} tone={units.length ? undefined : 'ember'}
+      title={units.length ? preview : '참가자를 골라 주세요'} onClick={show} disabled={disabled} />
+  );
+  const modal = (
+    <Modal open={open} onClose={() => setOpen(false)} title={title} wide
+      footer={<>
+        <button type="button" className="tbx-btn tbx-btn--ghost" onClick={() => setOpen(false)}>취소</button>
+        <button type="button" className="tbx-btn tbx-btn--brass" onClick={() => void apply()}>{changed ? `이대로 적용 (${draft.length})` : '닫기'}</button>
+      </>}>
+      {locked && changed && <div style={{ marginBottom: 12 }}><Notice icon="↺">적용하면 지금 진행 중인 판은 처음으로 돌아가요.</Notice></div>}
+      <ParticipantPicker client={props.client} classroomId={props.classroomId} roster={roster} value={draft} onChange={setDraft}
+        options={{ teacher: props.audience === 'teacher', ...options }} />
+    </Modal>
+  );
+  return { chip, modal, open: show, preview };
+}
+
+/** 요소의 실제 너비를 따라간다(사다리처럼 폭에 맞춰 그릴 때). */
+export function useElementWidth<T extends HTMLElement>() {
+  const [el, setEl] = useState<T | null>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!el) return;
+    setWidth(el.clientWidth);
+    if (typeof ResizeObserver === 'undefined') {
+      const onResize = () => setWidth(el.clientWidth);
+      window.addEventListener('resize', onResize);
+      return () => window.removeEventListener('resize', onResize);
+    }
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [el]);
+  return [setEl, width] as const;
+}
+
+/** 창 높이(전체 화면 전환·창 크기 변경을 따라간다) */
+export function useViewportHeight() {
+  const [h, setH] = useState(() => (typeof window === 'undefined' ? 800 : window.innerHeight));
+  useEffect(() => {
+    const onResize = () => setH(window.innerHeight);
+    window.addEventListener('resize', onResize);
+    document.addEventListener('fullscreenchange', onResize);
+    return () => { window.removeEventListener('resize', onResize); document.removeEventListener('fullscreenchange', onResize); };
+  }, []);
+  return h;
 }
