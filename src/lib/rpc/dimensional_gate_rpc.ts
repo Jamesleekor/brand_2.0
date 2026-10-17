@@ -284,6 +284,12 @@ export const dimensionalGateRpc = {
       p_episode_id: episodeId,
     }),
 
+  saveStoryProgress: (supabase: SupabaseClient, episodeId: number, lastCutOrder: number) =>
+    callRpc<void>(supabase, 'student_save_dimensional_gate_story_progress', {
+      p_episode_id: episodeId,
+      p_last_cut_order: lastCutOrder,
+    }),
+
   completeStory: (supabase: SupabaseClient, episodeId: number, galleryAssetIds: number[]) =>
     callRpc<DimensionalGateStoryCompleteResult>(supabase, 'student_complete_dimensional_gate_story', {
       p_episode_id: episodeId,

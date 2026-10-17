@@ -42,6 +42,53 @@ export interface DimensionalGateTeacherBoard {
   relationships: DimensionalGateTeacherRelationship[];
 }
 
+export interface DimensionalGateTeacherProgressStudent extends DimensionalGateTeacherStudent {
+  is_test_account: boolean;
+}
+
+export interface DimensionalGateTeacherProgressEpisodeDefinition {
+  episode_id: number;
+  episode_no: number;
+  title: string;
+  required_affinity: number;
+  cut_count: number;
+}
+
+export interface DimensionalGateTeacherProgressCharacter {
+  character_id: number;
+  character_uid: string;
+  name: string;
+  epithet: string | null;
+  emoji: string | null;
+  avatar_image_url: string | null;
+  start_affinity: number;
+  episodes: DimensionalGateTeacherProgressEpisodeDefinition[];
+}
+
+export interface DimensionalGateTeacherProgressEpisode extends DimensionalGateTeacherProgressEpisodeDefinition {
+  opened_at: string | null;
+  completed_at: string | null;
+  last_cut_order: number | null;
+  updated_at: string | null;
+}
+
+export interface DimensionalGateTeacherProgressRow {
+  student_id: number;
+  character_id: number;
+  owned_at: string | null;
+  affinity: number;
+  relation_stage: 'STRANGER' | 'INTEREST' | 'AFFECTION' | 'TRUST';
+  status: 'NORMAL' | 'LOCKED';
+  last_interacted_at: string | null;
+  episodes: DimensionalGateTeacherProgressEpisode[];
+}
+
+export interface DimensionalGateTeacherProgressBoard {
+  students: DimensionalGateTeacherProgressStudent[];
+  characters: DimensionalGateTeacherProgressCharacter[];
+  progress: DimensionalGateTeacherProgressRow[];
+}
+
 export type DimensionalGateTeacherAction = 'SET_AFFINITY' | 'UNLOCK' | 'LOCK' | 'CLEAR_WARNINGS' | 'RESET_DAILY';
 
 async function callRpc<T>(client: SupabaseClient, fn: string, args: Record<string, unknown> = {}): Promise<RpcResult<T>> {
@@ -53,6 +100,11 @@ async function callRpc<T>(client: SupabaseClient, fn: string, args: Record<strin
 export const dimensionalGateTeacherRpc = {
   board: (client: SupabaseClient, classroomId: number) =>
     callRpc<DimensionalGateTeacherBoard>(client, 'teacher_get_dimensional_gate_admin_board', { p_classroom_id: classroomId }),
+
+  progressBoard: (client: SupabaseClient, classroomId: number) =>
+    callRpc<DimensionalGateTeacherProgressBoard>(client, 'teacher_get_dimensional_gate_progress_board', {
+      p_classroom_id: classroomId,
+    }),
 
   manage: (
     client: SupabaseClient,
