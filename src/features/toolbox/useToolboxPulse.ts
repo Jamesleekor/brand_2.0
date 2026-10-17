@@ -84,7 +84,7 @@ function acquire(client: SupabaseClient, classroomId: number, audience: 'S' | 'T
   e.channel = client
     .channel(topic)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'toolbox_pulse', filter: `pulse_key=eq.${key}` },
-      (msg: { new?: PulseRow }) => applyRow(e, (msg.new as PulseRow) ?? null))
+      (msg) => applyRow(e, ((msg as unknown as { new?: PulseRow }).new) ?? null))
     .subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         stopPolling(e);
