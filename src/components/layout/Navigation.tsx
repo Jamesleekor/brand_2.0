@@ -8,6 +8,7 @@
 // =====================================================================
 
 import { useServiceActivity } from '@/features/market/service_activity/useServiceActivity';
+import { useLayoutEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
@@ -225,9 +226,31 @@ const NAV_ITEMS = [
 
 export function BottomNav() {
   const location = useLocation();
+  const navRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    const shell = nav?.closest<HTMLElement>('[data-app-shell]');
+    if (!nav || !shell) return;
+    const updateClearance = () => {
+      const bottom = Number.parseFloat(getComputedStyle(nav).bottom) || 0;
+      // Include the floating gap, safe area and an extra 16px above the nav.
+      shell.style.setProperty('--app-bottom-clearance',
+        `${Math.ceil(nav.getBoundingClientRect().height + bottom + 16)}px`);
+    };
+    updateClearance();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateClearance);
+    observer?.observe(nav);
+    window.addEventListener('resize', updateClearance);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', updateClearance);
+      shell.style.removeProperty('--app-bottom-clearance');
+    };
+  }, []);
   
   return (
-    <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-32px)] max-w-[448px] z-20 bg-bg-overlay backdrop-blur-card rounded-card-xl p-2 shadow-card border border-line">
+    <nav ref={navRef} aria-label="하단 내비게이션" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }} className="fixed left-1/2 -translate-x-1/2 w-[calc(100%-32px)] max-w-[448px] z-20 bg-bg-overlay backdrop-blur-card rounded-card-xl p-2 shadow-card border border-line">
       <div className="flex justify-around">
         {NAV_ITEMS.map((item) => {
           const isActive = location.pathname === item.to ||

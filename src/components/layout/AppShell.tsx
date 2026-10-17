@@ -93,9 +93,9 @@ interface AppShellProps {
 
 export function AppShell({ children, hideBottomNav = false }: AppShellProps) {
   return (
-    <div className="app-container">
+    <div className="app-container" data-app-shell>
       {/* 메인 컨텐츠 — 하단 네비 영역만큼 padding */}
-      <div className={hideBottomNav ? '' : 'pb-24'}>
+      <div className={hideBottomNav ? '' : 'app-page-content'}>
         {children}
       </div>
     </div>

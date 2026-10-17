@@ -29,10 +29,14 @@ export default function CommunicationPage() {
       void qc.invalidateQueries({ queryKey: ['f4a-mail'] });
       void qc.invalidateQueries({ queryKey: ['dashboard', studentId, classroomId] });
     };
+    const invalidateAlerts = () => {
+      void qc.invalidateQueries({ queryKey: ['f4a-alerts', studentId, classroomId] });
+      void qc.invalidateQueries({ queryKey: ['dashboard', studentId, classroomId] });
+    };
     const ch = supabase.channel(`f4a:communication:${studentId}`)
       .on('postgres_changes',{event:'*',schema:'public',table:'mail_messages',filter:`recipient_id=eq.${studentId}`},invalidateMail)
-      .on('postgres_changes',{event:'*',schema:'public',table:'global_alerts',filter:`classroom_id=eq.${classroomId}`},()=>qc.invalidateQueries({queryKey:['f4a-alerts']}))
-      .on('postgres_changes',{event:'*',schema:'public',table:'global_alert_reads',filter:`student_id=eq.${studentId}`},()=>qc.invalidateQueries({queryKey:['f4a-alerts']}))
+      .on('postgres_changes',{event:'*',schema:'public',table:'global_alerts',filter:`classroom_id=eq.${classroomId}`},invalidateAlerts)
+      .on('postgres_changes',{event:'*',schema:'public',table:'global_alert_reads',filter:`student_id=eq.${studentId}`},invalidateAlerts)
       .on('postgres_changes',{event:'*',schema:'public',table:'activity_feed_items',filter:`classroom_id=eq.${classroomId}`},()=>qc.invalidateQueries({queryKey:['f4a-activity']}))
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
@@ -92,16 +96,36 @@ function mailSenderName(message: { sender_type?: string | null; sender_name?: st
 }
 
 function AlertsTab({studentId,classroomId}:{studentId:number|null;classroomId:number|null}) {
-  const qc=useQueryClient(); const {call}=useRpcCall();
+  const qc=useQueryClient(); const {call,isLoading:markingRead}=useRpcCall();
   const q=useQuery({queryKey:['f4a-alerts',studentId,classroomId],enabled:!!studentId&&!!classroomId,queryFn:async()=>{
     const [{data:a,error:e1},{data:r,error:e2}]=await Promise.all([
       supabase.from('global_alerts').select('id,category,message,emoji,created_at,expires_at,status').eq('classroom_id',classroomId!).eq('status','ACTIVE').order('created_at',{ascending:false}).limit(100),
       supabase.from('global_alert_reads').select('alert_id').eq('student_id',studentId!)
     ]); if(e1) throw feature4QueryError('F4A','alert-list',e1);if(e2)throw feature4QueryError('F4A','alert-read-list',e2); const read=new Set((r??[]).map((x:any)=>x.alert_id)); const now=Date.now(); return (a??[]).filter((x:any)=>!x.expires_at||new Date(x.expires_at).getTime()>now).map((x:any)=>({...x,isRead:read.has(x.id)}));
   }});
+  // Home is unmounted here: update its cached badge without waiting for Realtime.
+  const applyRead = async (alertId: number | null, allReadCount = 0) => {
+    const alertKey = ['f4a-alerts',studentId,classroomId];
+    const dashboardKey = ['dashboard',studentId,classroomId];
+    await Promise.all([
+      qc.cancelQueries({queryKey:alertKey}),
+      qc.cancelQueries({queryKey:dashboardKey}),
+    ]);
+    const cached = qc.getQueryData<any[]>(alertKey) ?? [];
+    const changed = alertId === null
+      ? allReadCount
+      : cached.some((alert:any)=>alert.id===alertId && !alert.isRead) ? 1 : 0;
+    qc.setQueryData<any[]>(alertKey, rows=>rows?.map((alert:any)=>
+      alertId===null || alert.id===alertId ? {...alert,isRead:true} : alert));
+    qc.setQueryData<any>(dashboardKey, data=>data
+      ? {...data,alertsUnreadCount:Math.max(0,Number(data.alertsUnreadCount??0)-changed)}
+      : data);
+    void qc.invalidateQueries({queryKey:alertKey});
+    void qc.invalidateQueries({queryKey:dashboardKey});
+  };
   if(q.isLoading)return <CenterLoad/>; if(q.isError)return <Feature4ErrorPanel domain="F4A" error={q.error} onRetry={()=>void q.refetch()} />; if(!q.data?.length)return <EmptyState emoji="🔕" title="현재 알림이 없어요"/>;
   const unread=q.data.filter((x:any)=>!x.isRead).length;
-  return <><div className="flex justify-end mb-2">{unread>0&&<button onClick={()=>call(()=>feature4Rpc.markAllAlertsRead(supabase,{p_classroom_id:classroomId!}),{successTitle:'모두 읽음 처리했어요',onSuccess:()=>qc.invalidateQueries({queryKey:['f4a-alerts']})})} className="text-xs font-bold text-brand-primary">모두 읽음 ({unread})</button>}</div><div className="space-y-2">{q.data.map((a:any)=><button key={a.id} onClick={()=>!a.isRead&&call(()=>feature4Rpc.markAlertRead(supabase,{p_alert_id:a.id}),{silent:true,onSuccess:()=>qc.invalidateQueries({queryKey:['f4a-alerts']})})} className={cn('w-full text-left p-3.5 rounded-card-md border',a.isRead?'bg-bg-deep border-line':'bg-bg-card border-gold/40')}><div className="flex gap-2 items-start"><span className="text-xl">{a.emoji||'🔔'}</span><div className="flex-1"><div className="text-2xs font-black text-gold mb-1">{ALERT_LABEL[a.category]||a.category} · {formatRelativeTime(a.created_at)}</div><p className="text-sm font-bold">{a.message}</p></div>{!a.isRead&&<span className="w-2 h-2 rounded-full bg-danger"/>}</div></button>)}</div></>;
+  return <><div className="flex justify-end mb-2">{unread>0&&<button disabled={markingRead} onClick={()=>call(()=>feature4Rpc.markAllAlertsRead(supabase,{p_classroom_id:classroomId!}),{successTitle:'모두 읽음 처리했어요',onSuccess:(count)=>{void applyRead(null,count);}})} className="text-xs font-bold text-brand-primary">모두 읽음 ({unread})</button>}</div><div className="space-y-2">{q.data.map((a:any)=><button key={a.id} disabled={markingRead} onClick={()=>!a.isRead&&call(()=>feature4Rpc.markAlertRead(supabase,{p_alert_id:a.id}),{silent:true,onSuccess:()=>{void applyRead(a.id);}})} className={cn('w-full text-left p-3.5 rounded-card-md border',a.isRead?'bg-bg-deep border-line':'bg-bg-card border-gold/40')}><div className="flex gap-2 items-start"><span className="text-xl">{a.emoji||'🔔'}</span><div className="flex-1"><div className="text-2xs font-black text-gold mb-1">{ALERT_LABEL[a.category]||a.category} · {formatRelativeTime(a.created_at)}</div><p className="text-sm font-bold">{a.message}</p></div>{!a.isRead&&<span className="w-2 h-2 rounded-full bg-danger"/>}</div></button>)}</div></>;
 }
 
 function ActivityTab({classroomId}:{classroomId:number|null}) {

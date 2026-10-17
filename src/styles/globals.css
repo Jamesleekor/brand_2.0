@@ -648,3 +648,12 @@ a[class*="from-amber-"]:hover {
     animation: none !important;
   }
 }
+
+/* The floating nav and device safe area must never cover the last action. */
+[data-app-shell] {
+  --app-bottom-clearance: calc(8rem + env(safe-area-inset-bottom, 0px));
+}
+.app-page-content {
+  padding-bottom: var(--app-bottom-clearance);
+  scroll-padding-bottom: var(--app-bottom-clearance);
+}
