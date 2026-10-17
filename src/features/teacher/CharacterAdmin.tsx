@@ -14,6 +14,7 @@ import { CharacterRecruitmentAdminPanel } from './CharacterRecruitmentAdminPanel
 import { DimensionalGateAdminPanel } from './DimensionalGateAdminPanel';
 import { DimensionalGateAiQaPanel } from './DimensionalGateAiQaPanel';
 import { DimensionalGateContentAdminPanel } from './DimensionalGateContentAdminPanel';
+import { DimensionalGateProgressAdminPanel } from './DimensionalGateProgressAdminPanel';
 import { GateChatArchivePanel } from './GateChatArchivePanel';
 // BRAND_GATE_CHAT_ARCHIVE_V1
 
@@ -22,7 +23,8 @@ import { GateChatArchivePanel } from './GateChatArchivePanel';
 // 편린 Master / 영입 조건 / 학생 보유 / 영입 이력
 // =====================================================================
 
-type TabKey = 'MASTER' | 'RECRUITMENT' | 'COLLECTIONS' | 'GATE_CONTENT' | 'GATE' | 'GATE_QA' | 'STUDENTS' | 'EVENTS' | 'GATE_ARCHIVE';
+type TabKey = 'MASTER' | 'RECRUITMENT' | 'COLLECTIONS' | 'GATE_PROGRESS' | 'GATE_CONTENT' | 'GATE' | 'GATE_QA' | 'STUDENTS' | 'EVENTS' | 'GATE_ARCHIVE';
+type AdminScope = 'CHARACTER' | 'GATE';
 type MasterFilter = 'ALL' | 'ACTIVE' | 'INACTIVE' | 'DRAFT';
 
 type MasterForm = {
@@ -59,10 +61,11 @@ const TIER_NAMES = [
 
 const GRADES = ['희귀','유니크','에픽','히든','유일','초월'] as const;
 
-export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?: TabKey } = {}) {
+export default function CharacterAdmin({ initialTab, scope = 'CHARACTER' }: { initialTab?: TabKey; scope?: AdminScope } = {}) {
   const classroomId = useClassroomId();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<TabKey>(initialTab);
+  const defaultTab: TabKey = initialTab ?? (scope === 'GATE' ? 'GATE_PROGRESS' : 'MASTER');
+  const [tab, setTab] = useState<TabKey>(defaultTab);
   const [search, setSearch] = useState('');
   const [masterFilter, setMasterFilter] = useState<MasterFilter>('ALL');
   const [masterEditing, setMasterEditing] = useState<TeacherCharacterRow | 'NEW' | null>(null);
@@ -70,8 +73,8 @@ export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?:
   const [studentId, setStudentId] = useState<number | null>(null);
 
   useEffect(() => {
-    setTab(initialTab);
-  }, [initialTab]);
+    setTab(initialTab ?? (scope === 'GATE' ? 'GATE_PROGRESS' : 'MASTER'));
+  }, [initialTab, scope]);
 
   const boardQuery = useQuery<TeacherCharacterAdminBoard>({
     queryKey: ['character-c3-admin-board', classroomId],
@@ -146,15 +149,26 @@ export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?:
       <div className={tab === 'GATE_ARCHIVE' ? 'space-y-3 pb-0' : "space-y-5 pb-10"}>
         <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="mb-1 text-xs font-black uppercase tracking-[0.16em] text-brand-primary">Character Core · C3–C4 · S1</div>
-            <h1 className="font-display text-2xl text-brand-gradient tracking-tight">✦ 편린 운영</h1>
+            <div className="mb-1 text-xs font-black uppercase tracking-[0.16em] text-brand-primary">
+              {scope === 'GATE' ? 'DIMENSIONAL GATE · STORY & RELATIONSHIP' : 'CHARACTER CORE · C3–C4 · S1'}
+            </div>
+            <h1 className="font-display text-2xl text-brand-gradient tracking-tight">
+              {scope === 'GATE' ? '🌀 차원관문 운영' : '✦ 편린 운영'}
+            </h1>
             <p className="mt-1 text-sm font-semibold text-text-secondary">
-              편린 Master, 영입 가격·경로, 콜렉션·버프, 학생 보유권과 영입 이력을 한 곳에서 관리합니다.
+              {scope === 'GATE'
+                ? '학생별 스토리 진행, 관문 콘텐츠, 관계 상태, 대화 기록과 AI QA를 관리합니다.'
+                : '편린 Master, 영입 가격·경로, 콜렉션·버프, 학생 보유권과 영입 이력을 한 곳에서 관리합니다.'}
             </p>
           </div>
           <button
             type="button"
-            onClick={() => void boardQuery.refetch()}
+            onClick={() => {
+              void boardQuery.refetch();
+              if (scope === 'GATE' && classroomId !== null) {
+                void queryClient.invalidateQueries({ queryKey: ['dimensional-gate-progress-board', classroomId] });
+              }
+            }}
             className="btn-secondary self-start lg:self-auto"
           >
             ↻ 새로고침
@@ -174,7 +188,7 @@ export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?:
           </div>
         ) : (
           <>
-            {tab !== 'GATE_ARCHIVE' && (<section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {scope === 'CHARACTER' && (<section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <StatCard emoji="✦" label="편린 Master" value={board.characters.length} color="bv" />
               <StatCard emoji="⏳" label="정책 초안" value={draftCount} color={draftCount ? 'gold' : 'success'} />
               <StatCard emoji="🎒" label="전체 보유권" value={totalOwned} color="crystal" />
@@ -182,15 +196,23 @@ export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?:
             </section>)}
 
             <nav className="flex gap-1 rounded-card-lg border border-line bg-bg-card p-1.5 flex-wrap">
-              <TabButton active={tab === 'MASTER'} onClick={() => setTab('MASTER')} label="편린 Master" icon="✦" />
-              <TabButton active={tab === 'RECRUITMENT'} onClick={() => setTab('RECRUITMENT')} label="영입 설정" icon="🪙" />
-              <TabButton active={tab === 'COLLECTIONS'} onClick={() => setTab('COLLECTIONS')} label="콜렉션 관리" icon="🧩" />
-              <TabButton active={tab === 'GATE_CONTENT'} onClick={() => setTab('GATE_CONTENT')} label="관문 콘텐츠" icon="📖" />
-              <TabButton active={tab === 'GATE'} onClick={() => setTab('GATE')} label="관문 운영" icon="🌀" />
-              <TabButton active={tab === 'GATE_ARCHIVE'} onClick={() => setTab('GATE_ARCHIVE')} label="대화 기록" icon="💬" />
-              <TabButton active={tab === 'GATE_QA'} onClick={() => setTab('GATE_QA')} label="AI QA" icon="🧪" />
-              <TabButton active={tab === 'STUDENTS'} onClick={() => setTab('STUDENTS')} label="학생 보유" icon="🎒" />
-              <TabButton active={tab === 'EVENTS'} onClick={() => setTab('EVENTS')} label="영입 기록" icon="🧾" />
+              {scope === 'CHARACTER' ? (
+                <>
+                  <TabButton active={tab === 'MASTER'} onClick={() => setTab('MASTER')} label="편린 Master" icon="✦" />
+                  <TabButton active={tab === 'RECRUITMENT'} onClick={() => setTab('RECRUITMENT')} label="영입 설정" icon="🪙" />
+                  <TabButton active={tab === 'COLLECTIONS'} onClick={() => setTab('COLLECTIONS')} label="콜렉션 관리" icon="🧩" />
+                  <TabButton active={tab === 'STUDENTS'} onClick={() => setTab('STUDENTS')} label="학생 보유" icon="🎒" />
+                  <TabButton active={tab === 'EVENTS'} onClick={() => setTab('EVENTS')} label="영입 기록" icon="🧾" />
+                </>
+              ) : (
+                <>
+                  <TabButton active={tab === 'GATE_PROGRESS'} onClick={() => setTab('GATE_PROGRESS')} label="진행 현황" icon="📊" />
+                  <TabButton active={tab === 'GATE_CONTENT'} onClick={() => setTab('GATE_CONTENT')} label="관문 콘텐츠" icon="📖" />
+                  <TabButton active={tab === 'GATE'} onClick={() => setTab('GATE')} label="관문 운영" icon="🌀" />
+                  <TabButton active={tab === 'GATE_ARCHIVE'} onClick={() => setTab('GATE_ARCHIVE')} label="대화 기록" icon="💬" />
+                  <TabButton active={tab === 'GATE_QA'} onClick={() => setTab('GATE_QA')} label="AI QA" icon="🧪" />
+                </>
+              )}
             </nav>
 
             {tab === 'MASTER' && (
@@ -217,6 +239,10 @@ export default function CharacterAdmin({ initialTab = 'MASTER' }: { initialTab?:
                 characters={board.characters}
                 students={board.students}
               />
+            )}
+
+            {tab === 'GATE_PROGRESS' && classroomId !== null && (
+              <DimensionalGateProgressAdminPanel classroomId={classroomId} />
             )}
 
             {tab === 'GATE_CONTENT' && (
