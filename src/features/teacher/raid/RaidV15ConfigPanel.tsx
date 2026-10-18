@@ -138,7 +138,9 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
     setLoadedRaid(raidId);
   }, [audioQuery.data, combatQuery.data, loadedRaid, raidId]);
 
-  useEffect(() => { setLoadedRaid(null); }, [raidId]);
+  // The parent keys this panel by raid ID. Do not reset loadedRaid after
+  // hydration: cached queries can hydrate on mount, then be reset to null
+  // without a dependency change to run hydration again.
 
   const editableCombat = raidStatus === 'DRAFT' || raidStatus === 'LOBBY_OPEN';
   const editableAudio = raidStatus !== 'ARCHIVED';
