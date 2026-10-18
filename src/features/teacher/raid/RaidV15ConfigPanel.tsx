@@ -20,8 +20,9 @@ import {
 import type { RaidStatus } from '@/lib/rpc/raid_admin_rpc';
 import { cn } from '@/lib/utils/cn';
 import RaidPatternGenerator from './RaidPatternGenerator';
+import RaidLootConfigPanel from './RaidLootConfigPanel';
 
-type TabKey = 'COMBAT' | 'PATTERNS' | 'AUDIO';
+type TabKey = 'COMBAT' | 'PATTERNS' | 'AUDIO' | 'LOOT';
 
 type PatternTypeOption = {
   value: RaidV15PatternType;
@@ -231,7 +232,7 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-xs font-black tracking-[0.08em] text-cyan-200">레이드 구성(RAID CONFIGURATION)</div>
-            <div className="mt-1 truncate text-sm font-black text-white">⚙️ 전투 기믹 · 패턴 에디터 · 중계 오디오</div>
+            <div className="mt-1 truncate text-sm font-black text-white">⚙️ 전투 기믹 · 패턴 에디터 · 중계 오디오 · 🎁 전리품</div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {!editableCombat ? <span className="rounded-full border border-amber-300/40 bg-amber-500/10 px-3 py-1.5 text-xs font-black text-amber-100">🔒 읽기 전용</span> : null}
@@ -308,6 +309,7 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
         <TabButton active={tab === 'COMBAT'} onClick={() => setTab('COMBAT')}>🛡 전투 기믹</TabButton>
         <TabButton active={tab === 'PATTERNS'} onClick={() => setTab('PATTERNS')}>🧩 패턴 에디터 <span className="ml-1">{patterns.length}</span></TabButton>
         <TabButton active={tab === 'AUDIO'} onClick={() => setTab('AUDIO')}>🔊 오디오 프로필</TabButton>
+        <TabButton active={tab === 'LOOT'} onClick={() => setTab('LOOT')}>🎁 전리품 설정</TabButton>
       </div>
 
       {tab === 'COMBAT' ? <CombatEditor value={combat} onChange={setCombat} disabled={!editableCombat} saving={saving === 'COMBAT'} onSave={saveCombat} /> : null}
@@ -360,6 +362,7 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
         </div>
       ) : null}
       {tab === 'AUDIO' ? <AudioEditor value={audio} defaultValue={defaultAudio} effectiveValue={audioQuery.data.effective_profile} scope={audioScope} onScopeChange={setAudioScope} onChange={setAudio} onDefaultChange={setDefaultAudio} disabled={!editableAudio} saving={saving} onSave={saveAudio} onSaveDefault={saveDefaultAudio} /> : null}
+      {tab === 'LOOT' ? <RaidLootConfigPanel raidId={raidId} raidStatus={raidStatus} /> : null}
         </>
       ) : null}
     </section>

@@ -9,6 +9,7 @@ import {
 } from '@/lib/rpc/raid_student_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
+import { raidLootRpc, raidLootKindText, raidLootCurrencyImage, type RaidLootPublicReward } from '@/lib/rpc/raid_loot_rpc';
 
 type Tab = 'ranking' | 'mine';
 
@@ -97,10 +98,12 @@ export function RaidResultModal({
                 <LoadingSpinner size="lg" />
               </div>
             )
-          ) : tab === 'ranking' ? (
-            <RankingTable result={result} />
           ) : (
-            <MyBattleRecord result={result} />
+            <>
+              {/* RAID_LOOT_V1_2_RESULT_SECTION_20261018: 공개된 전리품만 표시 */}
+              {result.raid.status === 'COMPLETED' || result.raid.status === 'ARCHIVED' ? <RaidLootResultSection raidId={raidId} /> : null}
+              {tab === 'ranking' ? <RankingTable result={result} /> : <MyBattleRecord result={result} />}
+            </>
           )}
         </div>
       </div>
@@ -342,4 +345,93 @@ function formatReward(reward: Record<string, unknown> | null | undefined) {
   const label = reward.label ?? reward.summary ?? reward.name;
   if (typeof label === 'string' && label.trim()) return label;
   return '보상 확정';
+}
+
+// RAID_LOOT_V1_2_RESULT_SECTION_20261018
+// 학생 결과 화면: 중계화면에서 이미 발표된 전리품만 보여줍니다(발표 전 내용은 서버가 보내지 않음).
+function RaidLootResultSection({ raidId }: { raidId: number }) {
+  const lootQuery = useQuery({
+    queryKey: ['raid-loot-public', raidId],
+    enabled: raidId > 0,
+    retry: false,
+    queryFn: async () => {
+      const result = await raidLootRpc.studentPublicState(supabase, raidId);
+      if (result.success === false) throw new Error(result.error);
+      return result.data;
+    },
+    refetchInterval: (query) => {
+      const stage = query.state.data?.stage;
+      return stage && stage !== 'COMPLETE' ? 3000 : false;
+    },
+    staleTime: 2000,
+  });
+
+  const loot = lootQuery.data;
+  if (lootQuery.isError || !loot || !loot.stage || loot.rewards.length === 0) return null;
+  const finished = loot.stage === 'COMPLETE';
+
+  return (
+    <section className="mb-4 rounded-card-lg border border-amber-300/40 bg-amber-400/10 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-base font-black text-yellow-100">🎁 전리품 획득자</div>
+        <div className="text-xs font-black text-cyan-100">
+          {finished ? '획득식 완료' : '획득식 진행 중 · 발표된 전리품만 보여요'}
+        </div>
+      </div>
+      {loot.my_win_count > 0 ? (
+        <div className="mt-2 rounded-card-md border border-yellow-300/60 bg-yellow-400/20 px-3 py-2 text-sm font-black text-yellow-50">
+          ✨ 축하해요! 전리품 {loot.my_win_count}개를 획득했어요.
+        </div>
+      ) : null}
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {loot.rewards.map((reward) => <LootRewardCard key={reward.slot_no} reward={reward} />)}
+      </div>
+      {loot.eligible_count === 1 && finished ? (
+        <div className="mt-2 text-xs font-black text-yellow-100">추첨 대상이 한 명이라 두 전리품을 모두 획득했어요.</div>
+      ) : null}
+    </section>
+  );
+}
+
+function LootRewardCard({ reward }: { reward: RaidLootPublicReward }) {
+  const icon = reward.kind === 'GOLD' ? '🪙' : reward.kind === 'CRYSTAL' ? '💎' : reward.kind === 'FRAGMENTS' ? '🔹' : (reward.character_emoji || '✨');
+  const headline = reward.kind === 'CHARACTER'
+    ? (reward.character_name ?? reward.label)
+    : reward.kind === 'FRAGMENTS'
+      ? `편린 조각 ${formatNumber(reward.amount ?? 0)}개`
+      : `${formatNumber(reward.amount ?? 0)} ${reward.kind}`;
+  const winner = reward.winner;
+  const currencyImage = raidLootCurrencyImage(reward.kind, reward.amount);
+  const [currencyImageFailed, setCurrencyImageFailed] = useState(false);
+
+  return (
+    <div className={cn('flex items-center gap-3 rounded-card-md border p-3', winner?.is_me ? 'border-yellow-300/70 bg-yellow-400/15' : 'border-white/15 bg-black/25')}>
+      {reward.kind === 'CHARACTER' && reward.character_image_url ? (
+        <img src={reward.character_image_url} alt="" className="h-14 w-14 flex-none rounded-lg border border-amber-200/40 object-cover" />
+      ) : currencyImage && !currencyImageFailed ? (
+        <img src={currencyImage} alt="" onError={() => setCurrencyImageFailed(true)} className="h-14 w-14 flex-none object-contain" />
+      ) : (
+        <div className="flex h-14 w-14 flex-none items-center justify-center text-3xl">{icon}</div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-black text-yellow-100">제{reward.slot_no}전리품 · {raidLootKindText(reward.kind)}</div>
+        <div className="truncate text-base font-black text-white">{headline}</div>
+        {reward.void ? (
+          <div className="mt-1 text-xs font-black text-amber-100">추첨 대상이 없어 지급되지 않았어요.</div>
+        ) : winner ? (
+          <div className="mt-1 text-sm font-black text-cyan-100">
+            획득: <span className="text-white">{winner.brand_name || winner.display_name}</span>
+            {winner.is_me ? <span className="ml-1 text-yellow-100">(나!)</span> : null}
+          </div>
+        ) : (
+          <div className="mt-1 text-sm font-black text-cyan-100">획득자 발표 전</div>
+        )}
+        {reward.duplicate_character_converted ? (
+          <div className="mt-1 text-xs font-black text-fuchsia-100">
+            이미 가진 편린이라 기준가의 90%인 💎 {formatNumber(reward.delivered_amount ?? 0)} 크리스탈로 받았어요.
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }

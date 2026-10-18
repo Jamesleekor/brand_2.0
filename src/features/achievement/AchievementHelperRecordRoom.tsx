@@ -1706,6 +1706,7 @@ function sourceTypeLabel(value: string): string {
     DAILY_QUEST: '일일퀘스트',
     TEACHER_GRANT: '교사 지급',
     RAID_REWARD: '레이드 보상',
+    RAID_LOOT: '레이드 전리품',
     DONATION: '기부',
     P2P_SEND: '개인거래 송금',
     P2P_RECEIVE: '개인거래 수신',

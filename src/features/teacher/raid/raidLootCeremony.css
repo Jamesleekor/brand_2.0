@@ -1,0 +1,109 @@
+/* RAID_LOOT_V1_2_CEREMONY_CSS_20261018 — 레이드 전리품 획득식 연출 */
+
+.raid-loot-root {
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(255, 200, 87, 0.16), transparent 58%),
+    radial-gradient(ellipse at 50% 100%, rgba(34, 211, 238, 0.10), transparent 60%),
+    rgba(2, 4, 10, 0.94);
+}
+
+.raid-loot-rays {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 150vmax;
+  height: 150vmax;
+  transform: translate(-50%, -50%);
+  background: repeating-conic-gradient(from 0deg, rgba(255, 216, 120, 0.07) 0deg 6deg, transparent 6deg 18deg);
+  animation: raidLootSpin 60s linear infinite;
+  pointer-events: none;
+  mask-image: radial-gradient(circle, black 0%, transparent 62%);
+  -webkit-mask-image: radial-gradient(circle, black 0%, transparent 62%);
+}
+
+.raid-loot-chest {
+  animation: raidLootFloat 3.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 28px rgba(255, 200, 87, 0.45));
+}
+.raid-loot-chest--late { animation-delay: -1.6s; }
+
+.raid-loot-card-in { animation: raidLootCardIn 0.85s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.raid-loot-glow { animation: raidLootGlow 2.4s ease-in-out infinite; }
+.raid-loot-winner-in { animation: raidLootWinnerIn 0.9s cubic-bezier(0.18, 1.5, 0.4, 1) both; }
+.raid-loot-fade-in { animation: raidLootFadeIn 0.6s ease-out both; }
+
+.raid-loot-shuffle-name {
+  text-shadow: 0 0 24px rgba(103, 232, 249, 0.75);
+}
+.raid-loot-shuffle-box {
+  box-shadow: 0 0 0 2px rgba(103, 232, 249, 0.35), 0 0 60px rgba(34, 211, 238, 0.25) inset;
+  animation: raidLootShuffleBorder 0.9s linear infinite;
+}
+
+.raid-loot-confetti {
+  position: absolute;
+  top: -4%;
+  width: 10px;
+  height: 18px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: raidLootConfetti 3.4s ease-in forwards;
+  pointer-events: none;
+}
+
+.raid-loot-ribbon {
+  background: repeating-linear-gradient(-45deg, rgba(250, 204, 21, 0.95) 0 14px, rgba(30, 20, 0, 0.95) 14px 28px);
+}
+
+@keyframes raidLootSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes raidLootFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+@keyframes raidLootCardIn { 0% { opacity: 0; transform: scale(0.4) rotate(-6deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes raidLootGlow { 0%, 100% { box-shadow: 0 0 40px rgba(255, 200, 87, 0.30); } 50% { box-shadow: 0 0 90px rgba(255, 200, 87, 0.60); } }
+@keyframes raidLootWinnerIn { 0% { opacity: 0; transform: scale(0.3) translateY(40px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes raidLootFadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes raidLootShuffleBorder { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+@keyframes raidLootConfetti {
+  0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+  100% { opacity: 0.9; transform: translateY(105vh) rotate(720deg); }
+}
+
+/* 세로 슬롯 릴 (RAID_LOOT_V1_2_FIX2) */
+.raid-loot-reel {
+  box-shadow: inset 0 0 60px rgba(103, 232, 249, 0.18), 0 0 50px rgba(0, 0, 0, 0.6);
+}
+.raid-loot-reel-window {
+  box-shadow: 0 0 30px rgba(255, 200, 87, 0.35), inset 0 0 24px rgba(255, 200, 87, 0.18);
+}
+.raid-loot-reel-window--landed {
+  animation: raidLootReelLanded 0.9s ease-in-out infinite;
+}
+@keyframes raidLootReelLanded {
+  0%, 100% { box-shadow: 0 0 34px rgba(255, 217, 61, 0.55), inset 0 0 26px rgba(255, 217, 61, 0.25); }
+  50% { box-shadow: 0 0 80px rgba(255, 217, 61, 0.95), inset 0 0 40px rgba(255, 217, 61, 0.45); }
+}
+
+/* 최종 결과 카드: 높이가 낮은 화면(예: 1280×720 프로젝터)에서는 글자·이미지를 줄이고 위쪽부터 배치 */
+@media (max-height: 820px) {
+  .raid-loot-complete.raid-loot-complete { justify-content: flex-start; padding-top: 20px; gap: 0.9rem; }
+  .raid-loot-complete .raid-loot-complete-title { font-size: 2.5rem; line-height: 1.1; margin-top: 0.25rem; }
+  .raid-loot-complete .raid-loot-complete-card { padding: 1rem 1.5rem; gap: 0.9rem; border-radius: 24px; }
+  .raid-loot-complete .raid-loot-complete-visual > * { width: 5rem; height: 5rem; font-size: 3.25rem; }
+  .raid-loot-complete .raid-loot-complete-kicker { font-size: 1.1rem; }
+  .raid-loot-complete .raid-loot-complete-headline { font-size: 2.25rem; line-height: 1.1; }
+  .raid-loot-complete .raid-loot-complete-delivered { font-size: 1rem; margin-top: 0.4rem; }
+  .raid-loot-complete .raid-loot-complete-avatar { width: 4.5rem; height: 4.5rem; font-size: 2rem; }
+  .raid-loot-complete .raid-loot-complete-name { font-size: 3rem; line-height: 1.1; }
+  .raid-loot-complete .raid-loot-complete-info { font-size: 1.4rem; margin-top: 0.6rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .raid-loot-rays,
+  .raid-loot-chest,
+  .raid-loot-glow,
+  .raid-loot-shuffle-box,
+  .raid-loot-reel-window--landed { animation: none !important; }
+  .raid-loot-card-in,
+  .raid-loot-winner-in,
+  .raid-loot-fade-in { animation-duration: 0.01ms !important; }
+  .raid-loot-confetti { display: none; }
+}

@@ -1,0 +1,60 @@
+diff --git a/src/features/teacher/raid/RaidLootConfigPanel.tsx b/src/features/teacher/raid/RaidLootConfigPanel.tsx
+index 3b083f9..e1775ac 100644
+--- a/src/features/teacher/raid/RaidLootConfigPanel.tsx
++++ b/src/features/teacher/raid/RaidLootConfigPanel.tsx
+@@ -174,6 +174,16 @@ export default function RaidLootConfigPanel({ raidId, raidStatus }: { raidId: nu
+     setMessage(null);
+   }, []);
+ 
++  // 후보 일괄 선택/해제 — 지금 목록에 보이는 편린(검색 중이면 검색 결과)만 바꾸고, 이미 입력한 교사 가중치는 그대로 둡니다.
++  const setVisibleSelected = (selected: boolean) => {
++    const ids = filteredRows.map((row) => row.character_id);
++    update((d) => {
++      const pool = { ...d.pool };
++      for (const id of ids) pool[id] = { selected, factor: pool[id]?.factor ?? '1' };
++      return { ...d, pool };
++    });
++  };
++
+   const save = async () => {
+     if (!form || !view || !editable) return;
+     setSaving(true);
+@@ -354,13 +364,31 @@ export default function RaidLootConfigPanel({ raidId, raidStatus }: { raidId: nu
+               <div className="text-base font-black text-white">
+                 완성 편린 후보 <span className="ml-1 text-cyan-100">선택 {selectedRows.length} / {poolRows.length}</span>
+               </div>
+-              <input
+-                type="text"
+-                value={search}
+-                onChange={(e) => setSearch(e.target.value)}
+-                placeholder="편린 이름 검색"
+-                className="w-48 rounded-card-md border border-cyan-300/20 bg-black/30 px-3 py-1.5 text-sm font-bold text-white outline-none focus:border-cyan-300/60"
+-              />
++              <div className="flex flex-wrap items-center gap-2">
++                <button
++                  type="button"
++                  disabled={saving || form.slot2.mode === 'FIXED_ITEM' || filteredRows.length === 0}
++                  onClick={() => setVisibleSelected(true)}
++                  className="rounded-card-md border border-cyan-300/40 bg-cyan-500/10 px-3 py-1.5 text-sm font-black text-cyan-50 hover:bg-cyan-500/20 disabled:opacity-40"
++                >
++                  {search.trim() ? '검색 결과 전체 선택' : '전체 선택'}
++                </button>
++                <button
++                  type="button"
++                  disabled={saving || form.slot2.mode === 'FIXED_ITEM' || filteredRows.length === 0}
++                  onClick={() => setVisibleSelected(false)}
++                  className="rounded-card-md border border-white/25 bg-black/30 px-3 py-1.5 text-sm font-black text-amber-50 hover:bg-white/10 disabled:opacity-40"
++                >
++                  {search.trim() ? '검색 결과 전체 해제' : '전체 해제'}
++                </button>
++                <input
++                  type="text"
++                  value={search}
++                  onChange={(e) => setSearch(e.target.value)}
++                  placeholder="편린 이름 검색"
++                  className="w-48 rounded-card-md border border-cyan-300/20 bg-black/30 px-3 py-1.5 text-sm font-bold text-white outline-none focus:border-cyan-300/60"
++                />
++              </div>
+             </div>
+             <div className="mt-1 text-sm font-bold leading-5 text-cyan-100">
+               크리스탈 영입 · 기준가 1,000C 이상 · 활성 편린만 보입니다. (이벤트 전용 = 한정판은 목록에 나오지 않아요)

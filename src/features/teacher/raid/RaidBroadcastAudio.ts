@@ -148,6 +148,25 @@ export class RaidBroadcastAudioEngine {
     this.playSfx('barrier_critical_sfx_url', 'barrier_critical', 'boss', 0.9);
   }
 
+  // RAID_LOOT_V1_2_AUDIO_CUE_20261018 — 전리품 획득식 효과음(전용 음원 없이 합성음, 기존 오디오 설정값은 그대로)
+  playLootCue(cue: 'chest' | 'reveal' | 'tick' | 'winner') {
+    if (!this.unlocked || this.muted) return;
+    if (cue === 'tick') {
+      if (!this.allow('loot-tick', 90, 120)) return;
+      this.toneUi(880, 0.05, 'triangle', 0.035);
+      return;
+    }
+    if (cue === 'chest') {
+      [196, 262, 330].forEach((frequency, index) => this.schedule(index * 140, () => this.toneUi(frequency, 0.32, 'triangle', 0.10)));
+      return;
+    }
+    if (cue === 'reveal') {
+      [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => this.schedule(index * 90, () => this.toneUi(frequency, 0.28, 'sine', 0.10)));
+      return;
+    }
+    [392, 523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => this.schedule(index * 120, () => this.toneUi(frequency, index === 4 ? 0.7 : 0.26, 'triangle', 0.12)));
+  }
+
   dispose() {
     for (const timer of this.timers) window.clearTimeout(timer);
     this.timers.clear();

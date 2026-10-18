@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils/cn';
 import { RaidBossVisualStage } from '@/features/raid/visual/RaidBossVisualStage';
 import { useRaidVisualState } from '@/features/raid/visual/useRaidVisualState';
 import { RaidBroadcastAudioEngine } from './RaidBroadcastAudio';
+import { RaidLootBroadcastLayer } from './RaidLootCeremonyOverlay';
 
 
 type FeedbackTier = 'NORMAL' | 'CRIT' | 'POWERFUL' | 'DEVASTATING';
@@ -518,6 +519,14 @@ export default function RaidBroadcastPage() {
         </div>
 
         {raid.status !== 'ACTIVE' && <BroadcastStatusOverlay status={raid.status} endReason={raid.end_reason} />}
+        {/* RAID_LOOT_V1_2_BROADCAST_20261018: 토벌 성공 후 전리품 획득식 (완료 오버레이보다 위) */}
+        {(raid.status === 'COMPLETED' || raid.status === 'ARCHIVED') && (
+          <RaidLootBroadcastLayer
+            raidId={raidId}
+            raidStatus={raid.status}
+            onCue={(cue) => { if (audioEnabled) audioEngineRef.current?.playLootCue(cue); }}
+          />
+        )}
       </main>
     </div>
   );
