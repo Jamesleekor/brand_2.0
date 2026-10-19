@@ -327,7 +327,7 @@ function AnalysisPanel({ data }: { data: RaidBalanceAnalysisV15 }) {
         </Panel>
       </section>
 
-      <Panel title="🏅 참가자 피해 분포" description="실제 Boss HP 피해만 순위/분포에 사용합니다.">
+      <Panel title="🏅 참가자 피해 분포" description="피해 순위는 실제 Boss HP 피해 기준입니다. 유효 타격은 서버가 인정한 공격 횟수이며, 거부된 입력은 제외합니다. 공격 중지 패턴에서는 적게 누르는 것이 올바른 대응일 수 있습니다.">
         <ParticipantTable data={data.participants} />
       </Panel>
     </div>
@@ -372,13 +372,14 @@ function ParticipantTable({ data }: { data: RaidBalanceAnalysisV15['participants
   if (data.length === 0) return <NoData text="유효 공격 참가자가 없습니다." />;
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] text-left text-xs">
+      <table className="w-full min-w-[820px] text-left text-xs">
         <thead className="text-cyan-100">
           <tr className="border-b border-cyan-400/20">
             <th className="px-2 py-2 font-black">순위</th>
             <th className="px-2 py-2 font-black">모험가</th>
             <th className="px-2 py-2 text-right font-black">피해</th>
             <th className="px-2 py-2 text-right font-black">비중</th>
+            <th className="px-2 py-2 text-right font-black">유효 타격</th>
             <th className="px-2 py-2 text-right font-black">평균 타격</th>
             <th className="px-2 py-2 text-right font-black">Crit 실제/기대</th>
           </tr>
@@ -393,6 +394,7 @@ function ParticipantTable({ data }: { data: RaidBalanceAnalysisV15['participants
               </td>
               <td className="px-2 py-2 text-right font-mono font-black">{formatNumber(row.total_damage)}</td>
               <td className="px-2 py-2 text-right font-mono">{formatPercent(row.damage_share_percent)}</td>
+              <td className="whitespace-nowrap px-2 py-2 text-right font-mono font-black text-amber-100">{formatNumber(row.accepted_taps)}회</td>
               <td className="px-2 py-2 text-right font-mono">{formatNumber(row.average_damage)}</td>
               <td className="px-2 py-2 text-right font-mono">{formatPercent(row.actual_crit_rate)} / {formatPercent(row.expected_crit_rate)}</td>
             </tr>
