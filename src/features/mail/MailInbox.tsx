@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase/client';
 import { studentRpc } from '@/lib/rpc/student_rpc';
 import { useStudentId } from '@/stores/auth_store';
 import { formatRelativeTime } from '@/lib/utils/format';
+import { LinkifiedText } from '@/components/shared/LinkifiedText';
 import { cn } from '@/lib/utils/cn';
 
 // =====================================================================
@@ -237,8 +238,8 @@ function MailDetail({ message, onBack }: { message: MailMessage; onBack: () => v
       </h3>
       
       {/* 본문 */}
-      <div className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap break-keep">
-        {message.body}
+      <div className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap break-words">
+        <LinkifiedText text={message.body} />
       </div>
     </div>
   );

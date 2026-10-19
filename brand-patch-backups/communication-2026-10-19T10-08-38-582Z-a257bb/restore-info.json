@@ -1,0 +1,26 @@
+[
+  {
+    "path": "src/features/feature4/CommunicationAdmin.tsx",
+    "existed": true
+  },
+  {
+    "path": "src/features/feature4/CommunicationPage.tsx",
+    "existed": true
+  },
+  {
+    "path": "src/features/mail/MailInbox.tsx",
+    "existed": true
+  },
+  {
+    "path": "src/components/shared/LinkifiedText.tsx",
+    "existed": false
+  },
+  {
+    "path": "src/lib/utils/linkify.ts",
+    "existed": false
+  },
+  {
+    "path": "docs/COMMUNICATION_UI_2026-10-19.md",
+    "existed": false
+  }
+]

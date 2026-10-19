@@ -9,6 +9,7 @@ import { feature4Rpc } from '@/lib/rpc/feature4_rpc';
 import { feature4QueryError } from '@/lib/feature4_debug';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
 import { formatRelativeTime } from '@/lib/utils/format';
+import { LinkifiedText } from '@/components/shared/LinkifiedText';
 import { cn } from '@/lib/utils/cn';
 
 type Tab = 'mail' | 'alerts' | 'activity';
@@ -80,7 +81,7 @@ function MailTab({studentId,classroomId}:{studentId:number|null;classroomId:numb
   },[selected?.id]);
   if(q.isLoading) return <CenterLoad/>;
   if(q.isError) return <Feature4ErrorPanel domain="F4A" error={q.error} onRetry={()=>void q.refetch()} />;
-  if(selected) return <div className="glass-card p-4"><button onClick={()=>setOpenId(null)} className="text-xs text-brand-primary font-bold mb-4">← 목록</button><div className="text-2xs font-black mb-1"><span className="text-[#9FE8D8]">{mailSenderName(selected)}</span><span className="text-[#F3EBD3]/70"> · {formatRelativeTime(selected.created_at)}</span></div><h2 className="font-display text-lg text-brand-gradient mb-3">{selected.title}</h2><p className="text-sm leading-relaxed whitespace-pre-wrap">{selected.body}</p></div>;
+  if(selected) return <div className="glass-card p-4"><button onClick={()=>setOpenId(null)} className="text-xs text-brand-primary font-bold mb-4">← 목록</button><div className="text-2xs font-black mb-1"><span className="text-[#9FE8D8]">{mailSenderName(selected)}</span><span className="text-[#F3EBD3]/70"> · {formatRelativeTime(selected.created_at)}</span></div><h2 className="font-display text-lg text-brand-gradient mb-3">{selected.title}</h2><p className="text-sm leading-relaxed whitespace-pre-wrap break-words text-text-primary"><LinkifiedText text={selected.body} /></p></div>;
   if(!q.data?.length) return <EmptyState emoji="📭" title="받은 우편이 없어요"/>;
   return <div className="space-y-2">{q.data.map((m:any)=><motion.button whileTap={{scale:.98}} key={m.id} onClick={()=>setOpenId(m.id)} className={cn('w-full text-left p-3.5 rounded-card-md border',m.is_read?'bg-bg-deep border-line':'bg-bg-card border-line-brand')}><div className="flex justify-between gap-2"><span className="text-sm font-extrabold truncate">{m.title}</span>{!m.is_read&&<span className="w-2 h-2 bg-brand-primary rounded-full mt-1.5"/>}</div><div className="text-xs text-[#F3EBD3]/75 truncate mt-1">{m.body}</div><div className="text-2xs font-bold mt-1"><span className="text-[#9FE8D8]">{mailSenderName(m)}</span><span className="text-[#F3EBD3]/65"> · {formatRelativeTime(m.created_at)}</span></div></motion.button>)}</div>;
 }
