@@ -4,6 +4,10 @@ import { cn } from '@/lib/utils/cn';
 
 import type { RaidVisualConfigV1, RaidVisualPlaybackState } from './raidVisualTypes';
 import { RaidFxCanvas } from './RaidFxCanvas';
+import { RaidCameraRig, type RaidCameraEvents } from './RaidCameraRig';
+import { normalizeRaidCinematicConfig } from './raidCinematicPresets';
+import { useRaidCinematicEvents } from './useRaidCinematicEvents';
+import { RaidCinematicFxLayer } from './RaidCinematicFxLayer';
 
 const ANIMATED_IMAGE_RE = /\.(?:webp|gif|apng)(?:$|[?#])/i;
 
@@ -72,6 +76,8 @@ export function RaidBossVisualStage({
   idleVideoUrl,
   visual,
   playbackState,
+  cameraEvents,
+  cameraActive = true,
   className,
 }: {
   bossName: string;
@@ -79,8 +85,14 @@ export function RaidBossVisualStage({
   idleVideoUrl: string | null | undefined;
   visual: RaidVisualConfigV1 | null | undefined;
   playbackState: RaidVisualPlaybackState;
+  cameraEvents?: RaidCameraEvents;
+  cameraActive?: boolean;
   className?: string;
 }) {
+  // Explicitly opt in per QA raid through phase.metadata.visual_v2.qa_demo.
+  const qaBoost = visual?.qa_demo === true;
+  const cinematic = useMemo(() => normalizeRaidCinematicConfig(visual?.cinematic_v2), [visual?.cinematic_v2]);
+  const pulse = useRaidCinematicEvents(cameraEvents, cameraActive && cinematic.enabled);
   const image = cleanUrl(imageUrl);
   const idle = cleanUrl(idleVideoUrl);
   const action = cleanUrl(visual?.media?.action_video_url);
@@ -176,6 +188,7 @@ export function RaidBossVisualStage({
 
   return (
     <div className={cn('pointer-events-none absolute inset-0 overflow-hidden', className)} aria-hidden="true">
+      <RaidCameraRig camera={visual?.camera} events={cameraEvents} active={cameraActive} qaBoost={qaBoost} cinematic={cinematic} pulse={pulse}>
       {image ? (
         <img
           src={image}
@@ -215,7 +228,16 @@ export function RaidBossVisualStage({
         />
       )}
 
-      <RaidFxCanvas fx={visual?.fx} />
+      </RaidCameraRig>
+      {!cinematic.enabled && <RaidFxCanvas fx={visual?.fx} qaBoost={qaBoost} />}
+      <RaidCinematicFxLayer fx={visual?.fx} cinematic={cinematic} pulse={pulse} enrageActive={cameraEvents?.enrageActive===true} active={cameraActive} />
+      {qaBoost && (
+        <div className="pointer-events-none absolute bottom-3 left-3 z-20 rounded-md border border-fuchsia-300/80 bg-slate-950/90 px-3 py-2 text-left text-xs font-bold leading-5 text-fuchsia-100 shadow-lg">
+          <div>VFX A-D QA DEMO | {playbackState}</div>
+          <div>FX: {visual?.fx?.preset ?? 'NONE'} / {cinematic.enabled ? 'CINEMATIC V2' : 'BOOSTED'}</div>
+          <div>CAMERA: {String(visual?.camera?.preset ?? 'LOCKED')} / BOOSTED</div>
+        </div>
+      )}
     </div>
   );
 }

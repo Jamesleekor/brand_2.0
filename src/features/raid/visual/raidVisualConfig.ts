@@ -1,5 +1,8 @@
-import type { RaidVisualConfigV1, RaidVisualFxConfig, RaidVisualStateVideoTrigger } from './raidVisualTypes';
+import type { RaidVisualConfigV1, RaidVisualFxConfig, RaidVisualCameraConfig, RaidVisualStateVideoTrigger } from './raidVisualTypes';
+import { normalizeRaidCameraConfig } from './raidCameraPresets';
 import { normalizeRaidFxConfig } from './raidFxPresets';
+import { normalizeRaidCinematicConfig } from './raidCinematicPresets';
+import type { RaidCinematicConfig } from './raidCinematicPresets';
 
 const STATE_TRIGGERS: RaidVisualStateVideoTrigger[] = ['GROGGY', 'ENRAGE', 'BOTH'];
 
@@ -34,6 +37,8 @@ export function readRaidVisualV2(
     ...rawVisual,
     version: 1,
     fx: { ...(isRecord(rawVisual.fx) ? rawVisual.fx : {}), ...normalizeRaidFxConfig(rawVisual.fx) },
+    camera: { ...(isRecord(rawVisual.camera) ? rawVisual.camera : {}), ...normalizeRaidCameraConfig(rawVisual.camera) },
+    cinematic_v2: normalizeRaidCinematicConfig(rawVisual.cinematic_v2),
     media: {
       ...rawMedia,
       action_video_url: nullableString(rawMedia.action_video_url),
@@ -51,6 +56,8 @@ export function mergeRaidVisualV2Metadata(
     stateVideoUrl: string;
     stateVideoTrigger: RaidVisualStateVideoTrigger;
     fx?: RaidVisualFxConfig;
+    camera?: RaidVisualCameraConfig;
+    cinematic?: RaidCinematicConfig;
   },
 ): Record<string, unknown> {
   const baseMetadata = isRecord(metadata) ? metadata : {};
@@ -62,6 +69,8 @@ export function mergeRaidVisualV2Metadata(
       ...currentVisual,
       version: 1,
       fx: { ...(currentVisual.fx ?? {}), ...normalizeRaidFxConfig(media.fx ?? currentVisual.fx) },
+      camera: { ...(currentVisual.camera ?? {}), ...normalizeRaidCameraConfig(media.camera ?? currentVisual.camera) },
+      cinematic_v2: normalizeRaidCinematicConfig(media.cinematic ?? currentVisual.cinematic_v2),
       media: {
         ...currentVisual.media,
         action_video_url: nullableString(media.actionVideoUrl),

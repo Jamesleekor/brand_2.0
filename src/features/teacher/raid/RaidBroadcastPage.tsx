@@ -555,6 +555,14 @@ function BroadcastBossMedia({ state }: { state: TeacherRaidBroadcastState }) {
       idleVideoUrl={phase?.loop_video_url}
       visual={phase?.visual ?? null}
       playbackState={playbackState}
+      cameraActive={state.raid.status === 'ACTIVE'}
+      cameraEvents={{
+        patternRunId: state.combat.active_pattern?.run_id ?? null,
+        bossAttackSeq: state.combat.boss_attack?.seq ?? null,
+        groggyActive: Boolean(state.combat.groggy_active),
+        enrageActive: Boolean(state.combat.enrage_active),
+        activePatternType: state.combat.active_pattern?.pattern_type ?? null,
+      }}
       className="z-0"
     />
   );

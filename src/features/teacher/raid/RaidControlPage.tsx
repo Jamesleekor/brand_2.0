@@ -13,9 +13,15 @@ import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
 import RaidV15ConfigPanel from '@/features/teacher/raid/RaidV15ConfigPanel';
 import { isValidOptionalHttpUrl, mergeRaidVisualV2Metadata, readRaidVisualV2 } from '@/features/raid/visual/raidVisualConfig';
-import type { RaidVisualFxConfig, RaidVisualFxIntensity, RaidVisualFxPreset, RaidVisualStateVideoTrigger } from '@/features/raid/visual/raidVisualTypes';
+import type { RaidVisualFxConfig, RaidVisualFxIntensity, RaidVisualFxPreset, RaidVisualCameraConfig, RaidVisualCameraPreset, RaidVisualStateVideoTrigger } from '@/features/raid/visual/raidVisualTypes';
+import { RAID_CAMERA_PRESETS } from '@/features/raid/visual/raidCameraPresets';
+import { RaidCameraRig, type RaidCameraEvents } from '@/features/raid/visual/RaidCameraRig';
 import { RAID_FX_PRESETS, RAID_FX_INTENSITIES } from '@/features/raid/visual/raidFxPresets';
 import { RaidFxCanvas } from '@/features/raid/visual/RaidFxCanvas';
+import { RaidCinematicFxLayer } from '@/features/raid/visual/RaidCinematicFxLayer';
+import { useRaidCinematicEvents } from '@/features/raid/visual/useRaidCinematicEvents';
+import { RAID_CINEMATIC_TRIGGERS, RAID_EVENT_FX, RAID_CAMERA_REACTIONS, RAID_CINEMATIC_DEFAULTS, normalizeRaidCinematicConfig } from '@/features/raid/visual/raidCinematicPresets';
+import type { RaidCinematicConfig, RaidCinematicTrigger, RaidEventFx, RaidCameraReaction } from '@/features/raid/visual/raidCinematicPresets';
 import { raidV15AdminRpc } from '@/lib/rpc/raid_v15_admin_rpc';
 import {
   RAID_BOSS_PRESETS,
@@ -53,6 +59,9 @@ type RaidForm = {
   stateVideoTrigger: RaidVisualStateVideoTrigger;
   fxPreset: RaidVisualFxPreset;
   fxIntensity: RaidVisualFxIntensity;
+  cameraPreset: RaidVisualCameraPreset;
+  cameraEventReactions: boolean;
+  cinematic: RaidCinematicConfig;
 };
 
 const ELEMENT_OPTIONS: Array<{ value: RaidElement; label: string }> = [
@@ -89,6 +98,9 @@ const EMPTY_FORM: RaidForm = {
   stateVideoTrigger: 'BOTH',
   fxPreset: 'NONE',
   fxIntensity: 'MEDIUM',
+  cameraPreset: 'LOCKED',
+  cameraEventReactions: true,
+  cinematic: normalizeRaidCinematicConfig(RAID_CINEMATIC_DEFAULTS),
 };
 
 export default function RaidControlPage() {
@@ -368,6 +380,8 @@ export default function RaidControlPage() {
             stateVideoUrl: form.stateVideoUrl,
             stateVideoTrigger: form.stateVideoTrigger,
             fx: { preset: form.fxPreset, intensity: form.fxIntensity },
+            camera: { preset: form.cameraPreset, event_reactions: form.cameraEventReactions },
+            cinematic: form.cinematic,
           });
 
           const phaseSaveResult = await call(
@@ -432,6 +446,8 @@ export default function RaidControlPage() {
             stateVideoUrl: form.stateVideoUrl,
             stateVideoTrigger: form.stateVideoTrigger,
             fx: { preset: form.fxPreset, intensity: form.fxIntensity },
+            camera: { preset: form.cameraPreset, event_reactions: form.cameraEventReactions },
+            cinematic: form.cinematic,
           }),
         }),
         {
@@ -1261,18 +1277,95 @@ function RaidEditor({
             <p className="mt-2 text-[11px] text-cyan-100/85">Canvas 2D 공용 FX · 모든 입자는 클릭을 가리지 않습니다.</p>
           </div>
         </div>
+        <div className="mt-4 grid gap-3 rounded-card-md border border-cyan-300/20 bg-cyan-500/5 p-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="raid-camera-preset" className="mb-2 block text-[11px] font-black uppercase tracking-[0.1em] text-cyan-100">Camera 프리셋</label>
+            <select
+              id="raid-camera-preset"
+              value={form.cameraPreset}
+              disabled={!editable}
+              onChange={(e) => update('cameraPreset', e.target.value as RaidVisualCameraPreset)}
+              className={inputClass()}
+            >
+              {RAID_CAMERA_PRESETS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <p className="mt-2 text-[11px] text-cyan-100/85">
+              {RAID_CAMERA_PRESETS.find((option) => option.value === form.cameraPreset)?.description}
+            </p>
+          </div>
+          <div className="flex flex-col justify-center">
+            <label className="flex items-center gap-2 text-xs font-black text-cyan-50">
+              <input
+                type="checkbox"
+                disabled={!editable}
+                checked={form.cameraEventReactions}
+                onChange={(e) => update('cameraEventReactions', e.target.checked)}
+                className="h-4 w-4 accent-yellow-300"
+              />
+              전투 이벤트 카메라 반응
+            </label>
+            <p className="mt-2 text-[11px] leading-5 text-cyan-100/85">
+              패턴 시작, 보스 공격 적중, Groggy, Enrage에 미세한 카메라 반응을 적용합니다.
+              영상만 움직이며 약점 판정과 HUD는 고정됩니다.
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 rounded-card-lg border border-fuchsia-400/30 bg-fuchsia-950/10 p-3">
+          <label className="flex items-center gap-2 text-sm font-black text-fuchsia-100">
+            <input type="checkbox" disabled={!editable} checked={form.cinematic.enabled}
+              onChange={e => update('cinematic', { ...form.cinematic, enabled: e.target.checked })}
+              className="h-4 w-4 accent-fuchsia-300" />
+            VFX C/D 시네마틱 V2 (이벤트 FX + 강력한 카메라 반응)
+          </label>
+          <p className="mt-1 text-xs text-fuchsia-100/75">기본 OFF: 기존 레이드는 변화 없음. ON일 때만 이벤트별 연출이 적용됩니다. 카메라는 보스 영상에만 적용됩니다.</p>
+          <label className="mt-2 flex items-center gap-2 text-xs font-bold text-cyan-100">
+            <input type="checkbox" disabled={!editable || !form.cinematic.enabled} checked={form.cinematic.enrage_atmosphere}
+              onChange={e => update('cinematic', { ...form.cinematic, enrage_atmosphere: e.target.checked })}
+              className="h-4 w-4 accent-fuchsia-300" />
+            광폭화 지속 중 전용 환경폭풍 · 카메라 난류 유지
+          </label>
+          {form.cinematic.enabled && (
+            <div className="mt-3 grid gap-2">
+              {RAID_CINEMATIC_TRIGGERS.map(trigger => (
+                <div key={trigger} className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-2 md:grid-cols-[110px_1fr_1fr] md:items-center">
+                  <span className="text-xs font-black text-fuchsia-100">{({ PATTERN:'패턴 시작', BOSS_ATTACK:'보스 공격', GROGGY:'그로기 진입', ENRAGE:'광폭화 진입' } as Record<RaidCinematicTrigger,string>)[trigger]}</span>
+                  <label className="text-xs text-cyan-100">
+                    <span className="mb-1 block text-[10px]">이벤트 FX</span>
+                    <select disabled={!editable} value={form.cinematic.event_fx[trigger]}
+                      onChange={e => update('cinematic', { ...form.cinematic, event_fx: { ...form.cinematic.event_fx, [trigger]: e.target.value as RaidEventFx } })}
+                      className={inputClass()}>
+                      {RAID_EVENT_FX.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                    </select>
+                  </label>
+                  <label className="text-xs text-cyan-100">
+                    <span className="mb-1 block text-[10px]">카메라 반응</span>
+                    <select disabled={!editable} value={form.cinematic.camera_reactions[trigger]}
+                      onChange={e => update('cinematic', { ...form.cinematic, camera_reactions: { ...form.cinematic.camera_reactions, [trigger]: e.target.value as RaidCameraReaction } })}
+                      className={inputClass()}>
+                      {RAID_CAMERA_REACTIONS.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
+                    </select>
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         {!form.imageUrl.trim() && !form.loopVideoUrl.trim() && (
           <div className="mt-3 rounded-card-md border border-warning/45 bg-warning/10 px-3 py-2 text-xs font-black text-yellow-100">
             ⚠️ 초안 저장은 가능하지만, 이미지 또는 IDLE 루프 영상 중 하나가 없으면 레이드를 시작할 수 없습니다.
           </div>
         )}
-        {(form.imageUrl.trim() || form.loopVideoUrl.trim() || form.actionVideoUrl.trim() || form.stateVideoUrl.trim() || form.fxPreset !== 'NONE') && (
+        {(form.imageUrl.trim() || form.loopVideoUrl.trim() || form.actionVideoUrl.trim() || form.stateVideoUrl.trim() || form.fxPreset !== 'NONE' || form.cameraPreset !== 'LOCKED') && (
           <BossVisualPreview
             imageUrl={form.imageUrl.trim()}
             idleVideoUrl={form.loopVideoUrl.trim()}
             actionVideoUrl={form.actionVideoUrl.trim()}
             stateVideoUrl={form.stateVideoUrl.trim()}
             fx={{ preset: form.fxPreset, intensity: form.fxIntensity }}
+            camera={{ preset: form.cameraPreset, event_reactions: form.cameraEventReactions }}
+            cinematic={form.cinematic}
           />
         )}
       </div>
@@ -1443,15 +1536,24 @@ function BossVisualPreview({
   actionVideoUrl,
   stateVideoUrl,
   fx,
+  camera,
+  cinematic,
 }: {
   imageUrl: string;
   idleVideoUrl: string;
   actionVideoUrl: string;
   stateVideoUrl: string;
   fx: RaidVisualFxConfig;
+  camera: RaidVisualCameraConfig;
+  cinematic: RaidCinematicConfig;
 }) {
   type PreviewSlot = 'IDLE' | 'ACTION' | 'STATE';
   const [slot, setSlot] = useState<PreviewSlot>('IDLE');
+  const [patternRunId, setPatternRunId] = useState(0);
+  const [bossAttackSeq, setBossAttackSeq] = useState(0);
+  const [previewGroggy, setPreviewGroggy] = useState(false);
+  const [previewEnrage, setPreviewEnrage] = useState(false);
+  const previewCameraEvents: RaidCameraEvents = { patternRunId, bossAttackSeq, groggyActive: previewGroggy, enrageActive: previewEnrage };
   const slotUrls: Record<PreviewSlot, string> = {
     IDLE: idleVideoUrl,
     ACTION: actionVideoUrl,
@@ -1480,17 +1582,29 @@ function BossVisualPreview({
         <span className="ml-auto self-center text-[10px] font-bold text-cyan-100/75">● URL 설정됨 · ○ 미설정</span>
       </div>
 
+      <div className="mt-2 flex flex-wrap gap-2 rounded-card-md border border-cyan-400/20 bg-[#07111f]/95 px-3 py-2.5">
+        <span className="mr-2 self-center text-[10px] font-black text-cyan-100">Camera 이벤트 미리보기</span>
+        <button type="button" onClick={() => setPatternRunId((id) => id + 1)} className="rounded border border-cyan-300/30 px-2 py-1 text-[11px] text-cyan-50">패턴 시작</button>
+        <button type="button" onClick={() => setBossAttackSeq((seq) => seq + 1)} className="rounded border border-cyan-300/30 px-2 py-1 text-[11px] text-cyan-50">보스 공격 적중</button>
+        <button type="button" onClick={() => setPreviewGroggy((value) => !value)} className={cn('rounded border px-2 py-1 text-[11px]', previewGroggy ? 'border-yellow-300 text-yellow-200' : 'border-cyan-300/30 text-cyan-50')}>Groggy {previewGroggy ? 'ON' : 'OFF'}</button>
+        <button type="button" onClick={() => setPreviewEnrage((value) => !value)} className={cn('rounded border px-2 py-1 text-[11px]', previewEnrage ? 'border-yellow-300 text-yellow-200' : 'border-cyan-300/30 text-cyan-50')}>Enrage {previewEnrage ? 'ON' : 'OFF'}</button>
+      </div>
+
       {selectedUrl || imageUrl ? (
         <BossMediaPreview
           key={`${slot}:${selectedUrl}:${imageUrl}`}
           imageUrl={imageUrl}
           videoUrl={selectedUrl}
           fx={fx}
+          camera={camera}
+          cameraEvents={previewCameraEvents}
+          cinematic={cinematic}
         />
       ) : (
         <div className="relative mt-3 flex aspect-video items-center justify-center overflow-hidden rounded-card-lg border border-cyan-400/30 bg-black/55 px-6 text-center text-xs font-black text-amber-100">
           <span className="relative z-10">{slot} 슬롯에 영상이 없고 fallback 이미지도 없습니다.</span>
-          <RaidFxCanvas fx={fx} />
+          {!cinematic.enabled && <RaidFxCanvas fx={fx} />}
+          <RaidCinematicFxLayer fx={fx} cinematic={cinematic} pulse={null} enrageActive={previewEnrage} />
         </div>
       )}
     </div>
@@ -1501,12 +1615,19 @@ function BossMediaPreview({
   imageUrl,
   videoUrl,
   fx,
+  camera,
+  cameraEvents,
+  cinematic,
 }: {
   imageUrl: string;
   videoUrl: string;
   fx: RaidVisualFxConfig;
+  camera: RaidVisualCameraConfig;
+  cameraEvents: RaidCameraEvents;
+  cinematic: RaidCinematicConfig;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const pulse = useRaidCinematicEvents(cameraEvents, cinematic.enabled);
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>(
     videoUrl ? 'loading' : 'idle',
   );
@@ -1570,6 +1691,8 @@ function BossMediaPreview({
   return (
     <div className="mt-4 overflow-hidden rounded-card-lg border border-cyan-400/30 bg-black/55">
       <div className="relative aspect-video w-full overflow-hidden">
+        <RaidCameraRig camera={camera} events={cameraEvents} cinematic={cinematic} pulse={pulse}>
+          <div className="absolute inset-0">
         {videoUrl ? (
           animatedImage ? (
             <img
@@ -1631,7 +1754,10 @@ function BossMediaPreview({
             className="h-full w-full object-contain"
           />
         )}
-        <RaidFxCanvas fx={fx} />
+          </div>
+        </RaidCameraRig>
+        {!cinematic.enabled && <RaidFxCanvas fx={fx} />}
+        <RaidCinematicFxLayer fx={fx} cinematic={cinematic} pulse={pulse} enrageActive={cameraEvents.enrageActive===true} />
       </div>
 
       <div className="flex flex-col gap-2 border-t border-cyan-400/20 bg-[#07111f]/95 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
@@ -2027,6 +2153,9 @@ function formFromDetail(detail: TeacherRaidDetail): RaidForm {
     stateVideoTrigger: visual.media.state_video_trigger,
     fxPreset: visual.fx?.preset ?? 'NONE',
     fxIntensity: visual.fx?.intensity ?? 'MEDIUM',
+    cameraPreset: visual.camera?.preset ?? 'LOCKED',
+    cameraEventReactions: visual.camera?.event_reactions ?? true,
+    cinematic: normalizeRaidCinematicConfig(visual.cinematic_v2),
   };
 }
 

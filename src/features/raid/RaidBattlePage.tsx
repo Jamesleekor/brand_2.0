@@ -832,7 +832,16 @@ function BossViewport({
         idleVideoUrl={phase?.loop_video_url}
         visual={phase?.visual ?? null}
         playbackState={playbackState}
-      />    </div>
+        cameraActive={state.raid.status === 'ACTIVE'}
+        cameraEvents={{
+          patternRunId: state.combat?.active_pattern?.run_id ?? null,
+          bossAttackSeq: state.combat?.boss_attack?.seq ?? null,
+          groggyActive,
+          enrageActive: Boolean(state.combat?.enrage_active),
+          activePatternType: state.combat?.active_pattern?.pattern_type ?? null,
+        }}
+      />
+    </div>
   );
 }
 

@@ -75,7 +75,7 @@ function renderParticle(
   }
 }
 
-export function RaidFxCanvas({ fx }: { fx: RaidVisualFxConfig | null | undefined }) {
+export function RaidFxCanvas({ fx, qaBoost = false }: { fx: RaidVisualFxConfig | null | undefined; qaBoost?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const config = normalizeRaidFxConfig(fx);
   const { preset, intensity } = config;
@@ -87,15 +87,15 @@ export function RaidFxCanvas({ fx }: { fx: RaidVisualFxConfig | null | undefined
     if (!ctx) return;
 
     const random = makeRandom(0x77a031 + preset.length * 17 + intensity.length * 43);
-    const count = getRaidFxParticleCount({ preset, intensity });
+    const count = qaBoost ? 90 : getRaidFxParticleCount({ preset, intensity });
     const multiplier = RAID_FX_INTENSITY_MULTIPLIER[intensity];
     const particles: Particle[] = Array.from({ length: count }, () => ({
       x: random(), y: random(),
-      size: 0.8 + random() * 2.3,
-      speed: 0.25 + random() * 0.65,
-      opacity: (0.16 + random() * 0.44) * Math.min(1.2, multiplier),
+      size: qaBoost ? 3.4 + random() * 5.8 : 0.8 + random() * 2.3,
+      speed: qaBoost ? 1.2 + random() * 2.0 : 0.25 + random() * 0.65,
+      opacity: qaBoost ? 0.68 + random() * 0.27 : (0.16 + random() * 0.44) * Math.min(1.2, multiplier),
       phase: random() * Math.PI * 2,
-      kind: random() >= 0.5 ? 1 : 0,
+      kind: qaBoost && preset === 'DARK_VOID' ? (random() > 0.18 ? 1 : 0) : (random() >= 0.5 ? 1 : 0),
     }));
     let width = 0;
     let height = 0;
@@ -110,6 +110,9 @@ export function RaidFxCanvas({ fx }: { fx: RaidVisualFxConfig | null | undefined
     const draw = (now: number, dt: number) => {
       if (!width || !height) return;
       ctx.clearRect(0, 0, width, height);
+      // Glow is intentionally enabled only for the explicitly marked QA raid.
+      ctx.shadowBlur = qaBoost ? 8 : 0;
+      ctx.shadowColor = qaBoost ? 'rgba(205,120,255,0.9)' : 'transparent';
       for (const particle of particles) {
         if (dt > 0) {
           const movement = particle.speed * dt * 0.002;
@@ -212,7 +215,7 @@ export function RaidFxCanvas({ fx }: { fx: RaidVisualFxConfig | null | undefined
       document.removeEventListener('visibilitychange', onVisibility);
       reducedMotion?.removeEventListener?.('change', onReducedMotion);
     };
-  }, [preset, intensity]);
+  }, [preset, intensity, qaBoost]);
 
   if (preset === 'NONE') return null;
   return (
