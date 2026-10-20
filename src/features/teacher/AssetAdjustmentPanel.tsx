@@ -9,7 +9,8 @@ import {
 } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
 import { teacherRpc } from '@/lib/rpc/teacher_rpc';
-import { formatNumber } from '@/lib/utils/format';
+import { parseKstDateTimeInput, toKstDateTimeInput } from '@/lib/utils/asset_effective_time';
+import { formatDateTime, formatNumber } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 
 interface AssetStudent {
@@ -33,6 +34,7 @@ interface LastAdjustment {
   goldAmount?: number;
   reason: string;
   studentCount: number;
+  effectiveAt: string;
   taxAmount?: number;
   arrearAmount?: number;
 }
@@ -54,6 +56,9 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [lastAdjustment, setLastAdjustment] = useState<LastAdjustment | null>(null);
   const [taxRateInput, setTaxRateInput] = useState('10');
+  const [timeMode, setTimeMode] = useState<'NOW' | 'CUSTOM'>('NOW');
+  const [effectiveTimeInput, setEffectiveTimeInput] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   const adjustmentConfigQuery = useQuery({
     queryKey: ['teacher-asset-adjustment-config', classroomId],
@@ -156,10 +161,26 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
     ? selectedStudents.filter((student) => student.bv < bvAmount || student.gold < goldAmount)
     : [];
 
+  const serverNow = adjustmentConfigQuery.data?.server_now;
+  const currentServerMs = serverNow
+    ? new Date(serverNow).getTime() + Math.max(0, Date.now() - adjustmentConfigQuery.dataUpdatedAt)
+    : Date.now();
+  const earliestTime = adjustmentConfigQuery.data?.earliest_effective_at;
+  const effectiveAt = timeMode === 'CUSTOM' ? parseKstDateTimeInput(effectiveTimeInput) : null;
+  const timeError = timeMode !== 'CUSTOM' ? '' : !effectiveAt
+    ? '반영 날짜와 시간을 입력해주세요.'
+    : new Date(effectiveAt).getTime() > currentServerMs
+      ? '미래 시각은 지정할 수 없습니다.'
+      : earliestTime && new Date(effectiveAt).getTime() < new Date(earliestTime).getTime()
+        ? `과거 원장 이관 이후인 ${formatDateTime(earliestTime)}부터 지정할 수 있습니다.` : '';
+  const effectiveTimeLabel = timeMode === 'CUSTOM' && effectiveAt
+    ? `${formatDateTime(effectiveAt)} (한국시간)` : '실행하는 현재 시각';
+
   const validAmount = token === 'BOTH' ? validCombinedAmount : validSingleAmount;
   const canOpenConfirm =
     selectedStudents.length > 0 &&
     validAmount &&
+    !timeError &&
     trimmedReason.length >= 2 &&
     trimmedReason.length <= 200 &&
     (!goldGrantUsesTax || validTaxRate) &&
@@ -199,6 +220,9 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
     setBvAmountInput('');
     setGoldAmountInput('');
     setReason('');
+    setTimeMode('NOW');
+    setEffectiveTimeInput('');
+    setSubmitError('');
   };
 
   const invalidate = async () => {
@@ -212,23 +236,27 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
       queryClient.invalidateQueries({ queryKey: ['rankings'] }),
       queryClient.invalidateQueries({ queryKey: ['student-asset-arrears'] }),
       queryClient.invalidateQueries({ queryKey: ['teacher-asset-adjustment-config'] }),
+      ...['reversible-economic-transactions', 'teacher-economy-history', 'mvp-foundation-sessions', 'mvp-foundation-board', 'mvp-foundation-detail'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })),
     ]);
   };
 
   const handleConfirm = async () => {
     if (!canOpenConfirm) return;
+    setSubmitError('');
 
     if (token === 'BOTH') {
       const results = await call(
-        () => teacherRpc.adjustStudentAssetsCombined(supabase, {
+        () => teacherRpc.adjustStudentAssetsCombinedAt(supabase, {
           p_student_ids: selectedStudents.map((student) => student.id),
           p_bv_amount: bvAmount,
           p_gold_amount: goldAmount,
           p_operation: operation,
           p_reason: trimmedReason,
+          p_effective_at: effectiveAt,
           p_tax_rate_percent: goldGrantUsesTax ? taxRatePercent : null,
         }),
         {
+          onError: setSubmitError,
           successTitle: operation === 'GRANT' ? 'BV + 골드 동시 지급 완료' : 'BV + 골드 동시 차감 완료',
           successDescription: `${selectedStudents.length}명 · ${formatNumber(bvAmount)} BV + ${formatNumber(goldAmount)} 골드`,
         }
@@ -241,20 +269,23 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
         goldAmount,
         reason: trimmedReason,
         studentCount: selectedStudents.length,
+        effectiveAt: results[0]?.effective_at ?? new Date().toISOString(),
         taxAmount: results.reduce((sum, row) => sum + Number(row.gold_tax_amount ?? 0), 0),
         arrearAmount: results.reduce((sum, row) => sum + Number(row.bv_arrear_amount ?? 0) + Number(row.gold_arrear_amount ?? 0), 0),
       });
     } else {
       const signedAmount = operation === 'GRANT' ? amount : -amount;
       const results = await call(
-        () => teacherRpc.adjustStudentAssetsV2(supabase, {
+        () => teacherRpc.adjustStudentAssetsAt(supabase, {
           p_student_ids: selectedStudents.map((student) => student.id),
           p_value_token: token,
           p_amount: signedAmount,
           p_reason: trimmedReason,
+          p_effective_at: effectiveAt,
           p_tax_rate_percent: goldGrantUsesTax ? taxRatePercent : null,
         }),
         {
+          onError: setSubmitError,
           successTitle: operation === 'GRANT' ? '자산 지급 완료' : '자산 차감 완료',
           successDescription: `${selectedStudents.length}명 · ${formatNumber(amount)} ${token === 'BV' ? 'BV' : token === 'GOLD' ? '골드' : '크리스탈'}`,
         }
@@ -266,6 +297,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
         amount,
         reason: trimmedReason,
         studentCount: selectedStudents.length,
+        effectiveAt: results[0]?.effective_at ?? new Date().toISOString(),
         taxAmount: results.reduce((sum, row) => sum + Number(row.tax_amount ?? 0), 0),
         arrearAmount: results.reduce((sum, row) => sum + Number(row.arrear_amount ?? 0), 0),
       });
@@ -287,11 +319,11 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
             <h2 className="font-display text-lg text-white tracking-tight flex items-center gap-2">
               <span>💳</span><span>학생 자산 지급·차감</span>
             </h2>
-            <p className="text-xs text-text-secondary font-bold mt-1 break-keep">
+            <p className="text-xs text-[#F3EBD3] font-bold mt-1 break-keep">
               한 명 또는 여러 학생을 선택해 BV·골드·크리스탈을 일괄 조정합니다. 모든 변경은 거래 기록에 남습니다.
             </p>
           </div>
-          <div className="text-xs font-black text-text-secondary bg-bg-deep border border-line rounded-pill px-3 py-1.5 self-start sm:self-auto">
+          <div className="text-xs font-black text-[#F3EBD3] bg-bg-deep border border-line rounded-pill px-3 py-1.5 self-start sm:self-auto">
             선택 {selectedStudents.length}명 / 전체 {students.length}명
           </div>
         </div>
@@ -305,7 +337,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
               <button type="button" onClick={toggleAllVisible} disabled={visibleStudents.length === 0} className="btn-secondary flex-1 sm:flex-none whitespace-nowrap">
                 {allVisibleSelected ? '현재 목록 해제' : '현재 목록 전체 선택'}
               </button>
-              <button type="button" onClick={() => setSelectedIds([])} disabled={selectedIds.length === 0} className="px-3 py-2 bg-bg-deep border border-line rounded-card-md text-xs font-extrabold text-text-secondary disabled:opacity-40">
+              <button type="button" onClick={() => setSelectedIds([])} disabled={selectedIds.length === 0} className="px-3 py-2 bg-bg-deep border border-line rounded-card-md text-xs font-extrabold text-[#F3EBD3] disabled:opacity-40">
                 선택 초기화
               </button>
             </div>
@@ -339,7 +371,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
                       <span className="block text-sm font-black text-text-primary truncate">
                         {student.name}{student.brandName ? ` (${student.brandName})` : ''}
                       </span>
-                      <span className="block text-xs text-text-secondary font-bold truncate mt-0.5">
+                      <span className="block text-xs text-[#F3EBD3] font-bold truncate mt-0.5">
                         {student.cachedTier || '티어 정보 없음'}
                       </span>
                     </span>
@@ -365,7 +397,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
                 { value: 'CRYSTAL', label: '크리스탈', emoji: '💎', active: 'bg-crystal/15 border-crystal/60 text-crystal' },
                 { value: 'BOTH', label: 'BV+골드', emoji: '✨', active: 'bg-brand-primary/15 border-brand-primary/60 text-white' },
               ] as const).map((option) => (
-                <button type="button" key={option.value} onClick={() => setTokenMode(option.value)} className={cn('py-2.5 px-1 rounded-card-md border text-xs sm:text-sm font-black transition-all whitespace-nowrap', token === option.value ? option.active : 'bg-bg-deep border-line text-text-secondary')}>
+                <button type="button" key={option.value} onClick={() => setTokenMode(option.value)} className={cn('py-2.5 px-1 rounded-card-md border text-xs sm:text-sm font-black transition-all whitespace-nowrap', token === option.value ? option.active : 'bg-bg-deep border-line text-[#F3EBD3]')}>
                   {option.emoji} {option.label}
                 </button>
               ))}
@@ -375,10 +407,10 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
           <div>
             <label className="block text-sm font-extrabold text-text-primary mb-2">처리 방식</label>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setOperation('GRANT')} className={cn('py-2.5 rounded-card-md border text-sm font-black transition-all', operation === 'GRANT' ? 'bg-success-bg border-success/60 text-success' : 'bg-bg-deep border-line text-text-secondary')}>➕ 지급</button>
-              <button type="button" onClick={() => setOperation('DEDUCT')} className={cn('py-2.5 rounded-card-md border text-sm font-black transition-all', operation === 'DEDUCT' ? 'bg-danger-bg border-danger/60 text-danger' : 'bg-bg-deep border-line text-text-secondary')}>➖ 차감</button>
+              <button type="button" onClick={() => setOperation('GRANT')} className={cn('py-2.5 rounded-card-md border text-sm font-black transition-all', operation === 'GRANT' ? 'bg-success-bg border-success/60 text-success' : 'bg-bg-deep border-line text-[#F3EBD3]')}>➕ 지급</button>
+              <button type="button" onClick={() => setOperation('DEDUCT')} className={cn('py-2.5 rounded-card-md border text-sm font-black transition-all', operation === 'DEDUCT' ? 'bg-danger-bg border-danger/60 text-danger' : 'bg-bg-deep border-line text-[#F3EBD3]')}>➖ 차감</button>
             </div>
-            {token === 'BOTH' && <p className="text-xs text-text-secondary mt-1.5">BV와 골드를 한 번에 지급하거나 차감합니다. 잔액보다 큰 차감액은 미납 벌금으로 남습니다.</p>}
+            {token === 'BOTH' && <p className="text-xs text-[#F3EBD3] mt-1.5">BV와 골드를 한 번에 지급하거나 차감합니다. 잔액보다 큰 차감액은 미납 벌금으로 남습니다.</p>}
           </div>
 
           {token === 'BOTH' ? (
@@ -410,17 +442,29 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
                 </div>
                 <span className="pb-2 text-xs font-black text-warning">기본 {taxRateInput || '0'}%</span>
               </div>
-              <p className="mt-1.5 text-xs font-bold text-text-secondary break-keep">골드 지급액에 적용됩니다. 학생별 컬렉션 세율 감면은 자동으로 추가 반영되며, 입력한 세율은 학급 기본 소득세율로 저장됩니다.</p>
+              <p className="mt-1.5 text-xs font-bold text-[#F3EBD3] break-keep">골드 지급액에 적용됩니다. 학생별 컬렉션 세율 감면은 자동으로 추가 반영되며, 입력한 세율은 학급 기본 소득세율로 저장됩니다.</p>
               {!validTaxRate && <p className="mt-1 text-xs font-bold text-danger">0 이상 100 미만의 세율을 입력해주세요.</p>}
             </div>
           )}
 
+          <div className="rounded-card-md border border-crystal/35 bg-crystal/5 p-3 space-y-2">
+            <label htmlFor="asset-effective-time" className="block text-sm font-extrabold text-[#F3EBD3]">반영 날짜·시간 (한국시간)</label>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" aria-pressed={timeMode === 'NOW'} onClick={() => { setTimeMode('NOW'); setSubmitError(''); }} className={cn('rounded-pill border px-3 py-2 text-xs font-black', timeMode === 'NOW' ? 'border-crystal/60 text-[#9FE8D8] bg-crystal/10' : 'border-line text-[#F3EBD3]')}>현재 시각</button>
+              <button type="button" aria-pressed={timeMode === 'CUSTOM'} onClick={() => { setTimeMode('CUSTOM'); if (!effectiveTimeInput) setEffectiveTimeInput(toKstDateTimeInput(currentServerMs)); setSubmitError(''); }} className={cn('rounded-pill border px-3 py-2 text-xs font-black', timeMode === 'CUSTOM' ? 'border-crystal/60 text-[#9FE8D8] bg-crystal/10' : 'border-line text-[#F3EBD3]')}>직접 지정</button>
+              <button type="button" onClick={() => { setTimeMode('CUSTOM'); setEffectiveTimeInput(toKstDateTimeInput(currentServerMs - 86_400_000)); setSubmitError(''); }} className="rounded-pill border border-line px-3 py-2 text-xs font-black text-[#F3EBD3]">어제</button>
+            </div>
+            {timeMode === 'CUSTOM' && <input id="asset-effective-time" type="datetime-local" step={60} value={effectiveTimeInput} min={earliestTime ? toKstDateTimeInput(earliestTime) : undefined} max={toKstDateTimeInput(currentServerMs)} onChange={(event) => { setEffectiveTimeInput(event.target.value); setSubmitError(''); }} className="input-field w-full" />}
+            {timeError && <p role="alert" className="text-xs font-bold text-danger">{timeError}</p>}
+            <p className="text-xs font-bold leading-relaxed text-[#F3EBD3]">지갑은 지금 변경하고, 거래와 통계는 지정한 일시에 반영합니다. 실제 처리 시각도 별도로 남습니다. 미래 예약과 확정된 MVP 기간의 소급 처리는 지원하지 않습니다.</p>
+          </div>
+
           <div>
             <label htmlFor="asset-adjustment-reason" className="block text-sm font-extrabold text-text-primary mb-1.5">지급·차감 사유</label>
-            <textarea id="asset-adjustment-reason" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="예: 수업 참여 보상 / 규칙 위반 차감" rows={3} maxLength={200} className="w-full px-3 py-2.5 bg-bg-deep border border-line-strong rounded-card-md text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-brand-primary resize-none" />
+            <textarea id="asset-adjustment-reason" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="예: 수업 참여 보상 / 규칙 위반 차감" rows={3} maxLength={200} className="w-full px-3 py-2.5 bg-bg-deep border border-line-strong rounded-card-md text-sm text-text-primary placeholder:text-[#F3EBD3] focus:outline-none focus:border-brand-primary resize-none" />
             <div className="flex justify-between text-xs font-bold mt-1.5">
-              <span className={trimmedReason.length > 0 && trimmedReason.length < 2 ? 'text-danger' : 'text-text-secondary'}>최소 2자</span>
-              <span className="text-text-secondary">{reason.length}/200</span>
+              <span className={trimmedReason.length > 0 && trimmedReason.length < 2 ? 'text-danger' : 'text-[#F3EBD3]'}>최소 2자</span>
+              <span className="text-[#F3EBD3]">{reason.length}/200</span>
             </div>
           </div>
 
@@ -432,14 +476,14 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
           )}
 
           <div className="bg-bg-deep border border-line rounded-card-md p-3">
-            <div className="flex justify-between text-sm font-bold text-text-secondary"><span>대상</span><span className="text-text-primary">{selectedStudents.length}명</span></div>
-            <div className="flex justify-between gap-3 text-sm font-bold text-text-secondary mt-1.5"><span>총 변동량</span><span className={operation === 'GRANT' ? 'text-success text-right' : 'text-danger text-right'}>{totalSummary}</span></div>
+            <div className="flex justify-between text-sm font-bold text-[#F3EBD3]"><span>대상</span><span className="text-text-primary">{selectedStudents.length}명</span></div>
+            <div className="flex justify-between gap-3 text-sm font-bold text-[#F3EBD3] mt-1.5"><span>총 변동량</span><span className={operation === 'GRANT' ? 'text-success text-right' : 'text-danger text-right'}>{totalSummary}</span></div>
           </div>
 
-          <button type="button" onClick={() => setConfirmOpen(true)} disabled={!canOpenConfirm} className={cn('w-full py-3 rounded-card-md text-sm font-black transition-all', operation === 'GRANT' ? 'btn-primary' : 'btn-danger', !canOpenConfirm && 'opacity-50 cursor-not-allowed')}>
+          <button type="button" onClick={() => { setSubmitError(''); setConfirmOpen(true); }} disabled={!canOpenConfirm} className={cn('w-full py-3 rounded-card-md text-sm font-black transition-all', operation === 'GRANT' ? 'btn-primary' : 'btn-danger', !canOpenConfirm && 'opacity-50 cursor-not-allowed')}>
             {isSubmitting ? '처리 중...' : `${selectedStudents.length}명 ${operation === 'GRANT' ? '지급' : '차감'} 확인`}
           </button>
-          <p className="text-xs text-text-secondary font-bold leading-relaxed break-keep">다중 처리는 한 DB 작업으로 처리됩니다. 지급 골드는 소득세가 자동 반영되고, 차감액이 잔액을 넘으면 부족분은 미납 벌금으로 남습니다.</p>
+          <p className="text-xs text-[#F3EBD3] font-bold leading-relaxed break-keep">다중 처리는 한 DB 작업으로 처리됩니다. 지급 골드는 소득세가 자동 반영되고, 차감액이 잔액을 넘으면 부족분은 미납 벌금으로 남습니다.</p>
         </div>
       </div>
 
@@ -455,9 +499,10 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
               </p>
               {(lastAdjustment.taxAmount ?? 0) > 0 && <p className="text-xs text-warning font-bold mt-1">소득세 합계: {formatNumber(lastAdjustment.taxAmount ?? 0)} 골드</p>}
               {(lastAdjustment.arrearAmount ?? 0) > 0 && <p className="text-xs text-danger font-bold mt-1">새로 발생한 미납금 합계: {formatNumber(lastAdjustment.arrearAmount ?? 0)}</p>}
-              <p className="text-xs text-text-secondary font-bold mt-1">사유: {lastAdjustment.reason}</p>
+              <p className="text-xs text-[#F3EBD3] font-bold mt-1">반영 일시: {formatDateTime(lastAdjustment.effectiveAt)} (한국시간)</p>
+              <p className="text-xs text-[#F3EBD3] font-bold mt-1">사유: {lastAdjustment.reason}</p>
             </div>
-            <button type="button" onClick={() => setLastAdjustment(null)} className="text-xs font-black text-text-secondary hover:text-text-primary">결과 닫기</button>
+            <button type="button" onClick={() => setLastAdjustment(null)} className="text-xs font-black text-[#F3EBD3] hover:text-text-primary">결과 닫기</button>
           </div>
         </div>
       )}
@@ -466,7 +511,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
         <Modal isOpen onClose={() => { if (!isSubmitting) setConfirmOpen(false); }} title="자산 변경 최종 확인" emoji={operation === 'GRANT' ? '🎁' : '⚠️'} size="md">
           <div className="space-y-4">
             <div className={cn('rounded-card-md border p-4 text-center', operation === 'GRANT' ? 'bg-success-bg border-success/40' : 'bg-danger-bg border-danger/40')}>
-              <div className="text-xs font-black uppercase tracking-widest text-text-secondary mb-1">실행할 작업</div>
+              <div className="text-xs font-black uppercase tracking-widest text-[#F3EBD3] mb-1">실행할 작업</div>
               <div className={cn('font-display text-xl tracking-tight', operation === 'GRANT' ? 'text-success' : 'text-danger')}>
                 {token === 'BOTH'
                   ? `${selectedStudents.length}명 · ${operation === 'GRANT' ? '+' : '-'}${formatNumber(bvAmount)} BV · ${operation === 'GRANT' ? '+' : '-'}${formatNumber(goldAmount)} 골드`
@@ -474,8 +519,15 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
               </div>
             </div>
 
+            <div className="rounded-card-md border border-crystal/40 bg-crystal/5 p-3">
+              <div className="text-xs font-black text-[#9FE8D8]">통계 반영 일시</div>
+              <p className="text-sm font-extrabold text-[#F3EBD3] mt-1">{effectiveTimeLabel}</p>
+              <p className="text-xs font-bold text-[#F3EBD3] mt-1">과거 시점 잔액을 재계산하는 기능은 아닙니다. 세금·미납금은 현재 상태를 기준으로 처리합니다.</p>
+            </div>
+            {(submitError || timeError) && <p role="alert" className="rounded-card-md border border-danger/40 bg-danger/10 p-3 text-sm font-bold text-danger">{submitError || timeError}</p>}
+
             <div className="bg-bg-deep border border-line rounded-card-md p-3">
-              <div className="text-xs font-black uppercase tracking-widest text-text-secondary mb-1">사유</div>
+              <div className="text-xs font-black uppercase tracking-widest text-[#F3EBD3] mb-1">사유</div>
               <p className="text-sm text-text-primary font-bold break-keep">{trimmedReason}</p>
             </div>
 
@@ -484,7 +536,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
                 <div key={student.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
                   <div className="min-w-0">
                     <p className="text-sm font-extrabold text-text-primary truncate">{student.name}{student.brandName ? ` (${student.brandName})` : ''}</p>
-                    <p className="text-xs text-text-secondary font-bold truncate">{student.cachedTier || '티어 정보 없음'}</p>
+                    <p className="text-xs text-[#F3EBD3] font-bold truncate">{student.cachedTier || '티어 정보 없음'}</p>
                   </div>
                   {token === 'BOTH' ? (
                     <p className="text-xs font-mono font-bold text-right text-text-primary whitespace-nowrap">
@@ -496,7 +548,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
                       총 {formatNumber(amount)} 지급<br /><span className="text-warning">소득세 차감 후 반영</span>
                     </p>
                   ) : (
-                    <p className="text-xs font-mono font-bold text-text-secondary whitespace-nowrap">
+                    <p className="text-xs font-mono font-bold text-[#F3EBD3] whitespace-nowrap">
                       {formatNumber(token === 'BV' ? student.bv : token === 'GOLD' ? student.gold : student.crystal)} → <span className="text-text-primary">{formatNumber(operation === 'GRANT'
                         ? (token === 'BV' ? student.bv : token === 'GOLD' ? student.gold : student.crystal) + amount
                         : Math.max(0, (token === 'BV' ? student.bv : token === 'GOLD' ? student.gold : student.crystal) - amount))}</span>
@@ -512,7 +564,7 @@ export function AssetAdjustmentPanel({ classroomId }: { classroomId: number | nu
 
             <div className="flex gap-2">
               <button type="button" onClick={() => setConfirmOpen(false)} disabled={isSubmitting} className="btn-secondary flex-1">취소</button>
-              <button type="button" onClick={handleConfirm} disabled={isSubmitting} className={cn('flex-1', operation === 'GRANT' ? 'btn-primary' : 'btn-danger')}>{isSubmitting ? 'DB 처리 중...' : '확정 실행'}</button>
+              <button type="button" onClick={handleConfirm} disabled={!canOpenConfirm} className={cn('flex-1', operation === 'GRANT' ? 'btn-primary' : 'btn-danger')}>{isSubmitting ? 'DB 처리 중...' : '확정 실행'}</button>
             </div>
           </div>
         </Modal>

@@ -9,7 +9,7 @@ import {
 } from "@/components/shared/components";
 import { supabase } from "@/lib/supabase/client";
 import { teacherRpc } from "@/lib/rpc/teacher_rpc";
-import { formatNumber, formatRelativeTime } from "@/lib/utils/format";
+import { formatDateTime, formatNumber, formatRelativeTime } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 
 const REVERSIBLE_SOURCE_TYPES = [
@@ -35,6 +35,7 @@ interface ReversibleTransaction {
   sourceId: number | null;
   memo: string | null;
   createdAt: string;
+  recordedAt: string;
 }
 
 const EVENT_LABELS: Record<
@@ -111,13 +112,14 @@ export function TransactionReversalPanel({
           source_id,
           memo,
           created_at,
+          recorded_at,
           student:students!transactions_student_id_fkey(name, brand_name)
         `,
         )
         .eq("classroom_id", classroomId)
         .eq("is_reversed", false)
         .in("source_type", [...REVERSIBLE_SOURCE_TYPES])
-        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
         .limit(100);
 
       if (error) throw error;
@@ -146,6 +148,7 @@ export function TransactionReversalPanel({
             sourceId: row.source_id == null ? null : Number(row.source_id),
             memo: row.memo,
             createdAt: row.created_at,
+            recordedAt: row.recorded_at || row.created_at,
           } as ReversibleTransaction;
         });
     },
@@ -318,8 +321,9 @@ export function TransactionReversalPanel({
                       </div>
                       <div className="flex items-center justify-between gap-2 mt-2 text-[10px] text-text-muted font-bold">
                         <span>거래 #{transaction.id}</span>
-                        <span>{formatRelativeTime(transaction.createdAt)}</span>
+                        <span className="text-[#F3EBD3]">반영 {formatDateTime(transaction.createdAt)}</span>
                       </div>
+                      {formatDateTime(transaction.recordedAt) !== formatDateTime(transaction.createdAt) && <p className="text-[10px] text-[#9FE8D8] font-bold mt-1">실제 처리 {formatDateTime(transaction.recordedAt)}</p>}
                     </div>
                   </div>
                 </motion.button>

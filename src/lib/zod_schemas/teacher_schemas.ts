@@ -114,6 +114,20 @@ export type TeacherAdjustStudentAssetsCombinedInput = z.infer<
   typeof TeacherAdjustStudentAssetsCombinedSchema
 >;
 
+// Separate RPC names preserve the existing signatures and avoid PostgREST overload ambiguity.
+export const TeacherAdjustStudentAssetsAtSchema = TeacherAdjustStudentAssetsV2Schema.extend({
+  p_effective_at: z.string().datetime({ offset: true }).nullable(),
+});
+export type TeacherAdjustStudentAssetsAtInput = z.infer<typeof TeacherAdjustStudentAssetsAtSchema>;
+export const TeacherAdjustStudentAssetsCombinedAtSchema = TeacherAdjustStudentAssetsCombinedSchema
+  .innerType().extend({ p_effective_at: z.string().datetime({ offset: true }).nullable() })
+  .superRefine((value, ctx) => {
+    if (value.p_bv_amount === 0 && value.p_gold_amount === 0) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "BV와 골드 중 하나 이상은 1 이상이어야 합니다." });
+    }
+  });
+export type TeacherAdjustStudentAssetsCombinedAtInput = z.infer<typeof TeacherAdjustStudentAssetsCombinedAtSchema>;
+
 // =====================================================================
 // 1. confirm_auction_sale — 경매 낙찰 ⭐ (Master Lee 페인 ②)
 // =====================================================================

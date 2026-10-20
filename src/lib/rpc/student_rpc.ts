@@ -43,6 +43,9 @@ export interface TeacherCombinedAssetGrantResult {
 export interface TeacherAssetAdjustmentConfig {
   classroom_id: number;
   income_tax_rate_percent: number;
+  server_now?: string;
+  earliest_effective_at?: string | null;
+  effective_time_zone?: string;
 }
 
 export interface TeacherAssetAdjustmentV2Result {
@@ -555,6 +558,20 @@ export const teacherRpc = {
       TeacherSchemas.TeacherGetAssetAdjustmentConfigSchema,
       input,
     );
+  },
+
+  adjustStudentAssetsAt: (
+    supabase: SupabaseClient,
+    input: TeacherSchemas.TeacherAdjustStudentAssetsAtInput,
+  ): Promise<RpcResult<(TeacherAssetAdjustmentV2Result & { effective_at: string })[]>> => {
+    return safeRpc(supabase, "teacher_adjust_student_assets_at", TeacherSchemas.TeacherAdjustStudentAssetsAtSchema, input);
+  },
+
+  adjustStudentAssetsCombinedAt: (
+    supabase: SupabaseClient,
+    input: TeacherSchemas.TeacherAdjustStudentAssetsCombinedAtInput,
+  ): Promise<RpcResult<(TeacherCombinedAssetAdjustmentResult & { effective_at: string })[]>> => {
+    return safeRpc(supabase, "teacher_adjust_student_assets_combined_at", TeacherSchemas.TeacherAdjustStudentAssetsCombinedAtSchema, input);
   },
 
   adjustStudentAssetsV2: (

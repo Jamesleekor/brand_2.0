@@ -237,6 +237,7 @@ export interface EconomyHistoryStudent {
 export interface TeacherEconomyHistoryRow {
   event_key: string;
   occurred_at: string;
+  recorded_at?: string;
   student_id: number;
   student_name: string;
   brand_name: string | null;

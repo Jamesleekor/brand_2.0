@@ -430,7 +430,7 @@ export default function EconomyHistoryPanel({ classroomId }: { classroomId: numb
             <div className="min-w-[1160px]">
               <div className="grid grid-cols-[42px_145px_165px_100px_145px_135px_minmax(230px,1fr)_72px] border-b border-line bg-bg-deep px-3 py-2 text-[10px] font-black text-text-muted">
                 <div><input type="checkbox" aria-label="현재 표시 기록 전체 선택" checked={allDisplayedSelected} onChange={toggleAllDisplayed} /></div>
-                <div>시간</div><div>학생 / 브랜드</div><div>구분</div><div>변동</div><div>변동 후 잔액</div><div>비고</div><div>관리</div>
+                <div>시간</div><div>학생 / 브랜드</div><div>구분</div><div>변동</div><div>처리 후 잔액</div><div>비고</div><div>관리</div>
               </div>
               {rows.map((row) => (
                 <DesktopRow
@@ -503,11 +503,20 @@ type HistoryRowActionProps = {
   onRestore: () => void;
 };
 
+function HistoryTime({ row }: { row: TeacherEconomyHistoryRow }) {
+  const recorded = row.recorded_at || row.occurred_at;
+  const differs = formatDateTime(recorded) !== formatDateTime(row.occurred_at);
+  return <div className="font-bold text-[#F3EBD3]">
+    <div>{differs ? '반영 ' : ''}{formatDateTime(row.occurred_at)}</div>
+    {differs && <div className="text-[10px] text-[#9FE8D8] mt-1">처리 {formatDateTime(recorded)}</div>}
+  </div>;
+}
+
 function DesktopRow({ row, selected, hidden, testAgent, busy, onSelect, onHide, onRestore }: HistoryRowActionProps) {
   return (
     <div className={cn('grid grid-cols-[42px_145px_165px_100px_145px_135px_minmax(230px,1fr)_72px] items-center gap-0 border-b border-line/70 px-3 py-2.5 text-xs last:border-b-0', row.is_reversed && 'opacity-55', hidden && 'bg-bg-deep/60')}>
       <div><input type="checkbox" aria-label={`${row.student_name} 기록 선택`} checked={selected} onChange={onSelect} /></div>
-      <div className="font-bold text-text-muted">{formatDateTime(row.occurred_at)}</div>
+      <HistoryTime row={row} />
       <StudentCell row={row} testAgent={testAgent} hidden={hidden} />
       <KindBadge row={row} />
       <div><DeltaCell row={row} /></div>
@@ -528,10 +537,10 @@ function MobileRow({ row, selected, hidden, testAgent, busy, onSelect, onHide, o
         </div>
         <KindBadge row={row} />
       </div>
-      <div className="mt-2 text-[10px] font-bold text-text-muted">{formatDateTime(row.occurred_at)}</div>
+      <div className="mt-2 text-[10px]"><HistoryTime row={row} /></div>
       <div className="mt-3 grid grid-cols-2 gap-2 rounded-card-md bg-bg-deep p-2.5">
         <div><div className="text-[9px] font-black text-text-muted">변동</div><div className="mt-0.5"><DeltaCell row={row} /></div></div>
-        <div><div className="text-[9px] font-black text-text-muted">변동 후 잔액</div><div className="mt-0.5"><BalanceCell row={row} /></div></div>
+        <div><div className="text-[9px] font-black text-text-muted">처리 후 잔액</div><div className="mt-0.5"><BalanceCell row={row} /></div></div>
       </div>
       <div className="mt-2"><MemoCell row={row} /></div>
       <div className="mt-3 flex justify-end"><HistoryAction hidden={hidden} busy={busy} onHide={onHide} onRestore={onRestore} /></div>
