@@ -66,6 +66,13 @@ const REWARD_META = {
   FRAGMENT: '편린 조각',
 } as const;
 
+function usesFridayFirstSchedule(week: ExpeditionAdminWeek | null | undefined): boolean {
+  if (!week?.sat_open_at) return false;
+  const date = new Date(week.sat_open_at);
+  return !Number.isNaN(date.getTime()) &&
+    new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', weekday: 'short' }).format(date) === 'Fri';
+}
+
 const PHASE_META: Record<string, { label: string; tone: string }> = {
   HIDDEN: { label: '공개 전', tone: 'border-line bg-bg-deep text-text-secondary' },
   PREVIEW: { label: '사전 공개', tone: 'border-bv/30 bg-bv/10 text-bv' },
@@ -95,7 +102,7 @@ function formatDate(value: string | null | undefined) {
 }
 
 function operationLabel(code: string) {
-  if (code === 'SAT_RECONCILE') return '토요일 결과 확정';
+  if (code === 'SAT_RECONCILE') return '1회차 결과 확정';
   if (code === 'SETTLE_WORLD') return '주간 정산';
   if (code === 'SUPPLY_GRANT') return '보급 지급';
   return code;
@@ -256,12 +263,14 @@ export default function ExpeditionAdminPage() {
 
   const requestReconcile = () => {
     if (!week) return;
+    const firstDay = usesFridayFirstSchedule(week) ? '금요일' : '토요일';
+    const secondDay = usesFridayFirstSchedule(week) ? '토요일' : '일요일';
     setPending({
-      title: '토요일 결과 확정',
-      description: '토요일 흔적·참여자 수를 확정하고 선두 지역 하나에 일요일 환경 변화를 적용합니다. 동일 주차에서는 한 번만 처리됩니다.',
-      confirmLabel: '토요일 확정',
+      title: `${firstDay} 결과 확정`,
+      description: `${firstDay} 흔적·참여자 수를 확정하고 선두 지역 하나에 ${secondDay} 환경 변화를 적용합니다. 동일 주차에서는 한 번만 처리됩니다.`,
+      confirmLabel: `${firstDay} 확정`,
       tone: 'warning',
-      run: () => runAction('토요일 결과 확정', () => expeditionAdminRpc.reconcileSaturday(supabase, week.id)),
+      run: () => runAction(`${firstDay} 결과 확정`, () => expeditionAdminRpc.reconcileSaturday(supabase, week.id)),
     });
   };
 
@@ -340,7 +349,7 @@ export default function ExpeditionAdminPage() {
           ? '실제 GOLD·편린 조각·원정 상자 지급을 허용합니다. Release Validator가 통과하지 않으면 서버가 활성화를 거부합니다.'
           : key === 'student_ui_enabled'
             ? '학생의 편린 도감에 원정 연대기가 노출됩니다. Core는 자동으로 함께 활성화됩니다.'
-            : '토요일 결과 확정·월요일 정산·보급 처리를 cron이 자동으로 수행합니다. Core는 자동으로 함께 활성화됩니다.',
+            : '1회차 결과 확정·일요일 오전 8시 정산·보급 처리를 cron이 자동으로 수행합니다. Core는 자동으로 함께 활성화됩니다.',
         confirmLabel: '활성화',
         tone: key === 'reward_grant_enabled' ? 'danger' : 'warning',
         run: execute,
@@ -395,7 +404,7 @@ export default function ExpeditionAdminPage() {
               <ReleaseBadge ok={board.release_validation.ok} />
             </div>
             <p className="mt-1 max-w-3xl text-base font-semibold text-text-secondary">
-              주차 생성부터 3개 지역, 학생 참여, 일요일 변동, 정산과 월드 효과까지 한 화면에서 운영합니다.
+              주차 생성부터 3개 지역, 학생 참여, 2회차 환경 변화, 정산과 월드 효과까지 한 화면에서 운영합니다.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -467,7 +476,7 @@ export default function ExpeditionAdminPage() {
               ) : (
                 <div className="grid gap-3 lg:grid-cols-3">
                   {week.sites.map((site) => (
-                    <SiteCard key={site.id} site={site} />
+                    <SiteCard key={site.id} site={site} fridayFirst={usesFridayFirstSchedule(week)} />
                   ))}
                 </div>
               )}
@@ -569,13 +578,20 @@ function CommandDeck({
   onReconcile: () => void;
   onSettle: () => void;
 }) {
-  const phase = PHASE_META[week?.phase ?? 'NONE'] ?? PHASE_META.NONE;
+  const fridayFirst = usesFridayFirstSchedule(week);
+  const firstDay = fridayFirst ? '금요일' : '토요일';
+  const secondDay = fridayFirst ? '토요일' : '일요일';
+  const phaseBase = PHASE_META[week?.phase ?? 'NONE'] ?? PHASE_META.NONE;
+  const phase = fridayFirst && week?.phase === 'SAT'
+    ? { ...phaseBase, label: '금요일 원정' }
+    : fridayFirst && week?.phase === 'SUN'
+      ? { ...phaseBase, label: '토요일 원정' } : phaseBase;
   const nextAction = !week || week.status === 'SETTLED' || week.status === 'CANCELLED'
     ? { label: week ? '다음 주차 생성' : '새 주차 생성', onClick: onGenerate, disabled: !board.suggested_week_start }
     : week.status === 'DRAFT'
       ? { label: '원정 공개', onClick: onPublish, disabled: false }
       : week.status === 'PUBLISHED' && ['SUN','CLOSED'].includes(week.phase) && !hasSatReconcile
-        ? { label: '토요일 결과 확정', onClick: onReconcile, disabled: false }
+        ? { label: `${firstDay} 결과 확정`, onClick: onReconcile, disabled: false }
         : week.status === 'PUBLISHED' && settleDue && !hasSettlement
           ? { label: '주간 정산', onClick: onSettle, disabled: false }
           : null;
@@ -618,8 +634,8 @@ function CommandDeck({
       </div>
 
       <div className="grid grid-cols-2 gap-px bg-line/70 lg:grid-cols-4">
-        <MetricCell label="토요일 참여" value={week ? `${satCount} / ${realStudentCount}` : '—'} hint="실학생 기준" />
-        <MetricCell label="일요일 참여" value={week ? `${sunCount} / ${realStudentCount}` : '—'} hint="토요일 편린 재사용 불가" />
+        <MetricCell label={`${firstDay} 참여`} value={week ? `${satCount} / ${realStudentCount}` : '—'} hint="실학생 기준" />
+        <MetricCell label={`${secondDay} 참여`} value={week ? `${sunCount} / ${realStudentCount}` : '—'} hint={`${firstDay} 편린 재사용 불가`} />
         <MetricCell label="제출 / 보상 확인" value={week ? `${runCount} / ${claimedCount}` : '—'} hint="원정 제출 / claim" />
         <MetricCell
           label="Release Health"
@@ -632,10 +648,10 @@ function CommandDeck({
       {week && (
         <div className="grid grid-cols-5 gap-1.5 px-4 py-3">
           <TimelineStep label="공개" value={formatKst(week.publish_at)} active={['PREVIEW','SAT','SUN','CLOSED'].includes(week.phase)} />
-          <TimelineStep label="토 원정" value={formatKst(week.sat_open_at)} active={['SAT','SUN','CLOSED'].includes(week.phase)} />
-          <TimelineStep label="일 원정" value={formatKst(week.sun_open_at)} active={['SUN','CLOSED'].includes(week.phase)} />
+          <TimelineStep label={`${firstDay[0]} 원정`} value={formatKst(week.sat_open_at)} active={['SAT','SUN','CLOSED'].includes(week.phase)} />
+          <TimelineStep label={`${secondDay[0]} 원정`} value={formatKst(week.sun_open_at)} active={['SUN','CLOSED'].includes(week.phase)} />
           <TimelineStep label="정산" value={formatKst(week.settle_at)} active={week.status === 'SETTLED'} />
-          <TimelineStep label="효과 시작" value={week.world_effect ? formatKst(week.world_effect.starts_at) : '월 06:00'} active={Boolean(week.world_effect)} />
+          <TimelineStep label="효과 시작" value={week.world_effect ? formatKst(week.world_effect.starts_at) : fridayFirst ? '일 08:00' : '월 06:00'} active={Boolean(week.world_effect)} />
         </div>
       )}
     </section>
@@ -674,7 +690,9 @@ function TimelineStep({ label,value,active }: { label: string; value: string; ac
   );
 }
 
-function SiteCard({ site }: { site: ExpeditionAdminSite }) {
+function SiteCard({ site, fridayFirst }: { site: ExpeditionAdminSite; fridayFirst: boolean }) {
+  const firstDay = fridayFirst ? '금요일' : '토요일';
+  const secondDay = fridayFirst ? '토요일' : '일요일';
   const specialty = SPECIALTY_META[site.specialty_code];
   const satMajor = ELEMENT_META[site.saturday_major_element] ?? { label: site.saturday_major_element, icon: '◆' };
   const satMinor = ELEMENT_META[site.saturday_minor_element] ?? { label: site.saturday_minor_element, icon: '◇' };
@@ -718,13 +736,13 @@ function SiteCard({ site }: { site: ExpeditionAdminSite }) {
 
         {site.sunday_event_applied && site.sunday_major_element !== site.saturday_major_element && (
           <div className="mt-2 flex justify-end">
-            <SiteElementBadge code={site.sunday_major_element} role="일요일" label={sunMajor.label} changed />
+            <SiteElementBadge code={site.sunday_major_element} role={secondDay} label={sunMajor.label} changed />
           </div>
         )}
 
         <div className="mt-4 grid grid-cols-3 gap-2">
-          <SiteMetric label="토 흔적" value={site.saturday_trace} sub={`${site.saturday_participants}명`} />
-          <SiteMetric label="일 흔적" value={site.sunday_trace} sub={`${site.sunday_participants}명`} />
+          <SiteMetric label={`${firstDay[0]} 흔적`} value={site.saturday_trace} sub={`${site.saturday_participants}명`} />
+          <SiteMetric label={`${secondDay[0]} 흔적`} value={site.sunday_trace} sub={`${site.sunday_participants}명`} />
           <SiteMetric label="합계" value={site.total_trace} sub={`${site.total_participants}명`} strong />
         </div>
 
@@ -764,9 +782,9 @@ function SiteCard({ site }: { site: ExpeditionAdminSite }) {
           <div className="mt-3 flex items-center gap-2 rounded-card-md border border-gold/20 bg-gold/5 px-3 py-2">
             <img src={EXPEDITION_ASSETS.sundayEnvironmentShift} alt="" className="h-9 w-9 flex-none object-contain" loading="lazy" decoding="async" />
             <div className="min-w-0">
-              <div className="text-xs font-black text-gold">일요일 환경 변화</div>
+              <div className="text-xs font-black text-gold">{secondDay} 환경 변화</div>
               <div className="mt-0.5 truncate text-sm font-bold text-[#FFF7ED]">
-                {site.sunday_event_title ?? '토요일 선두 지역 환경이 변화했습니다.'}
+                {site.sunday_event_title ?? `${firstDay} 선두 지역 환경이 변화했습니다.`}
               </div>
             </div>
           </div>
@@ -892,7 +910,7 @@ function StudentOperations({
         <div className="overflow-x-auto">
           <div className="min-w-[1080px]">
             <div className="grid grid-cols-[150px_1fr_1fr_210px_76px_110px] gap-3 border-b border-line bg-bg-deep/50 px-4 py-2.5 text-xs font-black uppercase tracking-wide text-[#F6EFE7]">
-              <span>학생</span><span>토요일</span><span>일요일</span><span>받은 보상</span><span>흔적</span><span>보상 상태</span>
+              <span>학생</span><span>{usesFridayFirstSchedule(week) ? '금요일' : '토요일'}</span><span>{usesFridayFirstSchedule(week) ? '토요일' : '일요일'}</span><span>받은 보상</span><span>흔적</span><span>보상 상태</span>
             </div>
             <div className="divide-y divide-line">
               {students.map((student) => (
@@ -1088,7 +1106,7 @@ function SafetyPanel({
         />
         <FeatureSwitch
           label="자동 운영"
-          description="일요일·정산 Cron"
+          description="1회차 결과·주간 정산 Cron"
           enabled={settings.scheduler_enabled}
           disabled={Boolean(busy)}
           onChange={(value) => onFlag('scheduler_enabled', value)}
@@ -1179,7 +1197,7 @@ function WorldEffectPanel({ board }: { board: ExpeditionAdminBoard }) {
               <div className="mt-0.5 text-text-primary">{formatKst(effect.ends_at)}</div>
             </div>
           </div>
-          <div className="mt-2 text-[11px] font-bold text-text-muted">정확히 168시간 · 월요일 06:00 → 다음 월요일 06:00</div>
+          <div className="mt-2 text-[11px] font-bold text-[#F6EFE7]">{Math.round((new Date(effect.ends_at).getTime() - new Date(effect.starts_at).getTime()) / 3_600_000)}시간 · {formatKst(effect.starts_at)} → {formatKst(effect.ends_at)}</div>
         </div>
       ) : (
         <div className="mt-3 rounded-card-md border border-dashed border-line px-3 py-5 text-center">

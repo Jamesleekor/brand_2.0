@@ -1,4 +1,5 @@
-import type { RaidVisualConfigV1, RaidVisualStateVideoTrigger } from './raidVisualTypes';
+import type { RaidVisualConfigV1, RaidVisualFxConfig, RaidVisualStateVideoTrigger } from './raidVisualTypes';
+import { normalizeRaidFxConfig } from './raidFxPresets';
 
 const STATE_TRIGGERS: RaidVisualStateVideoTrigger[] = ['GROGGY', 'ENRAGE', 'BOTH'];
 
@@ -32,6 +33,7 @@ export function readRaidVisualV2(
   return {
     ...rawVisual,
     version: 1,
+    fx: { ...(isRecord(rawVisual.fx) ? rawVisual.fx : {}), ...normalizeRaidFxConfig(rawVisual.fx) },
     media: {
       ...rawMedia,
       action_video_url: nullableString(rawMedia.action_video_url),
@@ -48,6 +50,7 @@ export function mergeRaidVisualV2Metadata(
     actionVideoUrl: string;
     stateVideoUrl: string;
     stateVideoTrigger: RaidVisualStateVideoTrigger;
+    fx?: RaidVisualFxConfig;
   },
 ): Record<string, unknown> {
   const baseMetadata = isRecord(metadata) ? metadata : {};
@@ -58,6 +61,7 @@ export function mergeRaidVisualV2Metadata(
     visual_v2: {
       ...currentVisual,
       version: 1,
+      fx: { ...(currentVisual.fx ?? {}), ...normalizeRaidFxConfig(media.fx ?? currentVisual.fx) },
       media: {
         ...currentVisual.media,
         action_video_url: nullableString(media.actionVideoUrl),

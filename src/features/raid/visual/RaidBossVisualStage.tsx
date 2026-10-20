@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils/cn';
 
 import type { RaidVisualConfigV1, RaidVisualPlaybackState } from './raidVisualTypes';
+import { RaidFxCanvas } from './RaidFxCanvas';
 
 const ANIMATED_IMAGE_RE = /\.(?:webp|gif|apng)(?:$|[?#])/i;
 
@@ -213,6 +214,8 @@ export function RaidBossVisualStage({
           onError={() => markFailed(incomingUrl)}
         />
       )}
+
+      <RaidFxCanvas fx={visual?.fx} />
     </div>
   );
 }

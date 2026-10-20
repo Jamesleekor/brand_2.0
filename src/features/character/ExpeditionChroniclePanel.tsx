@@ -193,6 +193,7 @@ export default function ExpeditionChroniclePanel() {
       ? board?.can_submit_sun === true
       : false;
 
+  const firstRoundRun = board?.my_sat_run ?? null;
   const currentRun = phase === 'SUN'
     ? board?.my_sun_run ?? null
     : phase === 'SAT'
@@ -500,7 +501,7 @@ export default function ExpeditionChroniclePanel() {
                 <div className="text-right">
                   <div className="text-sm font-black text-[#FFF7ED]">선택 {selectedCharacterIds.length}/3</div>
                   {phase === 'SUN' && (
-                    <div className="mt-1 text-[13px] font-bold text-[#FFCC80]">토요일 원정 편린은 회복 필요</div>
+                    <div className="mt-1 text-[13px] font-bold text-[#FFCC80]">금요일 원정 편린은 회복 필요</div>
                   )}
                 </div>
               </div>
@@ -571,6 +572,13 @@ export default function ExpeditionChroniclePanel() {
                   </div>
                 </>
               )}
+            </section>
+          )}
+          {phase === 'SUN' && firstRoundRun && (
+            <section className="rounded-card-xl border border-brand-primary/35 bg-bg-card/90 p-4 lg:p-5">
+              <h3 className="mb-3 text-base font-black text-[#FFD58A]">금요일 1회차 복귀 · 보상 확인</h3>
+              <RunResultCard run={firstRoundRun} busyAction={busyAction}
+                onClaim={() => void claimReward(firstRoundRun)} />
             </section>
           )}
         </>
@@ -677,7 +685,7 @@ function ExpeditionStatusHeader({
           </div>
         </div>
         <p className="mt-2 max-w-2xl text-sm font-semibold leading-relaxed text-[#F2EADB]">
-          세 탐사지 중 한 곳을 고르고 편린 3명을 보내 흔적을 남깁니다. 토요일에 보낸 편린은 일요일에는 회복이 필요합니다.
+          세 탐사지 중 한 곳을 고르고 편린 3명을 보내 흔적을 남깁니다. 금요일에 보낸 편린은 토요일 2회차 전에 회복이 필요합니다.
         </p>
       </div>
 
@@ -1539,7 +1547,7 @@ function SundayEventModal({
     <div className="fixed inset-0 z-[1450] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
       <div className="w-full max-w-lg overflow-hidden rounded-card-xl border border-crystal/40 bg-bg-base shadow-2xl">
         <div className="border-b border-line bg-gradient-to-r from-crystal/15 to-brand-primary/10 px-5 py-4">
-          <div className="text-[13px] font-black uppercase tracking-[0.15em] text-[#73E6F2]">일요일 환경 변화</div>
+          <div className="text-[13px] font-black uppercase tracking-[0.15em] text-[#73E6F2]">토요일 환경 변화</div>
           <h3 className="mt-1 font-display text-2xl text-[#FFF7ED]">{popup.site_name}</h3>
         </div>
         <div className="space-y-4 p-5">
@@ -1547,8 +1555,8 @@ function SundayEventModal({
             <img src={EXPEDITION_ASSETS.sundayEnvironmentShift} alt="" className="h-24 w-40 object-contain" decoding="async" />
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <MiniStat label="토요일 원정" value={`${popup.saturday_participants}명`} />
-            <MiniStat label="토요일 흔적" value={`${popup.saturday_trace}`} />
+            <MiniStat label="금요일 원정" value={`${popup.saturday_participants}명`} />
+            <MiniStat label="금요일 흔적" value={`${popup.saturday_trace}`} />
             <MiniStat label="누적 흔적" value={`${popup.cumulative_trace}`} />
           </div>
           <div className="rounded-card-lg border border-line bg-bg-card p-4">
@@ -1737,16 +1745,16 @@ function PanelNotice({
 }
 
 function phaseLabel(phase: string) {
-  if (phase === 'FRI') return '금요일 · 탐사지 공개';
-  if (phase === 'SAT') return '토요일 원정';
-  if (phase === 'SUN') return '일요일 원정';
+  if (phase === 'FRI') return '탐사지 공개 준비';
+  if (phase === 'SAT') return '금요일 1회차 원정';
+  if (phase === 'SUN') return '토요일 2회차 원정';
   return '원정 종료';
 }
 
 function phaseMessage(phase: string) {
-  if (phase === 'FRI') return '세 탐사지의 환경을 먼저 살펴보세요. 원정은 토요일부터 시작됩니다.';
+  if (phase === 'FRI') return '금요일 오전 8시에 탐사지 공개와 1회차 원정이 동시에 시작됩니다.';
   if (phase === 'SAT') return '오늘 한 번, 원하는 탐사지에 편린 3명을 보낼 수 있습니다.';
-  if (phase === 'SUN') return '오늘도 한 번 원정할 수 있습니다. 토요일에 보낸 편린 3명은 회복이 필요합니다.';
+  if (phase === 'SUN') return '토요일 2회차 원정을 보낼 수 있습니다. 금요일 원정 편린 3명은 회복이 필요합니다.';
   return '이번 주 원정 결과를 확인하고 다음 원정을 준비하세요.';
 }
 
@@ -1759,6 +1767,7 @@ function formatDateTime(value: string | null | undefined) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',
@@ -1767,12 +1776,12 @@ function formatDateTime(value: string | null | undefined) {
 }
 
 function toStudentError(message: string) {
-  if (message.includes('EXPEDITION_SATURDAY_MEMBER_REUSE_ON_SUNDAY')) return '토요일 원정에 보낸 편린은 일요일에 다시 보낼 수 없습니다. 회복이 필요합니다.';
+  if (message.includes('EXPEDITION_SATURDAY_MEMBER_REUSE_ON_SUNDAY')) return '금요일 1회차에 보낸 편린은 토요일 2회차에 다시 보낼 수 없습니다. 회복이 필요합니다.';
   if (message.includes('EXPEDITION_SUBMISSION_WINDOW_CLOSED')) return '지금은 원정을 보낼 수 있는 시간이 아닙니다.';
   if (message.includes('EXPEDITION_FEATURE_DISABLED')) return '편린 원정은 현재 준비 중입니다.';
   if (message.includes('EXPEDITION_INSUFFICIENT_FRAGMENTS')) return '편린 조각이 부족합니다.';
   if (message.includes('EXPEDITION_CHARACTER_ALREADY_OWNED')) return '이미 보유한 편린입니다.';
-  if (message.includes('EXPEDITION_REWARD_NOT_READY')) return '원정 보상은 원정을 보낸 다음 날부터 받을 수 있습니다.';
+  if (message.includes('EXPEDITION_REWARD_NOT_READY')) return '1회차는 토요일 오전 8시, 2회차는 일요일 오전 8시부터 보상을 받을 수 있습니다.';
   if (message.includes('EXPEDITION_LIVE_REWARD_GRANT_DISABLED')) return '현재 보상 지급이 잠겨 있습니다. 운영국에 알려주세요.';
   if (message.includes('Seasonal item not currently available') || message.includes('명품관 판매 기간')) return '현재 구매할 수 있는 기간이 아닙니다.';
   return message || '처리 중 문제가 발생했습니다. 잠시 뒤 다시 시도해주세요.';

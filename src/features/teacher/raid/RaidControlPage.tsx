@@ -13,7 +13,9 @@ import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
 import RaidV15ConfigPanel from '@/features/teacher/raid/RaidV15ConfigPanel';
 import { isValidOptionalHttpUrl, mergeRaidVisualV2Metadata, readRaidVisualV2 } from '@/features/raid/visual/raidVisualConfig';
-import type { RaidVisualStateVideoTrigger } from '@/features/raid/visual/raidVisualTypes';
+import type { RaidVisualFxConfig, RaidVisualFxIntensity, RaidVisualFxPreset, RaidVisualStateVideoTrigger } from '@/features/raid/visual/raidVisualTypes';
+import { RAID_FX_PRESETS, RAID_FX_INTENSITIES } from '@/features/raid/visual/raidFxPresets';
+import { RaidFxCanvas } from '@/features/raid/visual/RaidFxCanvas';
 import { raidV15AdminRpc } from '@/lib/rpc/raid_v15_admin_rpc';
 import {
   RAID_BOSS_PRESETS,
@@ -49,6 +51,8 @@ type RaidForm = {
   actionVideoUrl: string;
   stateVideoUrl: string;
   stateVideoTrigger: RaidVisualStateVideoTrigger;
+  fxPreset: RaidVisualFxPreset;
+  fxIntensity: RaidVisualFxIntensity;
 };
 
 const ELEMENT_OPTIONS: Array<{ value: RaidElement; label: string }> = [
@@ -83,6 +87,8 @@ const EMPTY_FORM: RaidForm = {
   actionVideoUrl: '',
   stateVideoUrl: '',
   stateVideoTrigger: 'BOTH',
+  fxPreset: 'NONE',
+  fxIntensity: 'MEDIUM',
 };
 
 export default function RaidControlPage() {
@@ -361,6 +367,7 @@ export default function RaidControlPage() {
             actionVideoUrl: form.actionVideoUrl,
             stateVideoUrl: form.stateVideoUrl,
             stateVideoTrigger: form.stateVideoTrigger,
+            fx: { preset: form.fxPreset, intensity: form.fxIntensity },
           });
 
           const phaseSaveResult = await call(
@@ -424,6 +431,7 @@ export default function RaidControlPage() {
             actionVideoUrl: form.actionVideoUrl,
             stateVideoUrl: form.stateVideoUrl,
             stateVideoTrigger: form.stateVideoTrigger,
+            fx: { preset: form.fxPreset, intensity: form.fxIntensity },
           }),
         }),
         {
@@ -1212,17 +1220,59 @@ function RaidEditor({
             ))}
           </div>
         </div>
+        <div className="mt-4 grid gap-3 rounded-card-md border border-cyan-300/20 bg-cyan-500/5 p-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="raid-fx-preset" className="mb-2 block text-[11px] font-black uppercase tracking-[0.1em] text-cyan-100">Environment FX 프리셋</label>
+            <select
+              id="raid-fx-preset"
+              value={form.fxPreset}
+              disabled={!editable}
+              onChange={(e) => update('fxPreset', e.target.value as RaidVisualFxPreset)}
+              className={inputClass()}
+            >
+              {RAID_FX_PRESETS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <p className="mt-2 text-[11px] text-cyan-100/85">
+              {RAID_FX_PRESETS.find((option) => option.value === form.fxPreset)?.description}
+            </p>
+          </div>
+          <div>
+            <div className="mb-2 text-[11px] font-black uppercase tracking-[0.1em] text-cyan-100">FX 강도</div>
+            <div className="flex flex-wrap gap-2">
+              {RAID_FX_INTENSITIES.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={!editable || form.fxPreset === 'NONE'}
+                  onClick={() => update('fxIntensity', value)}
+                  className={cn(
+                    'rounded-card-md border px-3 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50',
+                    form.fxIntensity === value
+                      ? 'border-gold/65 bg-gold/15 text-yellow-100'
+                      : 'border-cyan-300/25 bg-bg-deep text-cyan-100 hover:border-cyan-300/55',
+                  )}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-cyan-100/85">Canvas 2D 공용 FX · 모든 입자는 클릭을 가리지 않습니다.</p>
+          </div>
+        </div>
         {!form.imageUrl.trim() && !form.loopVideoUrl.trim() && (
           <div className="mt-3 rounded-card-md border border-warning/45 bg-warning/10 px-3 py-2 text-xs font-black text-yellow-100">
             ⚠️ 초안 저장은 가능하지만, 이미지 또는 IDLE 루프 영상 중 하나가 없으면 레이드를 시작할 수 없습니다.
           </div>
         )}
-        {(form.imageUrl.trim() || form.loopVideoUrl.trim() || form.actionVideoUrl.trim() || form.stateVideoUrl.trim()) && (
+        {(form.imageUrl.trim() || form.loopVideoUrl.trim() || form.actionVideoUrl.trim() || form.stateVideoUrl.trim() || form.fxPreset !== 'NONE') && (
           <BossVisualPreview
             imageUrl={form.imageUrl.trim()}
             idleVideoUrl={form.loopVideoUrl.trim()}
             actionVideoUrl={form.actionVideoUrl.trim()}
             stateVideoUrl={form.stateVideoUrl.trim()}
+            fx={{ preset: form.fxPreset, intensity: form.fxIntensity }}
           />
         )}
       </div>
@@ -1392,11 +1442,13 @@ function BossVisualPreview({
   idleVideoUrl,
   actionVideoUrl,
   stateVideoUrl,
+  fx,
 }: {
   imageUrl: string;
   idleVideoUrl: string;
   actionVideoUrl: string;
   stateVideoUrl: string;
+  fx: RaidVisualFxConfig;
 }) {
   type PreviewSlot = 'IDLE' | 'ACTION' | 'STATE';
   const [slot, setSlot] = useState<PreviewSlot>('IDLE');
@@ -1433,10 +1485,12 @@ function BossVisualPreview({
           key={`${slot}:${selectedUrl}:${imageUrl}`}
           imageUrl={imageUrl}
           videoUrl={selectedUrl}
+          fx={fx}
         />
       ) : (
-        <div className="mt-3 flex aspect-video items-center justify-center rounded-card-lg border border-cyan-400/30 bg-black/55 px-6 text-center text-xs font-black text-amber-100">
-          {slot} 슬롯에 영상이 없고 fallback 이미지도 없습니다.
+        <div className="relative mt-3 flex aspect-video items-center justify-center overflow-hidden rounded-card-lg border border-cyan-400/30 bg-black/55 px-6 text-center text-xs font-black text-amber-100">
+          <span className="relative z-10">{slot} 슬롯에 영상이 없고 fallback 이미지도 없습니다.</span>
+          <RaidFxCanvas fx={fx} />
         </div>
       )}
     </div>
@@ -1446,9 +1500,11 @@ function BossVisualPreview({
 function BossMediaPreview({
   imageUrl,
   videoUrl,
+  fx,
 }: {
   imageUrl: string;
   videoUrl: string;
+  fx: RaidVisualFxConfig;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'ready' | 'error'>(
@@ -1575,6 +1631,7 @@ function BossMediaPreview({
             className="h-full w-full object-contain"
           />
         )}
+        <RaidFxCanvas fx={fx} />
       </div>
 
       <div className="flex flex-col gap-2 border-t border-cyan-400/20 bg-[#07111f]/95 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
@@ -1968,6 +2025,8 @@ function formFromDetail(detail: TeacherRaidDetail): RaidForm {
     actionVideoUrl: visual.media.action_video_url ?? '',
     stateVideoUrl: visual.media.state_video_url ?? '',
     stateVideoTrigger: visual.media.state_video_trigger,
+    fxPreset: visual.fx?.preset ?? 'NONE',
+    fxIntensity: visual.fx?.intensity ?? 'MEDIUM',
   };
 }
 
