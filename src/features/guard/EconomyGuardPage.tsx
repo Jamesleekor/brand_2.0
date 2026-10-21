@@ -734,11 +734,38 @@ function ServiceRankingCard({
 }
 
 function NetworkTab({ dashboard }: { dashboard: EconomyGuardDashboard }) {
+  const [networkView, setNetworkView] = useState<'quadrant' | 'graph'>('quadrant');
   return (
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
       <section className="rounded-card-xl border border-line bg-bg-card p-4">
-        <SectionTitle icon={<Network className="h-4 w-4" />} title="거래 네트워크" description="같은 구매자→판매자 방향의 P2P와 서비스 거래를 한 연결선으로 합칩니다." />
-        <div className="mt-4"><NetworkGraph dashboard={dashboard} /></div>
+        <SectionTitle
+          icon={<Network className="h-4 w-4" />}
+          title="거래 네트워크"
+          description={networkView === 'quadrant'
+            ? '가로는 거래한 서로 다른 친구 수, 세로는 총 거래 횟수입니다. 누가 많이, 누가 다양하게 거래하는지 한눈에 봅니다.'
+            : '같은 구매자→판매자 방향의 P2P와 서비스 거래를 한 연결선으로 합칩니다.'}
+        />
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {([
+            { id: 'quadrant', label: '4분면 거래 지도' },
+            { id: 'graph', label: '연결선 보기' },
+          ] as const).map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              onClick={() => setNetworkView(item.id)}
+              className={cn(
+                'rounded-pill border px-3 py-1.5 text-2xs font-black transition',
+                networkView === item.id ? 'border-gold/60 bg-gold/15 text-gold' : 'border-line bg-bg-deep text-gold-100 hover:border-gold/40',
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-4">
+          {networkView === 'quadrant' ? <TradeQuadrantMap dashboard={dashboard} /> : <NetworkGraph dashboard={dashboard} />}
+        </div>
       </section>
       <section className="rounded-card-xl border border-line bg-bg-card p-4">
         <SectionTitle icon={<ArrowRight className="h-4 w-4" />} title="강한 연결" description="횟수와 거래액이 큰 연결부터 표시합니다." />
@@ -820,6 +847,311 @@ function NetworkGraph({ dashboard }: { dashboard: EconomyGuardDashboard }) {
         })}
       </svg>
       <div className="px-2 pb-1 text-2xs font-bold text-text-muted">원 크기는 활동량, 선 굵기는 같은 방향 거래 횟수를 나타냅니다. 화살표는 구매자/지급자 → 판매자/수취인 방향입니다.</div>
+    </div>
+  );
+}
+
+/* ───────── 4분면 거래 지도 (TRADE_QUADRANT_MAP_V1) ─────────
+ * 가로(x) = 거래한 서로 다른 상대 수, 세로(y) = 총 거래 횟수(산 횟수 + 판 횟수).
+ * 가운데 점선 = 반 평균. 평균과 같으면 위/오른쪽 칸으로 셉니다.
+ * 서버 데이터(dashboard.network)만 읽어서 화면에 그리며, DB/RPC는 바꾸지 않습니다.
+ */
+type TradeQuadrantKey = 'hub' | 'regular' | 'explorer' | 'quiet';
+
+const TRADE_QUADRANTS: Record<TradeQuadrantKey, {
+  label: string;
+  hint: string;
+  dot: string;
+  tint: string;
+  text: string;
+  border: string;
+}> = {
+  hub: { label: '마당발', hint: '많이 · 다양하게', dot: 'fill-gold', tint: 'fill-gold/[0.06]', text: 'text-gold', border: 'border-gold/40' },
+  regular: { label: '단골형', hint: '많이 · 같은 친구와', dot: 'fill-brand-primary', tint: 'fill-brand-primary/[0.06]', text: 'text-brand-300', border: 'border-brand-primary/40' },
+  explorer: { label: '탐험가', hint: '조금 · 여러 친구와', dot: 'fill-crystal', tint: 'fill-crystal/[0.06]', text: 'text-crystal-200', border: 'border-crystal/40' },
+  quiet: { label: '조용한 편', hint: '조금 · 몇 명과', dot: 'fill-bv', tint: 'fill-bv/[0.06]', text: 'text-bv-200', border: 'border-bv/40' },
+};
+
+type TradeQuadrantRow = {
+  studentId: number;
+  label: string;
+  partnerCount: number;
+  activity: number;
+  buyCount: number;
+  sellCount: number;
+  flagged: boolean;
+  quadrant: TradeQuadrantKey;
+  partners: Array<{ studentId: number; label: string; count: number; total: number }>;
+};
+
+function buildTradeQuadrantRows(dashboard: EconomyGuardDashboard) {
+  const nodes = dashboard.network.nodes;
+  const labelById = new Map(nodes.map((node) => [node.student_id, displayName(node.name, node.brand_name)] as const));
+  // 학생별로 "누구와 몇 번 거래했는지"를 모읍니다. (산 것·판 것 모두 합침)
+  const partnerMap = new Map<number, Map<number, { count: number; total: number }>>();
+  const addPartner = (me: number, other: number, count: number, total: number) => {
+    const mine = partnerMap.get(me) ?? new Map<number, { count: number; total: number }>();
+    const prev = mine.get(other) ?? { count: 0, total: 0 };
+    mine.set(other, { count: prev.count + count, total: prev.total + total });
+    partnerMap.set(me, mine);
+  };
+  for (const edge of dashboard.network.edges) {
+    if (edge.from_student_id === edge.to_student_id) continue;
+    if (!labelById.has(edge.from_student_id) || !labelById.has(edge.to_student_id)) continue;
+    addPartner(edge.from_student_id, edge.to_student_id, edge.count, edge.total);
+    addPartner(edge.to_student_id, edge.from_student_id, edge.count, edge.total);
+  }
+
+  const base = nodes.map((node) => {
+    const mine = partnerMap.get(node.student_id) ?? new Map<number, { count: number; total: number }>();
+    const partners = [...mine.entries()]
+      .map(([studentId, value]) => ({ studentId, label: labelById.get(studentId) ?? '', ...value }))
+      .sort((a, b) => b.count - a.count || b.total - a.total);
+    return {
+      studentId: node.student_id,
+      label: displayName(node.name, node.brand_name),
+      partnerCount: mine.size,
+      activity: node.total_activity,
+      buyCount: node.buy_count,
+      sellCount: node.sell_count,
+      flagged: node.final_flagged,
+      partners,
+    };
+  });
+
+  const avgPartners = base.length ? base.reduce((sum, row) => sum + row.partnerCount, 0) / base.length : 0;
+  const avgActivity = base.length ? base.reduce((sum, row) => sum + row.activity, 0) / base.length : 0;
+  const rows: TradeQuadrantRow[] = base.map((row) => {
+    const many = row.activity >= avgActivity;
+    const wide = row.partnerCount >= avgPartners;
+    const quadrant: TradeQuadrantKey = many ? (wide ? 'hub' : 'regular') : (wide ? 'explorer' : 'quiet');
+    return { ...row, quadrant };
+  });
+  return { rows, avgPartners, avgActivity };
+}
+
+function TradeQuadrantMap({ dashboard }: { dashboard: EconomyGuardDashboard }) {
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const { rows, avgPartners, avgActivity } = useMemo(() => buildTradeQuadrantRows(dashboard), [dashboard]);
+
+  if (rows.length === 0) return <EmptyState emoji="🗺️" title="표시할 거래가 없습니다" />;
+
+  const width = 720;
+  const height = 460;
+  const pad = { left: 56, right: 28, top: 20, bottom: 52 };
+  const plotW = width - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
+  const maxX = Math.max(1, Math.ceil(Math.max(...rows.map((row) => row.partnerCount)) * 1.1));
+  const maxY = Math.max(1, Math.ceil(Math.max(...rows.map((row) => row.activity)) * 1.1));
+  const sx = (value: number) => pad.left + (value / maxX) * plotW;
+  const sy = (value: number) => pad.top + plotH - (value / maxY) * plotH;
+  const avgX = sx(avgPartners);
+  const avgY = sy(avgActivity);
+  const xStep = Math.max(1, Math.ceil(maxX / 6));
+  const yStep = Math.max(1, Math.ceil(maxY / 5));
+  const xTicks = Array.from({ length: Math.floor(maxX / xStep) + 1 }, (_, i) => i * xStep);
+  const yTicks = Array.from({ length: Math.floor(maxY / yStep) + 1 }, (_, i) => i * yStep);
+
+  // 같은 자리(같은 상대 수·같은 횟수)에 여러 명이 겹치면 살짝 둥글게 펼쳐 놓습니다.
+  const groups = new Map<string, TradeQuadrantRow[]>();
+  for (const row of rows) {
+    const key = `${row.partnerCount}:${row.activity}`;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  const positions = new Map<number, { x: number; y: number }>();
+  for (const group of groups.values()) {
+    group.forEach((row, index) => {
+      const baseX = sx(row.partnerCount);
+      const baseY = sy(row.activity);
+      if (group.length === 1) {
+        positions.set(row.studentId, { x: baseX, y: baseY });
+        return;
+      }
+      const angle = (Math.PI * 2 * index) / group.length - Math.PI / 2;
+      const spread = 10 + group.length * 1.5;
+      positions.set(row.studentId, { x: baseX + Math.cos(angle) * spread, y: baseY + Math.sin(angle) * spread });
+    });
+  }
+
+  const selected = rows.find((row) => row.studentId === selectedId) ?? null;
+  const selectedPartnerIds = new Set(selected?.partners.map((partner) => partner.studentId) ?? []);
+  const maxPartnerCount = Math.max(1, ...(selected?.partners.map((partner) => partner.count) ?? [1]));
+  const toggleSelect = (studentId: number) => setSelectedId((prev) => (prev === studentId ? null : studentId));
+
+  const quadrantOrder: TradeQuadrantKey[] = ['regular', 'hub', 'quiet', 'explorer'];
+  const quadrantRects: Record<TradeQuadrantKey, { x: number; y: number; w: number; h: number }> = {
+    regular: { x: pad.left, y: pad.top, w: avgX - pad.left, h: avgY - pad.top },
+    hub: { x: avgX, y: pad.top, w: pad.left + plotW - avgX, h: avgY - pad.top },
+    quiet: { x: pad.left, y: avgY, w: avgX - pad.left, h: pad.top + plotH - avgY },
+    explorer: { x: avgX, y: avgY, w: pad.left + plotW - avgX, h: pad.top + plotH - avgY },
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="overflow-x-auto rounded-card-lg border border-line bg-bg-deep p-2">
+        <svg viewBox={`0 0 ${width} ${height}`} className="min-w-[620px] w-full" role="img" aria-label="학생 4분면 거래 지도">
+          {/* 4칸 배경 */}
+          {quadrantOrder.map((key) => {
+            const rect = quadrantRects[key];
+            const q = TRADE_QUADRANTS[key];
+            const right = key === 'hub' || key === 'explorer';
+            const top = key === 'hub' || key === 'regular';
+            return (
+              <g key={key}>
+                <rect x={rect.x} y={rect.y} width={Math.max(0, rect.w)} height={Math.max(0, rect.h)} className={q.tint} />
+                <text
+                  x={right ? pad.left + plotW - 8 : pad.left + 8}
+                  y={top ? pad.top + 18 : pad.top + plotH - 10}
+                  textAnchor={right ? 'end' : 'start'}
+                  className={cn('text-[13px] font-black', q.dot)}
+                >
+                  {q.label} <tspan className="fill-gold-100 text-[10px] font-bold">{q.hint}</tspan>
+                </text>
+              </g>
+            );
+          })}
+
+          {/* 눈금과 축 */}
+          {xTicks.map((tick) => (
+            <text key={`x${tick}`} x={sx(tick)} y={pad.top + plotH + 16} textAnchor="middle" className="fill-gold-100 text-[10px] font-bold">{tick}</text>
+          ))}
+          {yTicks.map((tick) => (
+            <text key={`y${tick}`} x={pad.left - 8} y={sy(tick) + 3} textAnchor="end" className="fill-gold-100 text-[10px] font-bold">{tick}</text>
+          ))}
+          <line x1={pad.left} y1={pad.top + plotH} x2={pad.left + plotW} y2={pad.top + plotH} className="stroke-gold-100/40" />
+          <line x1={pad.left} y1={pad.top} x2={pad.left} y2={pad.top + plotH} className="stroke-gold-100/40" />
+          <text x={pad.left + plotW / 2} y={height - 10} textAnchor="middle" className="fill-gold-100 text-[11px] font-black">거래한 서로 다른 친구 수 (명) →</text>
+          <text x={14} y={pad.top + plotH / 2} textAnchor="middle" transform={`rotate(-90 14 ${pad.top + plotH / 2})`} className="fill-gold-100 text-[11px] font-black">총 거래 횟수 (회) →</text>
+
+          {/* 반 평균 점선 */}
+          <line x1={avgX} y1={pad.top} x2={avgX} y2={pad.top + plotH} className="stroke-gold-100/50" strokeDasharray="5 5" />
+          <line x1={pad.left} y1={avgY} x2={pad.left + plotW} y2={avgY} className="stroke-gold-100/50" strokeDasharray="5 5" />
+
+          {/* 선택한 학생의 거래 상대 연결선 */}
+          {selected && selected.partners.map((partner) => {
+            const from = positions.get(selected.studentId);
+            const to = positions.get(partner.studentId);
+            if (!from || !to) return null;
+            return (
+              <line
+                key={`sel-${partner.studentId}`}
+                x1={from.x}
+                y1={from.y}
+                x2={to.x}
+                y2={to.y}
+                className="stroke-gold/60"
+                strokeWidth={1 + (partner.count / maxPartnerCount) * 4}
+              />
+            );
+          })}
+
+          {/* 학생 점 */}
+          {rows.map((row) => {
+            const pos = positions.get(row.studentId)!;
+            const q = TRADE_QUADRANTS[row.quadrant];
+            const isSelected = row.studentId === selectedId;
+            const dimmed = selected !== null && !isSelected && !selectedPartnerIds.has(row.studentId);
+            return (
+              <g
+                key={row.studentId}
+                role="button"
+                tabIndex={0}
+                aria-label={`${row.label}: 거래 상대 ${row.partnerCount}명, 총 ${row.activity}회`}
+                onClick={() => toggleSelect(row.studentId)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    toggleSelect(row.studentId);
+                  }
+                }}
+                className={cn('cursor-pointer outline-none transition-opacity', dimmed && 'opacity-25')}
+              >
+                <title>{`${row.label} · 거래 상대 ${row.partnerCount}명 · 총 ${row.activity}회`}</title>
+                <circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r={isSelected ? 11 : 8}
+                  className={cn(q.dot, row.flagged ? 'stroke-danger' : 'stroke-bg-deep')}
+                  strokeWidth={row.flagged ? 3 : 2}
+                />
+                {isSelected && <circle cx={pos.x} cy={pos.y} r={15} className="fill-none stroke-white" strokeWidth={1.5} />}
+                <text
+                  x={pos.x + 12}
+                  y={pos.y + 4}
+                  className="fill-white text-[11px] font-black"
+                  stroke="#0F0B1A"
+                  strokeWidth={3}
+                  style={{ paintOrder: 'stroke' }}
+                >
+                  {row.label.slice(0, 6)}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+        <div className="px-2 pb-1 text-2xs font-bold leading-relaxed text-gold-100">
+          점선은 반 평균(친구 {avgPartners.toFixed(1)}명 · {avgActivity.toFixed(1)}회)입니다. 점을 누르면 그 학생의 거래 상대가 선으로 이어집니다. 빨간 테두리는 최종 적발 기록이 있는 학생입니다.
+        </div>
+      </div>
+
+      {selected && (
+        <div className={cn('rounded-card-md border bg-bg-deep p-3', TRADE_QUADRANTS[selected.quadrant].border)}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-black text-white">{selected.label}</span>
+            <span className={cn('rounded-pill border px-2 py-0.5 text-2xs font-black', TRADE_QUADRANTS[selected.quadrant].border, TRADE_QUADRANTS[selected.quadrant].text)}>
+              {TRADE_QUADRANTS[selected.quadrant].label}
+            </span>
+            {selected.flagged && <span className="rounded-pill border border-danger/40 bg-danger/10 px-2 py-0.5 text-2xs font-black text-danger">최종 적발 기록</span>}
+            <button type="button" onClick={() => setSelectedId(null)} className="ml-auto text-2xs font-black text-gold-100 hover:text-white">선택 해제</button>
+          </div>
+          <div className="mt-1.5 text-xs font-bold text-gold-100">
+            거래 상대 {selected.partnerCount}명 · 총 {selected.activity}회 (산 횟수 {selected.buyCount} · 판 횟수 {selected.sellCount})
+          </div>
+          {selected.partners.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {selected.partners.slice(0, 5).map((partner) => (
+                <span key={partner.studentId} className="rounded-pill border border-line bg-bg-card px-2 py-0.5 text-2xs font-black text-white">
+                  {partner.label} {partner.count}회
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        {quadrantOrder.map((key) => {
+          const q = TRADE_QUADRANTS[key];
+          const members = rows
+            .filter((row) => row.quadrant === key)
+            .sort((a, b) => b.activity - a.activity || b.partnerCount - a.partnerCount);
+          return (
+            <div key={key} className={cn('rounded-card-md border bg-bg-deep p-3', q.border)}>
+              <div className="flex items-baseline gap-2">
+                <span className={cn('text-sm font-black', q.text)}>{q.label}</span>
+                <span className="text-2xs font-bold text-gold-100">{q.hint} · {members.length}명</span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {members.map((row) => (
+                  <button
+                    type="button"
+                    key={row.studentId}
+                    onClick={() => toggleSelect(row.studentId)}
+                    className={cn(
+                      'rounded-pill border px-2 py-0.5 text-2xs font-black text-white transition',
+                      row.studentId === selectedId ? 'border-white bg-white/10' : 'border-line bg-bg-card hover:border-gold/40',
+                      row.flagged && 'border-danger/60',
+                    )}
+                  >
+                    {row.label} <span className="text-gold-100">{row.partnerCount}명·{row.activity}회</span>
+                  </button>
+                ))}
+                {members.length === 0 && <span className="text-2xs font-bold text-gold-100">아직 없음</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
