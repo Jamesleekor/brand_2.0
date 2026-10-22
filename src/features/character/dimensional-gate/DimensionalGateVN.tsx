@@ -615,32 +615,32 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
           </div>
         </motion.div>
       ) : (
-        <div className="absolute inset-x-0 bottom-0 z-20 p-3 pb-4 sm:p-5 sm:pb-6">
+        <div className="dg-vn-dialog-wrap absolute inset-x-0 bottom-0 z-20 p-3 pb-4 sm:p-5 sm:pb-6">
           <div className={cn(
-            'mx-auto w-full max-w-[780px] min-h-[118px] rounded-[18px] border border-white/15 bg-[#090b17]/88 p-4 shadow-2xl backdrop-blur-md sm:min-h-[128px] sm:p-5',
+            'dg-vn-dialog-panel mx-auto w-full max-w-[780px] min-h-[118px] rounded-[18px] border border-white/15 bg-[#090b17]/88 p-4 shadow-2xl backdrop-blur-md sm:min-h-[128px] sm:p-5',
             isNarration && 'bg-black/62 text-center',
           )}>
             <div
               className={cn(
-                'mb-2 min-h-[1rem] text-xs font-black tracking-wide text-violet-200',
+                'dg-vn-dialog-speaker mb-2 min-h-[1rem] text-xs font-black tracking-wide text-violet-200',
                 nameGlow && 'drop-shadow-[0_0_10px_rgba(196,181,253,0.95)] text-violet-100',
                 (isNarration || !current.speaker) && 'invisible',
               )}
             >
               {current.speaker || '\u00A0'}
             </div>
-            <div className={cn('min-h-[3.5rem] whitespace-pre-wrap text-[20px] font-semibold leading-[1.65] text-white sm:text-[22px] sm:leading-[1.65]', isNarration && 'font-serif')}>
+            <div className={cn('dg-vn-dialog-body min-h-[3.5rem] whitespace-pre-wrap text-[20px] font-semibold leading-[1.65] text-white sm:text-[22px] sm:leading-[1.65]', isNarration && 'font-serif')}>
               <SoftTypedText key={`body-${current.cut_order}`} text={current.content ?? ''} visibleCount={currentVisibleCharCount} />
             </div>
 
             {current.cut_type === 'CHOICE' && currentTypingDone && current.choices && (
-              <div className="mt-4 grid gap-2" onClick={(event) => event.stopPropagation()}>
+              <div className="dg-vn-dialog-choices mt-4 grid gap-2" onClick={(event) => event.stopPropagation()}>
                 {current.choices.map((choice, choiceIndex) => (
                   <button
                     type="button"
                     key={`${choice.label}-${choice.to}-${choiceIndex}`}
                     onClick={() => choose(choice.to)}
-                    className="rounded-card-md border border-violet-300/25 bg-violet-500/10 px-3 py-3 text-left text-xs font-black text-white transition-colors hover:bg-violet-500/20"
+                    className="dg-vn-dialog-choice rounded-card-md border border-violet-300/25 bg-violet-500/10 px-3 py-3 text-left text-xs font-black text-white transition-colors hover:bg-violet-500/20"
                   >
                     <span className="mr-2 text-violet-200">{choiceIndex + 1}.</span>{choice.label}
                     
@@ -650,7 +650,7 @@ export default function DimensionalGateVN({ character, story, onClose, previewMo
             )}
 
             {current.cut_type !== 'CHOICE' && (
-              <div className="mt-2 min-h-[0.9rem] text-right text-[9px] font-black tracking-widest text-white/40">
+              <div className="dg-vn-dialog-next mt-2 min-h-[0.9rem] text-right text-[9px] font-black tracking-widest text-white/40">
                 {currentTypingDone ? '다음 ▼' : '\u00A0'}
               </div>
             )}
