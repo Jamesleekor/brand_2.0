@@ -194,6 +194,13 @@ export interface ExpeditionBoard {
 
 export interface ExpeditionPreview {
   fit_formula_version: string;
+  role_bonus_enabled?: boolean;
+  base_fit_percent?: number;
+  captain_bonus_percent?: number;
+  vice_bonus_percent?: number;
+  vice_bonus_eligible?: number;
+  captain_element_multiplier?: number;
+  fit_cap?: number;
   element_match_rule?: 'COUNTER_ELEMENT' | 'SAME_ELEMENT';
   major_counter_element?: ExpeditionElementCode;
   minor_counter_element?: ExpeditionElementCode;

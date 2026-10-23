@@ -1,10 +1,12 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { LoadingSpinner } from '@/components/shared/components';
 import { LuxuryShopSectionV2 } from './expedition/LuxuryShopSectionV2';
 import { CompactChronicleSection } from './expedition/CompactChronicleSection';
 import { getExpeditionCounterElement } from './expedition/expeditionFit';
+import { ExpeditionPartySlots } from './expedition/ExpeditionPartySlots';
+import { assignExpeditionParty, swapExpeditionParty, EXPEDITION_ROLES, type ExpeditionPartySlots as PartySlots } from './expedition/expeditionParty';
 import { ExpeditionBoxOpeningModal } from './expedition/ExpeditionBoxOpeningModal';
 import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
@@ -31,6 +33,7 @@ import {
   type ExpeditionLuxuryItem,
   type ExpeditionRestoreResult,
   type ExpeditionRunResult,
+  type ExpeditionPreview,
   type ExpeditionSiteRow,
   type ExpeditionSiteStory,
   type ExpeditionSpecialtyCode,
@@ -101,7 +104,8 @@ function newRequestId() {
 export default function ExpeditionChroniclePanel() {
   const queryClient = useQueryClient();
   const [selectedSiteId, setSelectedSiteId] = useState<number | null>(null);
-  const [selectedCharacterIds, setSelectedCharacterIds] = useState<number[]>([]);
+  const [selectedCharacterIds, setSelectedCharacterIds] = useState<PartySlots>([null, null, null]);
+  const [activePartySlot, setActivePartySlot] = useState(0);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [story, setStory] = useState<ExpeditionSiteStory | null>(null);
@@ -187,6 +191,12 @@ export default function ExpeditionChroniclePanel() {
   const activeSiteId = selectedSiteId ?? sites[0]?.week_site_id ?? null;
   const activeSite = sites.find((site) => site.week_site_id === activeSiteId) ?? null;
   const phase = board?.week?.phase ?? 'CLOSED';
+  const selectedIds = selectedCharacterIds.filter((id): id is number => id !== null);
+  const rolesEnabled = board?.week?.fit_formula_version === 'ELEM_70_30_ROLES_V3';
+  useEffect(() => {
+    setSelectedCharacterIds([null, null, null]);
+    setActivePartySlot(0);
+  }, [board?.week?.week_id, phase]);
   const canSubmit = phase === 'SAT'
     ? board?.can_submit_sat === true
     : phase === 'SUN'
@@ -201,26 +211,25 @@ export default function ExpeditionChroniclePanel() {
       : board?.my_sun_run ?? board?.my_sat_run ?? null;
 
   const previewQuery = useQuery({
-    queryKey: ['expedition-preview', 'counter-v2', activeSiteId, [...selectedCharacterIds].sort((a, b) => a - b).join(',')],
+    queryKey: ['expedition-preview', 'roles-v3', board?.week?.week_id, board?.week?.fit_formula_version, phase, activeSiteId, selectedCharacterIds.join(',')],
     queryFn: async () => {
       const result = await expeditionRpc.preview(
         supabase,
         activeSiteId as number,
-        selectedCharacterIds,
+        selectedIds,
       );
       if (result.success === false) throw new Error(result.error);
       return result.data;
     },
-    enabled: enabled && canSubmit && activeSiteId !== null && selectedCharacterIds.length === 3,
+    enabled: enabled && canSubmit && activeSiteId !== null && selectedIds.length === 3,
     staleTime: 2_000,
   });
 
-  const selectedCharacters = useMemo(
-    () => selectedCharacterIds
-      .map((id) => characters.find((character) => character.character_id === id))
-      .filter((character): character is ExpeditionCharacterRow => Boolean(character)),
+  const selectedParty = useMemo(
+    () => selectedCharacterIds.map((id) => characters.find((character) => character.character_id === id) ?? null),
     [characters, selectedCharacterIds],
   );
+  const selectedCharacters = selectedParty.filter((character): character is ExpeditionCharacterRow => character !== null);
 
   const refreshExpedition = async () => {
     await Promise.all([
@@ -234,27 +243,33 @@ export default function ExpeditionChroniclePanel() {
   };
 
   const toggleCharacter = (character: ExpeditionCharacterRow) => {
-    if (!canSubmit || character.recovery_required) return;
+    if (!canSubmit || character.recovery_required || busyAction === 'submit') return;
     setNotice(null);
-    setSelectedCharacterIds((current) => {
-      if (current.includes(character.character_id)) {
-        return current.filter((id) => id !== character.character_id);
-      }
-      if (current.length >= 3) {
-        return [current[0], current[1], character.character_id];
-      }
-      return [...current, character.character_id];
-    });
+    const next = assignExpeditionParty(selectedCharacterIds, activePartySlot, character.character_id);
+    setSelectedCharacterIds(next.slots);
+    setActivePartySlot(next.activeSlot);
+  };
+
+  const removePartyCharacter = (slot: number) => {
+    if (busyAction === 'submit') return;
+    setSelectedCharacterIds(current => current.map((id, index) => index === slot ? null : id) as PartySlots);
+    setActivePartySlot(slot);
+  };
+
+  const swapPartyCharacters = (first: number, second: number) => {
+    if (busyAction === 'submit') return;
+    setSelectedCharacterIds(current => swapExpeditionParty(current, first, second));
+    setActivePartySlot(second);
   };
 
   const submitExpedition = async () => {
-    if (!activeSiteId || selectedCharacterIds.length !== 3 || !canSubmit) return;
+    if (!activeSiteId || selectedIds.length !== 3 || !canSubmit) return;
     setBusyAction('submit');
     setNotice(null);
     const result = await expeditionRpc.submit(
       supabase,
       activeSiteId,
-      selectedCharacterIds,
+      selectedIds,
       newRequestId(),
     );
     setBusyAction(null);
@@ -262,7 +277,8 @@ export default function ExpeditionChroniclePanel() {
       setNotice(toStudentError(result.error));
       return;
     }
-    setSelectedCharacterIds([]);
+    setSelectedCharacterIds([null, null, null]);
+    setActivePartySlot(0);
     setNotice(result.data.already_submitted ? '이번 원정 결과를 다시 불러왔습니다.' : '원정 결과가 확정되었습니다.');
     await refreshExpedition();
   };
@@ -474,7 +490,8 @@ export default function ExpeditionChroniclePanel() {
                   selected={site.week_site_id === activeSiteId}
                   onClick={() => {
                     setSelectedSiteId(site.week_site_id);
-                    setSelectedCharacterIds([]);
+                    setSelectedCharacterIds([null, null, null]);
+                    setActivePartySlot(0);
                     setNotice(null);
                   }}
                   onStory={() => void loadStory(site.site_code)}
@@ -499,7 +516,7 @@ export default function ExpeditionChroniclePanel() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-black text-[#FFF7ED]">선택 {selectedCharacterIds.length}/3</div>
+                  <div className="text-sm font-black text-[#FFF7ED]">선택 {selectedIds.length}/3</div>
                   {phase === 'SUN' && (
                     <div className="mt-1 text-[13px] font-bold text-[#FFCC80]">금요일 원정 편린은 회복 필요</div>
                   )}
@@ -520,6 +537,15 @@ export default function ExpeditionChroniclePanel() {
                 </div>
               ) : (
                 <>
+                  <ExpeditionPartySlots
+                    characters={selectedParty}
+                    activeSlot={activePartySlot}
+                    disabled={busyAction === 'submit'}
+                    rolesEnabled={rolesEnabled}
+                    onSelect={setActivePartySlot}
+                    onRemove={removePartyCharacter}
+                    onSwap={swapPartyCharacters}
+                  />
                   <div className="sticky top-2 z-30 mt-4 rounded-card-xl border border-brand-primary/45 bg-[#110D1B]/95 p-2.5 shadow-2xl backdrop-blur-md sm:top-3">
                     <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_180px] lg:items-stretch">
                       <PreviewCard
@@ -531,7 +557,7 @@ export default function ExpeditionChroniclePanel() {
                       />
                       <button
                         type="button"
-                        disabled={selectedCharacterIds.length !== 3 || previewQuery.isFetching || busyAction === 'submit'}
+                        disabled={selectedIds.length !== 3 || previewQuery.isFetching || previewQuery.isError || !previewQuery.data || previewQuery.data.can_submit === false || busyAction === 'submit'}
                         onClick={() => void submitExpedition()}
                         className="min-h-[64px] rounded-card-lg border border-brand-primary/55 bg-brand-primary/25 px-5 py-3 text-sm font-black text-white shadow-brand-sm transition hover:bg-brand-primary/35 disabled:cursor-not-allowed disabled:opacity-40"
                       >
@@ -540,13 +566,14 @@ export default function ExpeditionChroniclePanel() {
                     </div>
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1 text-sm font-bold text-[#FFF7ED]">
                       <span>
-                        선택 {selectedCharacterIds.length}/3
-                        {selectedCharacters.length > 0 && ` · ${selectedCharacters.map((item) => item.name).join(' / ')}`}
+                        선택 {selectedIds.length}/3
+                        {' · '}{EXPEDITION_ROLES[activePartySlot].label} 자리 편집 중
                       </span>
-                      {selectedCharacterIds.length > 0 && (
+                      {selectedIds.length > 0 && (
                         <button
                           type="button"
-                          onClick={() => setSelectedCharacterIds([])}
+                          onClick={() => { setSelectedCharacterIds([null, null, null]); setActivePartySlot(0); }}
+                          disabled={busyAction === 'submit'}
                           className="rounded-pill border border-white/20 bg-white/5 px-2.5 py-1 text-[13px] font-black text-[#FFF7ED]"
                         >
                           선택 초기화
@@ -556,7 +583,7 @@ export default function ExpeditionChroniclePanel() {
                   </div>
 
                   <div className="mt-3 rounded-card-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-bold leading-relaxed text-[#F6EFE7]">
-                    3명을 선택한 뒤 다른 편린을 누르면 <span className="font-black text-[#FFD58A]">3번 슬롯이 즉시 교체</span>됩니다. 두 명을 고정해 두고 후보를 빠르게 바꾸며 적합도를 비교할 수 있습니다.
+                    먼저 <span className="font-black text-[#FFD58A]">바꿀 역할 칸</span>을 누른 뒤 편린을 선택하세요. 이미 선택된 편린을 다른 칸에 배치하면 두 편린의 자리가 교환됩니다.
                   </div>
 
                   <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
@@ -565,7 +592,8 @@ export default function ExpeditionChroniclePanel() {
                         key={character.character_id}
                         character={character}
                         selected={selectedCharacterIds.includes(character.character_id)}
-                        disabled={character.recovery_required}
+                        selectedRole={EXPEDITION_ROLES[selectedCharacterIds.indexOf(character.character_id)]?.label}
+                        disabled={character.recovery_required || busyAction === 'submit'}
                         onClick={() => toggleCharacter(character)}
                       />
                     ))}
@@ -879,11 +907,13 @@ function SiteCard({
 function PartyCharacterCard({
   character,
   selected,
+  selectedRole,
   disabled,
   onClick,
 }: {
   character: ExpeditionCharacterRow;
   selected: boolean;
+  selectedRole?: string;
   disabled: boolean;
   onClick: () => void;
 }) {
@@ -929,9 +959,9 @@ function PartyCharacterCard({
         </div>
       </div>
       {selected && (
-        <div className="absolute right-2 top-2 rounded-full border border-brand-primary/70 bg-brand-primary px-2.5 py-1 text-[13px] font-black text-white">선택</div>
+        <div className="absolute right-2 top-2 rounded-full border border-brand-primary/70 bg-brand-primary px-2.5 py-1 text-[13px] font-black text-white">{selectedRole ?? '선택'}</div>
       )}
-      {disabled && (
+      {character.recovery_required && (
         <div className="absolute inset-x-1 bottom-1 flex items-center justify-center gap-1.5 rounded-card-md border border-warning/45 bg-[#2C2012]/95 px-2 py-1.5 text-center text-[13px] font-black text-warning">
           <img src={EXPEDITION_ASSETS.recoveryRequired} alt="" className="h-5 w-5 object-contain" decoding="async" />
           회복 필요
@@ -952,7 +982,7 @@ function PreviewCard({
   selectedCharacters: ExpeditionCharacterRow[];
   isLoading: boolean;
   error: string | null;
-  preview: any;
+  preview: ExpeditionPreview | null;
 }) {
   if (selectedCharacters.length !== 3) {
     return (
@@ -983,7 +1013,7 @@ function PreviewCard({
         </div>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] font-bold text-[#FFF7ED]">
-        <span className="font-black text-[#FFD58A]">{selectedCharacters.map((item) => item.name).join(' · ')}</span>
+        <span className="font-black text-[#FFD58A]">{selectedCharacters.map((item, index) => `${EXPEDITION_ROLES[index].label}: ${item.name}`).join(' · ')}</span>
         <span>·</span>
         <span>{site.site_name}</span>
         <span>·</span>
@@ -991,6 +1021,12 @@ function PreviewCard({
         <span>·</span>
         <span className="whitespace-nowrap">부속성: {ELEMENT_META[preview.minor_element as ExpeditionElementCode]?.label}</span>
       </div>
+      {preview.role_bonus_enabled && (
+        <p className="mt-2 rounded-card-md border border-[#FFD58A]/25 bg-[#FFD58A]/5 px-2.5 py-2 text-xs font-black text-[#FFD58A]" aria-live="polite">
+          기본 {preview.base_fit_percent}% + 대장 {preview.captain_bonus_percent}%p + 부대장 {preview.vice_bonus_percent}%p = {preview.fit_percent}%
+          {preview.vice_bonus_eligible !== undefined && preview.vice_bonus_eligible > (preview.vice_bonus_percent ?? 0) && ' · 상한 130% 적용'}
+        </p>
+      )}
       <p className="mt-2 text-xs font-bold text-[#FFF7ED]">
         탐사지에 유리한 속성으로 계산 · {ELEMENT_META[getExpeditionCounterElement(site.major_element)].label} 70% / {ELEMENT_META[getExpeditionCounterElement(site.minor_element)].label} 30% · 특기 보너스 최대 +10
       </p>
@@ -1043,6 +1079,13 @@ function RunResultCard({
                 <div className="text-sm font-black text-[#73E6F2]">적합도 {run.fit_percent}% · {run.fit_grade_ko}</div>
               </div>
             </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-[#F6E1BC]">
+            {run.members.map(member => (
+              <span key={member.slot} className="rounded-pill border border-white/15 px-2.5 py-1.5">
+                {run.fit_formula_version === 'ELEM_70_30_ROLES_V3' ? EXPEDITION_ROLES[member.slot - 1]?.label : '대원'} · {member.character_name}
+              </span>
+            ))}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <MiniStat label="내가 남긴 흔적" value={`+${run.trace_contribution}`} />
