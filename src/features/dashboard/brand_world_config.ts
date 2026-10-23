@@ -9,8 +9,8 @@ import type { Tier } from '@/types/database_types';
  * CELESTIAL_SANCTUARY:
  *   마스터 / 천상의 마스터 / 그랜드마스터
  */
-export const BRAND_WORLD_MAP_URL = 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/brand2.0-page/BRAND-WORLD.png';
-export const CELESTIAL_SANCTUARY_MAP_URL = 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/brand2.0-page/Celestial-Sanctuary.png';
+export const BRAND_WORLD_MAP_URL = 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/brand2.0-page/BRAND-WORLD.png';
+export const CELESTIAL_SANCTUARY_MAP_URL = 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/brand2.0-page/Celestial-Sanctuary.png';
 export const BRAND_WORLD_MAP_IS_PLACEHOLDER = false;
 
 export type BrandWorldMapId = 'WORLD' | 'CELESTIAL_SANCTUARY';

@@ -22,7 +22,7 @@
    =================================================================== */
 :root {
   --asset-base-shop: 'https://jamesleekor.github.io/brand-assets';
-  --asset-base-tier: 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/tier_icon';
+  --asset-base-tier: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/tier_icon';
 }
 
 /* ===================================================================

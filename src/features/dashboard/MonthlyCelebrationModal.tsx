@@ -5,14 +5,14 @@ const CELEBRATION_PERIOD = '2026-09';
 const CELEBRATION_HIDDEN_KEY = `brand:celebration:hidden-until:${CELEBRATION_PERIOD}`;
 const HIDE_FOR_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
-const CELEBRATION_IMAGE_URL = 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/celebration/2026SEP-Top1Guild-Supernova.webp';
+const CELEBRATION_IMAGE_URL = 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/celebration/2026SEP-Top1Guild-Supernova.webp';
 
 const GUILD_ICONS: Record<string, string> = {
-  '슈퍼노바': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2026_guild_logo/guild-Supernova.png',
-  '아블루션': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2026_guild_logo/guild-Ablution.png',
-  '루나 네이비': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2026_guild_logo/guild-LunaNavy.png',
-  '피닉스': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2026_guild_logo/guild-Phoenix.png',
-  '와사비': 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/refs/heads/main/guild/2026_guild_logo/guild-Wasabi.png',
+  '슈퍼노바': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2026_guild_logo/guild-Supernova.png',
+  '아블루션': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2026_guild_logo/guild-Ablution.png',
+  '루나 네이비': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2026_guild_logo/guild-LunaNavy.png',
+  '피닉스': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2026_guild_logo/guild-Phoenix.png',
+  '와사비': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2026_guild_logo/guild-Wasabi.png',
 };
 
 const RANKINGS = [

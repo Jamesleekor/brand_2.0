@@ -9,7 +9,7 @@
 //      https://jamesleekor.github.io/brand-assets/background/013_FrenchBedroom.jpeg
 //   
 //   2. 티어 아이콘:
-//      https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/tier_icon/rankicon_gold4.png
+//      https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/tier_icon/rankicon_gold4.png
 // =====================================================================
 
 import type { Tier } from '@/types/database_types';
@@ -19,7 +19,7 @@ import type { Tier } from '@/types/database_types';
 // =====================================================================
 
 const ASSET_BASE_SHOP = 'https://jamesleekor.github.io/brand-assets';
-const ASSET_BASE_TIER = 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/tier_icon';
+const ASSET_BASE_TIER = 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/tier_icon';
 
 // =====================================================================
 // 2. 티어 → 아이콘 URL 매핑
@@ -58,7 +58,7 @@ const TIER_ICON_FILENAMES: Record<Tier, string> = {
  * 
  * @example
  *   getTierIconUrl('제련된 골드')
- *   // → 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/tier_icon/rankicon_gold2.png'
+ *   // → 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/tier_icon/rankicon_gold2.png'
  */
 export function getTierIconUrl(tier: Tier): string {
   const filename = TIER_ICON_FILENAMES[tier];

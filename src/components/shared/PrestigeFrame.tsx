@@ -21,7 +21,7 @@ type PrestigeFrameProps = {
 
 const LOCAL_CARCOSA_ASSETS = `${import.meta.env.BASE_URL}prestige-borders/carcosa-v2/`;
 const LOCAL_COMPOSABLE_ASSETS = `${import.meta.env.BASE_URL}prestige-borders/composable-v7/`;
-const MOON_ORNAMENT_URL = 'https://raw.githubusercontent.com/Jamesleekor/brand-assets/main/expedition/prestige/prestige_border_carcosa_moon_ornament_v2.webp';
+const MOON_ORNAMENT_URL = 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/expedition/prestige/prestige_border_carcosa_moon_ornament_v2.webp';
 
 function accentFor(border: OwnedPrestigeBorder) {
   const identity = `${border.itemUid} ${border.name}`.toLowerCase();
