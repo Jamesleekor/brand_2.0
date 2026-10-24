@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">B.R.A.N.D</string>
+    <string name="title_activity_main">B.R.A.N.D</string>
+    <string name="package_name">com.jamesleekor.brand</string>
+    <string name="custom_url_scheme">com.jamesleekor.brand</string>
+</resources>
