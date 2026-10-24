@@ -23,6 +23,8 @@ import RaidPatternGenerator from './RaidPatternGenerator';
 import RaidLootConfigPanel from './RaidLootConfigPanel';
 
 type TabKey = 'COMBAT' | 'PATTERNS' | 'AUDIO' | 'LOOT';
+// RAID_ADMIN_LAYOUT_TABS_20261023: 레이드 통제실 페이지 탭이 이 패널의 탭을 직접 고를 때 사용
+export type RaidConfigTabKey = TabKey;
 
 type PatternTypeOption = {
   value: RaidV15PatternType;
@@ -94,10 +96,13 @@ const TRIGGERS: Array<{ value: RaidV15TriggerKind; label: string }> = [
   { value: 'MANUAL', label: '수동 발동(MANUAL)' },
 ];
 
-export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, bossVideoUrl, bossName, visualReady, rewardEnabled, raidMaxHp, damageCoefficient, varianceMin, varianceMax, critMultiplier, tapRateLimit, focusGenerator = false, onOpenLobby }: { raidId: number; raidStatus: RaidStatus; bossImageUrl?: string | null; bossVideoUrl?: string | null; bossName: string; visualReady: boolean; rewardEnabled: boolean; raidMaxHp: number; damageCoefficient: number; varianceMin: number; varianceMax: number; critMultiplier: number; tapRateLimit: number; focusGenerator?: boolean; onOpenLobby?: () => void }) {
+export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, bossVideoUrl, bossName, visualReady, rewardEnabled, raidMaxHp, damageCoefficient, varianceMin, varianceMax, critMultiplier, tapRateLimit, focusGenerator = false, onOpenLobby, externalTab = null, onPatternCountChange }: { raidId: number; raidStatus: RaidStatus; bossImageUrl?: string | null; bossVideoUrl?: string | null; bossName: string; visualReady: boolean; rewardEnabled: boolean; raidMaxHp: number; damageCoefficient: number; varianceMin: number; varianceMax: number; critMultiplier: number; tapRateLimit: number; focusGenerator?: boolean; onOpenLobby?: () => void; externalTab?: TabKey | null; onPatternCountChange?: (count: number) => void }) {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>('COMBAT');
   const [collapsed, setCollapsed] = useState(true);
+  // RAID_ADMIN_LAYOUT_TABS_20261023: 페이지 탭에서 탭을 지정하면 접기·내부 탭 줄 없이 해당 탭 내용만 보여준다.
+  const embedded = externalTab !== null;
+  const activeTab: TabKey = externalTab ?? tab;
   const [combat, setCombat] = useState<RaidV15CombatConfig>(DEFAULT_COMBAT);
   const [patterns, setPatterns] = useState<RaidV15Pattern[]>([]);
   const [audio, setAudio] = useState<Omit<RaidV15AudioProfile, 'raid_id' | 'configured'>>(EMPTY_AUDIO);
@@ -146,6 +151,11 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
   const editableAudio = raidStatus !== 'ARCHIVED';
   const commonPatterns = useMemo(() => patterns.filter((pattern) => isCommon(pattern.pattern_type)), [patterns]);
   const specialPatterns = useMemo(() => patterns.filter((pattern) => !isCommon(pattern.pattern_type)), [patterns]);
+
+  // RAID_ADMIN_LAYOUT_TABS_20261023: 페이지 탭의 "패턴 N" 숫자 표시용
+  useEffect(() => {
+    onPatternCountChange?.(patterns.length);
+  }, [onPatternCountChange, patterns.length]);
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ['teacher-raid-v15-combat', raidId] });
@@ -228,7 +238,7 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
     }
   };
 
-  if (collapsed) {
+  if (collapsed && !embedded) {
     return (
       <section className="rounded-card-lg border border-cyan-400/25 bg-bg-card px-5 py-4 shadow-[0_0_28px_rgba(34,211,238,0.04)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -269,21 +279,51 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
             <div className="text-xs font-black tracking-[0.08em] text-cyan-200">레이드 구성(RAID CONFIGURATION)</div>
             <div className="mt-1 text-sm font-black text-white">⚙️ 설정 불러오는 중…</div>
           </div>
-          <button
-            type="button"
-            onClick={() => setCollapsed(true)}
-            className="rounded-card-md border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20"
-          >
-            ▲ 접기
-          </button>
+          {!embedded && (
+            <button
+              type="button"
+              onClick={() => setCollapsed(true)}
+              className="rounded-card-md border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20"
+            >
+              ▲ 접기
+            </button>
+          )}
         </div>
         <div className="mt-3 flex min-h-16 items-center justify-center"><LoadingSpinner /></div>
       </section>
     );
   }
 
+  // RAID_ADMIN_LAYOUT_PATTERNS_20261023: 기존 화면과 새 작업대가 같은 자동 구성 카드를 쓰도록 한 번만 정의
+  const patternGenerator = editableCombat ? (
+    <RaidPatternGenerator
+      raidId={raidId}
+      bossName={bossName}
+      visualReady={visualReady}
+      rewardEnabled={rewardEnabled}
+      maxHp={raidMaxHp}
+      damageCoefficient={damageCoefficient}
+      varianceMin={varianceMin}
+      varianceMax={varianceMax}
+      critMultiplier={critMultiplier}
+      tapRateLimit={tapRateLimit}
+      patterns={patterns}
+      combat={combat}
+      disabled={!editableCombat || saving !== null}
+      onApplied={refresh}
+      onOpenLobby={raidStatus === 'DRAFT' ? onOpenLobby : undefined}
+    />
+  ) : null;
+
   return (
     <section className="rounded-card-lg border border-cyan-400/25 bg-bg-card p-5 shadow-[0_0_28px_rgba(34,211,238,0.04)]">
+      {embedded ? (
+        !editableCombat && activeTab !== 'AUDIO' ? (
+          <div className="mb-1 flex justify-end">
+            <span className="rounded-full border border-amber-300/40 bg-amber-500/10 px-3 py-1.5 text-xs font-black text-amber-100">🔒 전투가 시작되어 읽기 전용입니다</span>
+          </div>
+        ) : null
+      ) : (
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="text-base font-black tracking-[0.08em] text-cyan-200">레이드 구성(RAID CONFIGURATION)</div>
@@ -304,36 +344,40 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
           </button>
         </div>
       </div>
+      )}
 
-      {!collapsed ? (
+      {embedded || !collapsed ? (
         <>
+      {!embedded && (
       <div className="mt-5 flex flex-wrap gap-2">
         <TabButton active={tab === 'COMBAT'} onClick={() => setTab('COMBAT')}>🛡 전투 기믹</TabButton>
         <TabButton active={tab === 'PATTERNS'} onClick={() => setTab('PATTERNS')}>🧩 패턴 에디터 <span className="ml-1">{patterns.length}</span></TabButton>
         <TabButton active={tab === 'AUDIO'} onClick={() => setTab('AUDIO')}>🔊 오디오 프로필</TabButton>
         <TabButton active={tab === 'LOOT'} onClick={() => setTab('LOOT')}>🎁 전리품 설정</TabButton>
       </div>
+      )}
 
-      {tab === 'COMBAT' ? <CombatEditor value={combat} onChange={setCombat} disabled={!editableCombat} saving={saving === 'COMBAT'} onSave={saveCombat} /> : null}
-      {tab === 'PATTERNS' ? (
-        <div className="mt-5 space-y-6">
-          {editableCombat && <RaidPatternGenerator
-            raidId={raidId}
-            bossName={bossName}
-            visualReady={visualReady}
-            rewardEnabled={rewardEnabled}
-            maxHp={raidMaxHp}
-            damageCoefficient={damageCoefficient}
-            varianceMin={varianceMin}
-            varianceMax={varianceMax}
-            critMultiplier={critMultiplier}
-            tapRateLimit={tapRateLimit}
+      {activeTab === 'COMBAT' ? <CombatEditor value={combat} onChange={setCombat} disabled={!editableCombat} saving={saving === 'COMBAT'} onSave={saveCombat} /> : null}
+      {activeTab === 'PATTERNS' && embedded ? (
+        <div className="space-y-5">
+          {patternGenerator}
+          <PatternWorkbench
             patterns={patterns}
-            combat={combat}
-            disabled={!editableCombat || saving !== null}
-            onApplied={refresh}
-            onOpenLobby={raidStatus === 'DRAFT' ? onOpenLobby : undefined}
-          />}
+            setPatterns={setPatterns}
+            disabled={!editableCombat}
+            raidStatus={raidStatus}
+            savingKey={saving}
+            onTriggerManual={triggerManual}
+            bossImageUrl={bossImageUrl}
+            bossVideoUrl={bossVideoUrl}
+            onSave={savePatterns}
+            saving={saving === 'PATTERNS'}
+          />
+        </div>
+      ) : null}
+      {activeTab === 'PATTERNS' && !embedded ? (
+        <div className="mt-5 space-y-6">
+          {patternGenerator}
           <PatternSection
             title="공통 기믹"
             description="약점 노출(WEAK_POINT) · 무력화(BREAK) · 광폭화(ENRAGE). 패턴별 무력화/광폭화 값이 있으면 전투 기믹 탭의 기본값보다 우선합니다."
@@ -363,8 +407,8 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
           <div className="flex justify-end"><button type="button" onClick={savePatterns} disabled={!editableCombat || saving !== null} className="btn-primary text-base disabled:opacity-40">{saving === 'PATTERNS' ? '저장 중…' : '🧩 전체 패턴 저장'}</button></div>
         </div>
       ) : null}
-      {tab === 'AUDIO' ? <AudioEditor value={audio} defaultValue={defaultAudio} effectiveValue={audioQuery.data.effective_profile} scope={audioScope} onScopeChange={setAudioScope} onChange={setAudio} onDefaultChange={setDefaultAudio} disabled={!editableAudio} saving={saving} onSave={saveAudio} onSaveDefault={saveDefaultAudio} /> : null}
-      {tab === 'LOOT' ? <RaidLootConfigPanel raidId={raidId} raidStatus={raidStatus} /> : null}
+      {activeTab === 'AUDIO' ? <AudioEditor value={audio} defaultValue={defaultAudio} effectiveValue={audioQuery.data.effective_profile} scope={audioScope} onScopeChange={setAudioScope} onChange={setAudio} onDefaultChange={setDefaultAudio} disabled={!editableAudio} saving={saving} onSave={saveAudio} onSaveDefault={saveDefaultAudio} /> : null}
+      {activeTab === 'LOOT' ? <RaidLootConfigPanel raidId={raidId} raidStatus={raidStatus} /> : null}
         </>
       ) : null}
     </section>
@@ -446,18 +490,27 @@ function PatternSection({ title, description, patterns, allPatterns, setPatterns
 
 function PatternCard({ pattern, onChange, onDelete, disabled, common, canTriggerManual, triggering, onTriggerManual, bossImageUrl, bossVideoUrl }: { pattern: RaidV15Pattern; onChange: (p: RaidV15Pattern) => void; onDelete: () => void; disabled: boolean; common: boolean; canTriggerManual: boolean; triggering: boolean; onTriggerManual: () => void; bossImageUrl?: string | null; bossVideoUrl?: string | null }) {
   const [collapsed, setCollapsed] = useState(Boolean(pattern.id));
-  const set = <K extends keyof RaidV15Pattern>(key: K, value: RaidV15Pattern[K]) => onChange({ ...pattern, [key]: value });
-  const allowedTypes = PATTERN_TYPES.filter((type) => common ? type.common : !type.common);
   const displayType = pattern.pattern_type === 'BOSS_STRIKE' ? 'ULTIMATE' : pattern.pattern_type;
-  const changeType = (type: RaidV15PatternType) => onChange({ ...pattern, pattern_type: type, name: defaultPatternName(type), config: defaultPatternConfig(type) });
-  const ratioTrigger = pattern.trigger_kind === 'HP_RATIO' || pattern.trigger_kind === 'BARRIER_RATIO';
-  const displayTriggerValue = pattern.trigger_kind === 'MANUAL' ? 0 : ratioTrigger ? ratioToPercent(pattern.trigger_value) : pattern.trigger_value;
   return <div className={cn('overflow-hidden rounded-card-md border', pattern.is_enabled ? 'border-cyan-300/30 bg-bg-deep' : 'border-amber-300/20 bg-black/20 opacity-70')}>
     <button type="button" onClick={() => setCollapsed(!collapsed)} className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-white/[0.03]">
       <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="rounded-full border border-cyan-300/25 px-2 py-0.5 text-sm font-black text-cyan-100">#{pattern.seq}</span><span className="truncate text-base font-black text-white">{pattern.name}</span><span className="text-sm font-bold text-amber-100">{patternTypeLabel(displayType)}</span></div><div className="mt-1 text-sm font-bold text-cyan-100">{describeTrigger(pattern)} · {pattern.duration_seconds}초 · {pattern.is_enabled ? '사용' : '미사용'}</div></div>
       <span className="flex-none rounded-card-md border border-cyan-300/25 px-3 py-1.5 text-sm font-black text-cyan-100">{collapsed ? '펼치기 ▾' : '접기 ▴'}</span>
     </button>
     {!collapsed && <div className="border-t border-cyan-300/15 p-4">
+      <PatternEditorBody pattern={pattern} onChange={onChange} onDelete={onDelete} disabled={disabled} common={common} canTriggerManual={canTriggerManual} triggering={triggering} onTriggerManual={onTriggerManual} bossImageUrl={bossImageUrl} bossVideoUrl={bossVideoUrl} />
+    </div>}
+  </div>;
+}
+
+// RAID_ADMIN_LAYOUT_PATTERNS_20261023: 패턴 편집 칸(기존 PatternCard 본문). 기존 카드와 새 작업대가 함께 사용한다.
+function PatternEditorBody({ pattern, onChange, onDelete, disabled, common, canTriggerManual, triggering, onTriggerManual, bossImageUrl, bossVideoUrl }: { pattern: RaidV15Pattern; onChange: (p: RaidV15Pattern) => void; onDelete: () => void; disabled: boolean; common: boolean; canTriggerManual: boolean; triggering: boolean; onTriggerManual: () => void; bossImageUrl?: string | null; bossVideoUrl?: string | null }) {
+  const set = <K extends keyof RaidV15Pattern>(key: K, value: RaidV15Pattern[K]) => onChange({ ...pattern, [key]: value });
+  const allowedTypes = PATTERN_TYPES.filter((type) => common ? type.common : !type.common);
+  const displayType = pattern.pattern_type === 'BOSS_STRIKE' ? 'ULTIMATE' : pattern.pattern_type;
+  const changeType = (type: RaidV15PatternType) => onChange({ ...pattern, pattern_type: type, name: defaultPatternName(type), config: defaultPatternConfig(type) });
+  const ratioTrigger = pattern.trigger_kind === 'HP_RATIO' || pattern.trigger_kind === 'BARRIER_RATIO';
+  const displayTriggerValue = pattern.trigger_kind === 'MANUAL' ? 0 : ratioTrigger ? ratioToPercent(pattern.trigger_value) : pattern.trigger_value;
+  return <>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         <NumberInput label="순서(Seq)" value={pattern.seq} onChange={(next) => set('seq', Math.round(next))} disabled={disabled} step={10} />
         <TextInput label="패턴 이름" value={pattern.name} onChange={(next) => set('name', next)} disabled={disabled} />
@@ -469,8 +522,7 @@ function PatternCard({ pattern, onChange, onDelete, disabled, common, canTrigger
       <div className="mt-3 flex flex-wrap items-center gap-2">{pattern.trigger_kind === 'MANUAL' ? <button type="button" onClick={onTriggerManual} disabled={!canTriggerManual || triggering} className="rounded-card-md border border-gold/50 bg-gold/10 px-3 py-2 text-base font-black text-yellow-100 disabled:opacity-40">{triggering ? '발동 중…' : '▶ 수동 발동'}</button> : null}<button type="button" onClick={() => set('is_enabled', !pattern.is_enabled)} disabled={disabled} className="rounded-card-md border border-cyan-300/30 bg-cyan-500/10 px-3 py-2 text-base font-black text-cyan-100 disabled:opacity-40">{pattern.is_enabled ? '사용(ON)' : '미사용(OFF)'}</button><button type="button" onClick={onDelete} disabled={disabled} className="rounded-card-md border border-red-300/30 bg-red-500/10 px-3 py-2 text-base font-black text-red-100 disabled:opacity-40">삭제</button></div>
       {pattern.trigger_kind === 'RANDOM_WINDOW' ? <div className="mt-3 max-w-[260px]"><NumberInput label="무작위 시간창 종료" suffix="초" value={numberFrom(pattern.config.window_end_seconds, pattern.trigger_value + 10)} onChange={(next) => set('config', { ...pattern.config, window_end_seconds: next })} disabled={disabled} step={1} /></div> : null}
       <PatternConfigFields pattern={pattern} onChange={onChange} disabled={disabled} bossImageUrl={bossImageUrl} bossVideoUrl={bossVideoUrl} />
-    </div>}
-  </div>;
+  </>;
 }
 
 function PatternConfigFields({ pattern, onChange, disabled, bossImageUrl, bossVideoUrl }: { pattern: RaidV15Pattern; onChange: (p: RaidV15Pattern) => void; disabled: boolean; bossImageUrl?: string | null; bossVideoUrl?: string | null }) {
@@ -710,7 +762,195 @@ function JsonInput({ label, value, onChange, disabled }: { label: string; value:
 
 function patternTypeLabel(type:string){return PATTERN_TYPES.find((item)=>item.value===type)?.name ?? type;}
 function describeTrigger(pattern:RaidV15Pattern){const v=Number(pattern.trigger_value??0);switch(pattern.trigger_kind){case 'TIME_SECONDS':return `전투 시작 +${v}초`;case 'TIME_REMAINING':return `남은 시간 ${v}초`;case 'HP_RATIO':return `보스 HP ${Math.round(v*100)}%`;case 'BARRIER_RATIO':return `방벽 ${Math.round(v*100)}%`;case 'AFTER_PATTERN':return `#${v} 이후`;case 'RANDOM_WINDOW':return `${v}~${numberFrom(pattern.config.window_end_seconds,v+10)}초 무작위`;case 'MANUAL':return '수동 발동';default:return pattern.trigger_kind;}}
-function PatternSummaryPanel({patterns}:{patterns:RaidV15Pattern[]}){const enabled=[...patterns].filter(p=>p.is_enabled).sort((a,b)=>a.seq-b.seq);const dup=new Set(enabled.filter((p,i,a)=>a.findIndex(x=>x.seq===p.seq)!==i).map(p=>p.seq));const timed=enabled.filter(p=>p.trigger_kind==='TIME_SECONDS').map(p=>({p,start:Number(p.trigger_value),end:Number(p.trigger_value)+Number(p.duration_seconds)}));const overlap=new Set<number>();for(let i=0;i<timed.length;i++)for(let j=i+1;j<timed.length;j++)if(timed[i].start<timed[j].end&&timed[j].start<timed[i].end){overlap.add(timed[i].p.seq);overlap.add(timed[j].p.seq);}return <div className="rounded-card-lg border border-cyan-300/25 bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg font-black text-white">📋 적용 패턴 전체 요약</h3><span className="text-sm font-black text-cyan-100">활성 {enabled.length} / 전체 {patterns.length}</span></div><div className="mt-3 grid gap-2">{enabled.map(p=><div key={p.client_key??p.id??p.seq} className={cn('grid gap-2 rounded-card-md border px-3 py-2 text-sm font-bold md:grid-cols-[70px_1.2fr_1fr_1fr_90px]',dup.has(p.seq)||overlap.has(p.seq)?'border-red-300/40 bg-red-500/5':'border-cyan-300/15 bg-bg-deep')}><span className="font-mono text-cyan-100">#{p.seq}</span><span className="text-white">{p.name}</span><span className="text-amber-100">{patternTypeLabel(p.pattern_type==='BOSS_STRIKE'?'ULTIMATE':p.pattern_type)}</span><span className="text-cyan-100">{describeTrigger(p)}</span><span className="text-right text-white">{p.duration_seconds}초</span>{dup.has(p.seq)?<span className="md:col-span-5 text-red-100">⚠ 같은 Seq가 중복됩니다.</span>:null}{overlap.has(p.seq)?<span className="md:col-span-5 text-red-100">⚠ 시간 기반 패턴 구간이 다른 패턴과 겹칩니다.</span>:null}</div>)}</div></div>;}
+// RAID_ADMIN_LAYOUT_PATTERNS_20261023: 요약표와 새 작업대가 같은 기준으로 경고를 보이도록 검사 로직을 함수로 분리(검사 내용은 기존과 동일)
+function findPatternConflicts(patterns:RaidV15Pattern[]){const enabled=[...patterns].filter(p=>p.is_enabled).sort((a,b)=>a.seq-b.seq);const dup=new Set(enabled.filter((p,i,a)=>a.findIndex(x=>x.seq===p.seq)!==i).map(p=>p.seq));const timed=enabled.filter(p=>p.trigger_kind==='TIME_SECONDS').map(p=>({p,start:Number(p.trigger_value),end:Number(p.trigger_value)+Number(p.duration_seconds)}));const overlap=new Set<number>();for(let i=0;i<timed.length;i++)for(let j=i+1;j<timed.length;j++)if(timed[i].start<timed[j].end&&timed[j].start<timed[i].end){overlap.add(timed[i].p.seq);overlap.add(timed[j].p.seq);}return {enabled,dup,overlap};}
+function PatternSummaryPanel({patterns}:{patterns:RaidV15Pattern[]}){const {enabled,dup,overlap}=findPatternConflicts(patterns);return <div className="rounded-card-lg border border-cyan-300/25 bg-black/20 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg font-black text-white">📋 적용 패턴 전체 요약</h3><span className="text-sm font-black text-cyan-100">활성 {enabled.length} / 전체 {patterns.length}</span></div><div className="mt-3 grid gap-2">{enabled.map(p=><div key={p.client_key??p.id??p.seq} className={cn('grid gap-2 rounded-card-md border px-3 py-2 text-sm font-bold md:grid-cols-[70px_1.2fr_1fr_1fr_90px]',dup.has(p.seq)||overlap.has(p.seq)?'border-red-300/40 bg-red-500/5':'border-cyan-300/15 bg-bg-deep')}><span className="font-mono text-cyan-100">#{p.seq}</span><span className="text-white">{p.name}</span><span className="text-amber-100">{patternTypeLabel(p.pattern_type==='BOSS_STRIKE'?'ULTIMATE':p.pattern_type)}</span><span className="text-cyan-100">{describeTrigger(p)}</span><span className="text-right text-white">{p.duration_seconds}초</span>{dup.has(p.seq)?<span className="md:col-span-5 text-red-100">⚠ 같은 Seq가 중복됩니다.</span>:null}{overlap.has(p.seq)?<span className="md:col-span-5 text-red-100">⚠ 시간 기반 패턴 구간이 다른 패턴과 겹칩니다.</span>:null}</div>)}</div></div>;}
+// RAID_ADMIN_LAYOUT_PATTERNS_20261023: 패턴 작업대 — 왼쪽 목록(타임라인·경고 포함), 오른쪽 선택한 패턴 편집.
+// 패턴 데이터·저장 방식은 그대로이고, 목록/요약표/카드로 흩어져 있던 화면만 한곳에 모았다.
+function patternKey(pattern: RaidV15Pattern) {
+  return pattern.client_key ?? `db-${pattern.id ?? 'missing'}`;
+}
+
+function PatternWorkbench({ patterns, setPatterns, disabled, raidStatus, savingKey, onTriggerManual, bossImageUrl, bossVideoUrl, onSave, saving }: { patterns: RaidV15Pattern[]; setPatterns: (v: RaidV15Pattern[]) => void; disabled: boolean; raidStatus: RaidStatus; savingKey: string | null; onTriggerManual: (pattern: RaidV15Pattern) => void; bossImageUrl?: string | null; bossVideoUrl?: string | null; onSave: () => void; saving: boolean }) {
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const { enabled, dup, overlap } = useMemo(() => findPatternConflicts(patterns), [patterns]);
+  const bySeq = (list: RaidV15Pattern[]) => [...list].sort((a, b) => (Number(a.seq) || 0) - (Number(b.seq) || 0));
+  const commonList = bySeq(patterns.filter((pattern) => isCommon(pattern.pattern_type)));
+  const specialList = bySeq(patterns.filter((pattern) => !isCommon(pattern.pattern_type)));
+  const ordered = [...commonList, ...specialList];
+  const selected = ordered.find((pattern) => patternKey(pattern) === selectedKey) ?? ordered[0] ?? null;
+
+  const update = (target: RaidV15Pattern, next: RaidV15Pattern) => setPatterns(patterns.map((pattern) => pattern === target ? next : pattern));
+  const remove = (target: RaidV15Pattern) => {
+    setPatterns(patterns.filter((pattern) => pattern !== target));
+    setSelectedKey(null);
+  };
+  // 기존 PatternSection의 "+ 패턴 추가"와 같은 규칙(공통=약점 노출, 특수=흡수, Seq=최대값+10)
+  const add = (special: boolean) => {
+    const type: RaidV15PatternType = special ? 'ABSORB' : 'WEAK_POINT';
+    const seq = Math.min(999, (Math.max(0, ...patterns.map((pattern) => Number(pattern.seq) || 0)) || 0) + 10);
+    const created = makePattern(type, seq);
+    setPatterns([...patterns, created]);
+    setSelectedKey(patternKey(created));
+  };
+
+  const warningsOf = (pattern: RaidV15Pattern) => {
+    if (!pattern.is_enabled) return [] as string[];
+    const list: string[] = [];
+    if (dup.has(pattern.seq)) list.push('Seq 중복');
+    if (overlap.has(pattern.seq)) list.push('시간 겹침');
+    return list;
+  };
+
+  // 시간 기반(TIME_SECONDS) 패턴을 막대로 그린다. 겹치면 줄을 나눠 쌓는다.
+  const timed = enabled
+    .filter((pattern) => pattern.trigger_kind === 'TIME_SECONDS')
+    .map((pattern) => ({ pattern, start: Number(pattern.trigger_value) || 0, end: (Number(pattern.trigger_value) || 0) + (Number(pattern.duration_seconds) || 0) }))
+    .sort((a, b) => a.start - b.start);
+  const laneEnds: number[] = [];
+  const placed = timed.map((item) => {
+    let lane = laneEnds.findIndex((laneEnd) => laneEnd <= item.start);
+    if (lane === -1) { lane = laneEnds.length; laneEnds.push(item.end); } else { laneEnds[lane] = item.end; }
+    return { ...item, lane };
+  });
+  const maxTime = Math.max(60, ...timed.map((item) => item.end));
+  const laneCount = Math.max(1, laneEnds.length);
+  const untimed = enabled.filter((pattern) => pattern.trigger_kind !== 'TIME_SECONDS');
+
+  const renderGroup = (title: string, list: RaidV15Pattern[], special: boolean) => (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="text-sm font-black text-yellow-100">{title} <span className="text-cyan-100">{list.length}</span></span>
+        <button type="button" onClick={() => add(special)} disabled={disabled} className="rounded-card-md border border-cyan-300/40 bg-cyan-500/10 px-2.5 py-1 text-xs font-black text-cyan-100 hover:bg-cyan-500/20 disabled:opacity-40">+ 추가</button>
+      </div>
+      <div className="space-y-1">
+        {list.length === 0 ? <div className="rounded-card-md border border-dashed border-cyan-400/25 px-3 py-3 text-center text-xs font-bold text-amber-100">등록된 패턴이 없습니다.</div> : null}
+        {list.map((pattern) => {
+          const active = selected !== null && patternKey(pattern) === patternKey(selected);
+          const warnings = warningsOf(pattern);
+          const displayType = pattern.pattern_type === 'BOSS_STRIKE' ? 'ULTIMATE' : pattern.pattern_type;
+          return (
+            <button
+              key={patternKey(pattern)}
+              type="button"
+              onClick={() => setSelectedKey(patternKey(pattern))}
+              aria-current={active ? 'true' : undefined}
+              className={cn(
+                'grid w-full grid-cols-[44px_minmax(0,1fr)] items-center gap-2 rounded-card-md border px-2.5 py-2 text-left transition',
+                active ? 'border-gold/60 bg-gold/10' : warnings.length > 0 ? 'border-red-300/40 bg-red-500/5 hover:border-red-300/60' : 'border-cyan-300/15 bg-bg-deep hover:border-cyan-300/45',
+                !pattern.is_enabled && 'opacity-60',
+              )}
+            >
+              <span className="rounded-full border border-cyan-300/25 px-1.5 py-0.5 text-center font-mono text-xs font-black text-cyan-100">#{pattern.seq}</span>
+              <span className="min-w-0">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="truncate text-sm font-black text-white">{pattern.name}</span>
+                  <span className="flex-none text-[11px] font-bold text-amber-100">{patternTypeLabel(displayType)}</span>
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] font-bold text-cyan-100">
+                  {describeTrigger(pattern)} · {pattern.duration_seconds}초{pattern.is_enabled ? '' : ' · 미사용'}
+                </span>
+                {warnings.length > 0 ? <span className="mt-0.5 block text-[11px] font-black text-red-100">⚠ {warnings.join(' · ')}</span> : null}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="grid gap-5 xl:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
+      {/* 왼쪽: 전체 흐름 + 목록 + 저장 */}
+      <div className="min-w-0 self-start rounded-card-lg border border-cyan-300/20 bg-black/20 p-3 xl:sticky xl:top-[212px] xl:max-h-[calc(100vh-228px)] xl:overflow-y-auto">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-base font-black text-white">🧩 전투 흐름</div>
+            <div className="text-[11px] font-bold text-cyan-100">활성 {enabled.length} / 전체 {patterns.length}</div>
+          </div>
+          <button type="button" onClick={onSave} disabled={disabled || savingKey !== null} className="btn-primary px-3 py-2 text-xs disabled:opacity-40">{saving ? '저장 중…' : '전체 패턴 저장'}</button>
+        </div>
+        <p className="mt-1 text-[11px] font-bold leading-5 text-amber-100">추가·수정·삭제는 [전체 패턴 저장]을 눌러야 반영됩니다.</p>
+
+        <div className="mt-3 rounded-card-md border border-cyan-300/15 bg-bg-deep p-2">
+          <div className="mb-1 flex justify-between text-[10px] font-black text-cyan-100"><span>전투 시작</span><span>+{Math.round(maxTime)}초</span></div>
+          <div className="relative rounded bg-black/40" style={{ height: `${laneCount * 14 + 6}px` }}>
+            {placed.map(({ pattern, start, end, lane }) => {
+              const active = selected !== null && patternKey(pattern) === patternKey(selected);
+              return (
+                <button
+                  key={patternKey(pattern)}
+                  type="button"
+                  title={`#${pattern.seq} ${pattern.name} · +${start}~${end}초`}
+                  aria-label={`#${pattern.seq} ${pattern.name} 선택`}
+                  onClick={() => setSelectedKey(patternKey(pattern))}
+                  className={cn(
+                    'absolute h-[10px] rounded-sm border',
+                    isCommon(pattern.pattern_type) ? 'border-cyan-200/70 bg-cyan-400/60' : 'border-amber-200/70 bg-amber-400/60',
+                    overlap.has(pattern.seq) && 'border-red-300 bg-red-400/70',
+                    active && 'ring-2 ring-yellow-200',
+                  )}
+                  style={{ left: `${(start / maxTime) * 100}%`, width: `${Math.max(1.5, ((end - start) / maxTime) * 100)}%`, top: `${3 + lane * 14}px` }}
+                />
+              );
+            })}
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold">
+            <span className="text-cyan-100">■ 공통 기믹</span>
+            <span className="text-amber-100">■ 특수 패턴</span>
+            <span className="text-red-100">■ 시간 겹침</span>
+          </div>
+          {untimed.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {untimed.map((pattern) => (
+                <button key={patternKey(pattern)} type="button" onClick={() => setSelectedKey(patternKey(pattern))} className="rounded-pill border border-fuchsia-300/35 bg-fuchsia-500/10 px-2 py-0.5 text-[10px] font-black text-fuchsia-100">
+                  {pattern.name} · {describeTrigger(pattern)}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-3 space-y-4">
+          {renderGroup('공통 기믹', commonList, false)}
+          {renderGroup('보스 특수 패턴', specialList, true)}
+        </div>
+        <p className="mt-3 text-[11px] font-bold leading-5 text-cyan-100">패턴별 무력화/광폭화 값이 있으면 전투 기믹 탭의 기본값보다 우선합니다. 특수 패턴은 보스당 2개 안팎을 권장합니다.</p>
+      </div>
+
+      {/* 오른쪽: 선택한 패턴 편집 */}
+      <div className="min-w-0">
+        {selected ? (
+          <div className={cn('rounded-card-lg border p-4', selected.is_enabled ? 'border-cyan-300/30 bg-bg-deep' : 'border-amber-300/25 bg-black/20')}>
+            <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-cyan-300/15 pb-3">
+              <span className="rounded-full border border-cyan-300/25 px-2 py-0.5 text-sm font-black text-cyan-100">#{selected.seq}</span>
+              <span className="text-lg font-black text-white">{selected.name}</span>
+              <span className="text-sm font-bold text-amber-100">{patternTypeLabel(selected.pattern_type === 'BOSS_STRIKE' ? 'ULTIMATE' : selected.pattern_type)}</span>
+              <span className="text-sm font-bold text-cyan-100">· {describeTrigger(selected)} · {selected.duration_seconds}초 · {selected.is_enabled ? '사용' : '미사용'}</span>
+            </div>
+            <PatternEditorBody
+              key={patternKey(selected)}
+              pattern={selected}
+              onChange={(next) => update(selected, next)}
+              onDelete={() => remove(selected)}
+              disabled={disabled}
+              common={isCommon(selected.pattern_type)}
+              canTriggerManual={raidStatus === 'ACTIVE' && selected.trigger_kind === 'MANUAL' && Boolean(selected.id)}
+              triggering={savingKey === `TRIGGER-${selected.id ?? 0}`}
+              onTriggerManual={() => onTriggerManual(selected)}
+              bossImageUrl={bossImageUrl}
+              bossVideoUrl={bossVideoUrl}
+            />
+          </div>
+        ) : (
+          <div className="flex min-h-48 items-center justify-center rounded-card-lg border border-dashed border-cyan-400/25 bg-bg-deep p-6 text-center text-sm font-bold text-amber-100">
+            왼쪽에서 [+ 추가]를 눌러 패턴을 만들어 주세요.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 function WeakPointVisualEditor({imageUrl,videoUrl,config,onChange,disabled}:{imageUrl?:string|null;videoUrl?:string|null;config:Record<string,unknown>;onChange:(r:{x:number;y:number;width:number;height:number})=>void;disabled:boolean}){const [start,setStart]=useState<{x:number;y:number}|null>(null);const rect={x:numberFrom(config.x,0.42),y:numberFrom(config.y,0.30),width:numberFrom(config.width,0.16),height:numberFrom(config.height,0.22)};const point=(e:React.PointerEvent<HTMLDivElement>)=>{const r=e.currentTarget.getBoundingClientRect();return{x:Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),y:Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))};};const move=(e:React.PointerEvent<HTMLDivElement>)=>{if(!start||disabled)return;const q=point(e);onChange({x:Number(Math.min(start.x,q.x).toFixed(3)),y:Number(Math.min(start.y,q.y).toFixed(3)),width:Number(Math.max(.02,Math.abs(q.x-start.x)).toFixed(3)),height:Number(Math.max(.02,Math.abs(q.y-start.y)).toFixed(3))});};if(!imageUrl&&!videoUrl)return <div className="mt-4 rounded-card-md border border-dashed border-amber-300/30 p-4 text-base font-bold text-amber-100">보스 이미지/영상을 먼저 등록하면 여기에서 약점 위치를 드래그로 지정할 수 있습니다.</div>;return <div className="mt-4"><div className="mb-2 text-base font-black text-cyan-200">🎯 약점 위치 시각 편집기</div><div className="mb-2 text-sm font-bold text-amber-100">보스 화면 위에서 원하는 약점 영역을 드래그하세요. 실제 전투와 같은 16:9 · object-cover 좌표를 사용합니다.</div><div className="relative aspect-video max-w-[820px] overflow-hidden rounded-card-md border border-cyan-300/30 bg-black touch-none" onPointerDown={(e)=>{if(disabled)return;e.currentTarget.setPointerCapture(e.pointerId);setStart(point(e));}} onPointerMove={move} onPointerUp={()=>setStart(null)}>{videoUrl?<video src={videoUrl} muted loop autoPlay playsInline className="pointer-events-none h-full w-full object-cover"/>:<img src={imageUrl??''} alt="보스 약점 위치 미리보기" className="pointer-events-none h-full w-full object-cover"/>}<div className="pointer-events-none absolute border-2 border-yellow-300 bg-yellow-300/15 shadow-[0_0_18px_rgba(253,224,71,.45)]" style={{left:`${rect.x*100}%`,top:`${rect.y*100}%`,width:`${rect.width*100}%`,height:`${rect.height*100}%`}}><div className="absolute -top-7 left-0 rounded bg-black/80 px-2 py-1 text-xs font-black text-yellow-100">WEAK POINT</div></div></div></div>;}
 
 function normalizePattern(pattern: RaidV15Pattern): RaidV15Pattern {

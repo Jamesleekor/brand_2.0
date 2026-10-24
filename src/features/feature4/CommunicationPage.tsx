@@ -83,7 +83,23 @@ function MailTab({studentId,classroomId}:{studentId:number|null;classroomId:numb
   if(q.isError) return <Feature4ErrorPanel domain="F4A" error={q.error} onRetry={()=>void q.refetch()} />;
   if(selected) return <div className="glass-card p-4"><button onClick={()=>setOpenId(null)} className="text-xs text-brand-primary font-bold mb-4">← 목록</button><div className="text-2xs font-black mb-1"><span className="text-[#9FE8D8]">{mailSenderName(selected)}</span><span className="text-[#F3EBD3]/70"> · {formatRelativeTime(selected.created_at)}</span></div><h2 className="font-display text-lg text-brand-gradient mb-3">{selected.title}</h2><p className="text-sm leading-relaxed whitespace-pre-wrap break-words text-text-primary"><LinkifiedText text={selected.body} /></p></div>;
   if(!q.data?.length) return <EmptyState emoji="📭" title="받은 우편이 없어요"/>;
-  return <div className="space-y-2">{q.data.map((m:any)=><motion.button whileTap={{scale:.98}} key={m.id} onClick={()=>setOpenId(m.id)} className={cn('w-full text-left p-3.5 rounded-card-md border',m.is_read?'bg-bg-deep border-line':'bg-bg-card border-line-brand')}><div className="flex justify-between gap-2"><span className="text-sm font-extrabold truncate">{m.title}</span>{!m.is_read&&<span className="w-2 h-2 bg-brand-primary rounded-full mt-1.5"/>}</div><div className="text-xs text-[#F3EBD3]/75 truncate mt-1">{m.body}</div><div className="text-2xs font-bold mt-1"><span className="text-[#9FE8D8]">{mailSenderName(m)}</span><span className="text-[#F3EBD3]/65"> · {formatRelativeTime(m.created_at)}</span></div></motion.button>)}</div>;
+  return <div className="space-y-2">
+    {q.data.map((m:any)=><motion.button
+      whileTap={{scale:.98}}
+      key={m.id}
+      onClick={()=>setOpenId(m.id)}
+      className={cn('w-full text-left p-3.5 rounded-card-md border',m.is_read?'bg-bg-deep border-line':'bg-bg-card border-line-brand')}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span className="min-w-0 flex-1 text-lg leading-snug font-extrabold text-[#FFF4DC] break-words [overflow-wrap:anywhere]">{m.title}</span>
+        {!m.is_read&&<span className="shrink-0 rounded-md bg-red-500/10 px-2 py-1 text-xs leading-5 font-extrabold text-[#FF8080]">읽지 않음</span>}
+      </div>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-1 text-2xs font-bold">
+        <span className="text-[#9FE8D8] break-words [overflow-wrap:anywhere]">{mailSenderName(m)}</span>
+        <span className="text-[#F3EBD3]">· {formatRelativeTime(m.created_at)}</span>
+      </div>
+    </motion.button>)}
+  </div>;
 }
 
 function mailSenderName(message: { sender_type?: string | null; sender_name?: string | null }) {

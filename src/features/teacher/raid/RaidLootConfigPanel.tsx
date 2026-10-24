@@ -167,6 +167,9 @@ export default function RaidLootConfigPanel({ raidId, raidStatus }: { raidId: nu
   const selectedRows = poolRows.filter((row) => row.selected);
   const inverted = selectedRows.some((a) => selectedRows.some((b) => a.base_price_crystal > b.base_price_crystal && a.weight > b.weight + 1e-9));
   const filteredRows = poolRows.filter((row) => !search.trim() || row.display_name.includes(search.trim()) || (row.character_uid ?? '').includes(search.trim()));
+  // RAID_ADMIN_LAYOUT_LOOT_20261023: 전체 선택 체크박스 상태
+  const allVisibleSelected = filteredRows.length > 0 && filteredRows.every((row) => row.selected);
+  const someVisibleSelected = filteredRows.some((row) => row.selected);
   const fixedCharacter = form?.slot2.fixedCharacterId ? available.find((item) => item.character_id === form.slot2.fixedCharacterId) ?? null : null;
 
   const update = useCallback((fn: (draft: LootForm) => LootForm) => {
@@ -365,22 +368,18 @@ export default function RaidLootConfigPanel({ raidId, raidStatus }: { raidId: nu
                 완성 편린 후보 <span className="ml-1 text-cyan-100">선택 {selectedRows.length} / {poolRows.length}</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  disabled={saving || form.slot2.mode === 'FIXED_ITEM' || filteredRows.length === 0}
-                  onClick={() => setVisibleSelected(true)}
-                  className="rounded-card-md border border-cyan-300/40 bg-cyan-500/10 px-3 py-1.5 text-sm font-black text-cyan-50 hover:bg-cyan-500/20 disabled:opacity-40"
-                >
-                  {search.trim() ? '검색 결과 전체 선택' : '전체 선택'}
-                </button>
-                <button
-                  type="button"
-                  disabled={saving || form.slot2.mode === 'FIXED_ITEM' || filteredRows.length === 0}
-                  onClick={() => setVisibleSelected(false)}
-                  className="rounded-card-md border border-white/25 bg-black/30 px-3 py-1.5 text-sm font-black text-amber-50 hover:bg-white/10 disabled:opacity-40"
-                >
-                  {search.trim() ? '검색 결과 전체 해제' : '전체 해제'}
-                </button>
+                {/* RAID_ADMIN_LAYOUT_LOOT_20261023: 전체 선택 체크박스 (검색 중이면 검색 결과만) */}
+                <label className={cn('flex items-center gap-2 rounded-card-md border border-cyan-300/40 bg-cyan-500/10 px-3 py-1.5 text-sm font-black text-cyan-50', (saving || form.slot2.mode === 'FIXED_ITEM' || filteredRows.length === 0) && 'opacity-40')}>
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-cyan-300"
+                    checked={allVisibleSelected}
+                    ref={(el) => { if (el) el.indeterminate = someVisibleSelected && !allVisibleSelected; }}
+                    disabled={saving || form.slot2.mode === 'FIXED_ITEM' || filteredRows.length === 0}
+                    onChange={(e) => setVisibleSelected(e.target.checked)}
+                  />
+                  {search.trim() ? '검색 결과 모두 선택' : '모두 선택'}
+                </label>
                 <input
                   type="text"
                   value={search}
@@ -399,50 +398,56 @@ export default function RaidLootConfigPanel({ raidId, raidStatus }: { raidId: nu
                 ℹ 가격보다 교사 가중치가 우선 적용 중 — 일부 고가 편린이 저가 편린보다 더 잘 나옵니다.
               </div>
             ) : null}
-            <div className="mt-3 max-h-[420px] space-y-1.5 overflow-y-auto pr-1">
-              {filteredRows.length === 0 ? <div className="py-6 text-center text-base font-bold text-amber-100">조건을 만족하는 편린이 없습니다.</div> : null}
+            {/* RAID_ADMIN_LAYOUT_LOOT_20261023: 후보 카드를 2열로 배치 (카드를 눌러도 체크됨) */}
+            <div className="mt-3 grid max-h-[520px] gap-1.5 overflow-y-auto pr-1 md:grid-cols-2">
+              {filteredRows.length === 0 ? <div className="py-6 text-center text-base font-bold text-amber-100 md:col-span-2">조건을 만족하는 편린이 없습니다.</div> : null}
               {filteredRows.map((row) => {
                 const isFixed = form.slot2.fixedCharacterId === row.character_id && form.slot2.mode === 'FIXED_ITEM';
                 return (
-                  <div key={row.character_id} className={cn('grid items-center gap-3 rounded-card-md border px-3 py-2 md:grid-cols-[28px_1.4fr_90px_120px_120px_120px]', isFixed ? 'border-amber-200/60 bg-amber-500/10' : row.selected ? 'border-cyan-300/30 bg-cyan-500/5' : 'border-white/10 bg-bg-deep')}>
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 accent-cyan-300"
-                      checked={row.selected}
-                      disabled={saving || form.slot2.mode === 'FIXED_ITEM'}
-                      onChange={(e) => update((d) => ({ ...d, pool: { ...d.pool, [row.character_id]: { selected: e.target.checked, factor: d.pool[row.character_id]?.factor ?? '1' } } }))}
-                    />
-                    <div className="flex min-w-0 items-center gap-2">
-                      {row.image_url ? <img src={row.image_url} alt="" className="h-9 w-9 flex-none rounded-lg object-cover" /> : <span className="text-2xl">{row.emoji ?? '✨'}</span>}
-                      <span className="truncate text-base font-black text-white">{row.display_name}</span>
-                    </div>
-                    <span className="text-base font-black text-amber-100">{row.base_price_crystal.toLocaleString('ko-KR')}C</span>
-                    <label className="flex items-center gap-1 text-sm font-black text-cyan-100">
-                      ×
+                  <div key={row.character_id} className={cn('flex min-w-0 items-center gap-2 rounded-card-md border px-2.5 py-2', isFixed ? 'border-amber-200/60 bg-amber-500/10' : row.selected ? 'border-cyan-300/30 bg-cyan-500/5' : 'border-white/10 bg-bg-deep')}>
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
                       <input
-                        type="number"
-                        min={0.25}
-                        max={4}
-                        step={0.25}
-                        value={row.factor}
+                        type="checkbox"
+                        className="h-5 w-5 flex-none accent-cyan-300"
+                        checked={row.selected}
                         disabled={saving || form.slot2.mode === 'FIXED_ITEM'}
-                        onChange={(e) => update((d) => ({ ...d, pool: { ...d.pool, [row.character_id]: { selected: d.pool[row.character_id]?.selected ?? false, factor: e.target.value } } }))}
-                        className="w-16 rounded-md border border-cyan-300/20 bg-black/30 px-2 py-1 text-sm font-bold text-white outline-none disabled:opacity-50"
+                        onChange={(e) => update((d) => ({ ...d, pool: { ...d.pool, [row.character_id]: { selected: e.target.checked, factor: d.pool[row.character_id]?.factor ?? '1' } } }))}
                       />
+                      {row.image_url ? <img src={row.image_url} alt="" className="h-9 w-9 flex-none rounded-lg object-cover" /> : <span className="flex-none text-2xl">{row.emoji ?? '✨'}</span>}
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-black text-white">{row.display_name}</span>
+                        <span className="block text-xs font-black text-amber-100">{row.base_price_crystal.toLocaleString('ko-KR')}C</span>
+                      </span>
                     </label>
-                    <span className="text-sm font-black text-cyan-100">
-                      {row.selected && form.slot2.mode !== 'FIXED_ITEM' ? `출현 ${(row.probability * 100).toFixed(1)}%` : `가중치 ${row.weight.toFixed(3)}`}
-                    </span>
+                    <div className="flex flex-none flex-col items-end gap-1">
+                      <label className="flex items-center gap-1 text-xs font-black text-cyan-100">
+                        ×
+                        <input
+                          type="number"
+                          min={0.25}
+                          max={4}
+                          step={0.25}
+                          value={row.factor}
+                          aria-label={`${row.display_name} 교사 가중치`}
+                          disabled={saving || form.slot2.mode === 'FIXED_ITEM'}
+                          onChange={(e) => update((d) => ({ ...d, pool: { ...d.pool, [row.character_id]: { selected: d.pool[row.character_id]?.selected ?? false, factor: e.target.value } } }))}
+                          className="w-14 rounded-md border border-cyan-300/20 bg-black/30 px-1.5 py-0.5 text-xs font-bold text-white outline-none disabled:opacity-50"
+                        />
+                      </label>
+                      <span className="text-[11px] font-black text-cyan-100">
+                        {row.selected && form.slot2.mode !== 'FIXED_ITEM' ? `출현 ${(row.probability * 100).toFixed(1)}%` : `가중치 ${row.weight.toFixed(3)}`}
+                      </span>
+                    </div>
                     {form.slot2.mode === 'FIXED_ITEM' && form.slot2.fixedKind === 'CHARACTER' ? (
                       <button
                         type="button"
                         disabled={saving}
                         onClick={() => update((d) => ({ ...d, slot2: { ...d.slot2, fixedCharacterId: row.character_id } }))}
-                        className={cn('rounded-card-md border px-2 py-1 text-sm font-black disabled:opacity-40', isFixed ? 'border-amber-200 bg-amber-500/30 text-yellow-50' : 'border-amber-200/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20')}
+                        className={cn('flex-none rounded-card-md border px-2 py-1 text-xs font-black disabled:opacity-40', isFixed ? 'border-amber-200 bg-amber-500/30 text-yellow-50' : 'border-amber-200/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20')}
                       >
-                        {isFixed ? '📌 확정됨' : '이 편린 확정'}
+                        {isFixed ? '📌 확정됨' : '확정'}
                       </button>
-                    ) : <span />}
+                    ) : null}
                   </div>
                 );
               })}

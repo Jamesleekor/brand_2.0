@@ -11,7 +11,7 @@ import { raidBalanceV15Rpc } from '@/lib/rpc/raid_balance_v15_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
-import RaidV15ConfigPanel from '@/features/teacher/raid/RaidV15ConfigPanel';
+import RaidV15ConfigPanel, { type RaidConfigTabKey } from '@/features/teacher/raid/RaidV15ConfigPanel';
 import { isValidOptionalHttpUrl, mergeRaidVisualV2Metadata, readRaidVisualV2 } from '@/features/raid/visual/raidVisualConfig';
 import type { RaidVisualFxConfig, RaidVisualFxIntensity, RaidVisualFxPreset, RaidVisualCameraConfig, RaidVisualCameraPreset, RaidVisualStateVideoTrigger } from '@/features/raid/visual/raidVisualTypes';
 import { RAID_CAMERA_PRESETS } from '@/features/raid/visual/raidCameraPresets';
@@ -63,6 +63,14 @@ type RaidForm = {
   cameraEventReactions: boolean;
   cinematic: RaidCinematicConfig;
 };
+
+// RAID_ADMIN_LAYOUT_TABS_20261023: 레이드 통제실을 탭으로 나눠 스크롤 이동을 줄인다.
+// BASIC/VISUAL/RULES = 보스 설정 폼(설정 저장 1개), COMBAT/PATTERNS/AUDIO/LOOT = 레이드 구성 패널, LIVE = 실시간 현황.
+type RaidPageTab = 'BASIC' | 'VISUAL' | 'RULES' | 'COMBAT' | 'PATTERNS' | 'AUDIO' | 'LOOT' | 'LIVE';
+type RaidEditorSection = 'BASIC' | 'VISUAL' | 'RULES';
+
+const EDITOR_SECTION_TABS: readonly RaidPageTab[] = ['BASIC', 'VISUAL', 'RULES'];
+const CONFIG_PANEL_TABS: readonly RaidPageTab[] = ['COMBAT', 'PATTERNS', 'AUDIO', 'LOOT'];
 
 const ELEMENT_OPTIONS: Array<{ value: RaidElement; label: string }> = [
   { value: 'FIRE', label: '🔥 화' },
@@ -117,6 +125,11 @@ export default function RaidControlPage() {
   const [pendingBossPresetKey, setPendingBossPresetKey] = useState<RaidBossPresetKey | null>(null);
   const [raidConfigRevision, setRaidConfigRevision] = useState(0);
   const [focusPatternRaidId, setFocusPatternRaidId] = useState<number | null>(null);
+  // RAID_ADMIN_LAYOUT_TABS_20261023
+  const [pageTab, setPageTab] = useState<RaidPageTab>('BASIC');
+  const [lastConfigTab, setLastConfigTab] = useState<RaidConfigTabKey>('COMBAT');
+  const [tabInitFor, setTabInitFor] = useState<number | null>(null);
+  const [patternCount, setPatternCount] = useState<number | null>(null);
 
   const boardQuery = useQuery({
     queryKey: ['teacher-raid-control-board', classroomId],
@@ -161,6 +174,28 @@ export default function RaidControlPage() {
     setFormLoadedFor(detail.raid.id);
   }, [detail, formLoadedFor, isCreating]);
 
+  // RAID_ADMIN_LAYOUT_TABS_20261023: 레이드를 처음 열 때 시작 탭을 정한다.
+  // 전투 중이면 실시간 운영, 새로 만든 직후면 패턴, 그 외에는 기본 정보.
+  useEffect(() => {
+    if (isCreating || !detail) return;
+    if (tabInitFor === detail.raid.id) return;
+    setTabInitFor(detail.raid.id);
+    const status = detail.raid.status;
+    if (focusPatternRaidId === detail.raid.id) {
+      setPageTab('PATTERNS');
+      setLastConfigTab('PATTERNS');
+    } else if (status === 'ACTIVE' || status === 'PAUSED') {
+      setPageTab('LIVE');
+    } else {
+      setPageTab('BASIC');
+    }
+  }, [detail, focusPatternRaidId, isCreating, tabInitFor]);
+
+  const changePageTab = (next: RaidPageTab) => {
+    setPageTab(next);
+    if (CONFIG_PANEL_TABS.includes(next)) setLastConfigTab(next as RaidConfigTabKey);
+  };
+
   const selectedSummary = raids.find((raid) => raid.id === selectedRaidId) ?? null;
   const liveStatus = detail?.raid.status ?? selectedSummary?.status ?? null;
 
@@ -193,6 +228,8 @@ export default function RaidControlPage() {
     setForm({ ...EMPTY_FORM });
     setFormLoadedFor(null);
     setPendingBossPresetKey(null);
+    setPageTab('BASIC');
+    setTabInitFor(null);
   };
 
   const selectRaid = (raidId: number) => {
@@ -201,6 +238,7 @@ export default function RaidControlPage() {
     setSelectedRaidId(raidId);
     setFormLoadedFor(null);
     setPendingBossPresetKey(null);
+    setTabInitFor(null);
   };
 
   const selectBossPreset = (presetKey: RaidBossPresetKey | null) => {
@@ -651,9 +689,7 @@ export default function RaidControlPage() {
             >
               📊 밸런싱 분석실
             </Link>
-            <button type="button" onClick={beginCreate} className="btn-primary">
-              + 새 레이드
-            </button>
+            {/* RAID_ADMIN_LAYOUT_TABS_20261023: "+ 새 레이드"는 아래 고정 상단바에 한 번만 둔다. */}
           </div>
         </header>
 
@@ -668,15 +704,63 @@ export default function RaidControlPage() {
           />
         ) : (
           <>
-            <RaidSelectorBar
-              raids={raids}
-              selectedId={selectedRaidId}
-              creating={isCreating}
-              onSelect={selectRaid}
-              onCreate={beginCreate}
-              onDelete={deleteRaidRecord}
-              deletingRaidId={deletingRaidId}
-            />
+            {/* RAID_ADMIN_LAYOUT_TABS_20261023: 고정 상단바 — 레이드 선택·상태·요약·조작 버튼 + 페이지 탭 */}
+            <div className="z-20 -mx-2 space-y-2 bg-bg-base px-2 pb-2 pt-2 lg:sticky lg:top-[60px]">
+              <RaidSelectorBar
+                raids={raids}
+                selectedId={selectedRaidId}
+                creating={isCreating}
+                onSelect={selectRaid}
+                onCreate={beginCreate}
+                onDelete={deleteRaidRecord}
+                deletingRaidId={deletingRaidId}
+              >
+                {!isCreating && detail ? (
+                  <>
+                    <RaidQuickStats
+                      hpRatio={liveQuery.data ? Number(liveQuery.data.raid.hp_ratio ?? 0) : (selectedSummary && selectedSummary.max_hp > 0 ? selectedSummary.current_hp / selectedSummary.max_hp : null)}
+                      attackParticipants={liveQuery.data?.summary.attack_participant_count ?? null}
+                      participants={liveQuery.data?.summary.participant_count ?? selectedSummary?.participant_count ?? null}
+                    />
+                    <RaidStateControl
+                      inline
+                      detail={detail}
+                      busyAction={busyAction}
+                      onOpenLobby={() => runStateAction(
+                        'OPEN_LOBBY',
+                        '레이드 로비를 개방할까요?\n학생들이 레이드 로비에 입장할 수 있게 됩니다.',
+                        () => raidAdminRpc.openLobby(supabase, detail.raid.id),
+                      )}
+                      onStart={handleStart}
+                      onPause={() => runStateAction(
+                        'PAUSE',
+                        '레이드를 일시정지할까요?\n정지 중에는 학생 공격이 처리되지 않습니다.',
+                        () => raidAdminRpc.pause(supabase, detail.raid.id),
+                      )}
+                      onResume={() => runStateAction(
+                        'RESUME',
+                        '레이드를 다시 시작할까요?',
+                        () => raidAdminRpc.resume(supabase, detail.raid.id),
+                      )}
+                      onEnd={handleEnd}
+                      onClone={handleClone}
+                      onE3TestPreset={handleE3TestPreset}
+                      onChatToggle={handleChatToggle}
+                    />
+                  </>
+                ) : null}
+              </RaidSelectorBar>
+
+              {isCreating || detail ? (
+                <RaidPageTabs
+                  active={pageTab}
+                  onChange={changePageTab}
+                  creating={isCreating}
+                  patternCount={patternCount}
+                  liveRunning={!isCreating && (detail?.raid.status === 'ACTIVE' || detail?.raid.status === 'PAUSED')}
+                />
+              ) : null}
+            </div>
 
             <div className="min-w-0 space-y-4">
               {isCreating ? (
@@ -685,6 +769,7 @@ export default function RaidControlPage() {
                   setForm={setForm}
                   status="DRAFT"
                   creating
+                  section={EDITOR_SECTION_TABS.includes(pageTab) ? (pageTab as RaidEditorSection) : 'BASIC'}
                   saving={busyAction === 'SAVE' || rpcLoading}
                   pendingBossPresetKey={pendingBossPresetKey}
                   onBossPresetSelect={selectBossPreset}
@@ -705,71 +790,56 @@ export default function RaidControlPage() {
                 )
               ) : (
                 <>
-                  <RaidStateControl
-                    detail={detail}
-                    busyAction={busyAction}
-                    onOpenLobby={() => runStateAction(
-                      'OPEN_LOBBY',
-                      '레이드 로비를 개방할까요?\n학생들이 레이드 로비에 입장할 수 있게 됩니다.',
-                      () => raidAdminRpc.openLobby(supabase, detail.raid.id),
-                    )}
-                    onStart={handleStart}
-                    onPause={() => runStateAction(
-                      'PAUSE',
-                      '레이드를 일시정지할까요?\n정지 중에는 학생 공격이 처리되지 않습니다.',
-                      () => raidAdminRpc.pause(supabase, detail.raid.id),
-                    )}
-                    onResume={() => runStateAction(
-                      'RESUME',
-                      '레이드를 다시 시작할까요?',
-                      () => raidAdminRpc.resume(supabase, detail.raid.id),
-                    )}
-                    onEnd={handleEnd}
-                    onClone={handleClone}
-                    onE3TestPreset={handleE3TestPreset}
-                    onChatToggle={handleChatToggle}
-                  />
+                  {pageTab === 'LIVE' ? (
+                    <LivePanel
+                      data={liveQuery.data}
+                      loading={liveQuery.isLoading}
+                      error={liveQuery.isError ? (liveQuery.error instanceof Error ? liveQuery.error.message : '알 수 없는 오류') : null}
+                    />
+                  ) : null}
 
-                  <LivePanel
-                    data={liveQuery.data}
-                    loading={liveQuery.isLoading}
-                    error={liveQuery.isError ? (liveQuery.error instanceof Error ? liveQuery.error.message : '알 수 없는 오류') : null}
-                  />
+                  {EDITOR_SECTION_TABS.includes(pageTab) ? (
+                    <RaidEditor
+                      key={`raid-editor-${detail.raid.id}`}
+                      form={form}
+                      setForm={setForm}
+                      status={detail.raid.status}
+                      creating={false}
+                      section={pageTab as RaidEditorSection}
+                      saving={busyAction === 'SAVE' || rpcLoading}
+                      pendingBossPresetKey={pendingBossPresetKey}
+                      onBossPresetSelect={selectBossPreset}
+                      onSave={save}
+                    />
+                  ) : null}
 
-                  <RaidEditor
-                    key={`raid-editor-${detail.raid.id}`}
-                    form={form}
-                    setForm={setForm}
-                    status={detail.raid.status}
-                    creating={false}
-                    saving={busyAction === 'SAVE' || rpcLoading}
-                    pendingBossPresetKey={pendingBossPresetKey}
-                    onBossPresetSelect={selectBossPreset}
-                    onSave={save}
-                  />
-
-                  <RaidV15ConfigPanel
-                    key={`raid-config-${detail.raid.id}-${raidConfigRevision}`}
-                    raidId={detail.raid.id}
-                    raidStatus={detail.raid.status}
-                    bossName={detail.raid.boss_name}
-                    visualReady={detail.phases.some((phase) => Boolean(phase.image_url || phase.loop_video_url))}
-                    rewardEnabled={detail.raid.reward_config?.rewards_enabled === true}
-                    raidMaxHp={detail.raid.max_hp}
-                    damageCoefficient={detail.raid.damage_coefficient}
-                    varianceMin={detail.raid.variance_min}
-                    varianceMax={detail.raid.variance_max}
-                    critMultiplier={detail.raid.crit_multiplier}
-                    tapRateLimit={detail.raid.tap_rate_limit_per_second}
-                    focusGenerator={focusPatternRaidId === detail.raid.id}
-                    onOpenLobby={() => runStateAction(
-                      'OPEN_LOBBY',
-                      '레이드 로비를 개방할까요?\n학생들이 레이드 로비에 입장할 수 있게 됩니다.',
-                      () => raidAdminRpc.openLobby(supabase, detail.raid.id),
-                    )}
-                    bossImageUrl={detail.phases.find((phase) => phase.phase_no === 1)?.image_url ?? null}
-                    bossVideoUrl={detail.phases.find((phase) => phase.phase_no === 1)?.loop_video_url ?? null}
-                  />
+                  {/* 레이드 구성 패널은 저장 전 편집 내용을 잃지 않도록 항상 켜 두고, 다른 탭에서는 숨기기만 한다. */}
+                  <div className={cn(!CONFIG_PANEL_TABS.includes(pageTab) && 'hidden')}>
+                    <RaidV15ConfigPanel
+                      key={`raid-config-${detail.raid.id}-${raidConfigRevision}`}
+                      raidId={detail.raid.id}
+                      raidStatus={detail.raid.status}
+                      bossName={detail.raid.boss_name}
+                      visualReady={detail.phases.some((phase) => Boolean(phase.image_url || phase.loop_video_url))}
+                      rewardEnabled={detail.raid.reward_config?.rewards_enabled === true}
+                      raidMaxHp={detail.raid.max_hp}
+                      damageCoefficient={detail.raid.damage_coefficient}
+                      varianceMin={detail.raid.variance_min}
+                      varianceMax={detail.raid.variance_max}
+                      critMultiplier={detail.raid.crit_multiplier}
+                      tapRateLimit={detail.raid.tap_rate_limit_per_second}
+                      focusGenerator={focusPatternRaidId === detail.raid.id}
+                      externalTab={lastConfigTab}
+                      onPatternCountChange={setPatternCount}
+                      onOpenLobby={() => runStateAction(
+                        'OPEN_LOBBY',
+                        '레이드 로비를 개방할까요?\n학생들이 레이드 로비에 입장할 수 있게 됩니다.',
+                        () => raidAdminRpc.openLobby(supabase, detail.raid.id),
+                      )}
+                      bossImageUrl={detail.phases.find((phase) => phase.phase_no === 1)?.image_url ?? null}
+                      bossVideoUrl={detail.phases.find((phase) => phase.phase_no === 1)?.loop_video_url ?? null}
+                    />
+                  </div>
                 </>
               )}
             </div>
@@ -788,6 +858,7 @@ function RaidSelectorBar({
   onCreate,
   onDelete,
   deletingRaidId,
+  children,
 }: {
   raids: Array<{
     id: number;
@@ -805,6 +876,8 @@ function RaidSelectorBar({
   onCreate: () => void;
   onDelete: (raid: { id: number; title: string; status: RaidStatus }) => void;
   deletingRaidId: number | null;
+  /** RAID_ADMIN_LAYOUT_TABS_20261023: 오른쪽에 붙는 요약·상태 조작 버튼 */
+  children?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -833,20 +906,20 @@ function RaidSelectorBar({
   }, [filter, raids, search]);
 
   return (
-    <section className="relative rounded-card-lg border border-cyan-400/30 bg-bg-card px-4 py-3 shadow-[0_0_24px_rgba(34,211,238,0.04)]">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <section className="relative rounded-card-lg border border-cyan-400/30 bg-bg-card px-3 py-2.5 shadow-[0_0_24px_rgba(34,211,238,0.04)]">
+      <div className="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="min-w-0 flex-1 rounded-card-md border border-cyan-300/25 bg-bg-deep px-4 py-3 text-left transition hover:border-cyan-300/55"
+          className="min-w-0 flex-1 rounded-card-md border border-cyan-300/25 bg-bg-deep px-3 py-2 text-left transition hover:border-cyan-300/55"
           aria-haspopup="dialog"
           aria-expanded={open}
         >
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex-none text-xl">🗂️</span>
             <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-black uppercase tracking-[0.17em] text-cyan-200">
-                CURRENT RAID · 클릭해서 레이드 변경
+              <div className="text-[10px] font-black tracking-[0.08em] text-cyan-200">
+                현재 레이드 · 눌러서 변경
               </div>
               {creating ? (
                 <div className="mt-1 truncate text-sm font-black text-yellow-100">+ 새 레이드 작성 중</div>
@@ -860,14 +933,12 @@ function RaidSelectorBar({
                 <div className="mt-1 text-sm font-black text-amber-100">레이드를 선택해주세요.</div>
               )}
             </div>
-            <span className="flex-none text-xs font-black text-cyan-100">목록 열기 ▾</span>
+            <span className="flex-none text-xs font-black text-cyan-100">목록 {raids.length} ▾</span>
           </div>
         </button>
 
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setOpen(true)} className="rounded-card-md border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20">
-            레이드 목록 {raids.length}
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {children}
           <button type="button" onClick={onCreate} className="btn-primary px-4 py-2 text-xs">
             + 새 레이드
           </button>
@@ -1018,6 +1089,7 @@ function RaidEditor({
   pendingBossPresetKey,
   onBossPresetSelect,
   onSave,
+  section,
 }: {
   form: RaidForm;
   setForm: React.Dispatch<React.SetStateAction<RaidForm>>;
@@ -1027,9 +1099,33 @@ function RaidEditor({
   pendingBossPresetKey: RaidBossPresetKey | null;
   onBossPresetSelect: (presetKey: RaidBossPresetKey | null) => void;
   onSave: () => void;
+  /** RAID_ADMIN_LAYOUT_TABS_20261023: 지정하면 해당 탭 부분만 보여준다(접기 없음). 비우면 기존처럼 전체 표시. */
+  section?: RaidEditorSection;
 }) {
   const editable = creating || canEdit(status);
   const [collapsed, setCollapsed] = useState(!creating);
+  const sectioned = section !== undefined;
+  const isOpen = sectioned || !collapsed;
+  const showBasic = !sectioned || section === 'BASIC';
+  const showVisual = !sectioned || section === 'VISUAL';
+  const showRules = !sectioned || section === 'RULES';
+  const sectionMeta: Record<RaidEditorSection, { eyebrow: string; title: string; description: string }> = {
+    BASIC: {
+      eyebrow: '1페이즈 보스 · 기본 정보',
+      title: creating ? '새 레이드 초안 · 기본 정보' : '보스 기본 정보',
+      description: '레이드 제목·보스 이름·속성·HP·종료 시각·채팅·보스 설명을 정합니다.',
+    },
+    VISUAL: {
+      eyebrow: '1페이즈 보스 · 연출',
+      title: '보스 영상 · 화면 연출',
+      description: '보스 영상, 환경 FX, 카메라, 이벤트별 시네마틱 연출을 정하고 아래에서 미리 봅니다.',
+    },
+    RULES: {
+      eyebrow: '1페이즈 보스 · 전투 규칙',
+      title: '전투 규칙 · 보상',
+      description: '피해 계산 값, 터치 제한, 토벌 보상, 편린 속성 보정을 정합니다.',
+    },
+  };
 
   useEffect(() => {
     setCollapsed(!creating);
@@ -1041,34 +1137,39 @@ function RaidEditor({
 
   return (
     <section className="rounded-card-lg border border-line bg-bg-card p-5">
-      <div className={`${collapsed ? '' : 'mb-5'} flex flex-wrap items-start justify-between gap-3`}>
+      <div className={`${isOpen ? 'mb-5' : ''} flex flex-wrap items-start justify-between gap-3`}>
         <div>
           <div className="text-xs font-black uppercase tracking-[0.16em] text-cyan-200">
-            BOSS SETUP · PHASE 1
+            {section ? sectionMeta[section].eyebrow : 'BOSS SETUP · PHASE 1'}
           </div>
           <h2 className="mt-1 font-display text-xl text-white">
-            {creating ? '새 레이드 초안' : '보스 및 전투 설정'}
+            {section ? sectionMeta[section].title : creating ? '새 레이드 초안' : '보스 및 전투 설정'}
           </h2>
-          {!collapsed && (
+          {isOpen && (
             <p className="mt-1 text-xs font-bold text-amber-100">
-              V1은 1페이즈(100% → 0%)를 사용합니다. 다중 페이즈 데이터 구조는 이미 준비되어 있습니다.
+              {section ? sectionMeta[section].description : 'V1은 1페이즈(100% → 0%)를 사용합니다. 다중 페이즈 데이터 구조는 이미 준비되어 있습니다.'}
             </p>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {!creating && <StatusBadge status={status} />}
-          <button
-            type="button"
-            onClick={() => setCollapsed((current) => !current)}
-            className="rounded-card-md border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20"
-            aria-expanded={!collapsed}
-          >
-            {collapsed ? '▼ 펼치기' : '▲ 접기'}
-          </button>
+          {sectioned && !creating && !editable && <span className="rounded-pill border border-amber-300/40 bg-amber-500/10 px-3 py-1.5 text-xs font-black text-amber-100">🔒 전투 시작 후 읽기 전용</span>}
+          {!sectioned && !creating && <StatusBadge status={status} />}
+          {!sectioned && (
+            <button
+              type="button"
+              onClick={() => setCollapsed((current) => !current)}
+              className="rounded-card-md border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 hover:bg-cyan-500/20"
+              aria-expanded={!collapsed}
+            >
+              {collapsed ? '▼ 펼치기' : '▲ 접기'}
+            </button>
+          )}
         </div>
       </div>
 
-      {!collapsed && (
+      {isOpen && (
+        <>
+      {showBasic && (
         <>
       <BossPresetPicker
         value={pendingBossPresetKey}
@@ -1164,214 +1265,200 @@ function RaidEditor({
           </Field>
         </div>
       </div>
+        </>
+      )}
 
-      <div className="my-5 border-t border-line" />
+      {!sectioned && <div className="my-5 border-t border-line" />}
 
-      <div>
-        <div className="mb-1 text-sm font-black text-yellow-100">🎞️ Boss Visual · 1페이즈</div>
-        <p className="mb-3 text-xs font-bold text-cyan-100">
-          IDLE은 기존 loop_video_url을 그대로 사용하고 ACTION / STATE는 phase metadata의 visual_v2에 저장됩니다.
-        </p>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Field label="첫 프레임 이미지 URL" hint="영상 로딩 실패 시 fallback">
-            <input
-              value={form.imageUrl}
-              disabled={!editable}
-              onChange={(e) => update('imageUrl', e.target.value)}
-              className={inputClass()}
-              placeholder="https://..."
-            />
-          </Field>
-          <Field label="6~7초 루프 영상 URL" hint="MP4/WebM 권장">
-            <input
-              value={form.loopVideoUrl}
-              disabled={!editable}
-              onChange={(e) => update('loopVideoUrl', e.target.value)}
-              className={inputClass()}
-              placeholder="https://..."
-            />
-          </Field>
-          <Field label="ACTION / Pattern Loop Video URL" hint="선택 · 공격/패턴 상태용">
-            <input
-              value={form.actionVideoUrl}
-              disabled={!editable}
-              onChange={(e) => update('actionVideoUrl', e.target.value)}
-              className={inputClass()}
-              placeholder="https://..."
-            />
-          </Field>
-          <Field label="STATE Loop Video URL" hint="선택 · Groggy/Enrage 상태용">
-            <input
-              value={form.stateVideoUrl}
-              disabled={!editable}
-              onChange={(e) => update('stateVideoUrl', e.target.value)}
-              className={inputClass()}
-              placeholder="https://..."
-            />
-          </Field>
-        </div>
-
-        <div className="mt-4 rounded-card-md border border-cyan-300/20 bg-cyan-500/5 p-3">
-          <div className="text-[11px] font-black uppercase tracking-[0.14em] text-cyan-100">STATE 사용 조건</div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {([
-              ['GROGGY', 'Groggy'],
-              ['ENRAGE', 'Enrage'],
-              ['BOTH', 'Both'],
-            ] as const).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                disabled={!editable}
-                onClick={() => update('stateVideoTrigger', value)}
-                className={cn(
-                  'rounded-card-md border px-3 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50',
-                  form.stateVideoTrigger === value
-                    ? 'border-gold/65 bg-gold/15 text-yellow-100'
-                    : 'border-cyan-300/25 bg-bg-deep text-cyan-100 hover:border-cyan-300/55',
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="mt-4 grid gap-3 rounded-card-md border border-cyan-300/20 bg-cyan-500/5 p-3 sm:grid-cols-2">
-          <div>
-            <label htmlFor="raid-fx-preset" className="mb-2 block text-[11px] font-black uppercase tracking-[0.1em] text-cyan-100">Environment FX 프리셋</label>
-            <select
-              id="raid-fx-preset"
-              value={form.fxPreset}
-              disabled={!editable}
-              onChange={(e) => update('fxPreset', e.target.value as RaidVisualFxPreset)}
-              className={inputClass()}
-            >
-              {RAID_FX_PRESETS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <p className="mt-2 text-[11px] text-cyan-100/85">
-              {RAID_FX_PRESETS.find((option) => option.value === form.fxPreset)?.description}
+      {showVisual && (
+      // RAID_ADMIN_LAYOUT_VISUAL_20261023: 왼쪽 = 설정 카드 3개, 오른쪽 = 스크롤해도 따라오는 미리보기
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-4">
+          {/* ① 보스 영상 */}
+          <div className="rounded-card-md border border-cyan-300/20 bg-cyan-500/5 p-4">
+            <div className="text-sm font-black text-yellow-100">🎞️ 보스 영상</div>
+            <p className="mt-1 text-[11px] font-bold leading-5 text-cyan-100">
+              평소(IDLE) · 공격/패턴 중(ACTION) · 그로기/광폭화 중(STATE)에 각각 재생됩니다. 이미지는 영상이 안 뜰 때 대신 보입니다.
             </p>
-          </div>
-          <div>
-            <div className="mb-2 text-[11px] font-black uppercase tracking-[0.1em] text-cyan-100">FX 강도</div>
-            <div className="flex flex-wrap gap-2">
-              {RAID_FX_INTENSITIES.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  disabled={!editable || form.fxPreset === 'NONE'}
-                  onClick={() => update('fxIntensity', value)}
-                  className={cn(
-                    'rounded-card-md border px-3 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50',
-                    form.fxIntensity === value
-                      ? 'border-gold/65 bg-gold/15 text-yellow-100'
-                      : 'border-cyan-300/25 bg-bg-deep text-cyan-100 hover:border-cyan-300/55',
-                  )}
-                >
-                  {value}
-                </button>
-              ))}
+            <div className="mt-3 space-y-2.5">
+              <VisualUrlRow label="첫 프레임 이미지" hint="영상 실패 시 대체" value={form.imageUrl} disabled={!editable} onChange={(value) => update('imageUrl', value)} />
+              <VisualUrlRow label="IDLE 루프 영상" hint="6~7초 · MP4/WebM" value={form.loopVideoUrl} disabled={!editable} onChange={(value) => update('loopVideoUrl', value)} />
+              <VisualUrlRow label="ACTION 영상" hint="선택 · 공격/패턴" value={form.actionVideoUrl} disabled={!editable} onChange={(value) => update('actionVideoUrl', value)} />
+              <VisualUrlRow label="STATE 영상" hint="선택 · 그로기/광폭화" value={form.stateVideoUrl} disabled={!editable} onChange={(value) => update('stateVideoUrl', value)} />
+              <div className="grid items-center gap-2 sm:grid-cols-[132px_minmax(0,1fr)]">
+                <span className="text-xs font-black text-yellow-100">STATE 재생 시점</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    ['GROGGY', 'Groggy'],
+                    ['ENRAGE', 'Enrage'],
+                    ['BOTH', 'Both'],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={!editable}
+                      onClick={() => update('stateVideoTrigger', value)}
+                      className={cn(
+                        'rounded-card-md border px-3 py-1.5 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50',
+                        form.stateVideoTrigger === value
+                          ? 'border-gold/65 bg-gold/15 text-yellow-100'
+                          : 'border-cyan-300/25 bg-bg-deep text-cyan-100 hover:border-cyan-300/55',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
-            <p className="mt-2 text-[11px] text-cyan-100/85">Canvas 2D 공용 FX · 모든 입자는 클릭을 가리지 않습니다.</p>
           </div>
-        </div>
-        <div className="mt-4 grid gap-3 rounded-card-md border border-cyan-300/20 bg-cyan-500/5 p-3 sm:grid-cols-2">
-          <div>
-            <label htmlFor="raid-camera-preset" className="mb-2 block text-[11px] font-black uppercase tracking-[0.1em] text-cyan-100">Camera 프리셋</label>
-            <select
-              id="raid-camera-preset"
-              value={form.cameraPreset}
-              disabled={!editable}
-              onChange={(e) => update('cameraPreset', e.target.value as RaidVisualCameraPreset)}
-              className={inputClass()}
-            >
-              {RAID_CAMERA_PRESETS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <p className="mt-2 text-[11px] text-cyan-100/85">
-              {RAID_CAMERA_PRESETS.find((option) => option.value === form.cameraPreset)?.description}
+
+          {/* ② 환경 FX · 카메라 */}
+          <div className="rounded-card-md border border-cyan-300/20 bg-cyan-500/5 p-4">
+            <div className="text-sm font-black text-yellow-100">🌊 환경 FX · 카메라</div>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              <div className="min-w-0">
+                <label htmlFor="raid-fx-preset" className="mb-1.5 block text-xs font-black text-yellow-100">환경 FX 프리셋</label>
+                <select
+                  id="raid-fx-preset"
+                  value={form.fxPreset}
+                  disabled={!editable}
+                  onChange={(e) => update('fxPreset', e.target.value as RaidVisualFxPreset)}
+                  className={compactSelectClass()}
+                >
+                  {RAID_FX_PRESETS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <span className="mr-1 text-[11px] font-black text-cyan-100">강도</span>
+                  {RAID_FX_INTENSITIES.map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={!editable || form.fxPreset === 'NONE'}
+                      onClick={() => update('fxIntensity', value)}
+                      className={cn(
+                        'rounded-card-md border px-2.5 py-1 text-[11px] font-black transition disabled:cursor-not-allowed disabled:opacity-50',
+                        form.fxIntensity === value
+                          ? 'border-gold/65 bg-gold/15 text-yellow-100'
+                          : 'border-cyan-300/25 bg-bg-deep text-cyan-100 hover:border-cyan-300/55',
+                      )}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] leading-5 text-cyan-100">
+                  {RAID_FX_PRESETS.find((option) => option.value === form.fxPreset)?.description}
+                </p>
+              </div>
+              <div className="min-w-0">
+                <label htmlFor="raid-camera-preset" className="mb-1.5 block text-xs font-black text-yellow-100">카메라 프리셋</label>
+                <select
+                  id="raid-camera-preset"
+                  value={form.cameraPreset}
+                  disabled={!editable}
+                  onChange={(e) => update('cameraPreset', e.target.value as RaidVisualCameraPreset)}
+                  className={compactSelectClass()}
+                >
+                  {RAID_CAMERA_PRESETS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <label className="mt-2 flex items-center gap-2 text-xs font-black text-cyan-50">
+                  <input
+                    type="checkbox"
+                    disabled={!editable}
+                    checked={form.cameraEventReactions}
+                    onChange={(e) => update('cameraEventReactions', e.target.checked)}
+                    className="h-4 w-4 accent-yellow-300"
+                  />
+                  전투 이벤트 카메라 반응
+                </label>
+                <p className="mt-2 text-[11px] leading-5 text-cyan-100">
+                  {RAID_CAMERA_PRESETS.find((option) => option.value === form.cameraPreset)?.description}
+                  {' '}영상만 움직이고 약점 판정·HUD는 고정됩니다.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* ③ 이벤트 시네마틱 */}
+          <div className="rounded-card-md border border-fuchsia-400/30 bg-fuchsia-950/10 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="flex items-center gap-2 text-sm font-black text-fuchsia-100">
+                <input type="checkbox" disabled={!editable} checked={form.cinematic.enabled}
+                  onChange={e => update('cinematic', { ...form.cinematic, enabled: e.target.checked })}
+                  className="h-4 w-4 accent-fuchsia-300" />
+                🎬 이벤트 시네마틱 V2
+              </label>
+              <label className="flex items-center gap-2 text-xs font-bold text-cyan-100">
+                <input type="checkbox" disabled={!editable || !form.cinematic.enabled} checked={form.cinematic.enrage_atmosphere}
+                  onChange={e => update('cinematic', { ...form.cinematic, enrage_atmosphere: e.target.checked })}
+                  className="h-4 w-4 accent-fuchsia-300" />
+                광폭화 중 환경폭풍·카메라 난류 유지
+              </label>
+            </div>
+            <p className="mt-1 text-[11px] font-bold leading-5 text-fuchsia-100">
+              켜면 아래 4가지 순간에 화면 효과와 강한 카메라 반응이 붙습니다. 끄면 기존과 같습니다.
             </p>
-          </div>
-          <div className="flex flex-col justify-center">
-            <label className="flex items-center gap-2 text-xs font-black text-cyan-50">
-              <input
-                type="checkbox"
-                disabled={!editable}
-                checked={form.cameraEventReactions}
-                onChange={(e) => update('cameraEventReactions', e.target.checked)}
-                className="h-4 w-4 accent-yellow-300"
-              />
-              전투 이벤트 카메라 반응
-            </label>
-            <p className="mt-2 text-[11px] leading-5 text-cyan-100/85">
-              패턴 시작, 보스 공격 적중, Groggy, Enrage에 미세한 카메라 반응을 적용합니다.
-              영상만 움직이며 약점 판정과 HUD는 고정됩니다.
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 rounded-card-lg border border-fuchsia-400/30 bg-fuchsia-950/10 p-3">
-          <label className="flex items-center gap-2 text-sm font-black text-fuchsia-100">
-            <input type="checkbox" disabled={!editable} checked={form.cinematic.enabled}
-              onChange={e => update('cinematic', { ...form.cinematic, enabled: e.target.checked })}
-              className="h-4 w-4 accent-fuchsia-300" />
-            VFX C/D 시네마틱 V2 (이벤트 FX + 강력한 카메라 반응)
-          </label>
-          <p className="mt-1 text-xs text-fuchsia-100/75">기본 OFF: 기존 레이드는 변화 없음. ON일 때만 이벤트별 연출이 적용됩니다. 카메라는 보스 영상에만 적용됩니다.</p>
-          <label className="mt-2 flex items-center gap-2 text-xs font-bold text-cyan-100">
-            <input type="checkbox" disabled={!editable || !form.cinematic.enabled} checked={form.cinematic.enrage_atmosphere}
-              onChange={e => update('cinematic', { ...form.cinematic, enrage_atmosphere: e.target.checked })}
-              className="h-4 w-4 accent-fuchsia-300" />
-            광폭화 지속 중 전용 환경폭풍 · 카메라 난류 유지
-          </label>
-          {form.cinematic.enabled && (
-            <div className="mt-3 grid gap-2">
-              {RAID_CINEMATIC_TRIGGERS.map(trigger => (
-                <div key={trigger} className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-2 md:grid-cols-[110px_1fr_1fr] md:items-center">
-                  <span className="text-xs font-black text-fuchsia-100">{({ PATTERN:'패턴 시작', BOSS_ATTACK:'보스 공격', GROGGY:'그로기 진입', ENRAGE:'광폭화 진입' } as Record<RaidCinematicTrigger,string>)[trigger]}</span>
-                  <label className="text-xs text-cyan-100">
-                    <span className="mb-1 block text-[10px]">이벤트 FX</span>
-                    <select disabled={!editable} value={form.cinematic.event_fx[trigger]}
+            {form.cinematic.enabled ? (
+              <div className="mt-3 overflow-hidden rounded-md border border-white/10">
+                <div className="grid grid-cols-[84px_minmax(0,1fr)_minmax(0,1fr)] gap-2 bg-black/30 px-2.5 py-1.5 text-[11px] font-black text-fuchsia-100">
+                  <span>순간</span>
+                  <span>화면 효과</span>
+                  <span>카메라 반응</span>
+                </div>
+                {RAID_CINEMATIC_TRIGGERS.map(trigger => (
+                  <div key={trigger} className="grid grid-cols-[84px_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 border-t border-white/10 px-2.5 py-1.5">
+                    <span className="text-xs font-black text-yellow-100">{({ PATTERN:'패턴 시작', BOSS_ATTACK:'보스 공격', GROGGY:'그로기 진입', ENRAGE:'광폭화 진입' } as Record<RaidCinematicTrigger,string>)[trigger]}</span>
+                    <select disabled={!editable} value={form.cinematic.event_fx[trigger]} aria-label="화면 효과"
                       onChange={e => update('cinematic', { ...form.cinematic, event_fx: { ...form.cinematic.event_fx, [trigger]: e.target.value as RaidEventFx } })}
-                      className={inputClass()}>
+                      className={compactSelectClass()}>
                       {RAID_EVENT_FX.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
                     </select>
-                  </label>
-                  <label className="text-xs text-cyan-100">
-                    <span className="mb-1 block text-[10px]">카메라 반응</span>
-                    <select disabled={!editable} value={form.cinematic.camera_reactions[trigger]}
+                    <select disabled={!editable} value={form.cinematic.camera_reactions[trigger]} aria-label="카메라 반응"
                       onChange={e => update('cinematic', { ...form.cinematic, camera_reactions: { ...form.cinematic.camera_reactions, [trigger]: e.target.value as RaidCameraReaction } })}
-                      className={inputClass()}>
+                      className={compactSelectClass()}>
                       {RAID_CAMERA_REACTIONS.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
                     </select>
-                  </label>
-                </div>
-              ))}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* 오른쪽: 미리보기 (넓은 화면에서 스크롤해도 따라옴) */}
+        <div className="min-w-0 space-y-3 self-start xl:sticky xl:top-[212px]">
+          {!form.imageUrl.trim() && !form.loopVideoUrl.trim() && (
+            <div className="rounded-card-md border border-warning/45 bg-warning/10 px-3 py-2 text-xs font-black text-yellow-100">
+              ⚠️ 초안 저장은 가능하지만, 이미지 또는 IDLE 루프 영상 중 하나가 없으면 레이드를 시작할 수 없습니다.
+            </div>
+          )}
+          {(form.imageUrl.trim() || form.loopVideoUrl.trim() || form.actionVideoUrl.trim() || form.stateVideoUrl.trim() || form.fxPreset !== 'NONE' || form.cameraPreset !== 'LOCKED') ? (
+            <BossVisualPreview
+              imageUrl={form.imageUrl.trim()}
+              idleVideoUrl={form.loopVideoUrl.trim()}
+              actionVideoUrl={form.actionVideoUrl.trim()}
+              stateVideoUrl={form.stateVideoUrl.trim()}
+              fx={{ preset: form.fxPreset, intensity: form.fxIntensity }}
+              camera={{ preset: form.cameraPreset, event_reactions: form.cameraEventReactions }}
+              cinematic={form.cinematic}
+            />
+          ) : (
+            <div className="flex aspect-video items-center justify-center rounded-card-lg border border-dashed border-cyan-300/30 bg-black/30 px-6 text-center text-sm font-black text-amber-100">
+              영상 주소나 FX·카메라를 정하면 여기에서 바로 미리 볼 수 있어요.
             </div>
           )}
         </div>
-        {!form.imageUrl.trim() && !form.loopVideoUrl.trim() && (
-          <div className="mt-3 rounded-card-md border border-warning/45 bg-warning/10 px-3 py-2 text-xs font-black text-yellow-100">
-            ⚠️ 초안 저장은 가능하지만, 이미지 또는 IDLE 루프 영상 중 하나가 없으면 레이드를 시작할 수 없습니다.
-          </div>
-        )}
-        {(form.imageUrl.trim() || form.loopVideoUrl.trim() || form.actionVideoUrl.trim() || form.stateVideoUrl.trim() || form.fxPreset !== 'NONE' || form.cameraPreset !== 'LOCKED') && (
-          <BossVisualPreview
-            imageUrl={form.imageUrl.trim()}
-            idleVideoUrl={form.loopVideoUrl.trim()}
-            actionVideoUrl={form.actionVideoUrl.trim()}
-            stateVideoUrl={form.stateVideoUrl.trim()}
-            fx={{ preset: form.fxPreset, intensity: form.fxIntensity }}
-            camera={{ preset: form.cameraPreset, event_reactions: form.cameraEventReactions }}
-            cinematic={form.cinematic}
-          />
-        )}
       </div>
+      )}
 
-      <div className="my-5 border-t border-line" />
+      {!sectioned && <div className="my-5 border-t border-line" />}
 
+      {showRules && (
       <div>
         <div className="mb-3 text-sm font-black text-yellow-100">⚙️ 전투 규칙</div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -1402,8 +1489,11 @@ function RaidEditor({
           기본 피해 = 공명력 × 피해 계수 × 랜덤 보정 × 부위 배율. 치명타는 현재 기본 ×{form.critMultiplier || '2.0'}.
         </p>
       </div>
+      )}
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+        {showRules && (
+          <>
         <label className="flex items-center gap-2 rounded-card-md border border-emerald-300/30 bg-emerald-500/10 px-3 py-2">
           <input type="checkbox" checked={form.elementDamageEnabled} disabled={!editable}
             onChange={(e) => update('elementDamageEnabled', e.target.checked)} className="h-4 w-4 accent-emerald-400" />
@@ -1419,6 +1509,13 @@ function RaidEditor({
           />
           <span className="text-xs font-black text-cyan-100">TEST 학생도 시작 스냅샷에 포함</span>
         </label>
+          </>
+        )}
+        {sectioned && (
+          <span className="text-xs font-bold text-amber-100">
+            💾 기본 정보 · 연출 · 전투 규칙 탭의 변경을 한 번에 저장합니다.
+          </span>
+        )}
 
         {editable ? (
           <button type="button" onClick={onSave} disabled={saving} className="btn-primary min-w-28 disabled:opacity-50">
@@ -1562,7 +1659,8 @@ function BossVisualPreview({
   const selectedUrl = slotUrls[slot];
 
   return (
-    <div className="mt-4">
+    // RAID_ADMIN_LAYOUT_VISUAL_20261023: 영상 슬롯 → 영상 → 이벤트 테스트 순서로 배치
+    <div>
       <div className="flex flex-wrap gap-2 rounded-card-md border border-cyan-400/25 bg-[#07111f]/95 px-3 py-2.5">
         {(['IDLE', 'ACTION', 'STATE'] as const).map((value) => (
           <button
@@ -1582,14 +1680,6 @@ function BossVisualPreview({
         <span className="ml-auto self-center text-[10px] font-bold text-cyan-100/75">● URL 설정됨 · ○ 미설정</span>
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-2 rounded-card-md border border-cyan-400/20 bg-[#07111f]/95 px-3 py-2.5">
-        <span className="mr-2 self-center text-[10px] font-black text-cyan-100">Camera 이벤트 미리보기</span>
-        <button type="button" onClick={() => setPatternRunId((id) => id + 1)} className="rounded border border-cyan-300/30 px-2 py-1 text-[11px] text-cyan-50">패턴 시작</button>
-        <button type="button" onClick={() => setBossAttackSeq((seq) => seq + 1)} className="rounded border border-cyan-300/30 px-2 py-1 text-[11px] text-cyan-50">보스 공격 적중</button>
-        <button type="button" onClick={() => setPreviewGroggy((value) => !value)} className={cn('rounded border px-2 py-1 text-[11px]', previewGroggy ? 'border-yellow-300 text-yellow-200' : 'border-cyan-300/30 text-cyan-50')}>Groggy {previewGroggy ? 'ON' : 'OFF'}</button>
-        <button type="button" onClick={() => setPreviewEnrage((value) => !value)} className={cn('rounded border px-2 py-1 text-[11px]', previewEnrage ? 'border-yellow-300 text-yellow-200' : 'border-cyan-300/30 text-cyan-50')}>Enrage {previewEnrage ? 'ON' : 'OFF'}</button>
-      </div>
-
       {selectedUrl || imageUrl ? (
         <BossMediaPreview
           key={`${slot}:${selectedUrl}:${imageUrl}`}
@@ -1607,6 +1697,14 @@ function BossVisualPreview({
           <RaidCinematicFxLayer fx={fx} cinematic={cinematic} pulse={null} enrageActive={previewEnrage} />
         </div>
       )}
+
+      <div className="mt-2 flex flex-wrap gap-2 rounded-card-md border border-cyan-400/20 bg-[#07111f]/95 px-3 py-2.5">
+        <span className="mr-2 self-center text-[10px] font-black text-cyan-100">이벤트 테스트</span>
+        <button type="button" onClick={() => setPatternRunId((id) => id + 1)} className="rounded border border-cyan-300/30 px-2 py-1 text-[11px] text-cyan-50">패턴 시작</button>
+        <button type="button" onClick={() => setBossAttackSeq((seq) => seq + 1)} className="rounded border border-cyan-300/30 px-2 py-1 text-[11px] text-cyan-50">보스 공격 적중</button>
+        <button type="button" onClick={() => setPreviewGroggy((value) => !value)} className={cn('rounded border px-2 py-1 text-[11px]', previewGroggy ? 'border-yellow-300 text-yellow-200' : 'border-cyan-300/30 text-cyan-50')}>Groggy {previewGroggy ? 'ON' : 'OFF'}</button>
+        <button type="button" onClick={() => setPreviewEnrage((value) => !value)} className={cn('rounded border px-2 py-1 text-[11px]', previewEnrage ? 'border-yellow-300 text-yellow-200' : 'border-cyan-300/30 text-cyan-50')}>Enrage {previewEnrage ? 'ON' : 'OFF'}</button>
+      </div>
     </div>
   );
 }
@@ -1689,7 +1787,7 @@ function BossMediaPreview({
   };
 
   return (
-    <div className="mt-4 overflow-hidden rounded-card-lg border border-cyan-400/30 bg-black/55">
+    <div className="mt-2 overflow-hidden rounded-card-lg border border-cyan-400/30 bg-black/55">
       <div className="relative aspect-video w-full overflow-hidden">
         <RaidCameraRig camera={camera} events={cameraEvents} cinematic={cinematic} pulse={pulse}>
           <div className="absolute inset-0">
@@ -1800,6 +1898,7 @@ function RaidStateControl({
   onClone,
   onE3TestPreset,
   onChatToggle,
+  inline = false,
 }: {
   detail: TeacherRaidDetail;
   busyAction: string | null;
@@ -1811,23 +1910,11 @@ function RaidStateControl({
   onClone: () => void;
   onE3TestPreset: () => void;
   onChatToggle: () => void;
+  /** RAID_ADMIN_LAYOUT_TABS_20261023: 고정 상단바 안에 버튼만 넣을 때 사용 */
+  inline?: boolean;
 }) {
   const status = detail.raid.status;
-  return (
-    <section className="z-20 rounded-card-lg border border-cyan-300/25 bg-bg-card/95 px-4 py-3 shadow-[0_10px_28px_rgba(0,0,0,0.18)] xl:sticky xl:top-3 xl:backdrop-blur">
-      <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <div className="flex-none">
-            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">STATE CONTROL</div>
-            <div className="mt-0.5 text-sm font-black text-white">레이드 상태 제어</div>
-          </div>
-          <StatusBadge status={status} />
-          <div className="hidden h-7 w-px bg-cyan-300/15 lg:block" />
-          <p className="min-w-0 text-[11px] font-bold text-amber-100">
-            시작 시 학생 전투 스탯이 스냅샷으로 고정됩니다.
-          </p>
-        </div>
-
+  const actions = (
         <div className="flex flex-wrap gap-2">
           <Link
             to={`/teacher/raid/${detail.raid.id}/broadcast`}
@@ -1876,8 +1963,109 @@ function RaidStateControl({
             </ActionButton>
           )}
         </div>
+  );
+
+  if (inline) return actions;
+
+  return (
+    <section className="z-20 rounded-card-lg border border-cyan-300/25 bg-bg-card/95 px-4 py-3 shadow-[0_10px_28px_rgba(0,0,0,0.18)] xl:sticky xl:top-3 xl:backdrop-blur">
+      <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <div className="flex-none">
+            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">STATE CONTROL</div>
+            <div className="mt-0.5 text-sm font-black text-white">레이드 상태 제어</div>
+          </div>
+          <StatusBadge status={status} />
+          <div className="hidden h-7 w-px bg-cyan-300/15 lg:block" />
+          <p className="min-w-0 text-[11px] font-bold text-amber-100">
+            시작 시 학생 전투 스탯이 스냅샷으로 고정됩니다.
+          </p>
+        </div>
+
+        {actions}
       </div>
     </section>
+  );
+}
+
+// RAID_ADMIN_LAYOUT_TABS_20261023: 고정 상단바의 한 줄 요약 (보스 HP · 참여 학생)
+function RaidQuickStats({
+  hpRatio,
+  attackParticipants,
+  participants,
+}: {
+  hpRatio: number | null;
+  attackParticipants: number | null;
+  participants: number | null;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 rounded-card-md border border-line bg-bg-deep px-2.5 py-2 text-xs font-black">
+      <span className="text-red-100">HP {hpRatio === null ? '—' : `${formatPercent(hpRatio * 100)}%`}</span>
+      <span className="text-cyan-200">·</span>
+      <span className="text-cyan-100">
+        참여 {attackParticipants === null ? (participants ?? '—') : `${attackParticipants} / ${participants ?? 0}`}
+      </span>
+    </div>
+  );
+}
+
+// RAID_ADMIN_LAYOUT_TABS_20261023: 페이지 탭. 탭마다 저장 버튼 범위가 정해져 있다.
+function RaidPageTabs({
+  active,
+  onChange,
+  creating,
+  patternCount,
+  liveRunning,
+}: {
+  active: RaidPageTab;
+  onChange: (tab: RaidPageTab) => void;
+  creating: boolean;
+  patternCount: number | null;
+  liveRunning: boolean;
+}) {
+  const tabs: Array<{ key: RaidPageTab; label: string; group: 'editor' | 'config' | 'live' }> = [
+    { key: 'BASIC', label: '📋 기본 정보', group: 'editor' },
+    { key: 'VISUAL', label: '🎬 연출', group: 'editor' },
+    { key: 'RULES', label: '⚙️ 전투 규칙·보상', group: 'editor' },
+    { key: 'COMBAT', label: '🛡 전투 기믹', group: 'config' },
+    { key: 'PATTERNS', label: `🧩 패턴${patternCount === null ? '' : ` ${patternCount}`}`, group: 'config' },
+    { key: 'AUDIO', label: '🔊 오디오', group: 'config' },
+    { key: 'LOOT', label: '🎁 전리품', group: 'config' },
+    { key: 'LIVE', label: '📡 실시간 운영', group: 'live' },
+  ];
+  const visible = creating ? tabs.filter((tab) => tab.group === 'editor') : tabs;
+
+  return (
+    <nav className="flex gap-1 overflow-x-auto rounded-card-lg border border-line bg-bg-card p-1" aria-label="레이드 설정 탭">
+      {visible.map((tab, index) => {
+        const previous = visible[index - 1];
+        const groupStart = previous && previous.group !== tab.group;
+        return (
+          <div key={tab.key} className="flex flex-none items-center">
+            {groupStart ? <span className="mx-1 h-5 w-px bg-cyan-300/25" aria-hidden="true" /> : null}
+            <button
+              type="button"
+              onClick={() => onChange(tab.key)}
+              aria-current={active === tab.key ? 'page' : undefined}
+              className={cn(
+                'whitespace-nowrap rounded-card-md border px-3 py-2 text-xs font-black transition',
+                active === tab.key
+                  ? 'border-gold/60 bg-gold/15 text-yellow-100'
+                  : 'border-transparent text-cyan-100 hover:border-cyan-300/40 hover:bg-cyan-500/10',
+              )}
+            >
+              {tab.label}
+              {tab.key === 'LIVE' && liveRunning ? <span className="ml-1.5 text-emerald-300">●</span> : null}
+            </button>
+          </div>
+        );
+      })}
+      {creating ? (
+        <span className="ml-auto flex-none self-center pr-2 text-[11px] font-bold text-amber-100">
+          기믹·패턴·오디오·전리품은 초안 생성 후 열립니다
+        </span>
+      ) : null}
+    </nav>
   );
 }
 
@@ -2112,6 +2300,45 @@ function EmptyPanel() {
       <h2 className="mt-3 font-display text-lg text-white">레이드를 선택하거나 새로 만들어주세요</h2>
     </div>
   );
+}
+
+// RAID_ADMIN_LAYOUT_VISUAL_20261023: 연출 탭의 한 줄짜리 URL 입력 (라벨 | 입력칸 | 설정 여부 표시)
+function VisualUrlRow({
+  label,
+  hint,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
+  const filled = value.trim().length > 0;
+  return (
+    <label className="grid items-center gap-1.5 sm:grid-cols-[132px_minmax(0,1fr)] sm:gap-2">
+      <span className="min-w-0">
+        <span className="flex items-center gap-1.5 text-xs font-black text-yellow-100">
+          <span className={filled ? 'text-emerald-300' : 'text-amber-100'} aria-hidden="true">{filled ? '●' : '○'}</span>
+          {label}
+        </span>
+        <span className="block pl-4 text-[10px] font-bold text-cyan-100">{hint}</span>
+      </span>
+      <input
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(inputClass(), 'py-2 text-xs')}
+        placeholder="https://..."
+      />
+    </label>
+  );
+}
+
+function compactSelectClass() {
+  return 'w-full min-w-0 rounded-md border border-line bg-bg-deep px-2 py-1.5 text-xs font-bold text-white outline-none transition focus:border-cyan-300/70 disabled:cursor-not-allowed disabled:opacity-60';
 }
 
 function inputClass(mono = false) {
