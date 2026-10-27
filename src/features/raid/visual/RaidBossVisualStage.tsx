@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils/cn';
 
 import type { RaidVisualConfigV1, RaidVisualPlaybackState } from './raidVisualTypes';
+import { resolveRaidVisualMedia } from './raidVisualConfig';
 import { RaidFxCanvas } from './RaidFxCanvas';
 import { RaidCameraRig, type RaidCameraEvents } from './RaidCameraRig';
 import { normalizeRaidCinematicConfig } from './raidCinematicPresets';
@@ -95,9 +96,17 @@ export function RaidBossVisualStage({
   const pulse = useRaidCinematicEvents(cameraEvents, cameraActive && cinematic.enabled);
   const image = cleanUrl(imageUrl);
   const idle = cleanUrl(idleVideoUrl);
-  const action = cleanUrl(visual?.media?.action_video_url);
-  const state = cleanUrl(visual?.media?.state_video_url);
-  const configuredCrossfadeMs = Number(visual?.media?.crossfade_ms ?? 240);
+  const media = useMemo(() => resolveRaidVisualMedia(visual?.media), [visual?.media]);
+  const slotUrls = useMemo<Record<RaidVisualPlaybackState, string | null>>(() => ({
+    IDLE: idle,
+    BASIC_ATTACK: cleanUrl(media.basic_attack_video_url),
+    ENRAGE_BASIC_ATTACK: cleanUrl(media.enrage_basic_attack_video_url),
+    SPECIAL_PATTERN: cleanUrl(media.special_pattern_video_url),
+    ENRAGE_SPECIAL_PATTERN: cleanUrl(media.enrage_special_pattern_video_url),
+    GROGGY: cleanUrl(media.groggy_video_url),
+    ENRAGE: cleanUrl(media.enrage_video_url),
+  }), [idle, media]);
+  const configuredCrossfadeMs = Number(media.crossfade_ms ?? 240);
   const crossfadeMs = Number.isFinite(configuredCrossfadeMs)
     ? Math.max(0, Math.min(2000, configuredCrossfadeMs))
     : 240;
@@ -108,18 +117,27 @@ export function RaidBossVisualStage({
   const [fadingOut, setFadingOut] = useState(false);
   const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const configuredUrls = `${idle ?? ''}|${action ?? ''}|${state ?? ''}`;
+  const configuredUrls = Object.values(slotUrls).map((url) => url ?? '').join('|');
   useEffect(() => {
     setFailedUrls(new Set());
   }, [configuredUrls]);
 
   const targetUrl = useMemo(() => {
-    const requested =
-      playbackState === 'ACTION' ? action : playbackState === 'STATE' ? state : idle;
+    const requested = slotUrls[playbackState];
     if (requested && !failedUrls.has(requested)) return requested;
+
+    const preserveEnrageAppearance =
+      playbackState === 'ENRAGE_BASIC_ATTACK' ||
+      playbackState === 'ENRAGE_SPECIAL_PATTERN' ||
+      (playbackState === 'GROGGY' && cameraEvents?.enrageActive === true);
+    const enrageFallback = slotUrls.ENRAGE;
+    if (preserveEnrageAppearance && enrageFallback && !failedUrls.has(enrageFallback)) {
+      return enrageFallback;
+    }
+
     if (idle && !failedUrls.has(idle)) return idle;
     return null;
-  }, [action, failedUrls, idle, playbackState, state]);
+  }, [cameraEvents?.enrageActive, failedUrls, idle, playbackState, slotUrls]);
 
   useEffect(() => {
     if (transitionTimerRef.current) {

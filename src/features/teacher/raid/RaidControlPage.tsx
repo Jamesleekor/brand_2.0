@@ -13,7 +13,7 @@ import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
 import RaidV15ConfigPanel, { type RaidConfigTabKey } from '@/features/teacher/raid/RaidV15ConfigPanel';
 import { isValidOptionalHttpUrl, mergeRaidVisualV2Metadata, readRaidVisualV2 } from '@/features/raid/visual/raidVisualConfig';
-import type { RaidVisualFxConfig, RaidVisualFxIntensity, RaidVisualFxPreset, RaidVisualCameraConfig, RaidVisualCameraPreset, RaidVisualStateVideoTrigger } from '@/features/raid/visual/raidVisualTypes';
+import type { RaidVisualFxConfig, RaidVisualFxIntensity, RaidVisualFxPreset, RaidVisualCameraConfig, RaidVisualCameraPreset } from '@/features/raid/visual/raidVisualTypes';
 import { RAID_CAMERA_PRESETS } from '@/features/raid/visual/raidCameraPresets';
 import { RaidCameraRig, type RaidCameraEvents } from '@/features/raid/visual/RaidCameraRig';
 import { RAID_FX_PRESETS, RAID_FX_INTENSITIES } from '@/features/raid/visual/raidFxPresets';
@@ -54,9 +54,12 @@ type RaidForm = {
   elementDamageEnabled: boolean;
   imageUrl: string;
   loopVideoUrl: string;
-  actionVideoUrl: string;
-  stateVideoUrl: string;
-  stateVideoTrigger: RaidVisualStateVideoTrigger;
+  basicAttackVideoUrl: string;
+  enrageBasicAttackVideoUrl: string;
+  specialPatternVideoUrl: string;
+  enrageSpecialPatternVideoUrl: string;
+  groggyVideoUrl: string;
+  enrageVideoUrl: string;
   fxPreset: RaidVisualFxPreset;
   fxIntensity: RaidVisualFxIntensity;
   cameraPreset: RaidVisualCameraPreset;
@@ -101,9 +104,12 @@ const EMPTY_FORM: RaidForm = {
   elementDamageEnabled: true,
   imageUrl: '',
   loopVideoUrl: '',
-  actionVideoUrl: '',
-  stateVideoUrl: '',
-  stateVideoTrigger: 'BOTH',
+  basicAttackVideoUrl: '',
+  enrageBasicAttackVideoUrl: '',
+  specialPatternVideoUrl: '',
+  enrageSpecialPatternVideoUrl: '',
+  groggyVideoUrl: '',
+  enrageVideoUrl: '',
   fxPreset: 'NONE',
   fxIntensity: 'MEDIUM',
   cameraPreset: 'LOCKED',
@@ -361,8 +367,12 @@ export default function RaidControlPage() {
     const mediaUrls: Array<[string, string]> = [
       ['첫 프레임 이미지 URL', form.imageUrl],
       ['IDLE 루프 영상 URL', form.loopVideoUrl],
-      ['ACTION 루프 영상 URL', form.actionVideoUrl],
-      ['STATE 루프 영상 URL', form.stateVideoUrl],
+      ['일반공격 영상 URL', form.basicAttackVideoUrl],
+      ['광폭 일반공격 영상 URL', form.enrageBasicAttackVideoUrl],
+      ['특수패턴 영상 URL', form.specialPatternVideoUrl],
+      ['광폭 특수패턴 영상 URL', form.enrageSpecialPatternVideoUrl],
+      ['그로기 영상 URL', form.groggyVideoUrl],
+      ['광폭화 영상 URL', form.enrageVideoUrl],
     ];
     for (const [label, value] of mediaUrls) {
       if (!isValidOptionalHttpUrl(value)) {
@@ -414,9 +424,12 @@ export default function RaidControlPage() {
         );
         if (typeof newId === 'number') {
           const visualMetadata = mergeRaidVisualV2Metadata({}, {
-            actionVideoUrl: form.actionVideoUrl,
-            stateVideoUrl: form.stateVideoUrl,
-            stateVideoTrigger: form.stateVideoTrigger,
+            basicAttackVideoUrl: form.basicAttackVideoUrl,
+            enrageBasicAttackVideoUrl: form.enrageBasicAttackVideoUrl,
+            specialPatternVideoUrl: form.specialPatternVideoUrl,
+            enrageSpecialPatternVideoUrl: form.enrageSpecialPatternVideoUrl,
+            groggyVideoUrl: form.groggyVideoUrl,
+            enrageVideoUrl: form.enrageVideoUrl,
             fx: { preset: form.fxPreset, intensity: form.fxIntensity },
             camera: { preset: form.cameraPreset, event_reactions: form.cameraEventReactions },
             cinematic: form.cinematic,
@@ -480,9 +493,12 @@ export default function RaidControlPage() {
           loop_video_url: form.loopVideoUrl.trim() || null,
           damage_config: phase?.damage_config ?? {},
           metadata: mergeRaidVisualV2Metadata(phase?.metadata, {
-            actionVideoUrl: form.actionVideoUrl,
-            stateVideoUrl: form.stateVideoUrl,
-            stateVideoTrigger: form.stateVideoTrigger,
+            basicAttackVideoUrl: form.basicAttackVideoUrl,
+            enrageBasicAttackVideoUrl: form.enrageBasicAttackVideoUrl,
+            specialPatternVideoUrl: form.specialPatternVideoUrl,
+            enrageSpecialPatternVideoUrl: form.enrageSpecialPatternVideoUrl,
+            groggyVideoUrl: form.groggyVideoUrl,
+            enrageVideoUrl: form.enrageVideoUrl,
             fx: { preset: form.fxPreset, intensity: form.fxIntensity },
             camera: { preset: form.cameraPreset, event_reactions: form.cameraEventReactions },
             cinematic: form.cinematic,
@@ -1276,39 +1292,34 @@ function RaidEditor({
         <div className="min-w-0 space-y-4">
           {/* ① 보스 영상 */}
           <div className="rounded-card-md border border-cyan-300/20 bg-cyan-500/5 p-4">
-            <div className="text-sm font-black text-yellow-100">🎞️ 보스 영상</div>
+            <div className="text-sm font-black text-yellow-100">🎞️ 보스 영상 · 7슬롯</div>
             <p className="mt-1 text-[11px] font-bold leading-5 text-cyan-100">
-              평소(IDLE) · 공격/패턴 중(ACTION) · 그로기/광폭화 중(STATE)에 각각 재생됩니다. 이미지는 영상이 안 뜰 때 대신 보입니다.
+              우선순위는 그로기 → 특수패턴 → 일반공격 → 광폭화 → IDLE입니다. 광폭 전용 공격/패턴 영상이 비어 있으면 변신 전 영상으로 되돌아가지 않고 광폭화 영상을 유지합니다.
             </p>
-            <div className="mt-3 space-y-2.5">
+            <div className="mt-3 space-y-3">
               <VisualUrlRow label="첫 프레임 이미지" hint="영상 실패 시 대체" value={form.imageUrl} disabled={!editable} onChange={(value) => update('imageUrl', value)} />
-              <VisualUrlRow label="IDLE 루프 영상" hint="6~7초 · MP4/WebM" value={form.loopVideoUrl} disabled={!editable} onChange={(value) => update('loopVideoUrl', value)} />
-              <VisualUrlRow label="ACTION 영상" hint="선택 · 공격/패턴" value={form.actionVideoUrl} disabled={!editable} onChange={(value) => update('actionVideoUrl', value)} />
-              <VisualUrlRow label="STATE 영상" hint="선택 · 그로기/광폭화" value={form.stateVideoUrl} disabled={!editable} onChange={(value) => update('stateVideoUrl', value)} />
-              <div className="grid items-center gap-2 sm:grid-cols-[132px_minmax(0,1fr)]">
-                <span className="text-xs font-black text-yellow-100">STATE 재생 시점</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {([
-                    ['GROGGY', 'Groggy'],
-                    ['ENRAGE', 'Enrage'],
-                    ['BOTH', 'Both'],
-                  ] as const).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      disabled={!editable}
-                      onClick={() => update('stateVideoTrigger', value)}
-                      className={cn(
-                        'rounded-card-md border px-3 py-1.5 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50',
-                        form.stateVideoTrigger === value
-                          ? 'border-gold/65 bg-gold/15 text-yellow-100'
-                          : 'border-cyan-300/25 bg-bg-deep text-cyan-100 hover:border-cyan-300/55',
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
+
+              <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-3">
+                <div className="mb-2 text-[11px] font-black text-yellow-100">기본 영상</div>
+                <VisualUrlRow label="IDLE 루프 영상" hint="6~7초 · 항상 최종 fallback" value={form.loopVideoUrl} disabled={!editable} onChange={(value) => update('loopVideoUrl', value)} />
+              </div>
+
+              <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-3 space-y-2.5">
+                <div className="text-[11px] font-black text-yellow-100">공격 영상</div>
+                <VisualUrlRow label="일반공격 영상" hint="보스 기본 공격 전조/실행" value={form.basicAttackVideoUrl} disabled={!editable} onChange={(value) => update('basicAttackVideoUrl', value)} />
+                <VisualUrlRow label="광폭 일반공격" hint="선택 · 광폭화 외형 유지" value={form.enrageBasicAttackVideoUrl} disabled={!editable} onChange={(value) => update('enrageBasicAttackVideoUrl', value)} />
+              </div>
+
+              <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-3 space-y-2.5">
+                <div className="text-[11px] font-black text-yellow-100">패턴 영상</div>
+                <VisualUrlRow label="특수패턴 영상" hint="특수패턴 공용" value={form.specialPatternVideoUrl} disabled={!editable} onChange={(value) => update('specialPatternVideoUrl', value)} />
+                <VisualUrlRow label="광폭 특수패턴" hint="선택 · 광폭화 외형 유지" value={form.enrageSpecialPatternVideoUrl} disabled={!editable} onChange={(value) => update('enrageSpecialPatternVideoUrl', value)} />
+              </div>
+
+              <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-3 space-y-2.5">
+                <div className="text-[11px] font-black text-yellow-100">상태 영상</div>
+                <VisualUrlRow label="그로기 영상" hint="무력화/특수패턴 파훼 성공" value={form.groggyVideoUrl} disabled={!editable} onChange={(value) => update('groggyVideoUrl', value)} />
+                <VisualUrlRow label="광폭화 영상" hint="광폭화 상태 기본 영상" value={form.enrageVideoUrl} disabled={!editable} onChange={(value) => update('enrageVideoUrl', value)} />
               </div>
             </div>
           </div>
@@ -1437,12 +1448,16 @@ function RaidEditor({
               ⚠️ 초안 저장은 가능하지만, 이미지 또는 IDLE 루프 영상 중 하나가 없으면 레이드를 시작할 수 없습니다.
             </div>
           )}
-          {(form.imageUrl.trim() || form.loopVideoUrl.trim() || form.actionVideoUrl.trim() || form.stateVideoUrl.trim() || form.fxPreset !== 'NONE' || form.cameraPreset !== 'LOCKED') ? (
+          {(form.imageUrl.trim() || form.loopVideoUrl.trim() || form.basicAttackVideoUrl.trim() || form.enrageBasicAttackVideoUrl.trim() || form.specialPatternVideoUrl.trim() || form.enrageSpecialPatternVideoUrl.trim() || form.groggyVideoUrl.trim() || form.enrageVideoUrl.trim() || form.fxPreset !== 'NONE' || form.cameraPreset !== 'LOCKED') ? (
             <BossVisualPreview
               imageUrl={form.imageUrl.trim()}
               idleVideoUrl={form.loopVideoUrl.trim()}
-              actionVideoUrl={form.actionVideoUrl.trim()}
-              stateVideoUrl={form.stateVideoUrl.trim()}
+              basicAttackVideoUrl={form.basicAttackVideoUrl.trim()}
+              enrageBasicAttackVideoUrl={form.enrageBasicAttackVideoUrl.trim()}
+              specialPatternVideoUrl={form.specialPatternVideoUrl.trim()}
+              enrageSpecialPatternVideoUrl={form.enrageSpecialPatternVideoUrl.trim()}
+              groggyVideoUrl={form.groggyVideoUrl.trim()}
+              enrageVideoUrl={form.enrageVideoUrl.trim()}
               fx={{ preset: form.fxPreset, intensity: form.fxIntensity }}
               camera={{ preset: form.cameraPreset, event_reactions: form.cameraEventReactions }}
               cinematic={form.cinematic}
@@ -1630,21 +1645,29 @@ function BossPresetPicker({
 function BossVisualPreview({
   imageUrl,
   idleVideoUrl,
-  actionVideoUrl,
-  stateVideoUrl,
+  basicAttackVideoUrl,
+  enrageBasicAttackVideoUrl,
+  specialPatternVideoUrl,
+  enrageSpecialPatternVideoUrl,
+  groggyVideoUrl,
+  enrageVideoUrl,
   fx,
   camera,
   cinematic,
 }: {
   imageUrl: string;
   idleVideoUrl: string;
-  actionVideoUrl: string;
-  stateVideoUrl: string;
+  basicAttackVideoUrl: string;
+  enrageBasicAttackVideoUrl: string;
+  specialPatternVideoUrl: string;
+  enrageSpecialPatternVideoUrl: string;
+  groggyVideoUrl: string;
+  enrageVideoUrl: string;
   fx: RaidVisualFxConfig;
   camera: RaidVisualCameraConfig;
   cinematic: RaidCinematicConfig;
 }) {
-  type PreviewSlot = 'IDLE' | 'ACTION' | 'STATE';
+  type PreviewSlot = 'IDLE' | 'BASIC_ATTACK' | 'ENRAGE_BASIC_ATTACK' | 'SPECIAL_PATTERN' | 'ENRAGE_SPECIAL_PATTERN' | 'GROGGY' | 'ENRAGE';
   const [slot, setSlot] = useState<PreviewSlot>('IDLE');
   const [patternRunId, setPatternRunId] = useState(0);
   const [bossAttackSeq, setBossAttackSeq] = useState(0);
@@ -1653,8 +1676,21 @@ function BossVisualPreview({
   const previewCameraEvents: RaidCameraEvents = { patternRunId, bossAttackSeq, groggyActive: previewGroggy, enrageActive: previewEnrage };
   const slotUrls: Record<PreviewSlot, string> = {
     IDLE: idleVideoUrl,
-    ACTION: actionVideoUrl,
-    STATE: stateVideoUrl,
+    BASIC_ATTACK: basicAttackVideoUrl,
+    ENRAGE_BASIC_ATTACK: enrageBasicAttackVideoUrl,
+    SPECIAL_PATTERN: specialPatternVideoUrl,
+    ENRAGE_SPECIAL_PATTERN: enrageSpecialPatternVideoUrl,
+    GROGGY: groggyVideoUrl,
+    ENRAGE: enrageVideoUrl,
+  };
+  const slotLabels: Record<PreviewSlot, string> = {
+    IDLE: 'IDLE',
+    BASIC_ATTACK: '일반공격',
+    ENRAGE_BASIC_ATTACK: '광폭 일반공격',
+    SPECIAL_PATTERN: '특수패턴',
+    ENRAGE_SPECIAL_PATTERN: '광폭 특수패턴',
+    GROGGY: '그로기',
+    ENRAGE: '광폭화',
   };
   const selectedUrl = slotUrls[slot];
 
@@ -1662,7 +1698,7 @@ function BossVisualPreview({
     // RAID_ADMIN_LAYOUT_VISUAL_20261023: 영상 슬롯 → 영상 → 이벤트 테스트 순서로 배치
     <div>
       <div className="flex flex-wrap gap-2 rounded-card-md border border-cyan-400/25 bg-[#07111f]/95 px-3 py-2.5">
-        {(['IDLE', 'ACTION', 'STATE'] as const).map((value) => (
+        {(['IDLE', 'BASIC_ATTACK', 'ENRAGE_BASIC_ATTACK', 'SPECIAL_PATTERN', 'ENRAGE_SPECIAL_PATTERN', 'GROGGY', 'ENRAGE'] as const).map((value) => (
           <button
             key={value}
             type="button"
@@ -1674,7 +1710,7 @@ function BossVisualPreview({
                 : 'border-cyan-300/25 bg-bg-deep text-cyan-100 hover:border-cyan-300/55',
             )}
           >
-            {value} {slotUrls[value] ? '●' : '○'}
+            {slotLabels[value]} {slotUrls[value] ? '●' : '○'}
           </button>
         ))}
         <span className="ml-auto self-center text-[10px] font-bold text-cyan-100/75">● URL 설정됨 · ○ 미설정</span>
@@ -2375,9 +2411,12 @@ function formFromDetail(detail: TeacherRaidDetail): RaidForm {
     elementDamageEnabled: detail.raid.metadata?.element_damage_rules_version === 'V1',
     imageUrl: phase?.image_url ?? '',
     loopVideoUrl: phase?.loop_video_url ?? '',
-    actionVideoUrl: visual.media.action_video_url ?? '',
-    stateVideoUrl: visual.media.state_video_url ?? '',
-    stateVideoTrigger: visual.media.state_video_trigger,
+    basicAttackVideoUrl: visual.media.basic_attack_video_url ?? '',
+    enrageBasicAttackVideoUrl: visual.media.enrage_basic_attack_video_url ?? '',
+    specialPatternVideoUrl: visual.media.special_pattern_video_url ?? '',
+    enrageSpecialPatternVideoUrl: visual.media.enrage_special_pattern_video_url ?? '',
+    groggyVideoUrl: visual.media.groggy_video_url ?? '',
+    enrageVideoUrl: visual.media.enrage_video_url ?? '',
     fxPreset: visual.fx?.preset ?? 'NONE',
     fxIntensity: visual.fx?.intensity ?? 'MEDIUM',
     cameraPreset: visual.camera?.preset ?? 'LOCKED',
