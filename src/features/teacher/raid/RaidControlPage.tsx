@@ -84,20 +84,6 @@ const ELEMENT_OPTIONS: Array<{ value: RaidElement; label: string }> = [
   { value: 'DARK', label: '☾ 암' },
 ];
 
-const RAID_BOSS_VIDEO_BASE_URL = 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/Raid/boss_videos/';
-
-function raidVideoInputValue(value: string, baseUrl = RAID_BOSS_VIDEO_BASE_URL): string {
-  const trimmed = value.trim();
-  return trimmed.startsWith(baseUrl) ? trimmed.slice(baseUrl.length) : trimmed;
-}
-
-function resolveRaidVideoUrl(value: string, baseUrl = RAID_BOSS_VIDEO_BASE_URL): string {
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `${baseUrl}${trimmed.replace(/^\/+/, '')}`;
-}
-
 const EMPTY_FORM: RaidForm = {
   title: '',
   bossName: '',
@@ -1315,25 +1301,25 @@ function RaidEditor({
 
               <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-3">
                 <div className="mb-2 text-[11px] font-black text-yellow-100">기본 영상</div>
-                <VisualUrlRow label="IDLE 루프 영상" hint="6~7초 · 항상 최종 fallback" value={form.loopVideoUrl} baseUrl={RAID_BOSS_VIDEO_BASE_URL} disabled={!editable} onChange={(value) => update('loopVideoUrl', value)} />
+                <VisualUrlRow label="IDLE 루프 영상" hint="6~7초 · 항상 최종 fallback" value={form.loopVideoUrl} disabled={!editable} onChange={(value) => update('loopVideoUrl', value)} />
               </div>
 
               <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-3 space-y-2.5">
                 <div className="text-[11px] font-black text-yellow-100">공격 영상</div>
-                <VisualUrlRow label="일반공격 영상" hint="보스 기본 공격 전조/실행" value={form.basicAttackVideoUrl} baseUrl={RAID_BOSS_VIDEO_BASE_URL} disabled={!editable} onChange={(value) => update('basicAttackVideoUrl', value)} />
-                <VisualUrlRow label="광폭 일반공격" hint="선택 · 광폭화 외형 유지" value={form.enrageBasicAttackVideoUrl} baseUrl={RAID_BOSS_VIDEO_BASE_URL} disabled={!editable} onChange={(value) => update('enrageBasicAttackVideoUrl', value)} />
+                <VisualUrlRow label="일반공격 영상" hint="보스 기본 공격 전조/실행" value={form.basicAttackVideoUrl} disabled={!editable} onChange={(value) => update('basicAttackVideoUrl', value)} />
+                <VisualUrlRow label="광폭 일반공격" hint="선택 · 광폭화 외형 유지" value={form.enrageBasicAttackVideoUrl} disabled={!editable} onChange={(value) => update('enrageBasicAttackVideoUrl', value)} />
               </div>
 
               <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-3 space-y-2.5">
                 <div className="text-[11px] font-black text-yellow-100">패턴 영상</div>
-                <VisualUrlRow label="특수패턴 영상" hint="특수패턴 공용" value={form.specialPatternVideoUrl} baseUrl={RAID_BOSS_VIDEO_BASE_URL} disabled={!editable} onChange={(value) => update('specialPatternVideoUrl', value)} />
-                <VisualUrlRow label="광폭 특수패턴" hint="선택 · 광폭화 외형 유지" value={form.enrageSpecialPatternVideoUrl} baseUrl={RAID_BOSS_VIDEO_BASE_URL} disabled={!editable} onChange={(value) => update('enrageSpecialPatternVideoUrl', value)} />
+                <VisualUrlRow label="특수패턴 영상" hint="특수패턴 공용" value={form.specialPatternVideoUrl} disabled={!editable} onChange={(value) => update('specialPatternVideoUrl', value)} />
+                <VisualUrlRow label="광폭 특수패턴" hint="선택 · 광폭화 외형 유지" value={form.enrageSpecialPatternVideoUrl} disabled={!editable} onChange={(value) => update('enrageSpecialPatternVideoUrl', value)} />
               </div>
 
               <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-3 space-y-2.5">
                 <div className="text-[11px] font-black text-yellow-100">상태 영상</div>
-                <VisualUrlRow label="그로기 영상" hint="무력화/특수패턴 파훼 성공" value={form.groggyVideoUrl} baseUrl={RAID_BOSS_VIDEO_BASE_URL} disabled={!editable} onChange={(value) => update('groggyVideoUrl', value)} />
-                <VisualUrlRow label="광폭화 영상" hint="광폭화 상태 기본 영상" value={form.enrageVideoUrl} baseUrl={RAID_BOSS_VIDEO_BASE_URL} disabled={!editable} onChange={(value) => update('enrageVideoUrl', value)} />
+                <VisualUrlRow label="그로기 영상" hint="무력화/특수패턴 파훼 성공" value={form.groggyVideoUrl} disabled={!editable} onChange={(value) => update('groggyVideoUrl', value)} />
+                <VisualUrlRow label="광폭화 영상" hint="광폭화 상태 기본 영상" value={form.enrageVideoUrl} disabled={!editable} onChange={(value) => update('enrageVideoUrl', value)} />
               </div>
             </div>
           </div>
@@ -2357,19 +2343,16 @@ function VisualUrlRow({
   label,
   hint,
   value,
-  baseUrl,
   disabled,
   onChange,
 }: {
   label: string;
   hint: string;
   value: string;
-  baseUrl?: string;
   disabled: boolean;
   onChange: (value: string) => void;
 }) {
   const filled = value.trim().length > 0;
-  const inputValue = baseUrl ? raidVideoInputValue(value, baseUrl) : value;
   return (
     <label className="grid items-center gap-1.5 sm:grid-cols-[132px_minmax(0,1fr)] sm:gap-2">
       <span className="min-w-0">
@@ -2379,26 +2362,17 @@ function VisualUrlRow({
         </span>
         <span className="block pl-4 text-[10px] font-bold text-cyan-100">{hint}</span>
       </span>
-      <span className="min-w-0">
-        {baseUrl ? (
-          <span
-            className="mb-1 block min-w-0 truncate text-[10px] font-bold text-cyan-200/80"
-            title={baseUrl}
-          >
-            {baseUrl}
-          </span>
-        ) : null}
-        <input
-          value={inputValue}
-          disabled={disabled}
-          onChange={(e) => onChange(baseUrl ? resolveRaidVideoUrl(e.target.value, baseUrl) : e.target.value)}
-          className={cn(inputClass(), 'py-2 text-xs')}
-          placeholder={baseUrl ? '파일명 또는 하위경로만 입력' : 'https://...'}
-        />
-      </span>
+      <input
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(inputClass(), 'py-2 text-xs')}
+        placeholder="https://..."
+      />
     </label>
   );
 }
+
 function compactSelectClass() {
   return 'w-full min-w-0 rounded-md border border-line bg-bg-deep px-2 py-1.5 text-xs font-bold text-white outline-none transition focus:border-cyan-300/70 disabled:cursor-not-allowed disabled:opacity-60';
 }
