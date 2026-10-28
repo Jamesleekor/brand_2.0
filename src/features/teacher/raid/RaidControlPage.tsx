@@ -81,6 +81,20 @@ const ELEMENT_OPTIONS: Array<{ value: RaidElement; label: string }> = [
   { value: 'DARK', label: '☾ 암' },
 ];
 
+const RAID_BOSS_VIDEO_BASE_URL = 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/Raid/boss_videos/';
+
+function raidVideoInputValue(value: string, baseUrl = RAID_BOSS_VIDEO_BASE_URL): string {
+  const trimmed = value.trim();
+  return trimmed.startsWith(baseUrl) ? trimmed.slice(baseUrl.length) : trimmed;
+}
+
+function resolveRaidVideoUrl(value: string, baseUrl = RAID_BOSS_VIDEO_BASE_URL): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `${baseUrl}${trimmed.replace(/^\/+/, '')}`;
+}
+
 const EMPTY_FORM: RaidForm = {
   title: '',
   bossName: '',
@@ -1282,9 +1296,9 @@ function RaidEditor({
             </p>
             <div className="mt-3 space-y-2.5">
               <VisualUrlRow label="첫 프레임 이미지" hint="영상 실패 시 대체" value={form.imageUrl} disabled={!editable} onChange={(value) => update('imageUrl', value)} />
-              <VisualUrlRow label="IDLE 루프 영상" hint="6~7초 · MP4/WebM" value={form.loopVideoUrl} disabled={!editable} onChange={(value) => update('loopVideoUrl', value)} />
-              <VisualUrlRow label="ACTION 영상" hint="선택 · 공격/패턴" value={form.actionVideoUrl} disabled={!editable} onChange={(value) => update('actionVideoUrl', value)} />
-              <VisualUrlRow label="STATE 영상" hint="선택 · 그로기/광폭화" value={form.stateVideoUrl} disabled={!editable} onChange={(value) => update('stateVideoUrl', value)} />
+              <VisualUrlRow label="IDLE 루프 영상" hint="6~7초 · MP4/WebM" value={form.loopVideoUrl} baseUrl={RAID_BOSS_VIDEO_BASE_URL} disabled={!editable} onChange={(value) => update('loopVideoUrl', value)} />
+              <VisualUrlRow label="ACTION 영상" hint="선택 · 공격/패턴" value={form.actionVideoUrl} baseUrl={RAID_BOSS_VIDEO_BASE_URL} disabled={!editable} onChange={(value) => update('actionVideoUrl', value)} />
+              <VisualUrlRow label="STATE 영상" hint="선택 · 그로기/광폭화" value={form.stateVideoUrl} baseUrl={RAID_BOSS_VIDEO_BASE_URL} disabled={!editable} onChange={(value) => update('stateVideoUrl', value)} />
               <div className="grid items-center gap-2 sm:grid-cols-[132px_minmax(0,1fr)]">
                 <span className="text-xs font-black text-yellow-100">STATE 재생 시점</span>
                 <div className="flex flex-wrap gap-1.5">
@@ -2307,16 +2321,19 @@ function VisualUrlRow({
   label,
   hint,
   value,
+  baseUrl,
   disabled,
   onChange,
 }: {
   label: string;
   hint: string;
   value: string;
+  baseUrl?: string;
   disabled: boolean;
   onChange: (value: string) => void;
 }) {
   const filled = value.trim().length > 0;
+  const inputValue = baseUrl ? raidVideoInputValue(value, baseUrl) : value;
   return (
     <label className="grid items-center gap-1.5 sm:grid-cols-[132px_minmax(0,1fr)] sm:gap-2">
       <span className="min-w-0">
@@ -2326,13 +2343,23 @@ function VisualUrlRow({
         </span>
         <span className="block pl-4 text-[10px] font-bold text-cyan-100">{hint}</span>
       </span>
-      <input
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className={cn(inputClass(), 'py-2 text-xs')}
-        placeholder="https://..."
-      />
+      <span className="min-w-0">
+        {baseUrl ? (
+          <span
+            className="mb-1 block min-w-0 truncate text-[10px] font-bold text-cyan-200/80"
+            title={baseUrl}
+          >
+            {baseUrl}
+          </span>
+        ) : null}
+        <input
+          value={inputValue}
+          disabled={disabled}
+          onChange={(e) => onChange(baseUrl ? resolveRaidVideoUrl(e.target.value, baseUrl) : e.target.value)}
+          className={cn(inputClass(), 'py-2 text-xs')}
+          placeholder={baseUrl ? '파일명 또는 하위경로만 입력' : 'https://...'}
+        />
+      </span>
     </label>
   );
 }

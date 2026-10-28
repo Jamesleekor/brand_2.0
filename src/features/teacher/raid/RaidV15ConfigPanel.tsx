@@ -49,6 +49,22 @@ const DEFAULT_COMBAT: RaidV15CombatConfig = {
   boss_attack_name: '차원 충격',
 };
 
+const RAID_AUDIO_BASE_URL = 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/Raid/sounds/';
+
+function raidAudioInputValue(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.startsWith(RAID_AUDIO_BASE_URL)
+    ? trimmed.slice(RAID_AUDIO_BASE_URL.length)
+    : trimmed;
+}
+
+function resolveRaidAudioUrl(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `${RAID_AUDIO_BASE_URL}${trimmed.replace(/^\/+/, '')}`;
+}
+
 const EMPTY_AUDIO: Omit<RaidV15AudioProfile, 'raid_id' | 'configured'> = {
   lobby_bgm_url: null,
   battle_bgm_url: null,
@@ -669,7 +685,45 @@ function AudioEditor({ value, defaultValue, effectiveValue, scope, onScopeChange
 }
 
 function AudioGroup({ title, fields, value, set, disabled, fallback }: { title:string; fields:Array<[keyof RaidV15AudioUrlProfile,string]>; value:Partial<RaidV15AudioUrlProfile>; set:(key:keyof RaidV15AudioUrlProfile,next:string|null)=>void; disabled:boolean; fallback?:RaidV15AudioUrlProfile }) {
-  return <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-4"><h3 className="mb-3 text-lg font-black text-white">{title}</h3><div className="grid gap-3 lg:grid-cols-2">{fields.map(([key,label])=><label key={String(key)} className="block min-w-0"><span className="mb-1 block text-base font-black text-cyan-100">{label}</span><input type="text" value={String(value[key]??'')} placeholder={fallback?.[key] ? '비워두면 공용 기본값 사용' : 'https://...'} onChange={(e)=>set(key,e.target.value.trim()||null)} disabled={disabled} className="w-full min-w-0 rounded-card-md border border-cyan-300/20 bg-black/30 px-3 py-2 text-base font-bold text-white outline-none focus:border-cyan-300/60 disabled:opacity-50"/>{fallback?.[key] && !value[key] ? <div className="mt-1 min-w-0 break-all text-sm font-bold text-amber-100" title={String(fallback[key])}>기본값: {String(fallback[key]).replace('https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/', '')}</div>:null}</label>)}</div></div>;
+  return (
+    <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-4">
+      <h3 className="mb-3 text-lg font-black text-white">{title}</h3>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {fields.map(([key, label]) => {
+          const storedValue = String(value[key] ?? '');
+          const inputValue = raidAudioInputValue(storedValue);
+          const fallbackValue = fallback?.[key] ? raidAudioInputValue(String(fallback[key])) : '';
+          return (
+            <label key={String(key)} className="block min-w-0">
+              <span className="mb-1 block text-base font-black text-cyan-100">{label}</span>
+              <span
+                className="mb-1 block min-w-0 truncate text-[10px] font-bold text-cyan-200/80"
+                title={RAID_AUDIO_BASE_URL}
+              >
+                {RAID_AUDIO_BASE_URL}
+              </span>
+              <input
+                type="text"
+                value={inputValue}
+                placeholder={fallback?.[key] ? '비워두면 공용 기본값 사용' : '파일명 또는 하위경로만 입력'}
+                onChange={(e) => {
+                  const next = e.target.value.trim();
+                  set(key, next ? resolveRaidAudioUrl(next) : null);
+                }}
+                disabled={disabled}
+                className="w-full min-w-0 rounded-card-md border border-cyan-300/20 bg-black/30 px-3 py-2 text-base font-bold text-white outline-none focus:border-cyan-300/60 disabled:opacity-50"
+              />
+              {fallback?.[key] && !value[key] ? (
+                <div className="mt-1 min-w-0 break-all text-sm font-bold text-amber-100" title={String(fallback[key])}>
+                  기본값: {fallbackValue}
+                </div>
+              ) : null}
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function VolumeControl({ label, value, onChange, disabled }: { label: string; value: number; onChange: (v: number) => void; disabled: boolean }) {
