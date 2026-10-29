@@ -11,6 +11,7 @@ import { useToastStore } from '@/stores/ui_store';
 import { cn } from '@/lib/utils/cn';
 import { formatAuctionTime, useAuctionCountdown, useLiveAuctionState, useServerDeadlineCountdown } from '@/features/auction/useLiveAuction';
 import type { AuctionSuperPassState, LiveAuctionItem } from '@/features/auction/types';
+import AuctionSettlementModal from '@/features/teacher/AuctionSettlementModal';
 
 function rpcErrorMessage(result: unknown, fallback = '서버가 요청을 처리하지 못했습니다.'): string {
   if (result && typeof result === 'object' && 'error' in result) {
@@ -34,6 +35,7 @@ export default function AuctionAdmin() {
   const [pendingStartItem, setPendingStartItem] = useState<LiveAuctionItem | null>(null);
   const [itemResult, setItemResult] = useState<{ itemName:string; winnerName:string|null; finalPrice:number|null; status:string } | null>(null);
   const [historyDetailId, setHistoryDetailId] = useState<number | null>(null);
+  const [settlementAuctionId, setSettlementAuctionId] = useState<number | null>(null);
   const [presetOpen, setPresetOpen] = useState(false);
   const openCreateAuction = () => {
     // 버튼 클릭은 절대 조용히 실패하지 않는다. 학급 컨텍스트 검증은 모달 내부에서 한다.
@@ -435,7 +437,8 @@ export default function AuctionAdmin() {
       )}
 
       {itemResult && <AuctionItemResultModal result={itemResult} onClose={() => setItemResult(null)} />}
-      {historyDetailId && <AuctionHistoryDetailModal auctionId={historyDetailId} onClose={() => setHistoryDetailId(null)} />}
+      {historyDetailId && <AuctionHistoryDetailModal auctionId={historyDetailId} onClose={() => setHistoryDetailId(null)} onOpenSettlement={(id) => { setHistoryDetailId(null); setSettlementAuctionId(id); }} />}
+      {settlementAuctionId && <AuctionSettlementModal auctionId={settlementAuctionId} onClose={() => setSettlementAuctionId(null)} />}
       {presetOpen && auction && classroomId && <AuctionPresetModal classroomId={classroomId} auctionId={auction.id} existingItems={items} onClose={() => setPresetOpen(false)} onChanged={() => { setPresetOpen(false); invalidate(); }} />}
     </TeacherShell>
   );
@@ -784,12 +787,12 @@ function AuctionHistorySection({ rows, isLoading, onOpen }:{rows:any[];isLoading
  return <section className="bg-bg-card border border-line rounded-card-lg p-4"><div className="flex items-center justify-between mb-3"><div><h2 className="font-display text-lg text-white">🗂️ 이전 경매 기록</h2><p className="text-xs text-text-secondary mt-1">회차별 낙찰 결과를 언제든 다시 확인할 수 있습니다.</p></div></div>{isLoading?<LoadingSpinner/>:!rows.length?<p className="text-sm text-text-secondary">완료된 경매 기록이 없습니다.</p>:<div className="grid md:grid-cols-2 xl:grid-cols-3 gap-2">{rows.map((r:any)=><button key={r.id} onClick={()=>onOpen(r.id)} className="text-left bg-bg-deep border border-line rounded-card-md p-3 hover:border-gold/40"><div className="flex justify-between gap-2"><span className="font-black text-white">{r.school_year} · {r.round_number}회차</span><span className="text-xs text-success font-bold">완료</span></div><div className="text-xs text-text-primary mt-2">상품 {r.item_count}개 · 낙찰 {r.sold_count} · 유찰 {r.failed_count}</div><div className="font-mono text-gold font-black mt-1">총 {formatNumber(Number(r.total_sales||0))} GOLD</div></button>)}</div>}</section>;
 }
 
-function AuctionHistoryDetailModal({auctionId,onClose}:{auctionId:number;onClose:()=>void}){
+function AuctionHistoryDetailModal({auctionId,onClose,onOpenSettlement}:{auctionId:number;onClose:()=>void;onOpenSettlement?:(auctionId:number)=>void}){
  const q=useQuery({queryKey:['auction-history-detail',auctionId],queryFn:async()=>{const r=await teacherRpc.getAuctionHistoryDetail(supabase,{p_auction_id:auctionId});if(!r.success)throw new Error(rpcErrorMessage(r));return r.data;}});
  const items=q.data?.items??[];
  const grouped: Record<string,{name:string;items:any[]}> = {};
  for (const x of items.filter((item:any)=>item.winner_student_id)) { const k=String(x.winner_student_id); if(!grouped[k]) grouped[k]={name:x.winner_brand_name||x.winner_name,items:[]}; grouped[k].items.push(x); }
- return <Modal isOpen onClose={onClose} title="경매 기록 상세" emoji="🗂️" size="lg">{q.isLoading?<LoadingSpinner/>:q.isError?<div className="text-danger">{q.error instanceof Error?q.error.message:'기록 조회 실패'}</div>:<div className="space-y-4"><div className="bg-bg-deep border border-line rounded-card-md p-3"><div className="font-display text-xl text-white">{q.data?.auction?.school_year} · {q.data?.auction?.round_number}회차</div><div className="text-sm text-text-secondary mt-1">판매 상품 {items.length}개</div></div><div className="grid md:grid-cols-2 gap-3">{Object.values(grouped).map((g:any)=><div key={g.name} className="bg-bg-deep border border-line rounded-card-md p-3"><div className="font-black text-white mb-2">{g.name}</div>{g.items.map((x:any)=><div key={x.id} className="flex justify-between gap-2 text-sm py-1"><span>{x.item_name}</span><span className="text-gold font-mono font-black">{formatNumber(Number(x.final_price||0))}</span></div>)}</div>)}</div>{items.some((x:any)=>!x.winner_student_id)&&<div className="bg-bg-deep border border-line rounded-card-md p-3"><div className="font-black text-danger mb-2">유찰 상품</div><div className="flex flex-wrap gap-2">{items.filter((x:any)=>!x.winner_student_id).map((x:any)=><span key={x.id} className="text-sm text-text-primary">{x.item_name}</span>)}</div></div>}</div>}</Modal>;
+ return <Modal isOpen onClose={onClose} title="경매 기록 상세" emoji="🗂️" size="lg">{q.isLoading?<LoadingSpinner/>:q.isError?<div className="text-danger">{q.error instanceof Error?q.error.message:'기록 조회 실패'}</div>:<div className="space-y-4"><div className="bg-bg-deep border border-line rounded-card-md p-3"><div className="font-display text-xl text-white">{q.data?.auction?.school_year} · {q.data?.auction?.round_number}회차</div><div className="text-sm text-text-secondary mt-1">판매 상품 {items.length}개</div>{onOpenSettlement&&items.some((x:any)=>['자리','1인1역','급식순서'].includes(x.category))&&<button type="button" onClick={()=>onOpenSettlement(auctionId)} className="btn-primary mt-3">🧩 낙찰품 정리 (무료 양도 · 강제 분배 · 최종 배치표)</button>}</div><div className="grid md:grid-cols-2 gap-3">{Object.values(grouped).map((g:any)=><div key={g.name} className="bg-bg-deep border border-line rounded-card-md p-3"><div className="font-black text-white mb-2">{g.name}</div>{g.items.map((x:any)=><div key={x.id} className="flex justify-between gap-2 text-sm py-1"><span>{x.item_name}</span><span className="text-gold font-mono font-black">{formatNumber(Number(x.final_price||0))}</span></div>)}</div>)}</div>{items.some((x:any)=>!x.winner_student_id)&&<div className="bg-bg-deep border border-line rounded-card-md p-3"><div className="font-black text-danger mb-2">유찰 상품</div><div className="flex flex-wrap gap-2">{items.filter((x:any)=>!x.winner_student_id).map((x:any)=><span key={x.id} className="text-sm text-text-primary">{x.item_name}</span>)}</div></div>}</div>}</Modal>;
 }
 
 function auctionWage(item: { category?: string | null; description?: string | null }): string {
