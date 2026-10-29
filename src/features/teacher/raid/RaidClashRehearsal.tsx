@@ -481,7 +481,7 @@ export default function RaidClashRehearsal({ raidId, defaultDifficulty }: { raid
 
   const studentClash = toPublicState(model, true);
   const broadcastClash = toPublicState(model, false);
-  const playCue = useCallback<ClashCuePlayer>((cue) => audioRef.current?.playClashCue(cue), []);
+  const playCue = useCallback<ClashCuePlayer>((cue, judgmentKey) => audioRef.current?.playClashCue(cue, judgmentKey), []);
   useClashBroadcastCues(broadcastClash, audioOn && view !== 'STUDENT' ? playCue : null);
 
   const names = useMemo(() => [ME_NAME, ...BOT_NAMES.slice(0, Math.max(botCount, 3))], [botCount]);

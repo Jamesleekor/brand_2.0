@@ -23,6 +23,7 @@ import {
   type LocalClashNote,
 } from '@/features/raid/clash/clashCore';
 import { useClashPlayer } from '@/features/raid/clash/useClashPlayer';
+import { playClashJudgmentSfx, unlockClashSfx } from '@/features/raid/clash/clashSfx';
 import RaidClashRehearsal from './RaidClashRehearsal';
 
 const DIFFICULTIES: RaidClashDifficulty[] = ['EASY', 'NORMAL', 'HARD'];
@@ -296,10 +297,14 @@ function ClashPractice({ difficulty, onDifficultyChange }: { difficulty: RaidCla
     active: run !== null && Object.keys(results).length < 8,
     notes: run?.notes ?? [],
     profile,
-    onJudged: ({ note, judgment }) => setResults((current) => ({ ...current, [note.index]: judgment })),
+    onJudged: ({ note, judgment }) => {
+      playClashJudgmentSfx(judgment); // RAID_CLASH_SFX_20261029: 중계 화면과 같은 판정음(교사 PC에서 들림)
+      setResults((current) => ({ ...current, [note.index]: judgment }));
+    },
   });
 
   const start = () => {
+    unlockClashSfx();
     reset();
     setResults({});
     const startMs = clashNowMs() + 300;

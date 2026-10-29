@@ -245,12 +245,17 @@ export function useClashBroadcastCues(
       }
       if (phase === 'PLAYING' && id === prev.id) {
         const fresh = inputs.filter((item) => !prev.inputKeys.has(`${item.slot ?? 0}-${item.index}`));
-        // 한 번에 여러 판정이 들어오면 가장 좋은 판정의 소리 한 번만 낸다.
+        // RAID_CLASH_SFX_20261029: 대표마다 자기 판정음이 하나씩 울린다(세 명 모두 PERFECT면 "챙·챙·챙").
+        // 실시간 이벤트로 이미 울린 판정은 엔진이 judgmentKey로 걸러 낸다(실시간이 끊겼을 때의 대비용 경로).
         // 준비를 못 한 대표의 MISS가 한꺼번에 들어오는 경우(4개 이상 전부 MISS)는 소리를 내지 않는다.
-        const rank = { PERFECT: 3, GOOD: 2, BAD: 1, MISS: 0 } as const;
-        const best = fresh.reduce<(typeof inputs)[number] | null>((acc, item) => (!acc || rank[item.judgment] > rank[acc.judgment] ? item : acc), null);
-        if (best && !(best.judgment === 'MISS' && fresh.length > 3)) {
-          play(best.judgment === 'PERFECT' ? 'perfect' : best.judgment === 'GOOD' ? 'good' : best.judgment === 'BAD' ? 'bad' : 'miss');
+        const bulkMiss = fresh.length > 3 && fresh.every((item) => item.judgment === 'MISS');
+        if (!bulkMiss) {
+          for (const item of fresh) {
+            play(
+              item.judgment === 'PERFECT' ? 'perfect' : item.judgment === 'GOOD' ? 'good' : item.judgment === 'BAD' ? 'bad' : 'miss',
+              `${session.id}-${item.slot ?? 0}-${item.index}`,
+            );
+          }
         }
       }
       if (outcome && outcome !== prev.outcome) {
@@ -261,4 +266,5 @@ export function useClashBroadcastCues(
   }, [play, primed, session]);
 }
 
-export type ClashCuePlayer = (cue: 'start' | 'volunteer_end' | 'reveal' | 'countdown' | 'ring' | 'perfect' | 'good' | 'bad' | 'miss' | 'great' | 'success' | 'fail') => void;
+/** judgmentKey(선택) = "세션-슬롯-노트": 같은 판정음이 두 번 울리지 않게 하는 이름표 */
+export type ClashCuePlayer = (cue: 'start' | 'volunteer_end' | 'reveal' | 'countdown' | 'ring' | 'perfect' | 'good' | 'bad' | 'miss' | 'great' | 'success' | 'fail', judgmentKey?: string) => void;

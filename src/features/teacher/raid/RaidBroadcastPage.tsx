@@ -138,7 +138,7 @@ export default function RaidBroadcastPage() {
   const clashRefetchRef = useRef<(() => void) | null>(null);
   clashRefetchRef.current = () => { void broadcastQuery.refetch(); };
   const [clashForceBusy, setClashForceBusy] = useState(false);
-  const playClashCue = useCallback<ClashCuePlayer>((cue) => audioEngineRef.current?.playClashCue(cue), []);
+  const playClashCue = useCallback<ClashCuePlayer>((cue, judgmentKey) => audioEngineRef.current?.playClashCue(cue, judgmentKey), []);
 
   const handleRealtimeFeedback = useCallback((row: BroadcastFeedbackRow) => {
     audioEngineRef.current?.handleFeedback(row);

@@ -324,6 +324,7 @@ function PlayerPanel({
 
   // useClashPlayer가 최신 콜백을 ref로 들고 있으므로 매 렌더 새 함수여도 된다.
   const onJudged = (input: ClashJudgedInput) => {
+    // RAID_CLASH_SFX_20261029: 학생 크롬북은 무음 운영 → 판정음은 중계 화면에서만 낸다.
     setChecking(true);
     void actions
       .submit(input.note.index, input.keyCode, input.offsetMs)

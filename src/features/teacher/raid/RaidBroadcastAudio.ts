@@ -1,6 +1,7 @@
 // RAID_V15_E4D_AUDIO_ENGINE
 // RAID_BETA1_BROADCAST_AUDIO_FIX_20260918
 import type { RaidStatus, TeacherRaidAudioProfile } from '@/lib/rpc/raid_admin_rpc';
+import { renderClashJudgmentSfx } from '@/features/raid/clash/clashSfx';
 
 type FeedbackTier = 'NORMAL' | 'CRIT' | 'POWERFUL' | 'DEVASTATING';
 type BgmMode = 'NONE' | 'LOBBY' | 'BATTLE' | 'ENRAGE' | 'SUCCESS' | 'FAILURE';
@@ -14,13 +15,7 @@ type SfxSlot =
   | 'break_success_sfx_url'
   | 'break_fail_sfx_url'
   | 'barrier_hit_sfx_url'
-  | 'barrier_critical_sfx_url'
-  | 'clash_perfect_sfx_url'
-  | 'clash_good_sfx_url'
-  | 'clash_bad_sfx_url'
-  | 'clash_great_sfx_url'
-  | 'clash_success_sfx_url'
-  | 'clash_fail_sfx_url';
+  | 'barrier_critical_sfx_url';
 type SfxChannel = 'boss' | 'hit' | 'ui';
 
 export type RaidAudioFeedback = {
@@ -49,12 +44,6 @@ const DEFAULT_PROFILE: TeacherRaidAudioProfile = {
   break_fail_sfx_url: null,
   barrier_hit_sfx_url: null,
   barrier_critical_sfx_url: null,
-  clash_perfect_sfx_url: null,
-  clash_good_sfx_url: null,
-  clash_bad_sfx_url: null,
-  clash_great_sfx_url: null,
-  clash_success_sfx_url: null,
-  clash_fail_sfx_url: null,
   master_volume: 0.85,
   bgm_volume: 0.55,
   sfx_volume: 0.8,
@@ -78,6 +67,8 @@ export class RaidBroadcastAudioEngine {
   private nextAllowedAt = new Map<string, number>();
   private timers = new Set<number>();
   private sfxPools = new Map<string, HTMLAudioElement[]>();
+  /** RAID_CLASH_SFX_20261029: 이미 소리를 낸 격돌 판정("세션-슬롯-노트") */
+  private clashHeard = new Set<string>();
 
   setProfile(profile: TeacherRaidAudioProfile | null | undefined) {
     this.profile = profile ?? DEFAULT_PROFILE;
@@ -180,20 +171,16 @@ export class RaidBroadcastAudioEngine {
   }
 
   // RAID_CLASH_V1_20261028 — 격돌 효과음(전용 음원 없이 합성음, 기존 오디오 설정값은 그대로)
-  playClashCue(cue: 'start' | 'volunteer_end' | 'reveal' | 'countdown' | 'ring' | 'perfect' | 'good' | 'bad' | 'miss' | 'great' | 'success' | 'fail') {
+  /**
+   * judgmentKey(선택) = "세션-슬롯-노트". 같은 판정이 실시간 이벤트와 화면 갱신 두 경로로 들어와도 한 번만 울린다.
+   * (RAID_CLASH_SFX_20261029)
+   */
+  playClashCue(cue: 'start' | 'volunteer_end' | 'reveal' | 'countdown' | 'ring' | 'perfect' | 'good' | 'bad' | 'miss' | 'great' | 'success' | 'fail', judgmentKey?: string) {
     if (!this.unlocked || this.muted) return;
-    // CLASH_SFX_6SLOTS_20261029: Use user-configured samples; existing synthesized cues remain a fallback.
-    const configured: Partial<Record<typeof cue, SfxSlot>> = {
-      perfect: 'clash_perfect_sfx_url', good: 'clash_good_sfx_url', bad: 'clash_bad_sfx_url',
-      great: 'clash_great_sfx_url', success: 'clash_success_sfx_url', fail: 'clash_fail_sfx_url',
-    };
-    const slot = configured[cue];
-    if (slot && this.resolveSfxUrl(slot)) {
-      // Failed/unavailable audio file still falls back to a synthesized sound.
-      const fallback = cue === 'perfect' ? 'crit' : cue === 'good' ? 'ui_success' : cue === 'bad' ? 'ui_fail'
-        : cue === 'great' ? 'raid_start' : cue === 'success' ? 'break_success' : 'break_fail';
-      this.playSfx(slot, fallback, 'ui', cue === 'great' ? 1 : 0.9);
-      return;
+    if (judgmentKey) {
+      if (this.clashHeard.has(judgmentKey)) return;
+      if (this.clashHeard.size > 600) this.clashHeard.clear();
+      this.clashHeard.add(judgmentKey);
     }
     if (cue === 'start') {
       [220, 220, 330, 440].forEach((frequency, index) => this.schedule(index * 160, () => this.toneUi(frequency, index === 3 ? 0.5 : 0.18, 'sawtooth', 0.11)));
@@ -213,10 +200,13 @@ export class RaidBroadcastAudioEngine {
       this.toneUi(880, 0.05, 'sine', 0.035);
       return;
     }
-    if (cue === 'perfect') { this.toneUi(1046.5, 0.16, 'triangle', 0.13); this.schedule(60, () => this.toneUi(1568, 0.22, 'sine', 0.10)); return; }
-    if (cue === 'good') { this.toneUi(784, 0.16, 'triangle', 0.11); return; }
-    if (cue === 'bad') { this.toneUi(220, 0.18, 'sawtooth', 0.09); return; }
-    if (cue === 'miss') { this.toneUi(147, 0.22, 'square', 0.07); return; }
+    // RAID_CLASH_SFX_20261029: 판정음은 학생 화면과 같은 합성음(PERFECT = 맑고 시원한 금속음)
+    if (cue === 'perfect' || cue === 'good' || cue === 'bad' || cue === 'miss') {
+      if (this.context && this.uiGain) {
+        renderClashJudgmentSfx(this.context, this.uiGain, cue === 'perfect' ? 'PERFECT' : cue === 'good' ? 'GOOD' : cue === 'bad' ? 'BAD' : 'MISS');
+      }
+      return;
+    }
     if (cue === 'great') {
       [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((frequency, index) => this.schedule(index * 110, () => this.toneUi(frequency, index === 4 ? 0.8 : 0.24, 'triangle', 0.13)));
       return;
@@ -291,7 +281,18 @@ export class RaidBroadcastAudioEngine {
 
   private handleCombat(row: RaidAudioFeedback) {
     const event = String(row.event_type || '');
-    // RAID_CLASH_V1_20261028: 격돌 효과음은 중계 화면이 상태 변화에 맞춰 playClashCue로 직접 낸다(이중 재생 방지).
+    // RAID_CLASH_SFX_20261029: 판정음은 실시간 이벤트가 오는 즉시 낸다(화면 갱신을 기다리지 않아 더 빠름).
+    // 같은 판정이 화면 갱신 쪽(useClashBroadcastCues)에서 다시 와도 judgmentKey로 한 번만 울린다.
+    if (event === 'CLASH_NOTE_JUDGED') {
+      const payload = row.payload ?? {};
+      const judgment = String(payload.judgment ?? '');
+      const cue = judgment === 'PERFECT' ? 'perfect' : judgment === 'GOOD' ? 'good' : judgment === 'BAD' ? 'bad' : judgment === 'MISS' ? 'miss' : null;
+      if (cue && payload.clash_session_id != null && payload.note_index != null) {
+        this.playClashCue(cue, `${payload.clash_session_id}-${Number(payload.slot ?? 0)}-${payload.note_index}`);
+      }
+      return;
+    }
+    // RAID_CLASH_V1_20261028: 나머지 격돌 효과음은 중계 화면이 상태 변화에 맞춰 playClashCue로 직접 낸다(이중 재생 방지).
     if (event.startsWith('CLASH_')) return;
     const patternType = String(row.payload?.pattern_type ?? '');
     if (event === 'BARRIER_DAMAGED' || event === 'BOSS_ATTACK_RESOLVED') {
@@ -372,7 +373,7 @@ export class RaidBroadcastAudioEngine {
 
   private prepareSfxPools() {
     const urls = new Set<string>();
-    const slots: SfxSlot[] = ['raid_start_sfx_url','normal_hit_sfx_url','crit_hit_sfx_url','powerful_hit_sfx_url','devastating_hit_sfx_url','break_start_sfx_url','break_success_sfx_url','break_fail_sfx_url','barrier_hit_sfx_url','barrier_critical_sfx_url','clash_perfect_sfx_url','clash_good_sfx_url','clash_bad_sfx_url','clash_great_sfx_url','clash_success_sfx_url','clash_fail_sfx_url'];
+    const slots: SfxSlot[] = ['raid_start_sfx_url','normal_hit_sfx_url','crit_hit_sfx_url','powerful_hit_sfx_url','devastating_hit_sfx_url','break_start_sfx_url','break_success_sfx_url','break_fail_sfx_url','barrier_hit_sfx_url','barrier_critical_sfx_url'];
     for (const slot of slots) { const url = this.resolveSfxUrl(slot); if (url) urls.add(url); }
     for (const url of urls) {
       if (this.sfxPools.has(url)) continue;
