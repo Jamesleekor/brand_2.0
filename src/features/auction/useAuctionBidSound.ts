@@ -65,7 +65,7 @@ export function useAuctionBidSound({
   const soundsRef = useRef<Map<AuctionCue, HTMLAudioElement>>(new Map());
   const previousRef = useRef<SoundSnapshot | null>(null);
   const countdownDeadlineRef = useRef<string | null>(null);
-  const pendingNewProductTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const pendingNewProductTimerRef = useRef<number | null>(null);
   const enabledRef = useRef(false);
   enabledRef.current = enabled;
 
