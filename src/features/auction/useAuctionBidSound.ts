@@ -65,6 +65,7 @@ export function useAuctionBidSound({
   const soundsRef = useRef<Map<AuctionCue, HTMLAudioElement>>(new Map());
   const previousRef = useRef<SoundSnapshot | null>(null);
   const countdownDeadlineRef = useRef<string | null>(null);
+  const pendingNewProductTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const enabledRef = useRef(false);
   enabledRef.current = enabled;
 
@@ -104,6 +105,10 @@ export function useAuctionBidSound({
       enabledRef.current = false;
       setEnabled(false);
       countdownDeadlineRef.current = null;
+      if (pendingNewProductTimerRef.current !== null) {
+        window.clearTimeout(pendingNewProductTimerRef.current);
+        pendingNewProductTimerRef.current = null;
+      }
       for (const audio of soundsRef.current.values()) {
         audio.pause();
         try { audio.currentTime = 0; } catch { /* 미로딩 오디오 */ }
@@ -147,7 +152,7 @@ export function useAuctionBidSound({
     // 첫 상태·다른 경매 회차 진입 시 과거의 기록을 소리로 재생하지 않는다.
     if (!previous) return;
     if (previous.auctionId !== auctionId) {
-      if (enabled && !isStateDelayed && itemId !== null && previous.auctionId === null) {
+      if (enabled && !isStateDelayed && itemId !== null) {
         playCue('newProduct');
       }
       return;
@@ -169,7 +174,11 @@ export function useAuctionBidSound({
     if (newProduct) {
       // 같은 서버 응답에서 이전 상품 정산과 다음 상품 시작이 같이 관측될 때도 두 효과를 보장한다.
       if (newSale) {
-        window.setTimeout(() => { if (enabledRef.current) playCue('newProduct'); }, 1000);
+        if (pendingNewProductTimerRef.current !== null) window.clearTimeout(pendingNewProductTimerRef.current);
+        pendingNewProductTimerRef.current = window.setTimeout(() => {
+          pendingNewProductTimerRef.current = null;
+          if (enabledRef.current) playCue('newProduct');
+        }, 1000);
       } else {
         playCue('newProduct');
       }
@@ -182,7 +191,7 @@ export function useAuctionBidSound({
   useEffect(() => {
     // SUPER PASS 신청 단계 / 일시정지 / 낙찰 / 입찰 연장 시 시계음을 멈추거나 다시 시작한다.
     const shouldTick = ready && enabled && !isStateDelayed && auctionId !== null
-      && itemId !== null && deadline !== null && !paused && !applying
+      && itemId !== null && item?.final_status === null && deadline !== null && !paused && !applying
       && remainingSeconds > 0 && remainingSeconds <= 10;
     if (!shouldTick) {
       countdownDeadlineRef.current = null;
@@ -204,6 +213,8 @@ export function useAuctionBidSound({
   }, [ready, enabled, isStateDelayed, auctionId, itemId, deadline, paused, applying, remainingSeconds, audioFor, stopCountdown]);
 
   useEffect(() => () => {
+    // 탭 종료·다른 페이지 이동 시 지연 효과와 모든 음원을 정지한다.
+    if (pendingNewProductTimerRef.current !== null) window.clearTimeout(pendingNewProductTimerRef.current);
     // 탭 종료·다른 페이지 이동 시 카운트다운을 포함한 모든 사운드를 즉시 정지한다.
     for (const audio of soundsRef.current.values()) {
       audio.pause();
