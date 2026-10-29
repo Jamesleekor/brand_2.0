@@ -9,7 +9,7 @@ import { feature4Rpc } from '@/lib/rpc/feature4_rpc';
 import { feature4QueryError } from '@/lib/feature4_debug';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
 import { formatRelativeTime } from '@/lib/utils/format';
-import { LinkifiedText } from '@/components/shared/LinkifiedText';
+import { MailRichBody } from '@/features/mail/MailRichBody';
 import { cn } from '@/lib/utils/cn';
 
 type Tab = 'mail' | 'alerts' | 'activity';
@@ -81,7 +81,7 @@ function MailTab({studentId,classroomId}:{studentId:number|null;classroomId:numb
   },[selected?.id]);
   if(q.isLoading) return <CenterLoad/>;
   if(q.isError) return <Feature4ErrorPanel domain="F4A" error={q.error} onRetry={()=>void q.refetch()} />;
-  if(selected) return <div className="glass-card p-4"><button onClick={()=>setOpenId(null)} className="text-xs text-brand-primary font-bold mb-4">← 목록</button><div className="text-2xs font-black mb-1"><span className="text-[#9FE8D8]">{mailSenderName(selected)}</span><span className="text-[#F3EBD3]/70"> · {formatRelativeTime(selected.created_at)}</span></div><h2 className="font-display text-lg text-brand-gradient mb-3">{selected.title}</h2><p className="text-sm leading-relaxed whitespace-pre-wrap break-words text-text-primary"><LinkifiedText text={selected.body} /></p></div>;
+  if(selected) return <div className="glass-card p-4"><button onClick={()=>setOpenId(null)} className="text-xs text-brand-primary font-bold mb-4">← 목록</button><div className="text-2xs font-black mb-1"><span className="text-[#9FE8D8]">{mailSenderName(selected)}</span><span className="text-[#F3EBD3]/70"> · {formatRelativeTime(selected.created_at)}</span></div><h2 className="font-display text-lg text-brand-gradient mb-3">{selected.title}</h2><div className="text-sm leading-relaxed break-words text-text-primary"><MailRichBody text={selected.body} allowImagePreviews={selected.sender_type !== 'STUDENT'} /></div></div>;
   if(!q.data?.length) return <EmptyState emoji="📭" title="받은 우편이 없어요"/>;
   return <div className="space-y-2">
     {q.data.map((m:any)=><motion.button
