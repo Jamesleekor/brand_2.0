@@ -82,6 +82,12 @@ const EMPTY_AUDIO: Omit<RaidV15AudioProfile, 'raid_id' | 'configured'> = {
   break_fail_sfx_url: null,
   barrier_hit_sfx_url: null,
   barrier_critical_sfx_url: null,
+  clash_perfect_sfx_url: null,
+  clash_good_sfx_url: null,
+  clash_bad_sfx_url: null,
+  clash_great_sfx_url: null,
+  clash_success_sfx_url: null,
+  clash_fail_sfx_url: null,
   master_volume: 0.85,
   bgm_volume: 0.55,
   sfx_volume: 0.8,
@@ -123,7 +129,7 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
   const [combat, setCombat] = useState<RaidV15CombatConfig>(DEFAULT_COMBAT);
   const [patterns, setPatterns] = useState<RaidV15Pattern[]>([]);
   const [audio, setAudio] = useState<Omit<RaidV15AudioProfile, 'raid_id' | 'configured'>>(EMPTY_AUDIO);
-  const [defaultAudio, setDefaultAudio] = useState<RaidV15DefaultAudioProfile>({ lobby_bgm_url:null,battle_bgm_url:null,enrage_bgm_url:null,raid_start_sfx_url:null,raid_success_bgm_url:null,raid_failure_bgm_url:null,normal_hit_sfx_url:null,crit_hit_sfx_url:null,powerful_hit_sfx_url:null,devastating_hit_sfx_url:null,break_start_sfx_url:null,break_success_sfx_url:null,break_fail_sfx_url:null,barrier_hit_sfx_url:null,barrier_critical_sfx_url:null,configured:false });
+  const [defaultAudio, setDefaultAudio] = useState<RaidV15DefaultAudioProfile>({ lobby_bgm_url:null,battle_bgm_url:null,enrage_bgm_url:null,raid_start_sfx_url:null,raid_success_bgm_url:null,raid_failure_bgm_url:null,normal_hit_sfx_url:null,crit_hit_sfx_url:null,powerful_hit_sfx_url:null,devastating_hit_sfx_url:null,break_start_sfx_url:null,break_success_sfx_url:null,break_fail_sfx_url:null,barrier_hit_sfx_url:null,barrier_critical_sfx_url:null,clash_perfect_sfx_url:null,clash_good_sfx_url:null,clash_bad_sfx_url:null,clash_great_sfx_url:null,clash_success_sfx_url:null,clash_fail_sfx_url:null,configured:false });
   const [audioScope, setAudioScope] = useState<'DEFAULT'|'OVERRIDE'>('OVERRIDE');
   const [loadedRaid, setLoadedRaid] = useState<number | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
@@ -682,6 +688,8 @@ function AudioEditor({ value, defaultValue, effectiveValue, scope, onScopeChange
     <AudioGroup title="🎵 배경음악(BGM)" fields={[[ 'lobby_bgm_url','로비 배경음악(Lobby BGM)' ],['battle_bgm_url','전투 배경음악(Battle BGM)'],['enrage_bgm_url','광폭화 배경음악(Enrage BGM)'],['raid_success_bgm_url','성공 배경음악(Success BGM)'],['raid_failure_bgm_url','실패 배경음악(Failure BGM)']]} value={active} set={setter} disabled={disabled} fallback={scope==='OVERRIDE'?defaultUrls:undefined}/>
     <AudioGroup title="⚔️ 공격 효과음(SFX)" fields={[[ 'raid_start_sfx_url','레이드 시작(Raid Start)' ],['normal_hit_sfx_url','일반 타격(Normal Hit)'],['crit_hit_sfx_url','치명타(Critical Hit)'],['powerful_hit_sfx_url','강력한 일격(Powerful Hit)'],['devastating_hit_sfx_url','압도적 일격(Devastating Hit)']]} value={active} set={setter} disabled={disabled} fallback={scope==='OVERRIDE'?defaultUrls:undefined}/>
     <AudioGroup title="🛡 기믹 효과음(SFX)" fields={[[ 'break_start_sfx_url','특수 패턴 예고(Pattern Warning)' ],['break_success_sfx_url','특수 패턴 파훼 성공(Pattern Success)'],['break_fail_sfx_url','특수 패턴 파훼 실패(Pattern Fail)'],['barrier_hit_sfx_url','공명방벽 피격(Barrier Hit)'],['barrier_critical_sfx_url','공명방벽 위험(Barrier Critical)']]} value={active} set={setter} disabled={disabled} fallback={scope==='OVERRIDE'?defaultUrls:undefined}/>
+    <AudioGroup title="⚔️ 격돌 판정 효과음(CLASH Judgment)" fields={[[ 'clash_perfect_sfx_url','PERFECT · 완벽 판정 (금색)' ],[ 'clash_good_sfx_url','GOOD · 좋은 판정 (파란색)' ],[ 'clash_bad_sfx_url','BAD · 실패 판정 (빨간색)' ]]} value={active} set={setter} disabled={disabled} fallback={scope==='OVERRIDE'?defaultUrls:undefined}/>
+    <AudioGroup title="🏆 격돌 최종 결과 효과음(CLASH Result)" fields={[[ 'clash_great_sfx_url','대성공 (13~16점)' ],[ 'clash_success_sfx_url','성공 (8~12점)' ],[ 'clash_fail_sfx_url','실패 (0~7점)' ]]} value={active} set={setter} disabled={disabled} fallback={scope==='OVERRIDE'?defaultUrls:undefined}/>
     <div className="flex justify-end"><button type="button" onClick={scope==='DEFAULT'?onSaveDefault:onSave} disabled={disabled||saving!==null} className="btn-primary text-base disabled:opacity-40">{saving ? '저장 중…' : scope==='DEFAULT'?'🏫 공용 기본 음원 저장':'👾 보스 개별 음원 저장'}</button></div>
     <div className="rounded-card-md border border-cyan-300/15 bg-bg-deep p-4 text-sm font-bold text-cyan-100">현재 최종 적용: 전투 BGM {effectiveValue.battle_bgm_url ? '✓' : '없음'} · 일반 타격 {effectiveValue.normal_hit_sfx_url ? '✓' : '없음'} · 치명타 {effectiveValue.crit_hit_sfx_url ? '✓' : '없음'}</div>
   </div>;

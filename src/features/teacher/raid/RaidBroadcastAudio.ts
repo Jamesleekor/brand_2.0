@@ -14,7 +14,13 @@ type SfxSlot =
   | 'break_success_sfx_url'
   | 'break_fail_sfx_url'
   | 'barrier_hit_sfx_url'
-  | 'barrier_critical_sfx_url';
+  | 'barrier_critical_sfx_url'
+  | 'clash_perfect_sfx_url'
+  | 'clash_good_sfx_url'
+  | 'clash_bad_sfx_url'
+  | 'clash_great_sfx_url'
+  | 'clash_success_sfx_url'
+  | 'clash_fail_sfx_url';
 type SfxChannel = 'boss' | 'hit' | 'ui';
 
 export type RaidAudioFeedback = {
@@ -43,6 +49,12 @@ const DEFAULT_PROFILE: TeacherRaidAudioProfile = {
   break_fail_sfx_url: null,
   barrier_hit_sfx_url: null,
   barrier_critical_sfx_url: null,
+  clash_perfect_sfx_url: null,
+  clash_good_sfx_url: null,
+  clash_bad_sfx_url: null,
+  clash_great_sfx_url: null,
+  clash_success_sfx_url: null,
+  clash_fail_sfx_url: null,
   master_volume: 0.85,
   bgm_volume: 0.55,
   sfx_volume: 0.8,
@@ -170,6 +182,19 @@ export class RaidBroadcastAudioEngine {
   // RAID_CLASH_V1_20261028 — 격돌 효과음(전용 음원 없이 합성음, 기존 오디오 설정값은 그대로)
   playClashCue(cue: 'start' | 'volunteer_end' | 'reveal' | 'countdown' | 'ring' | 'perfect' | 'good' | 'bad' | 'miss' | 'great' | 'success' | 'fail') {
     if (!this.unlocked || this.muted) return;
+    // CLASH_SFX_6SLOTS_20261029: Use user-configured samples; existing synthesized cues remain a fallback.
+    const configured: Partial<Record<typeof cue, SfxSlot>> = {
+      perfect: 'clash_perfect_sfx_url', good: 'clash_good_sfx_url', bad: 'clash_bad_sfx_url',
+      great: 'clash_great_sfx_url', success: 'clash_success_sfx_url', fail: 'clash_fail_sfx_url',
+    };
+    const slot = configured[cue];
+    if (slot && this.resolveSfxUrl(slot)) {
+      // Failed/unavailable audio file still falls back to a synthesized sound.
+      const fallback = cue === 'perfect' ? 'crit' : cue === 'good' ? 'ui_success' : cue === 'bad' ? 'ui_fail'
+        : cue === 'great' ? 'raid_start' : cue === 'success' ? 'break_success' : 'break_fail';
+      this.playSfx(slot, fallback, 'ui', cue === 'great' ? 1 : 0.9);
+      return;
+    }
     if (cue === 'start') {
       [220, 220, 330, 440].forEach((frequency, index) => this.schedule(index * 160, () => this.toneUi(frequency, index === 3 ? 0.5 : 0.18, 'sawtooth', 0.11)));
       return;
@@ -347,7 +372,7 @@ export class RaidBroadcastAudioEngine {
 
   private prepareSfxPools() {
     const urls = new Set<string>();
-    const slots: SfxSlot[] = ['raid_start_sfx_url','normal_hit_sfx_url','crit_hit_sfx_url','powerful_hit_sfx_url','devastating_hit_sfx_url','break_start_sfx_url','break_success_sfx_url','break_fail_sfx_url','barrier_hit_sfx_url','barrier_critical_sfx_url'];
+    const slots: SfxSlot[] = ['raid_start_sfx_url','normal_hit_sfx_url','crit_hit_sfx_url','powerful_hit_sfx_url','devastating_hit_sfx_url','break_start_sfx_url','break_success_sfx_url','break_fail_sfx_url','barrier_hit_sfx_url','barrier_critical_sfx_url','clash_perfect_sfx_url','clash_good_sfx_url','clash_bad_sfx_url','clash_great_sfx_url','clash_success_sfx_url','clash_fail_sfx_url'];
     for (const slot of slots) { const url = this.resolveSfxUrl(slot); if (url) urls.add(url); }
     for (const url of urls) {
       if (this.sfxPools.has(url)) continue;

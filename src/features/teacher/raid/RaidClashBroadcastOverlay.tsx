@@ -207,9 +207,11 @@ export function useClashBroadcastCues(
         if (phase === 'SELECTED') play('reveal');
         if (phase === 'PLAYING') play('countdown');
       }
-      if (phase === 'PLAYING' && inputs > prev.inputs && id === prev.id) {
-        const newest = session.inputs[session.inputs.length - 1];
-        if (newest) play(newest.judgment === 'PERFECT' ? 'perfect' : newest.judgment === 'GOOD' ? 'good' : newest.judgment === 'BAD' ? 'bad' : 'miss');
+      // Play every newly received judgment, including final inputs arriving with RESOLVED.
+      if (inputs > prev.inputs && id === prev.id) {
+        for (const entry of session.inputs.slice(prev.inputs)) {
+          play(entry.judgment === 'PERFECT' ? 'perfect' : entry.judgment === 'GOOD' ? 'good' : entry.judgment === 'BAD' ? 'bad' : 'miss');
+        }
       }
       if (outcome && outcome !== prev.outcome) {
         play(outcome === 'GREAT_SUCCESS' ? 'great' : outcome === 'SUCCESS' ? 'success' : 'fail');

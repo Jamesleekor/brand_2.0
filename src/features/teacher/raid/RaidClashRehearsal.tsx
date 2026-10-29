@@ -31,6 +31,8 @@ import {
 } from '@/features/raid/clash/clashCore';
 import RaidClashBroadcastOverlay, { useClashBroadcastCues, type ClashCuePlayer } from './RaidClashBroadcastOverlay';
 import { RaidBroadcastAudioEngine } from './RaidBroadcastAudio';
+import { raidAdminRpc } from '@/lib/rpc/raid_admin_rpc';
+import { supabase } from '@/lib/supabase/client';
 
 const SIM_EFFECTS: RaidClashEffects = {
   GREAT_SUCCESS: { buff_seconds: 10, block_seconds: 16, clash_component: 3 },
@@ -386,6 +388,9 @@ export default function RaidClashRehearsal({ raidId, defaultDifficulty }: { raid
       const engine = audioRef.current ?? new RaidBroadcastAudioEngine();
       audioRef.current = engine;
       try {
+        // Rehearsal uses the same effective audio assets as the live broadcast.
+        const profile = await raidAdminRpc.audioProfile(supabase, raidId);
+        if (profile.success) engine.setProfile(profile.data);
         await engine.unlock();
         engine.setMuted(false);
       } catch {

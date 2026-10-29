@@ -66,6 +66,12 @@ export interface RaidV15AudioProfile {
   break_fail_sfx_url: string | null;
   barrier_hit_sfx_url: string | null;
   barrier_critical_sfx_url: string | null;
+  clash_perfect_sfx_url: string | null;
+  clash_good_sfx_url: string | null;
+  clash_bad_sfx_url: string | null;
+  clash_great_sfx_url: string | null;
+  clash_success_sfx_url: string | null;
+  clash_fail_sfx_url: string | null;
   master_volume: number;
   bgm_volume: number;
   sfx_volume: number;
@@ -74,7 +80,8 @@ export interface RaidV15AudioProfile {
 
 export type RaidV15AudioUrlProfile = Pick<RaidV15AudioProfile,
   'lobby_bgm_url'|'battle_bgm_url'|'enrage_bgm_url'|'raid_start_sfx_url'|'raid_success_bgm_url'|'raid_failure_bgm_url'|
-  'normal_hit_sfx_url'|'crit_hit_sfx_url'|'powerful_hit_sfx_url'|'devastating_hit_sfx_url'|'break_start_sfx_url'|'break_success_sfx_url'|'break_fail_sfx_url'|'barrier_hit_sfx_url'|'barrier_critical_sfx_url'>;
+  'normal_hit_sfx_url'|'crit_hit_sfx_url'|'powerful_hit_sfx_url'|'devastating_hit_sfx_url'|'break_start_sfx_url'|'break_success_sfx_url'|'break_fail_sfx_url'|'barrier_hit_sfx_url'|'barrier_critical_sfx_url'|
+  'clash_perfect_sfx_url'|'clash_good_sfx_url'|'clash_bad_sfx_url'|'clash_great_sfx_url'|'clash_success_sfx_url'|'clash_fail_sfx_url'>;
 export interface RaidV15DefaultAudioProfile extends RaidV15AudioUrlProfile { configured: boolean; }
 export interface RaidV15AudioConfiguration {
   raid_id:number; classroom_id:number; default_profile:RaidV15DefaultAudioProfile; override_profile:RaidV15AudioProfile; effective_profile:RaidV15AudioProfile;

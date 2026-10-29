@@ -209,6 +209,12 @@ export interface TeacherRaidAudioProfile {
   break_fail_sfx_url: string | null;
   barrier_hit_sfx_url: string | null;
   barrier_critical_sfx_url: string | null;
+  clash_perfect_sfx_url: string | null;
+  clash_good_sfx_url: string | null;
+  clash_bad_sfx_url: string | null;
+  clash_great_sfx_url: string | null;
+  clash_success_sfx_url: string | null;
+  clash_fail_sfx_url: string | null;
   master_volume: number;
   bgm_volume: number;
   sfx_volume: number;
