@@ -12,6 +12,7 @@ import type {
   RaidClashKeyCode,
   RaidClashOutcome,
   RaidClashPhase,
+  RaidClashPlayer,
   RaidClashProfile,
   RaidClashPublicState,
   RaidClashSelected,
@@ -22,17 +23,16 @@ import RaidClashOverlay, { ClashBuffOverlay, type RaidClashActions } from '@/fea
 import {
   CLASH_DIFFICULTY_LABEL,
   CLASH_KEYS,
+  CLASH_TEAM_SIZE,
   clashIdealOffsetMs,
   clashNowMs,
-  clashOutcome,
   clashPoints,
+  clashTeamOutcome,
   judgeClash,
   localClashProfile,
 } from '@/features/raid/clash/clashCore';
 import RaidClashBroadcastOverlay, { useClashBroadcastCues, type ClashCuePlayer } from './RaidClashBroadcastOverlay';
 import { RaidBroadcastAudioEngine } from './RaidBroadcastAudio';
-import { raidAdminRpc } from '@/lib/rpc/raid_admin_rpc';
-import { supabase } from '@/lib/supabase/client';
 
 const SIM_EFFECTS: RaidClashEffects = {
   GREAT_SUCCESS: { buff_seconds: 10, block_seconds: 16, clash_component: 3 },
@@ -49,12 +49,15 @@ const KEEP_RENDERING_AFTER_RESOLVE_MS = 18_000;
 type View = 'STUDENT' | 'BROADCAST' | 'BOTH';
 type BotPlan = 'RANDOM' | 'GREAT' | 'SUCCESS' | 'FAIL';
 type Who = 'me' | number; // number = 가상 학생 번호
+type SimInput = { judgment: RaidClashJudgment; points: number };
 
+// RAID_CLASH_V2_20261029: 대표 최대 3명. 슬롯(0~2)마다 준비 여부·판정·가상 오차를 따로 둔다.
 interface SimModel {
   id: number;
   version: number;
   phase: RaidClashPhase;
   profile: RaidClashProfile;
+  plan: BotPlan;
   noteKeys: RaidClashKeyCode[];
   triggeredAt: number;
   volunteerClosesAt: number;
@@ -62,13 +65,15 @@ interface SimModel {
   volunteers: Who[];
   botJoinAt: number[];
   forceMe: boolean;
-  selected: Who | null;
+  /** 슬롯 순서대로 뽑힌 대표 */
+  selected: Who[];
+  ready: boolean[];
   selectedAt: number | null;
   readyDeadlineAt: number | null;
   playStartsAt: number | null;
   playDeadlineAt: number | null;
-  inputs: Partial<Record<number, { judgment: RaidClashJudgment; points: number }>>;
-  botOffsets: Array<number | null>;
+  inputs: Array<Partial<Record<number, SimInput>>>;
+  botOffsets: Array<Array<number | null>>;
   outcome: RaidClashOutcome | null;
   outcomeReason: string | null;
   resolvedAt: number | null;
@@ -118,6 +123,7 @@ function createModel(difficulty: RaidClashDifficulty, botCount: number, plan: Bo
     version: 1,
     phase: 'VOLUNTEERING',
     profile,
+    plan,
     noteKeys: Array.from({ length: 8 }, () => CLASH_KEYS[Math.floor(Math.random() * CLASH_KEYS.length)]),
     triggeredAt: now,
     volunteerClosesAt: closes,
@@ -126,13 +132,14 @@ function createModel(difficulty: RaidClashDifficulty, botCount: number, plan: Bo
     // 가상 학생들은 버튼이 풀린 뒤(1초) 모집이 끝나기 전 아무 때나 지원한다.
     botJoinAt: Array.from({ length: botCount }, () => now + profile.volunteer_button_delay_ms + 150 + Math.random() * (profile.volunteer_ms - profile.volunteer_button_delay_ms - 400)),
     forceMe,
-    selected: null,
+    selected: [],
+    ready: [],
     selectedAt: null,
     readyDeadlineAt: null,
     playStartsAt: null,
     playDeadlineAt: null,
-    inputs: {},
-    botOffsets: makeBotOffsets(plan, profile),
+    inputs: [],
+    botOffsets: [],
     outcome: null,
     outcomeReason: null,
     resolvedAt: null,
@@ -164,8 +171,19 @@ function resolve(m: SimModel, now: number, outcome: RaidClashOutcome, reason: st
   m.version += 1;
 }
 
-function simScore(m: SimModel) {
-  return Object.values(m.inputs).reduce((sum, item) => sum + (item?.points ?? 0), 0);
+function simScore(m: SimModel, slot?: number) {
+  const slots = slot == null ? m.inputs : [m.inputs[slot] ?? {}];
+  return slots.reduce((total, map) => total + Object.values(map).reduce((sum, item) => sum + (item?.points ?? 0), 0), 0);
+}
+
+function simInputCount(m: SimModel) {
+  return m.inputs.reduce((total, map) => total + Object.keys(map).length, 0);
+}
+
+/** 서버와 같은 팀 기준: 1인 기준(성공 8·대성공 13) × 뽑힌 인원 */
+function simRule(m: SimModel) {
+  const count = Math.max(1, m.selected.length || CLASH_TEAM_SIZE);
+  return { count, success: m.profile.success_score * count, great: m.profile.great_score * count, max: 16 * count };
 }
 
 function startPlay(m: SimModel, now: number) {
@@ -174,21 +192,25 @@ function startPlay(m: SimModel, now: number) {
   m.phase = 'PLAYING';
   m.playStartsAt = start;
   m.playDeadlineAt = start + clashIdealOffsetMs(m.profile, 7) + m.profile.bad_ms + m.profile.latency_slack_ms;
+  // 준비 시간 안에 준비 완료를 못 보낸 대표는 8개 모두 MISS(서버 NOT_READY와 같음)
+  m.selected.forEach((_, slot) => {
+    if (m.ready[slot]) return;
+    for (let index = 0; index < 8; index += 1) m.inputs[slot][index] ??= { judgment: 'MISS', points: 0 };
+  });
   m.version += 1;
 }
 
 function finishPlay(m: SimModel, now: number, reason: string) {
   if (m.phase !== 'PLAYING') return;
-  for (let index = 0; index < 8; index += 1) {
-    if (!m.inputs[index]) m.inputs[index] = { judgment: 'MISS', points: 0 };
-  }
-  const score = simScore(m);
-  resolve(m, now, clashOutcome(score, m.profile), reason);
+  m.selected.forEach((_, slot) => {
+    for (let index = 0; index < 8; index += 1) m.inputs[slot][index] ??= { judgment: 'MISS', points: 0 };
+  });
+  resolve(m, now, clashTeamOutcome(simScore(m), simRule(m)), reason);
 }
 
-function record(m: SimModel, index: number, judgment: RaidClashJudgment) {
-  if (m.inputs[index]) return;
-  m.inputs[index] = { judgment, points: clashPoints(judgment) };
+function record(m: SimModel, slot: number, index: number, judgment: RaidClashJudgment) {
+  if (!m.inputs[slot] || m.inputs[slot][index]) return;
+  m.inputs[slot][index] = { judgment, points: clashPoints(judgment) };
   m.version += 1;
 }
 
@@ -201,15 +223,19 @@ function advance(m: SimModel, now: number) {
       }
     });
     if (now >= m.acceptUntil) {
-      const pick: Who | undefined = m.forceMe && m.volunteers.includes('me')
-        ? 'me'
-        : m.volunteers[Math.floor(Math.random() * m.volunteers.length)];
-      if (pick === undefined) {
+      // 지원자 중 최대 3명을 무작위로 뽑는다. 「내가 지원하면 반드시 대표로」가 켜져 있으면 나를 먼저 넣는다.
+      const pool = [...m.volunteers].sort(() => Math.random() - 0.5);
+      const picks: Who[] = m.forceMe && pool.includes('me') ? ['me', ...pool.filter((who) => who !== 'me')] : pool;
+      const selected = picks.slice(0, CLASH_TEAM_SIZE);
+      if (selected.length === 0) {
         resolve(m, now, 'FAILED', 'NO_VOLUNTEER');
         return;
       }
       m.phase = 'SELECTED';
-      m.selected = pick;
+      m.selected = selected;
+      m.ready = selected.map(() => false);
+      m.inputs = selected.map(() => ({}));
+      m.botOffsets = selected.map((who) => (who === 'me' ? [] : makeBotOffsets(m.plan, m.profile)));
       m.selectedAt = now;
       m.readyDeadlineAt = now + m.profile.reveal_ms + m.profile.ready_timeout_ms;
       m.version += 1;
@@ -217,27 +243,35 @@ function advance(m: SimModel, now: number) {
   }
   if (m.phase === 'SELECTED' && m.selectedAt != null) {
     // 가상 대표는 화면을 받자마자 준비 완료를 보낸다. 내가 대표면 오버레이가 actions.ready()를 부른다.
-    if (m.selected !== 'me' && now >= m.selectedAt + 400) startPlay(m, now);
+    if (now >= m.selectedAt + 400) {
+      m.selected.forEach((who, slot) => {
+        if (who !== 'me' && !m.ready[slot]) {
+          m.ready[slot] = true;
+          m.version += 1;
+        }
+      });
+    }
+    if (m.ready.every(Boolean)) startPlay(m, now);
     else if (m.readyDeadlineAt != null && now >= m.readyDeadlineAt) startPlay(m, now);
   }
   if (m.phase === 'PLAYING' && m.playStartsAt != null) {
-    if (m.selected !== 'me') {
+    m.selected.forEach((who, slot) => {
+      if (who === 'me') return;
       for (let index = 0; index < 8; index += 1) {
-        if (m.inputs[index]) continue;
-        const ideal = m.playStartsAt + clashIdealOffsetMs(m.profile, index);
-        const offset = m.botOffsets[index];
-        if (offset != null && now >= ideal + offset) record(m, index, judgeClash(offset, m.profile));
-        else if (offset == null && now >= ideal + m.profile.bad_ms + 50) record(m, index, 'MISS');
+        if (m.inputs[slot][index]) continue;
+        const ideal = (m.playStartsAt as number) + clashIdealOffsetMs(m.profile, index);
+        const offset = m.botOffsets[slot]?.[index] ?? null;
+        if (offset != null && now >= ideal + offset) record(m, slot, index, judgeClash(offset, m.profile));
+        else if (offset == null && now >= ideal + m.profile.bad_ms + 50) record(m, slot, index, 'MISS');
       }
-    }
-    const count = Object.keys(m.inputs).length;
-    if (count >= 8) finishPlay(m, now, 'SCORED');
+    });
+    if (simInputCount(m) >= 8 * m.selected.length) finishPlay(m, now, 'SCORED');
     else if (m.playDeadlineAt != null && now >= m.playDeadlineAt) finishPlay(m, now, 'TIMEOUT');
   }
 }
 
-function selectedInfo(who: Who | null): RaidClashSelected | null {
-  if (who === null) return null;
+function selectedInfo(who: Who | null | undefined): RaidClashSelected | null {
+  if (who == null) return null;
   return {
     participant_id: who === 'me' ? 0 : who + 1,
     student_name: who === 'me' ? ME_NAME : BOT_NAMES[who % BOT_NAMES.length],
@@ -253,6 +287,16 @@ function toPublicState(m: SimModel | null, asStudent: boolean): RaidClashPublicS
   if (!m) return null;
   const now = clashNowMs();
   const p = m.profile;
+  const rule = simRule(m);
+  const mySlotIndex = asStudent ? m.selected.indexOf('me') : -1;
+  const mySlot = mySlotIndex >= 0 ? mySlotIndex : null;
+  const players: RaidClashPlayer[] = m.selected.map((who, slot) => ({
+    ...(selectedInfo(who) as RaidClashSelected),
+    slot,
+    ready: Boolean(m.ready[slot]),
+    judged: Object.keys(m.inputs[slot] ?? {}).length,
+    score: simScore(m, slot),
+  }));
   return {
     enabled: true,
     difficulty: p.difficulty,
@@ -267,8 +311,15 @@ function toPublicState(m: SimModel | null, asStudent: boolean): RaidClashPublicS
       volunteer_accept_until: iso(m.acceptUntil) as string,
       volunteer_count: m.volunteers.length,
       i_volunteered: asStudent && m.volunteers.includes('me'),
-      i_am_selected: asStudent && m.selected === 'me',
-      selected: selectedInfo(m.selected),
+      i_am_selected: mySlot != null,
+      my_slot: mySlot,
+      planned_player_count: CLASH_TEAM_SIZE,
+      player_count: rule.count,
+      players,
+      score_success: rule.success,
+      score_great: rule.great,
+      score_max: rule.max,
+      selected: selectedInfo(m.selected[0]),
       selected_at: iso(m.selectedAt),
       ready_deadline_at: iso(m.readyDeadlineAt),
       play_starts_at: iso(m.playStartsAt),
@@ -278,10 +329,10 @@ function toPublicState(m: SimModel | null, asStudent: boolean): RaidClashPublicS
       notes: m.playStartsAt == null
         ? null
         : m.noteKeys.map((key, index) => ({ index, key, ideal_at: iso((m.playStartsAt as number) + clashIdealOffsetMs(p, index)) as string })),
-      inputs: Object.entries(m.inputs)
-        .filter((entry): entry is [string, { judgment: RaidClashJudgment; points: number }] => Boolean(entry[1]))
-        .map(([index, item]) => ({ index: Number(index), judgment: item.judgment, points: item.points }))
-        .sort((a, b) => a.index - b.index),
+      inputs: m.inputs.flatMap((map, slot) => Object.entries(map)
+        .filter((entry): entry is [string, SimInput] => Boolean(entry[1]))
+        .map(([index, item]) => ({ slot, index: Number(index), judgment: item.judgment, points: item.points }))
+        .sort((a, b) => a.index - b.index)),
       score: simScore(m),
       outcome: m.outcome,
       outcome_reason: m.outcomeReason,
@@ -351,17 +402,24 @@ export default function RaidClashRehearsal({ raidId, defaultDifficulty }: { raid
         await wait(SIM_LATENCY_MS);
         const m = modelRef.current;
         if (m) advance(m, clashNowMs());
-        if (!m || m.selected !== 'me') return reply({ accepted: false, reason: 'NOT_SELECTED' });
-        if (m.phase === 'SELECTED') startPlay(m, clashNowMs());
-        else if (m.phase !== 'PLAYING') return reply({ accepted: false, reason: 'NOT_READY_PHASE' });
+        const slot = m ? m.selected.indexOf('me') : -1;
+        if (!m || slot < 0) return reply({ accepted: false, reason: 'NOT_SELECTED' });
+        if (m.phase === 'SELECTED') {
+          m.ready[slot] = true;
+          m.version += 1;
+          if (m.ready.every(Boolean)) startPlay(m, clashNowMs());
+        } else if (m.phase === 'PLAYING') {
+          if (!m.ready[slot]) return reply({ accepted: false, reason: 'TOO_LATE' });
+        } else return reply({ accepted: false, reason: 'NOT_READY_PHASE' });
         return reply({ accepted: true, reason: null });
       },
       submit: async (noteIndex, keyCode, offsetMs) => {
         await wait(SIM_LATENCY_MS);
         const m = modelRef.current;
         const now = clashNowMs();
-        if (!m || m.selected !== 'me') return reply({ accepted: false, reason: 'NOT_SELECTED' });
-        const existing = m.inputs[noteIndex];
+        const slot = m ? m.selected.indexOf('me') : -1;
+        if (!m || slot < 0) return reply({ accepted: false, reason: 'NOT_SELECTED' });
+        const existing = m.inputs[slot]?.[noteIndex];
         if (existing) return reply({ accepted: true, duplicate: true, note_index: noteIndex, judgment: existing.judgment, points: existing.points });
         if (m.phase !== 'PLAYING' || m.playStartsAt == null || (m.playDeadlineAt != null && now > m.playDeadlineAt)) {
           advance(m, now);
@@ -375,8 +433,8 @@ export default function RaidClashRehearsal({ raidId, defaultDifficulty }: { raid
         else if (keyCode !== m.noteKeys[noteIndex]) { judgment = 'MISS'; flag = 'WRONG_KEY'; }
         else if (delta - offsetMs < -m.profile.early_slack_ms || delta - offsetMs > m.profile.latency_slack_ms) { judgment = 'MISS'; flag = 'IMPLAUSIBLE_TIMING'; }
         else judgment = judgeClash(offsetMs, m.profile);
-        record(m, noteIndex, judgment);
-        if (Object.keys(m.inputs).length >= 8) finishPlay(m, now, 'SCORED');
+        record(m, slot, noteIndex, judgment);
+        if (simInputCount(m) >= 8 * m.selected.length) finishPlay(m, now, 'SCORED');
         return reply({ accepted: true, duplicate: false, note_index: noteIndex, judgment, points: clashPoints(judgment), flag });
       },
     };
@@ -388,9 +446,6 @@ export default function RaidClashRehearsal({ raidId, defaultDifficulty }: { raid
       const engine = audioRef.current ?? new RaidBroadcastAudioEngine();
       audioRef.current = engine;
       try {
-        // Rehearsal uses the same effective audio assets as the live broadcast.
-        const profile = await raidAdminRpc.audioProfile(supabase, raidId);
-        if (profile.success) engine.setProfile(profile.data);
         await engine.unlock();
         engine.setMuted(false);
       } catch {
@@ -434,7 +489,7 @@ export default function RaidClashRehearsal({ raidId, defaultDifficulty }: { raid
     ? '대기'
     : model.phase === 'VOLUNTEERING' ? '지원자 모집'
       : model.phase === 'SELECTED' ? '대표 공개'
-        : model.phase === 'PLAYING' ? (model.selected === 'me' ? '내가 도전 중' : '가상 대표 도전 중')
+        : model.phase === 'PLAYING' ? (model.selected.includes('me') ? `나 포함 대표 ${model.selected.length}명 도전 중` : `가상 대표 ${model.selected.length}명 도전 중`)
           : model.phase === 'RESOLVED' ? '결과' : '취소';
 
   return (
@@ -474,7 +529,7 @@ export default function RaidClashRehearsal({ raidId, defaultDifficulty }: { raid
             <Chip key={count} active={botCount === count} onClick={() => setBotCount(count)}>{count}명</Chip>
           ))}
         </Field>
-        <Field label="가상 대표 결과">
+        <Field label="가상 대표 실력(1명당)">
           {([['RANDOM', '무작위'], ['GREAT', '대성공'], ['SUCCESS', '성공'], ['FAIL', '실패']] as Array<[BotPlan, string]>).map(([key, label]) => (
             <Chip key={key} active={botPlan === key} onClick={() => setBotPlan(key)}>{label}</Chip>
           ))}
@@ -492,7 +547,8 @@ export default function RaidClashRehearsal({ raidId, defaultDifficulty }: { raid
         <button type="button" onClick={() => void toggleFullscreen()} className="rounded-full border border-white/25 px-3 py-1 text-xs font-black text-white">⛶ 전체 화면</button>
       </div>
       <div className="mt-2 text-xs font-bold text-emerald-100">
-        내가 직접 해 보려면 「학생 화면」에서 모집 1초 뒤 「⚔ 격돌 지원」을 누르고 키보드 Q·W·E·R를 사용하세요. 지원하지 않으면 가상 학생이 대표가 되고, 아무도 지원하지 않으면 실패 페널티가 나옵니다.
+        내가 직접 해 보려면 「학생 화면」에서 모집 1초 뒤 「⚔ 격돌 지원」을 누르고 키보드 Q·W·E·R를 사용하세요. 지원자 중 최대 {CLASH_TEAM_SIZE}명이 대표가 되어 같은 고리를 함께 치고, 점수를 합쳐 결과가 정해집니다(3명: 성공 24·대성공 39점).
+        지원하지 않으면 가상 학생들이 대표가 되고, 아무도 지원하지 않으면 실패 페널티가 나옵니다.
       </div>
 
       <div ref={stageRef} className="mt-4 space-y-3 overflow-auto bg-slate-950">

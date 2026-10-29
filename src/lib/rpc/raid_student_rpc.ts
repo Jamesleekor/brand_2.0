@@ -227,9 +227,12 @@ export interface RaidClashProfile {
   good_ms: number;
   bad_ms: number;
   points: Record<RaidClashJudgment, number>;
+  /** 1인 기준 점수. 세션 기준 = 이 값 × 뽑힌 인원(RAID_CLASH_V2). */
   success_score: number;
   great_score: number;
   weak_zone: RaidClashWeakZone;
+  /** RAID_CLASH_V2_20261029: 뽑을 대표 인원(3). V1 세션에는 없음 → 1명 */
+  player_count?: number;
 }
 
 export interface RaidClashWeakZone {
@@ -253,6 +256,14 @@ export interface RaidClashSelected {
   guild_logo_url: string | null;
   character_name: string | null;
   character_image_url: string | null;
+}
+
+// RAID_CLASH_V2_20261029 — 뽑힌 대표 한 명(슬롯 0~2)
+export interface RaidClashPlayer extends RaidClashSelected {
+  slot: number;
+  ready: boolean;
+  judged: number;
+  score: number;
 }
 
 export interface RaidClashNote {
@@ -280,8 +291,18 @@ export interface RaidClashSession {
   profile: RaidClashProfile;
   effects: RaidClashEffects;
   notes: RaidClashNote[] | null;
-  inputs: Array<{ index: number; judgment: RaidClashJudgment; points: number }>;
+  /** slot = 어느 대표의 판정인지(V2). V1 서버 응답에는 없음 → 0 */
+  inputs: Array<{ slot?: number; index: number; judgment: RaidClashJudgment; points: number }>;
+  /** 팀 합계 점수 */
   score: number;
+  // RAID_CLASH_V2_20261029: 대표 3인. V1 서버 응답에는 없을 수 있어 모두 선택 필드.
+  my_slot?: number | null;
+  planned_player_count?: number;
+  player_count?: number;
+  players?: RaidClashPlayer[];
+  score_success?: number;
+  score_great?: number;
+  score_max?: number;
   outcome: RaidClashOutcome | null;
   outcome_reason: string | null;
   resolved_at: string | null;

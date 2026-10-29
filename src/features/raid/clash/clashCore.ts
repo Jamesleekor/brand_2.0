@@ -6,6 +6,7 @@ import type {
   RaidClashJudgment,
   RaidClashKeyCode,
   RaidClashOutcome,
+  RaidClashPlayer,
   RaidClashProfile,
   RaidClashSession,
   RaidClashWeakZone,
@@ -59,7 +60,77 @@ export function localClashProfile(difficulty: RaidClashDifficulty): RaidClashPro
     success_score: 8,
     great_score: 13,
     weak_zone: { x: 0.4, y: 0.26, width: 0.2, height: 0.26, multiplier: 2 },
+    player_count: CLASH_TEAM_SIZE,
   };
+}
+
+// ── RAID_CLASH_V2_20261029: 대표 3인 동시 도전 ──────────────────────────────
+/** 한 번에 뽑는 대표 인원(서버 raid_clash_profile의 player_count와 같음) */
+export const CLASH_TEAM_SIZE = 3;
+
+const JUDGMENT_RANK: Record<RaidClashJudgment, number> = { PERFECT: 3, GOOD: 2, BAD: 1, MISS: 0 };
+
+export interface ClashTeamRule {
+  /** 실제로 뽑힌 인원(뽑기 전에는 뽑을 예정 인원) */
+  count: number;
+  success: number;
+  great: number;
+  max: number;
+}
+
+/** 팀 기준 점수: 1인 기준(성공 8·대성공 13·만점 16) × 인원. 서버 값이 있으면 그대로 쓴다. */
+export function clashTeamRule(session: RaidClashSession | null | undefined): ClashTeamRule {
+  const count = Math.max(1, Number(session?.player_count ?? session?.players?.length ?? clashPlannedCount(session)));
+  const success = Number(session?.score_success ?? (session?.profile?.success_score ?? 8) * count);
+  const great = Number(session?.score_great ?? (session?.profile?.great_score ?? 13) * count);
+  const max = Number(session?.score_max ?? 16 * count);
+  return { count, success, great, max };
+}
+
+/** 모집 단계에서 안내할 "뽑을 인원" */
+export function clashPlannedCount(session: RaidClashSession | null | undefined): number {
+  return Math.max(1, Number(session?.planned_player_count ?? session?.profile?.player_count ?? 1));
+}
+
+/** 뽑힌 대표 목록. V1 서버 응답(players 없음)이면 selected 한 명으로 만든다. */
+export function clashPlayers(session: RaidClashSession | null | undefined): RaidClashPlayer[] {
+  if (!session) return [];
+  if (session.players && session.players.length > 0) return session.players;
+  if (!session.selected) return [];
+  const inputs = session.inputs ?? [];
+  return [{
+    ...session.selected,
+    slot: 0,
+    ready: session.phase === 'PLAYING' || session.phase === 'RESOLVED',
+    judged: inputs.length,
+    score: inputs.reduce((sum, item) => sum + item.points, 0),
+  }];
+}
+
+/** 한 대표의 노트 8개 판정(없으면 null) */
+export function clashSlotJudgments(session: RaidClashSession | null | undefined, slot: number): Array<RaidClashJudgment | null> {
+  const list: Array<RaidClashJudgment | null> = Array.from({ length: 8 }, () => null);
+  for (const input of session?.inputs ?? []) {
+    if ((input.slot ?? 0) === slot && input.index >= 0 && input.index < 8) list[input.index] = input.judgment;
+  }
+  return list;
+}
+
+/** 관전·중계용: 노트마다 대표들 중 가장 좋은 판정(고리 섬광 하나로 보여 준다) */
+export function clashBestJudgments(session: RaidClashSession | null | undefined): Partial<Record<number, RaidClashJudgment>> {
+  const best: Partial<Record<number, RaidClashJudgment>> = {};
+  for (const input of session?.inputs ?? []) {
+    const current = best[input.index];
+    if (!current || JUDGMENT_RANK[input.judgment] > JUDGMENT_RANK[current]) best[input.index] = input.judgment;
+  }
+  return best;
+}
+
+/** 팀 판정: 1인 기준 × 인원 */
+export function clashTeamOutcome(score: number, rule: Pick<ClashTeamRule, 'success' | 'great'>): RaidClashOutcome {
+  if (score >= rule.great) return 'GREAT_SUCCESS';
+  if (score >= rule.success) return 'SUCCESS';
+  return 'FAILED';
 }
 
 /** 오차(ms) → 판정. 경계값은 포함(<=). */

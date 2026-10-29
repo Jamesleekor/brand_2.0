@@ -876,3 +876,30 @@ Claude는 실제 개발 후 아래 항목을 파일·테스트 결과와 함께 
 - [ ] 확인이 필요한 미확정 세부 정책 목록
 
 **문서 작성 시점에서 격돌 기능 코드를 작성하거나 운영 DB에 배포하지 않았다.** 본 문서는 Claude Opus에 구현을 위임하기 위한 기획·기술 인수인계서이다.
+
+---
+
+## 20. V2 변경 — 대표 3인 동시 도전 (2026-10-29) ✅
+
+**배경**: 2026-10-29 첫 실전(지원자 11명 중 1명만 도전)에서 학생들이 많이 아쉬워해, 대표를 3명으로 늘림.
+
+| 항목 | V1 | V2 |
+|---|---|---|
+| 대표 인원 | 지원자 중 1명 | 지원자 중 **최대 3명** 무작위 (`profile.player_count = 3`) |
+| 노트 | 8개 | 3명 모두 **같은 8개**를 동시에 침 |
+| 점수 | 0~16 | 팀 합계 0~48 (인원 × 16) |
+| 성공 / 대성공 | 8 / 13 | **1인 기준 × 뽑힌 인원** → 3명 24 / 39, 2명 16 / 26, 1명 8 / 13 |
+| 준비(READY) | 대표가 보내면 시작, 시간 초과 시에도 시작 | **모두 준비하면 시작**. 준비 시간 안에 못 보낸 대표는 8개 모두 MISS(`source = NOT_READY`), 나머지는 그대로 진행 |
+| 효과·페널티·50% 발동·정지·일시정지 차단 | — | **변경 없음** |
+
+- 서버: `supabase/migrations/20261029_01_raid_clash_v2_team.sql` (운영 적용용 사본 `supabase/APPLY_RAID_CLASH_V2_20261029.sql`)
+  - 새 표 `raid_clash_players(session_id, slot 0~2, participant_id, ready_at)`
+  - `raid_clash_inputs`에 `slot` 추가, 기본키 `(session_id, slot, note_index)`
+  - `raid_clash_sessions.player_count` 추가. V1 세션은 1인(slot 0)으로 자동 이관
+  - 다시 만든 함수(이름·인자 동일): `raid_clash_profile`, `raid_clash_start_play`, `raid_clash_finish_play`, `raid_clash_advance`, `raid_clash_public_state`, `student_ready_raid_clash`, `student_submit_raid_clash_input`
+  - V1이 패치한 운영 함수(탭 공격, 틱, 패턴, 상태 조회, 중계, 일시정지/재개)는 **다시 건드리지 않음**
+  - 격돌이 진행 중인 레이드가 있으면 적용을 거부함(안전장치)
+  - 백업 라벨 `PRE_CLASH_V2_20261029`
+- 공개 상태에 추가된 값: `players[]`(slot·이름·준비·판정 수·점수), `my_slot`, `player_count`, `planned_player_count`, `score_success`, `score_great`, `score_max`, `inputs[].slot`
+- 화면: 학생(대표 3인 공개·팀 보드·내 판정만 복원), 중계(대표 3줄 + 팀 합계), 교사 설정 탭(기준 점수 표시), 리허설(가상 서버 3인 대응)
+- 서버 롤백 테스트: `supabase/tests/raid_clash_v2_rollback_test.sql` — **22/22 통과**(운영 DB에서 실행 후 전부 롤백 확인)

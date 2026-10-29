@@ -74,6 +74,10 @@ export default function RaidClashConfigTab({ raidId, raidStatus }: { raidId: num
   const editable = data.editable && (raidStatus === 'DRAFT' || raidStatus === 'LOBBY_OPEN');
   const dirty = enabled !== data.enabled || difficulty !== data.difficulty;
   const profile = data.profiles?.[difficulty] ?? localClashProfile(difficulty);
+  // RAID_CLASH_V2_20261029: 대표 인원과 팀 기준 점수(1인 기준 × 인원)
+  const teamSize = Math.max(1, Number(profile.player_count ?? 1));
+  const perSuccess = profile.success_score;
+  const perGreat = profile.great_score;
 
   const save = async () => {
     setSaving(true);
@@ -95,8 +99,8 @@ export default function RaidClashConfigTab({ raidId, raidStatus }: { raidId: num
           <div>
             <div className="text-base font-black text-sky-100">⚔ 격돌(CLASH)</div>
             <p className="mt-1 text-sm font-bold leading-6 text-white">
-              보스 HP가 처음 50%가 되면 전투가 멈추고, 5초 동안 지원한 학생 중 1명이 Q·W·E·R 고리 8개에 도전합니다.
-              학생 기기는 PC·크롬북 키보드를 사용합니다.
+              보스 HP가 처음 50%가 되면 전투가 멈추고, 5초 동안 지원한 학생 중 {teamSize}명이 함께 Q·W·E·R 고리 8개에 도전합니다.
+              {teamSize > 1 ? '대표들이 같은 고리를 동시에 치고, 점수를 합쳐 결과가 정해집니다. ' : ''}학생 기기는 PC·크롬북 키보드를 사용합니다.
             </p>
           </div>
           {!editable && (
@@ -163,10 +167,16 @@ export default function RaidClashConfigTab({ raidId, raidStatus }: { raidId: num
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <EffectCard tone="gold" title="대성공 (13~16점)" lines={['10초 격돌 약점 노출', `10초 격돌 300% · 약점 명중 시 ${Math.round((3 + profile.weak_zone.multiplier) * 100)}%`, '16초 보스 일반 공격 봉쇄']} />
-        <EffectCard tone="blue" title="성공 (8~12점)" lines={['10초 격돌 약점 노출', `10초 격돌 150% · 약점 명중 시 ${Math.round((1.5 + profile.weak_zone.multiplier) * 100)}%`, '10초 보스 일반 공격 봉쇄']} />
-        <EffectCard tone="red" title="실패 (0~7점·지원자 없음)" lines={['효과 없음', '남은 공명방벽의 20% 피해', '(최대치가 아닌 그 순간 남은 양 기준)']} />
+        <EffectCard tone="gold" title={`대성공 (${perGreat * teamSize}~${16 * teamSize}점)`} lines={['10초 격돌 약점 노출', `10초 격돌 300% · 약점 명중 시 ${Math.round((3 + profile.weak_zone.multiplier) * 100)}%`, '16초 보스 일반 공격 봉쇄']} />
+        <EffectCard tone="blue" title={`성공 (${perSuccess * teamSize}~${perGreat * teamSize - 1}점)`} lines={['10초 격돌 약점 노출', `10초 격돌 150% · 약점 명중 시 ${Math.round((1.5 + profile.weak_zone.multiplier) * 100)}%`, '10초 보스 일반 공격 봉쇄']} />
+        <EffectCard tone="red" title={`실패 (0~${perSuccess * teamSize - 1}점·지원자 없음)`} lines={['효과 없음', '남은 공명방벽의 20% 피해', '(최대치가 아닌 그 순간 남은 양 기준)']} />
       </div>
+      {teamSize > 1 && (
+        <div className="text-xs font-bold text-sky-100">
+          점수 기준은 {teamSize}명 기준입니다(1명당 성공 {perSuccess}점·대성공 {perGreat}점 × 인원). 지원자가 {teamSize}명보다 적으면 뽑힌 인원만큼 기준이 줄어듭니다
+          {' '}(2명: 성공 {perSuccess * 2}·대성공 {perGreat * 2} / 1명: 성공 {perSuccess}·대성공 {perGreat}). 준비 시간 안에 연결되지 않은 대표는 8개 모두 MISS로 처리되고 나머지는 그대로 진행합니다.
+        </div>
+      )}
       <div className="text-xs font-bold text-sky-100">그로기와 겹치면 「약점 배율 × 그로기」와 「약점 배율 + 격돌」 중 큰 값 하나만 적용됩니다. 격돌 중에는 교사 일시정지가 막힙니다.</div>
 
       <ClashLiveTrigger raidId={raidId} raidStatus={raidStatus} enabled={data.enabled} session={data.clash?.session ?? null}
@@ -181,8 +191,8 @@ export default function RaidClashConfigTab({ raidId, raidStatus }: { raidId: num
 
 const PHASE_LABEL: Record<string, string> = {
   VOLUNTEERING: '지원자 모집 중',
-  SELECTED: '대표 공개 중',
-  PLAYING: '대표 도전 중',
+  SELECTED: '대표 공개·준비 중',
+  PLAYING: '대표들 도전 중',
   RESOLVED: '끝남',
   CANCELLED: '취소됨',
 };
@@ -312,7 +322,7 @@ function ClashPractice({ difficulty, onDifficultyChange }: { difficulty: RaidCla
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="text-base font-black text-violet-100">🎯 연습 모드 (실전 영향 없음)</div>
-          <div className="mt-1 text-sm font-bold text-white">키보드 Q·W·E·R로 직접 해 보거나, 학생에게 미리 체험시켜 보세요.</div>
+          <div className="mt-1 text-sm font-bold text-white">키보드 Q·W·E·R로 직접 해 보거나, 학생에게 미리 체험시켜 보세요. (혼자 하는 연습이라 1명 기준 16점 만점으로 판정합니다)</div>
         </div>
         <div className="flex items-center gap-2">
           {DIFFICULTIES.map((item) => (
