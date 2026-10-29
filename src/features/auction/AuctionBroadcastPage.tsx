@@ -126,7 +126,7 @@ export default function AuctionBroadcastPage() {  const { isStateDelayed, state,
                   <span className="w-8 h-8 rounded-full bg-bg-soft grid place-items-center text-sm font-black text-text-muted">{index + 1}</span>
                   <span className="text-3xl">{item.emoji || '🎁'}</span>
                   <div className="min-w-0">
-                    <p className="font-black truncate">{item.item_name}</p>
+                    <p className="font-black truncate">{item.item_name}</p>{auctionWage(item) && <p className="text-xs font-black text-emerald-300">{auctionWage(item)}</p>}
                     <p className="text-xs text-text-muted font-bold">
                       {item.final_status === 'SOLD'
                         ? '낙찰 완료'
@@ -169,7 +169,7 @@ export default function AuctionBroadcastPage() {  const { isStateDelayed, state,
                 <div className="text-[9rem] leading-none mb-5 drop-shadow-[0_0_40px_rgba(255,196,64,0.45)]">{currentItem.emoji || '🎁'}</div>
               )}
               <h2 className="font-display text-5xl tracking-tight">{currentItem.item_name}</h2>
-              {currentItem.description && <p className="text-xl text-text-secondary mt-3 max-w-3xl">{currentItem.description}</p>}
+              {auctionWage(currentItem) ? <p className="text-2xl font-black text-emerald-300 mt-3">{auctionWage(currentItem)}</p> : currentItem.description && <p className="text-xl text-text-secondary mt-3 max-w-3xl">{currentItem.description}</p>}
               {currentItem.previous_sale_price !== null && (
                 <p className="text-lg text-text-muted mt-3">지난 회차 낙찰가 <strong className="text-text-secondary font-mono">{formatNumber(currentItem.previous_sale_price)} GOLD</strong></p>
               )}
@@ -276,7 +276,7 @@ function CompletedColumn({ items, compact = false }: { items: ReturnType<typeof 
           <div key={item.id} className="rounded-card-md bg-bg-deep/60 border border-line p-3 flex gap-3">
             <span className="text-3xl">{item.emoji || '🎁'}</span>
             <div className="min-w-0 flex-1">
-              <p className="font-black truncate">{item.item_name}</p>
+              <p className="font-black truncate">{item.item_name}</p>{auctionWage(item) && <p className="text-xs font-black text-emerald-300">{auctionWage(item)}</p>}
               {item.result ? (
                 <>
                   <p className="text-sm text-success font-bold truncate">{item.result.winner_brand_name || item.result.winner_name}</p>
@@ -292,4 +292,10 @@ function CompletedColumn({ items, compact = false }: { items: ReturnType<typeof 
       </div>
     </section>
   );
+}
+
+function auctionWage(item: { category?: string | null; description?: string | null }): string {
+  if (item.category !== '1인1역') return '';
+  const match = item.description?.match(/일급:\s*(\d+)\s*GOLD\/일/);
+  return match ? `일급 ${match[1]}G/일` : '';
 }
