@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/shared/components';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { TeacherArcadePeriodRecordsPanel } from './TeacherArcadePeriodRecordsPanel';
-import { arcadeErrorMessage, arcadeTeacherRpc, type ArcadePrereleaseTestLeaderboardResult, type ArcadeVerificationOverview, type ArcadeVerificationOverviewRow } from '@/lib/rpc/arcade_rpc';
+import { arcadeErrorMessage, arcadeTeacherRpc, type ArcadeVerificationOverview, type ArcadeVerificationOverviewRow } from '@/lib/rpc/arcade_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import { useToastStore } from '@/stores/ui_store';
@@ -24,8 +24,6 @@ interface PeriodRow {
 }
 
 interface SeasonRow { id: number; display_name: string; starts_on: string; ends_on: string; }
-interface StudentRow { id: number; name: string; brand_name: string | null; role: string; transferred_at: string | null; }
-interface PrereleaseTestAccessRow { access_id: number; student_id: number; student_name: string; student_brand_name: string | null; is_enabled: boolean; updated_at: string; }
 interface AuditRow { run_id: number; student_name: string; status: string; is_prerelease_test: boolean; official_score: number | null; official_duration_ms: number | null; game_over_at: string | null; submitted_at: string | null; event_at: string; rejection_code: string | null; rejection_reason: string | null; invalidated: boolean; invalidation_reason: string | null; }
 
 export default function TeacherArcadePage() {
@@ -44,11 +42,8 @@ export default function TeacherArcadePage() {
   const [auditPeriodId, setAuditPeriodId] = useState<number | null>(null);
   const [auditRows, setAuditRows] = useState<AuditRow[] | null>(null);
   const [isLoadingAudit, setIsLoadingAudit] = useState(false);
-  const [prereleaseTestLeaderboard, setPrereleaseTestLeaderboard] = useState<ArcadePrereleaseTestLeaderboardResult | null>(null);
-  const [isLoadingPrereleaseTestLeaderboard, setIsLoadingPrereleaseTestLeaderboard] = useState(false);
   const [invalidateTarget, setInvalidateTarget] = useState<number | null>(null);
   const [invalidationReason, setInvalidationReason] = useState('');
-  const [testStudentId, setTestStudentId] = useState('');
   const [verificationPeriodId, setVerificationPeriodId] = useState<number | null>(null);
   const [verificationOverview, setVerificationOverview] = useState<ArcadeVerificationOverview | null>(null);
   const [isLoadingVerification, setIsLoadingVerification] = useState(false);
@@ -61,16 +56,13 @@ export default function TeacherArcadePage() {
     refetchOnReconnect: false,
     enabled: Boolean(classroomId),
     queryFn: async () => {
-      const [periods, seasons, games, students, testAccess] = await Promise.all([
+      const [periods, seasons, games] = await Promise.all([
         supabase.from('arcade_ranking_periods').select('id,period_kind,display_name,guild_season_id,contribution_year_month,starts_at,ends_at_exclusive,status').eq('classroom_id', classroomId!).order('starts_at', { ascending: false }),
         supabase.from('guild_seasons').select('id,display_name,starts_on,ends_on').eq('classroom_id', classroomId!).order('starts_on', { ascending: false }),
         supabase.from('arcade_games').select('id,code,internal_name,is_active,available_from,available_until').order('id'),
-        supabase.from('students').select('id,name,brand_name,role,transferred_at').eq('classroom_id', classroomId!).order('name'),
-        arcadeTeacherRpc.listPrereleaseTestAccess(supabase, { p_game_code: selectedGameCode }),
       ]);
-      for (const [name, response] of Object.entries({ periods, seasons, games, students })) if (response.error) throw new Error(`[Arcade:${name}] ${response.error.message}`);
-      if (testAccess.success === false) throw new Error(arcadeErrorMessage(testAccess));
-      return { periods: (periods.data ?? []) as PeriodRow[], seasons: (seasons.data ?? []) as SeasonRow[], games: games.data ?? [], students: (students.data ?? []) as StudentRow[], testAccess: testAccess.data as PrereleaseTestAccessRow[] };
+      for (const [name, response] of Object.entries({ periods, seasons, games })) if (response.error) throw new Error(`[Arcade:${name}] ${response.error.message}`);
+      return { periods: (periods.data ?? []) as PeriodRow[], seasons: (seasons.data ?? []) as SeasonRow[], games: games.data ?? [] };
     },
   });
 
@@ -268,16 +260,6 @@ export default function TeacherArcadePage() {
     setAuditRows(rpc.data as unknown as AuditRow[]);
   };
 
-  const loadPrereleaseTestLeaderboard = async () => {
-    if (!auditPeriod) return;
-    setIsLoadingPrereleaseTestLeaderboard(true);
-    setActionError(null);
-    const rpc = await arcadeTeacherRpc.getPrereleaseTestLeaderboard(supabase, { p_period_id: auditPeriod.id, p_game_code: selectedGameCode });
-    setIsLoadingPrereleaseTestLeaderboard(false);
-    if (rpc.success === false) { setActionError(arcadeErrorMessage(rpc)); return; }
-    setPrereleaseTestLeaderboard(rpc.data);
-  };
-
   const invalidateRun = async (runId: number) => {
     setActionError(null);
     const rpc = await arcadeTeacherRpc.invalidateRun(supabase, { p_run_id: runId, p_reason: invalidationReason, p_idempotency_key: makeIdempotencyKey() });
@@ -288,17 +270,6 @@ export default function TeacherArcadePage() {
     refresh();
   };
 
-  const setPrereleaseTestAccess = async (enabled: boolean, studentId = Number(testStudentId)) => {
-    if (!studentId) { setActionError('테스트할 학생을 선택해주세요.'); return; }
-    setActionError(null);
-    setIsSaving(true);
-    const rpc = await arcadeTeacherRpc.setPrereleaseTestAccess(supabase, { p_student_id: studentId, p_game_code: selectedGameCode, p_enabled: enabled });
-    setIsSaving(false);
-    if (rpc.success === false) { setActionError(arcadeErrorMessage(rpc)); return; }
-    setTestStudentId('');
-    refresh();
-  };
-
   return <TeacherShell><div className="space-y-6">
     <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start"><div><h1 className="font-display text-2xl text-brand-gradient">🕹️ Arcade 운영</h1><p className="mt-1 text-sm font-bold text-text-secondary">기간을 열고, 종료 후 기록 인증을 거쳐 월간 Top 10과 Guild 2 점수를 안전하게 확정합니다.</p></div><Link className="btn-secondary" to="/teacher/guild/scores">📊 Guild 2 점수 보기</Link></div>
     <TeacherArcadePeriodRecordsPanel classroomId={classroomId} />
@@ -306,7 +277,7 @@ export default function TeacherArcadePage() {
     {query.isLoading && <div className="py-16 text-center"><LoadingSpinner size="lg" /></div>}
     {query.isError && <div className="glass-card border-danger/40 p-4"><div className="font-black text-danger">Arcade 운영 정보를 불러오지 못했습니다.</div><p className="mt-2 text-xs text-text-secondary">{query.error instanceof Error ? query.error.message : '알 수 없는 오류'}</p><button className="btn-secondary mt-3" onClick={() => void query.refetch()}>다시 시도</button></div>}
     {query.data && <>
-      <section className="glass-card border-brand-primary/30 p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-xs font-black tracking-[0.16em] text-brand-primary">ARCADE GAME</div><h2 className="mt-1 font-display text-lg text-white">관리할 게임 선택</h2></div><select className="input-field min-w-[240px]" value={selectedGameCode} onChange={(event) => { setSelectedGameCode(event.target.value); setAuditRows(null); setPrereleaseTestLeaderboard(null); setVerificationOverview(null); setTestStudentId(''); }}>{query.data.games.filter((game: { code: string; is_active: boolean }) => game.is_active && ['focus_reaction_01','pure_reaction_02'].includes(game.code)).map((game: { id: number; code: string }) => <option key={game.id} value={game.code}>{arcadeGameLabel(game.code)}</option>)}</select></div></section>
+      <section className="glass-card border-brand-primary/30 p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-xs font-black tracking-[0.16em] text-brand-primary">ARCADE GAME</div><h2 className="mt-1 font-display text-lg text-white">관리할 게임 선택</h2></div><select className="input-field min-w-[240px]" value={selectedGameCode} onChange={(event) => { setSelectedGameCode(event.target.value); setAuditRows(null); setVerificationOverview(null); }}>{query.data.games.filter((game: { code: string; is_active: boolean }) => game.is_active && ['focus_reaction_01','pure_reaction_02'].includes(game.code)).map((game: { id: number; code: string }) => <option key={game.id} value={game.code}>{arcadeGameLabel(game.code)}</option>)}</select></div></section>
 
       <section id="arcade-verification-management" className="glass-card border-gold/40 p-5"><div className="mb-4"><div className="text-xs font-black tracking-[0.16em] text-gold">OFFICIAL RECORD VERIFICATION</div><h2 className="mt-1 font-display text-lg text-white">🏅 {arcadeGameLabel(selectedGameCode)} 공인 도전</h2><p className="mt-1 text-xs text-white/80">집중 반응과 순수 반응 속도는 월간 기록을 동결한 뒤 공식 참여 학생 전원에게 동일하게 3회의 공인 인증 기회를 엽니다. 일반 기록 순위는 인증 자격을 제한하지 않으며, 최종 인증 결과로 Top 10과 보상을 결정합니다.</p></div>{verificationPeriods.length > 0 ? <><div className="flex flex-col gap-2 sm:flex-row"><select className="input-field min-w-0 flex-1" value={verificationPeriod?.id ?? ''} onChange={(event) => { const id = Number(event.target.value); setVerificationPeriodId(id); setVerificationOverview(null); }}><option value="">인증 기간 선택</option>{verificationPeriods.map((period) => <option key={period.id} value={period.id}>{period.display_name} · {period.status === 'READY_TO_FINALIZE' ? '최종 확정 대기' : '인증 중'}</option>)}</select><button className="btn-primary" disabled={!verificationPeriod || isLoadingVerification} onClick={() => void loadVerificationOverview()}>{isLoadingVerification ? '불러오는 중...' : '🏅 인증 현황 열기'}</button></div>{verificationOverview && <VerificationOverviewTable overview={verificationOverview} busyKey={verificationActionId} runAction={runVerificationAction} onForceClose={forceCloseVerificationGame} />}</> : activeMonthlyPeriod ? <div className="rounded-card-md border border-warning/30 bg-warning/10 p-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><b className="text-sm text-white">현재 월간 랭킹: {activeMonthlyPeriod.display_name}</b><p className="mt-1 text-xs text-warning">아직 일반 기록 접수 중입니다. 공인 도전을 열면 이 월간 기간을 즉시 종료하고 기록을 동결한 뒤 학생별 인증 단계로 전환합니다.</p></div><button className="btn-primary shrink-0" disabled={isSaving} onClick={() => void openVerificationNow(activeMonthlyPeriod)}>{isSaving ? '전환 중...' : '🏅 공인 도전 열기'}</button></div></div> : <p className="rounded-card-md border border-line bg-bg-deep p-4 text-sm text-text-secondary">공인 도전을 열 수 있는 월간 기간이 없습니다. 먼저 아래에서 월간 랭킹 기간을 만들고 활성화하세요.</p>}</section>
       <section className="glass-card p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">새 랭킹 기간 만들기</h2><p className="mt-1 text-xs text-text-secondary">월간 기간은 Guild 2 반영 월을 가집니다. 날짜·시각은 한국(Asia/Seoul) 기준으로 입력하세요. 종료 시각은 포함하지 않는 경계입니다.</p></div>
@@ -315,11 +286,9 @@ export default function TeacherArcadePage() {
       </section>
 
       <section className="glass-card p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">기간 상태와 월간 확정</h2><p className="mt-1 text-xs text-text-secondary">월간 기간은 종료 후 기록을 동결하고 공식 참여 학생 전원에게 공인 인증 기회를 엽니다. Top 10은 인증 자격이 아니라 최종 보상 범위이며, 현재 Top 10이 해결되고 진행 중 인증 세션이 없을 때 최종 snapshot과 Guild 2 반영을 확정합니다.</p></div>{!query.data.periods.length ? <p className="py-8 text-center text-sm text-text-secondary">아직 만든 기간이 없습니다.</p> : <div className="space-y-3">{query.data.periods.map((period) => { const ended = new Date(period.ends_at_exclusive).getTime() <= Date.now(); return <div key={period.id} className="rounded-card-md border border-line bg-bg-deep p-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><b className="text-white">{period.display_name}</b><StatusPill status={period.status} /><span className="text-xs text-text-muted">{period.period_kind === 'MONTHLY' ? `Guild 2 ${period.contribution_year_month}` : '시즌 랭킹'}</span></div><p className="mt-1 text-xs text-text-secondary">{formatKst(period.starts_at)} ~ {formatKst(period.ends_at_exclusive)} 전</p></div><div className="flex flex-wrap gap-2">{period.status === 'DRAFT' && <button className="btn-primary text-xs" disabled={isSaving} onClick={() => void updateStatus(period, 'ACTIVE')}>기간 열기</button>}{period.status === 'ACTIVE' && !ended && <button className="btn-secondary text-xs" disabled={isSaving} onClick={() => void updateStatus(period, 'DRAFT')}>다시 초안으로</button>}{period.status === 'ACTIVE' && !ended && <button className="btn-danger text-xs" disabled={isSaving} onClick={() => void endPeriodNow(period)}>⏹ 랭킹 기간 즉시 종료</button>}{period.status === 'ACTIVE' && period.period_kind === 'MONTHLY' && <button className="btn-primary text-xs" disabled={!ended || isSaving} title={ended ? '일반 기록을 동결하고 기록 인증 단계를 시작합니다.' : '종료 시각 뒤에 동결할 수 있습니다.'} onClick={() => void freezePeriod(period)}>{ended ? '🔒 기록 동결 + 인증 시작' : '기간 종료 전'}</button>}{period.period_kind === 'MONTHLY' && ['VERIFICATION','READY_TO_FINALIZE'].includes(period.status) && <button className="btn-secondary text-xs" disabled={isLoadingVerification} onClick={() => void loadVerificationOverview(period.id)}>🏅 인증 관리</button>}{period.status === 'READY_TO_FINALIZE' && <button className="btn-primary text-xs" disabled={isSaving} onClick={() => void finalizePeriod(period)}>✅ 최종 랭킹 확정 + Guild 2 반영</button>}</div></div></div>; })}</div>}</section>
-      <section className="glass-card border-brand-primary/30 p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">사전 테스트 허용</h2><p className="mt-1 text-xs text-text-secondary">공개일 전에는 여기서 허용한 학생만 게임을 플레이할 수 있습니다. 테스트 기록은 서버 검증과 감사 기록에는 남지만, Top 10·월간 확정·Guild 2 점수에는 절대 반영되지 않습니다.</p></div><div className="flex flex-col gap-2 sm:flex-row"><select className="input-field min-w-0 flex-1" value={testStudentId} onChange={(event) => setTestStudentId(event.target.value)}><option value="">테스트할 학생 선택</option>{query.data.students.filter((student) => !student.transferred_at && ['STUDENT', 'STUDENT_LEADER', 'GUARD', 'TEST'].includes(student.role)).map((student) => <option key={student.id} value={student.id}>{student.brand_name || student.name} ({student.name})</option>)}</select><button className="btn-primary" disabled={isSaving || !testStudentId} onClick={() => void setPrereleaseTestAccess(true)}>{isSaving ? '저장 중...' : '사전 테스트 허용'}</button></div>{!query.data.testAccess.length ? <p className="mt-4 text-sm text-text-secondary">현재 사전 테스트가 허용된 학생이 없습니다.</p> : <div className="mt-4 space-y-2">{query.data.testAccess.map((access) => <div key={access.access_id} className="flex flex-wrap items-center justify-between gap-2 rounded-card-md border border-line bg-bg-deep p-3"><div><b className="text-sm text-white">{access.student_brand_name || access.student_name}</b><p className="mt-1 text-xs text-text-secondary">사전 테스트 허용됨 · 최근 변경 {formatKst(access.updated_at)}</p></div><button className="btn-secondary text-xs" disabled={isSaving} onClick={() => void setPrereleaseTestAccess(false, access.student_id)}>허용 해제</button></div>)}</div>}</section>
 
-      <section className="glass-card border-brand-primary/30 p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">사전 테스트 순위 확인</h2><p className="mt-1 text-xs text-text-secondary">공개 랭킹과 같은 방식으로 학생당 최고 기록 하나만 사용해 순위를 계산합니다. 이 표는 테스트 기록만 읽으며, 공개 Top 10·월간 확정·Guild 2에는 전혀 영향을 주지 않습니다.</p></div><div className="flex flex-col gap-2 sm:flex-row"><select className="input-field min-w-0 flex-1" value={auditPeriod?.id ?? ''} onChange={(event) => { setAuditPeriodId(Number(event.target.value)); setAuditRows(null); setPrereleaseTestLeaderboard(null); }}><option value="">기간 선택</option>{query.data.periods.map((period) => <option key={period.id} value={period.id}>{period.display_name}</option>)}</select><button className="btn-secondary" disabled={!auditPeriod || isLoadingPrereleaseTestLeaderboard} onClick={() => void loadPrereleaseTestLeaderboard()}>{isLoadingPrereleaseTestLeaderboard ? '순위 계산 중...' : '사전 테스트 순위 보기'}</button></div>{prereleaseTestLeaderboard && <PrereleaseTestLeaderboardCard leaderboard={prereleaseTestLeaderboard} />}</section>
 
-      <section className="glass-card p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">{arcadeGameLabel(selectedGameCode)} 감사 기록</h2><p className="mt-1 text-xs text-text-secondary">인정·거절·무효 처리된 기록을 모두 확인합니다. 점수 조작 의심 등 확실한 사유가 있을 때만 무효 처리하세요.</p></div><div className="flex flex-col gap-2 sm:flex-row"><select className="input-field min-w-0 flex-1" value={auditPeriod?.id ?? ''} onChange={(event) => { setAuditPeriodId(Number(event.target.value)); setAuditRows(null); setPrereleaseTestLeaderboard(null); }}><option value="">기간 선택</option>{query.data.periods.map((period) => <option key={period.id} value={period.id}>{period.display_name}</option>)}</select><button className="btn-secondary" disabled={!auditPeriod || isLoadingAudit} onClick={() => void loadAudit()}>{isLoadingAudit ? '불러오는 중...' : '감사 기록 불러오기'}</button></div>
+      <section className="glass-card p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">{arcadeGameLabel(selectedGameCode)} 감사 기록</h2><p className="mt-1 text-xs text-text-secondary">인정·거절·무효 처리된 기록을 모두 확인합니다. 점수 조작 의심 등 확실한 사유가 있을 때만 무효 처리하세요.</p></div><div className="flex flex-col gap-2 sm:flex-row"><select className="input-field min-w-0 flex-1" value={auditPeriod?.id ?? ''} onChange={(event) => { setAuditPeriodId(Number(event.target.value)); setAuditRows(null); }}><option value="">기간 선택</option>{query.data.periods.map((period) => <option key={period.id} value={period.id}>{period.display_name}</option>)}</select><button className="btn-secondary" disabled={!auditPeriod || isLoadingAudit} onClick={() => void loadAudit()}>{isLoadingAudit ? '불러오는 중...' : '감사 기록 불러오기'}</button></div>
         {auditRows && <AuditTable periodStatus={auditPeriod?.status ?? null} rows={auditRows} invalidateTarget={invalidateTarget} invalidationReason={invalidationReason} setInvalidateTarget={setInvalidateTarget} setInvalidationReason={setInvalidationReason} onInvalidate={invalidateRun} />}
       </section>
     </>}
@@ -371,11 +340,6 @@ function verificationAttemptLabel(attempt: ArcadeVerificationOverviewRow['attemp
 function AuditTable({ periodStatus, rows, invalidateTarget, invalidationReason, setInvalidateTarget, setInvalidationReason, onInvalidate }: { periodStatus: PeriodStatus | null; rows: AuditRow[]; invalidateTarget: number | null; invalidationReason: string; setInvalidateTarget: (id: number | null) => void; setInvalidationReason: (value: string) => void; onInvalidate: (id: number) => void }) {
   if (!rows.length) return <p className="py-8 text-center text-sm text-text-secondary">이 기간의 선택한 게임 기록이 없습니다.</p>;
   return <div className="mt-4 space-y-2">{periodStatus && periodStatus !== 'ACTIVE' && <p className="rounded-card-md border border-warning/30 bg-warning/10 p-3 text-xs text-warning">이 기간은 이미 동결 또는 확정 단계입니다. 일반 감사 무효화 대신 위의 기록 인증 관리에서 기술 취소·시도 복구·수동 보정을 사용하세요.</p>}{rows.map((row) => <div key={row.run_id} className="rounded-card-md border border-line bg-bg-deep p-3"><div className="flex flex-col justify-between gap-2 sm:flex-row"><div><div className="flex flex-wrap items-center gap-2"><b className="text-white">{row.student_name}</b><StatusPill status={row.status as PeriodStatus} />{row.is_prerelease_test && <span className="rounded-pill bg-brand-primary/15 px-2 py-0.5 text-[10px] font-black text-brand-primary">사전 테스트</span>}{row.invalidated && <span className="rounded-pill bg-danger/15 px-2 py-0.5 text-[10px] font-black text-danger">무효 처리됨</span>}</div><p className="mt-1 text-xs text-text-secondary">점수 {row.official_score === null ? '—' : Number(row.official_score).toLocaleString('ko-KR')} · 기준 시각 {formatKst(row.event_at)}</p>{row.is_prerelease_test && <p className="mt-1 text-xs text-brand-primary">순위·월간 확정·Guild 2 점수에 반영되지 않는 테스트 기록입니다.</p>}{row.rejection_code && <p className="mt-1 text-xs text-warning">거절: {row.rejection_code} · {row.rejection_reason}</p>}{row.invalidated && <p className="mt-1 text-xs text-danger">무효 사유: {row.invalidation_reason}</p>}</div>{periodStatus === 'ACTIVE' && !row.is_prerelease_test && !row.invalidated && <button className="btn-secondary h-fit text-xs" onClick={() => { setInvalidateTarget(row.run_id); setInvalidationReason(''); }}>무효 처리</button>}</div>{invalidateTarget === row.run_id && <div className="mt-3 flex flex-col gap-2 sm:flex-row"><input className="input-field min-w-0 flex-1 text-xs" autoFocus value={invalidationReason} maxLength={300} onChange={(event) => setInvalidationReason(event.target.value)} placeholder="무효 처리 사유 (2자 이상)" /><button className="btn-primary text-xs" disabled={invalidationReason.trim().length < 2} onClick={() => onInvalidate(row.run_id)}>사유 남기고 무효 처리</button><button className="btn-secondary text-xs" onClick={() => setInvalidateTarget(null)}>취소</button></div>}</div>)}</div>;
-}
-
-function PrereleaseTestLeaderboardCard({ leaderboard }: { leaderboard: ArcadePrereleaseTestLeaderboardResult }) {
-  if (!leaderboard.top10.length) return <p className="mt-4 rounded-card-md bg-bg-deep p-4 text-center text-sm text-text-secondary">이 기간에 서버가 인정한 사전 테스트 기록이 아직 없습니다.</p>;
-  return <div className="mt-4 overflow-x-auto rounded-card-md border border-line"><div className="border-b border-line bg-bg-deep px-4 py-3 text-xs text-text-secondary">서로 다른 학생 <b className="text-white">{leaderboard.participant_count}명</b> · 학생 한 명이 여러 번 플레이했어도 최고점 하나만 표시됩니다.</div><table className="w-full min-w-[460px] text-sm"><thead className="border-b border-line text-left text-xs text-text-secondary"><tr><th className="p-3">순위</th><th className="p-3">학생</th><th className="p-3 text-right">서버 공식 점수</th><th className="p-3 text-right">기록 시각</th></tr></thead><tbody>{leaderboard.top10.map((row) => <tr key={row.rank} className="border-b border-line/70 last:border-0"><td className="p-3 font-display text-lg text-gold">{row.rank}</td><td className="p-3 font-black text-white">{row.student_name}</td><td className="p-3 text-right font-black text-white">{Number(row.official_score).toLocaleString('ko-KR')}</td><td className="p-3 text-right text-xs text-text-secondary">{formatKst(row.game_over_at)}</td></tr>)}</tbody></table></div>;
 }
 
 function StatusPill({ status }: { status: string }) { const label: Record<string, string> = { DRAFT: '초안', ACTIVE: '진행 중', VERIFICATION: '인증 중', READY_TO_FINALIZE: '확정 대기', FINALIZED: '확정', VERIFIED: '인정됨', REJECTED: '거절됨', PLAYING: '진행 중', COUNTDOWN: '준비 중', SUBMITTING: '검증 중' }; const color = status === 'FINALIZED' || status === 'VERIFIED' ? 'bg-success/15 text-success' : status === 'REJECTED' ? 'bg-warning/15 text-warning' : status === 'DRAFT' ? 'bg-bg-card text-text-secondary' : 'bg-brand-primary/15 text-brand-primary'; return <span className={`rounded-pill px-2 py-0.5 text-[10px] font-black ${color}`}>{label[status] ?? status}</span>; }
