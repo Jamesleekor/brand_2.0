@@ -276,7 +276,7 @@ function AuctionSequence({ items, currentItemId }: { items: LiveAuctionItem[]; c
               </span>
               <span className="text-xl">{item.emoji || '🎁'}</span>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-extrabold text-text-primary truncate">{item.item_name}</p>
+                <p className="text-xs font-extrabold text-text-primary truncate">{item.item_name}</p>{auctionWage(item) && <p className="text-2xs font-black text-emerald-300">{auctionWage(item)}</p>}
                 <p className="text-2xs text-text-muted font-bold">{status}</p>
               </div>
             </div>
@@ -352,7 +352,7 @@ function CurrentAuctionCard(props: CurrentAuctionCardProps) {
           <div className="text-7xl mb-3 drop-shadow-[0_0_24px_rgba(255,196,64,0.35)]">{item.emoji || '🎁'}</div>
         )}
         <h2 className="font-display text-2xl text-white tracking-tight">{item.item_name}</h2>
-        {item.description && <p className="text-xs text-text-secondary mt-2 break-keep">{item.description}</p>}
+        {auctionWage(item) ? <p className="text-sm font-black text-emerald-300 mt-2">{auctionWage(item)}</p> : item.description && <p className="text-xs text-text-secondary mt-2 break-keep">{item.description}</p>}
       </div>
 
       <div className="grid grid-cols-2 border-b border-line">
@@ -520,7 +520,7 @@ function CompletedAuctionList({ items }: { items: LiveAuctionItem[] }) {
               <div className="flex items-start gap-2">
                 <span className="text-xl">{item.emoji || '🎁'}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-extrabold text-text-primary truncate">{item.item_name}</p>
+                  <p className="text-xs font-extrabold text-text-primary truncate">{item.item_name}</p>{auctionWage(item) && <p className="text-2xs font-black text-emerald-300">{auctionWage(item)}</p>}
                   {item.result ? (
                     <>
                       <p className="text-2xs text-success font-bold mt-0.5">
@@ -539,4 +539,10 @@ function CompletedAuctionList({ items }: { items: LiveAuctionItem[] }) {
       )}
     </section>
   );
+}
+
+function auctionWage(item: { category?: string | null; description?: string | null }): string {
+  if (item.category !== '1인1역') return '';
+  const match = item.description?.match(/일급:\s*(\d+)\s*GOLD\/일/);
+  return match ? `일급 ${match[1]}G/일` : '';
 }
