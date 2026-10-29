@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LinkifiedText } from '@/components/shared/LinkifiedText';
+import { MailRichBody } from '@/features/mail/MailRichBody';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { LoadingSpinner, Modal, useRpcCall } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
@@ -214,7 +215,7 @@ export default function CommunicationAdmin() {
                 </div>
                 <textarea id="brand-mail-body" value={body} onChange={(e) => setBody(e.target.value)} placeholder="내용을 입력하세요. 웹 주소는 받은 우편에서 바로 클릭할 수 있습니다." maxLength={5000} className="input-field block w-full min-h-[360px] xl:min-h-[420px] resize-y leading-7" />
                 <div className="flex flex-wrap justify-between gap-2 mt-2 text-xs text-[#F3EBD3]">
-                  <span>웹 주소 자동 링크 · https:// 또는 www.</span>
+                  <span>웹 주소 자동 링크 · B.R.A.N.D 이미지 주소는 미리보기로 표시</span>
                   <span className="tabular-nums">{body.length.toLocaleString()} / 5,000자</span>
                 </div>
               </div>
@@ -223,7 +224,7 @@ export default function CommunicationAdmin() {
                   <h3 className="text-xs font-black text-[#9FE8D8] mb-2">받는 화면 미리보기</h3>
                   <p className="text-xs font-bold text-[#CFFBF1]">{senderName.trim() || DEFAULT_MAIL_SENDER}</p>
                   <p className="font-extrabold text-[#F3EBD3] mt-1 mb-3 break-words">{title || '제목'}</p>
-                  <div className="max-h-96 overflow-y-auto text-sm leading-7 whitespace-pre-wrap break-words text-text-primary"><LinkifiedText text={body || '작성한 내용이 여기에 표시됩니다.'} /></div>
+                  <div className="max-h-96 overflow-y-auto text-sm leading-7 whitespace-pre-wrap break-words text-text-primary"><MailRichBody text={body || '작성한 내용이 여기에 표시됩니다.'} allowImagePreviews /></div>
                 </div>
               )}
               <button disabled={isLoading || !classroomId || !selected.length || !senderName.trim() || !title.trim() || !body.trim()} onClick={() => call(() => feature4Rpc.sendMail(supabase, { p_classroom_id: classroomId!, p_recipient_ids: selected, p_sender_name: senderName, p_title: title, p_body: body, p_message_type: 'TEACHER_MESSAGE' }), { successTitle: '우편을 발송했어요', successDescription: `${senderName.trim()} · ${selected.length}명`, onSuccess: () => { setTitle(''); setBody(''); setPreviewMail(false); void qc.invalidateQueries({ queryKey: ['f4a-admin-recent'] }); } })} className="btn-primary w-full">
