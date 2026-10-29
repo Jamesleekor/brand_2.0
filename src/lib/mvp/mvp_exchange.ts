@@ -59,10 +59,10 @@ const EDITABLE_HEADERS = [
   '학생ID',
   '학생명',
   '예선후보',
-  '수업준비와 책임',
+  '학습 준비와 자기관리',
   '참여와 경청',
-  '과제 수행',
-  '개선과 성장',
+  '과제 수행과 충실도',
+  '꾸준함과 발전',
   '전담 타이틀-영어',
   '전담 타이틀-과학',
   '전담 타이틀-체육',
@@ -89,10 +89,10 @@ const MAIN_HEADERS = [
   '기부 GOLD',
   '서비스 판매',
   '예선후보',
-  '수업준비와 책임',
+  '학습 준비와 자기관리',
   '참여와 경청',
-  '과제 수행',
-  '개선과 성장',
+  '과제 수행과 충실도',
+  '꾸준함과 발전',
   '전담 타이틀-영어',
   '전담 타이틀-과학',
   '전담 타이틀-체육',
@@ -342,10 +342,10 @@ function payloadFromFlatRows(
     const studentId = Number(row['학생ID']);
     const studentName = String(row['학생명'] ?? '').trim();
     const candidate = parseBoolean(row['예선후보']);
-    const preparation = parseGrade(row['수업준비와 책임']);
+    const preparation = parseGrade(row['학습 준비와 자기관리'] ?? row['수업준비와 책임']);
     const participation = parseGrade(row['참여와 경청']);
-    const assignment = parseGrade(row['과제 수행']);
-    const improvement = parseGrade(row['개선과 성장']);
+    const assignment = parseGrade(row['과제 수행과 충실도'] ?? row['과제 수행']);
+    const improvement = parseGrade(row['꾸준함과 발전'] ?? row['개선과 성장']);
     const hasSpecialtyEnglish = Object.prototype.hasOwnProperty.call(row, '전담 타이틀-영어');
     const hasSpecialtyScience = Object.prototype.hasOwnProperty.call(row, '전담 타이틀-과학');
     const hasSpecialtyPe = Object.prototype.hasOwnProperty.call(row, '전담 타이틀-체육');
@@ -358,10 +358,10 @@ function payloadFromFlatRows(
     if (!Number.isInteger(studentId) || studentId <= 0) errors.push(`${line}행: 학생ID가 올바르지 않습니다.`);
     if (!studentName) errors.push(`${line}행: 학생명이 비어 있습니다.`);
     if (candidate == null) errors.push(`${line}행: 예선후보는 Y/N으로 입력해주세요.`);
-    if (preparation === 'INVALID') errors.push(`${line}행: 수업준비와 책임 등급이 올바르지 않습니다.`);
+    if (preparation === 'INVALID') errors.push(`${line}행: 학습 준비와 자기관리 등급이 올바르지 않습니다.`);
     if (participation === 'INVALID') errors.push(`${line}행: 참여와 경청 등급이 올바르지 않습니다.`);
-    if (assignment === 'INVALID') errors.push(`${line}행: 과제 수행 등급이 올바르지 않습니다.`);
-    if (improvement === 'INVALID') errors.push(`${line}행: 개선과 성장 등급이 올바르지 않습니다.`);
+    if (assignment === 'INVALID') errors.push(`${line}행: 과제 수행과 충실도 등급이 올바르지 않습니다.`);
+    if (improvement === 'INVALID') errors.push(`${line}행: 꾸준함과 발전 등급이 올바르지 않습니다.`);
     if (specialtyEnglish === null) errors.push(`${line}행: 전담 타이틀-영어는 Y/N으로 입력해주세요.`);
     if (specialtyScience === null) errors.push(`${line}행: 전담 타이틀-과학은 Y/N으로 입력해주세요.`);
     if (specialtyPe === null) errors.push(`${line}행: 전담 타이틀-체육은 Y/N으로 입력해주세요.`);
@@ -452,10 +452,10 @@ function validatePayload(board: MvpFoundationBoard, payload: MvpExchangePayload 
 
     const changed: string[] = [];
     if (incoming.is_preliminary_candidate !== current.is_preliminary_candidate) changed.push('예선후보');
-    if (!sameNullable(incoming.preparation_responsibility_grade, current.preparation_responsibility_grade)) changed.push('수업준비와 책임');
+    if (!sameNullable(incoming.preparation_responsibility_grade, current.preparation_responsibility_grade)) changed.push('학습 준비와 자기관리');
     if (!sameNullable(incoming.participation_listening_grade, current.participation_listening_grade)) changed.push('참여와 경청');
-    if (!sameNullable(incoming.assignment_performance_grade, current.assignment_performance_grade)) changed.push('과제 수행');
-    if (!sameNullable(incoming.improvement_growth_grade, current.improvement_growth_grade)) changed.push('개선과 성장');
+    if (!sameNullable(incoming.assignment_performance_grade, current.assignment_performance_grade)) changed.push('과제 수행과 충실도');
+    if (!sameNullable(incoming.improvement_growth_grade, current.improvement_growth_grade)) changed.push('꾸준함과 발전');
     if ((incoming.specialty_english ?? current.specialty_english) !== current.specialty_english) changed.push('전담 영어');
     if ((incoming.specialty_science ?? current.specialty_science) !== current.specialty_science) changed.push('전담 과학');
     if ((incoming.specialty_pe ?? current.specialty_pe) !== current.specialty_pe) changed.push('전담 체육');

@@ -673,12 +673,12 @@ function AssessmentModal({ row, readOnly, busy, onClose, onSave }: {
   const [form, setForm] = useState<MvpFoundationInputState>(() => inputFromRow(row));
   const allFilled = Boolean(form.preparation_responsibility_grade && form.participation_listening_grade && form.assignment_performance_grade && form.improvement_growth_grade);
   return (
-    <ModalShell title={`${row.student_name} · 수업 참여 평가`} subtitle="숫자로 환산하지 않는 교사 정성평가입니다." onClose={onClose}>
+    <ModalShell title={`${row.student_name} · 수업 참여 평가`} subtitle="숫자로 환산하지 않는 교사 정성평가입니다. 꾸준함과 발전은 우수한 수준의 지속과 의미 있는 성장을 함께 인정합니다." onClose={onClose}>
       <div className="space-y-4">
-        <GradeField label="수업준비와 책임" value={form.preparation_responsibility_grade} onChange={(v) => setForm({ ...form, preparation_responsibility_grade: v })} readOnly={readOnly} />
+        <GradeField label="학습 준비와 자기관리" value={form.preparation_responsibility_grade} onChange={(v) => setForm({ ...form, preparation_responsibility_grade: v })} readOnly={readOnly} />
         <GradeField label="참여와 경청" value={form.participation_listening_grade} onChange={(v) => setForm({ ...form, participation_listening_grade: v })} readOnly={readOnly} />
-        <GradeField label="과제 수행" value={form.assignment_performance_grade} onChange={(v) => setForm({ ...form, assignment_performance_grade: v })} readOnly={readOnly} />
-        <GradeField label="개선과 성장" value={form.improvement_growth_grade} onChange={(v) => setForm({ ...form, improvement_growth_grade: v })} readOnly={readOnly} />
+        <GradeField label="과제 수행과 충실도" value={form.assignment_performance_grade} onChange={(v) => setForm({ ...form, assignment_performance_grade: v })} readOnly={readOnly} />
+        <GradeField label="꾸준함과 발전" value={form.improvement_growth_grade} onChange={(v) => setForm({ ...form, improvement_growth_grade: v })} readOnly={readOnly} />
         <Field label="특이사항 / 비고"><textarea disabled={readOnly} value={form.notes ?? ''} onChange={(e) => setForm({ ...form, notes: e.target.value })} maxLength={2000} rows={5} placeholder="정량 데이터로 드러나지 않는 성장, 태도, 책임감 등을 기록하세요." className="w-full resize-y rounded-card-md border border-line bg-bg-deep p-3 text-xs font-bold leading-relaxed text-white disabled:opacity-60" /><div className="mt-1 text-right text-[9px] font-bold text-text-muted">{(form.notes ?? '').length}/2000</div></Field>
         {!readOnly && <div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="h-9 rounded-card-md border border-line px-4 text-xs font-black text-text-secondary">취소</button><button type="button" disabled={!allFilled || busy} onClick={() => void onSave(form)} className="btn-primary h-9 disabled:opacity-40">{busy ? '저장 중…' : '평가 저장'}</button></div>}
       </div>
