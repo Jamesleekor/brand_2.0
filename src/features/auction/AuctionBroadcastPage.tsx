@@ -8,13 +8,23 @@ import { cn } from '@/lib/utils/cn';
 import { formatAuctionTime, useAuctionCountdown, useLiveAuctionState, useServerDeadlineCountdown } from './useLiveAuction';
 
 export default function AuctionBroadcastPage() {  const { isStateDelayed, state, auction, items, currentItem, recentBids, superPass, isLoading, refetch } = useLiveAuctionState(false);
-  const bidSound = useAuctionBidSound(currentItem);
   const countdown = useAuctionCountdown(
     state?.server_now,
     currentItem,
     auction?.paused_at,
     auction?.pause_remaining_seconds,
   );
+  const bidSound = useAuctionBidSound({
+    auctionId: auction?.id ?? null,
+    item: currentItem,
+    items,
+    remainingSeconds: countdown.remainingSeconds,
+    paused: countdown.isPaused || Boolean(auction?.paused_at),
+    applying: superPass?.status === 'APPLYING',
+    isStateDelayed,
+    ready: Boolean(state) && !isLoading,
+  });
+
   const superPassCountdown = useServerDeadlineCountdown(
     state?.server_now,
     superPass?.status === 'APPLYING' ? superPass.application_ends_at : null,
@@ -80,7 +90,7 @@ export default function AuctionBroadcastPage() {  const { isStateDelayed, state,
         <div className="flex flex-col items-end gap-2">
           <button type="button" onClick={() => void bidSound.toggleSound()} aria-pressed={bidSound.enabled}
             className="px-4 py-2 rounded-card-md border border-gold/40 bg-bg-card text-sm font-black text-gold">
-            {bidSound.enabled ? '🔊 입찰음 켜짐' : '🔇 입찰음 켜기'}
+            {bidSound.enabled ? '🔊 경매 효과음 켜짐' : '🔇 경매 효과음 켜기'}
           </button>
           {bidSound.audioError && <p role="status" className="text-amber-200 text-sm">{bidSound.audioError}</p>}
         </div>      </header>
