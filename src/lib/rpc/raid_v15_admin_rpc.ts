@@ -2,6 +2,7 @@
 // RAID_V15_DETAIL_EDITOR_AUDIO_DEFAULT_20260918
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RpcResult } from './student_rpc';
+import type { RaidClashDifficulty, RaidClashProfile, RaidClashPublicState } from './raid_student_rpc';
 
 export type RaidV15PatternType =
   | 'WEAK_POINT' | 'BREAK' | 'ENRAGE'
@@ -79,6 +80,19 @@ export interface RaidV15AudioConfiguration {
   raid_id:number; classroom_id:number; default_profile:RaidV15DefaultAudioProfile; override_profile:RaidV15AudioProfile; effective_profile:RaidV15AudioProfile;
 }
 
+// RAID_CLASH_V1_20261028 — 격돌 설정(교사)
+export interface RaidClashTeacherConfig {
+  raid_id: number;
+  raid_status: string;
+  enabled: boolean;
+  difficulty: RaidClashDifficulty;
+  editable: boolean;
+  barrier_enabled: boolean;
+  profiles: Record<RaidClashDifficulty, RaidClashProfile & { effects?: Record<string, unknown> }>;
+  hp_ratio_warnings: Array<{ seq: number; name: string; pattern_type: string; trigger_value: number }>;
+  clash: RaidClashPublicState;
+}
+
 async function callRpc<T>(supabase: SupabaseClient, fn: string, args: Record<string, unknown>): Promise<RpcResult<T>> {
   const { data, error } = await supabase.rpc(fn, args);
   if (error) return { success: false, type: 'SERVER', error: error.message, code: error.code };
@@ -110,6 +124,22 @@ export const raidV15AdminRpc = {
 
   saveDefaultAudio: (supabase: SupabaseClient, raidId: number, payload: RaidV15AudioUrlProfile) =>
     callRpc<RaidV15AudioConfiguration>(supabase, 'teacher_save_default_raid_audio_profile', { p_raid_id: raidId, p_payload: payload }),
+
+  clashConfig: (supabase: SupabaseClient, raidId: number) =>
+    callRpc<RaidClashTeacherConfig>(supabase, 'teacher_get_raid_clash_config', { p_raid_id: raidId }),
+
+  saveClashConfig: (supabase: SupabaseClient, raidId: number, payload: { enabled: boolean; difficulty: RaidClashDifficulty }) =>
+    callRpc<RaidClashTeacherConfig>(supabase, 'teacher_save_raid_clash_config', { p_raid_id: raidId, p_payload: payload }),
+
+  forceFinishClash: (supabase: SupabaseClient, raidId: number, reason?: string) =>
+    callRpc<{ forced: boolean; reason?: string; clash: RaidClashPublicState }>(supabase, 'teacher_force_finish_raid_clash', {
+      p_raid_id: raidId,
+      p_reason: reason ?? null,
+    }),
+
+  // RAID_CLASH_V1_20261028 — 교사 테스트용: HP와 관계없이 지금 격돌을 발동(레이드당 1회, 전투 중에만)
+  triggerClash: (supabase: SupabaseClient, raidId: number) =>
+    callRpc<{ triggered: boolean; clash: RaidClashPublicState }>(supabase, 'teacher_trigger_raid_clash', { p_raid_id: raidId }),
 
   triggerPattern: (supabase: SupabaseClient, raidId: number, patternId: number) =>
     callRpc<{ event?: string; pattern_run_id?: number; pattern_type?: string; pattern_name?: string }>(

@@ -201,7 +201,120 @@ export interface RaidCombatState {
   updated_at: string | null;
 }
 
+// RAID_CLASH_V1_20261028 — 격돌(CLASH) 공개 상태. 서버 raid_clash_public_state 응답과 같은 모양.
+export type RaidClashDifficulty = 'EASY' | 'NORMAL' | 'HARD';
+export type RaidClashPhase = 'VOLUNTEERING' | 'SELECTED' | 'PLAYING' | 'RESOLVED' | 'CANCELLED';
+export type RaidClashJudgment = 'PERFECT' | 'GOOD' | 'BAD' | 'MISS';
+export type RaidClashOutcome = 'GREAT_SUCCESS' | 'SUCCESS' | 'FAILED';
+export type RaidClashKeyCode = 'KeyQ' | 'KeyW' | 'KeyE' | 'KeyR';
+
+export interface RaidClashProfile {
+  version: number;
+  difficulty: RaidClashDifficulty;
+  note_count: number;
+  keys: RaidClashKeyCode[];
+  volunteer_ms: number;
+  volunteer_grace_ms: number;
+  volunteer_button_delay_ms: number;
+  reveal_ms: number;
+  ready_timeout_ms: number;
+  countdown_ms: number;
+  latency_slack_ms: number;
+  early_slack_ms: number;
+  approach_ms: number;
+  spacing_ms: number;
+  perfect_ms: number;
+  good_ms: number;
+  bad_ms: number;
+  points: Record<RaidClashJudgment, number>;
+  success_score: number;
+  great_score: number;
+  weak_zone: RaidClashWeakZone;
+}
+
+export interface RaidClashWeakZone {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  multiplier: number;
+}
+
+export interface RaidClashEffects {
+  GREAT_SUCCESS: { buff_seconds: number; block_seconds: number; clash_component: number };
+  SUCCESS: { buff_seconds: number; block_seconds: number; clash_component: number };
+  FAILED: { barrier_penalty_ratio_of_current: number };
+}
+
+export interface RaidClashSelected {
+  participant_id: number;
+  student_name: string | null;
+  guild_name: string | null;
+  guild_logo_url: string | null;
+  character_name: string | null;
+  character_image_url: string | null;
+}
+
+export interface RaidClashNote {
+  index: number;
+  key: RaidClashKeyCode;
+  ideal_at: string;
+}
+
+export interface RaidClashSession {
+  id: number;
+  version: number;
+  phase: RaidClashPhase;
+  frozen: boolean;
+  triggered_at: string;
+  volunteer_closes_at: string;
+  volunteer_accept_until: string;
+  volunteer_count: number;
+  i_volunteered: boolean;
+  i_am_selected: boolean;
+  selected: RaidClashSelected | null;
+  selected_at: string | null;
+  ready_deadline_at: string | null;
+  play_starts_at: string | null;
+  play_deadline_at: string | null;
+  profile: RaidClashProfile;
+  effects: RaidClashEffects;
+  notes: RaidClashNote[] | null;
+  inputs: Array<{ index: number; judgment: RaidClashJudgment; points: number }>;
+  score: number;
+  outcome: RaidClashOutcome | null;
+  outcome_reason: string | null;
+  resolved_at: string | null;
+  frozen_seconds: number | null;
+  buff_until: string | null;
+  buff_active: boolean;
+  boss_attack_block_until: string | null;
+  clash_component: number;
+  weak_zone: RaidClashWeakZone | null;
+  barrier_penalty_amount: number | null;
+}
+
+export interface RaidClashPublicState {
+  enabled: boolean;
+  difficulty: RaidClashDifficulty;
+  server_now: string;
+  session: RaidClashSession | null;
+}
+
+export interface RaidClashActionResult {
+  accepted: boolean;
+  reason?: string | null;
+  duplicate?: boolean;
+  note_index?: number;
+  judgment?: RaidClashJudgment;
+  points?: number;
+  flag?: string | null;
+  clash: RaidClashPublicState;
+}
+
 export interface RaidBattleState {
+  // RAID_CLASH_V1_20261028: 격돌 마이그레이션 전 서버에는 없을 수 있으므로 선택 필드로 둔다.
+  clash?: RaidClashPublicState | null;
   raid: {
     id: number;
     title: string;
@@ -328,6 +441,9 @@ export interface RaidTapBatchResult {
   my_total_damage: number;
   raid_status: RaidStatus;
   barrier_collapsed?: boolean;
+  // RAID_CLASH_V1_20261028: 이번 묶음에서 격돌이 시작됐는지 / 격돌 중이라 모두 거절됐는지
+  clash_triggered?: boolean;
+  clash_active?: boolean;
   pattern?: RaidTapBatchPatternResult | null;
 }
 
@@ -463,5 +579,30 @@ export const raidStudentRpc = {
   result: (supabase: SupabaseClient, raidId: number) =>
     callRpc<RaidResult>(supabase, 'get_raid_result', {
       p_raid_id: raidId,
+    }),
+
+  // RAID_CLASH_V1_20261028 — 격돌: 지원 / 준비 완료(대표만) / 노트 입력(대표만)
+  volunteerClash: (supabase: SupabaseClient, raidId: number) =>
+    callRpc<RaidClashActionResult>(supabase, 'student_volunteer_raid_clash', {
+      p_raid_id: raidId,
+    }),
+
+  readyClash: (supabase: SupabaseClient, raidId: number) =>
+    callRpc<RaidClashActionResult>(supabase, 'student_ready_raid_clash', {
+      p_raid_id: raidId,
+    }),
+
+  submitClashInput: (
+    supabase: SupabaseClient,
+    raidId: number,
+    noteIndex: number,
+    keyCode: RaidClashKeyCode | null,
+    offsetMs: number | null,
+  ) =>
+    callRpc<RaidClashActionResult>(supabase, 'student_submit_raid_clash_input', {
+      p_raid_id: raidId,
+      p_note_index: noteIndex,
+      p_key_code: keyCode,
+      p_offset_ms: offsetMs,
     }),
 };

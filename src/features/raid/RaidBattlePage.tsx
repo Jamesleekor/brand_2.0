@@ -25,6 +25,10 @@ import {
   useRaidTapBatcher,
   type RaidTapBatcherDiagnostics,
 } from '@/features/raid/hooks/useRaidTapBatcher';
+// RAID_CLASH_V1_20261028
+import RaidClashOverlay, { ClashBuffOverlay } from '@/features/raid/clash/RaidClashOverlay';
+import { clashAttackContext, clashHitFactor, insideClashWeakZone } from '@/features/raid/clash/clashCore';
+import type { RaidClashPublicState } from '@/lib/rpc/raid_student_rpc';
 
 // RAID_V15_E15_BOSS_ATTACK_RUNTIME
 // RAID_V15_E2_WEAK_BREAK_GROGGY_ENRAGE
@@ -112,7 +116,8 @@ export default function RaidBattlePage() {
     },
     // Local hit feedback is immediate; authoritative state polling is reconciliation only.
     staleTime: 1200,
-    refetchInterval: 1900,
+    // RAID_CLASH_V1_20261028: 격돌 진행 중에만 상태를 더 자주 확인한다(지원 마감·대표 공개·판정 반영).
+    refetchInterval: (query) => (query.state.data?.clash?.session?.frozen ? 700 : 1900),
     refetchOnWindowFocus: true,
   });
 
@@ -298,6 +303,10 @@ export default function RaidBattlePage() {
       const enrageMultiplier = state.combat.enrage_active
         ? Math.max(0, Number(state.combat.enrage_player_damage_multiplier ?? 1))
         : 1;
+      // RAID_CLASH_V1_20261028: 격돌 버프 중에는 max(약점 + 격돌 성분, 패턴 × 그로기)
+      const clashCtx = clashAttackContext(state.clash?.session, Date.now() + serverClockOffsetRef.current);
+      const hitFactor = clashHitFactor(clashCtx, x, y, patternMultiplier, groggyMultiplier);
+      if (clashCtx.buffActive && insideClashWeakZone(clashCtx.weakZone, x, y)) zoneKey = 'WEAK_POINT';
 
       const estimatedDamage = Math.max(
         1,
@@ -307,14 +316,13 @@ export default function RaidBattlePage() {
             variance *
             critMultiplier *
             (Number(state.me.element_multiplier_bp ?? 10000) / 10000) * // RAID_ELEMENT_V1_20261017
-            patternMultiplier *
-            groggyMultiplier *
+            hitFactor * // RAID_CLASH_V1_20261028: 서버와 같은 규칙(버프 없으면 패턴 × 그로기 그대로)
             enrageMultiplier,
         ),
       );
 
       const totalPresentationMultiplier =
-        critMultiplier * patternMultiplier * groggyMultiplier * enrageMultiplier;
+        critMultiplier * hitFactor * enrageMultiplier;
       let impactTier: ImpactTier = crit ? 'crit' : 'normal';
       if (totalPresentationMultiplier >= 3) impactTier = 'devastating';
       else if (totalPresentationMultiplier >= 1.8) impactTier = 'powerful';
@@ -394,7 +402,7 @@ export default function RaidBattlePage() {
       setMyDamage(Number(batch.my_total_damage));
       showPatternFeedback(batch);
 
-      if (batch.pattern) {
+      if (batch.pattern || batch.clash_triggered || batch.clash_active) {
         void queryClient.invalidateQueries({ queryKey: ['raid-battle-state', raidId] });
       }
 
@@ -448,10 +456,14 @@ export default function RaidBattlePage() {
     [queryClient, raidId, showPatternFeedback],
   );
 
-  const battleEnabled =
-    state?.raid.status === 'ACTIVE' && !state.me.attack_blocked;
+  // RAID_CLASH_V1_20261028: 격돌(모집·대표 공개·QTE) 중에는 전투 전체가 멈춘다.
+  const clashSession = state?.clash?.session ?? null;
+  const clashFrozen = state?.raid.status === 'ACTIVE' && Boolean(clashSession?.frozen);
 
-  const { queueTap } = useRaidTapBatcher({
+  const battleEnabled =
+    state?.raid.status === 'ACTIVE' && !state.me.attack_blocked && !clashFrozen;
+
+  const { queueTap, clearPending } = useRaidTapBatcher({
     raidId,
     enabled: battleEnabled,
     tapRateLimitPerSecond: Number(state?.raid.tap_rate_limit_per_second ?? 7),
@@ -459,6 +471,19 @@ export default function RaidBattlePage() {
     onError: (message) => setBattleError(message),
     onDiagnostics: raidDebugEnabled ? setBatcherDiagnostics : undefined,
   });
+
+  useEffect(() => {
+    if (clashFrozen) clearPending();
+  }, [clashFrozen, clearPending]);
+
+  const handleClashUpdate = useCallback(
+    (next: RaidClashPublicState) => {
+      queryClient.setQueryData<RaidBattleState>(['raid-battle-state', raidId], (current) =>
+        current ? { ...current, clash: next } : current,
+      );
+    },
+    [queryClient, raidId],
+  );
 
   const handleResultClose = () => {
     setResultOpen(false);
@@ -543,6 +568,7 @@ export default function RaidBattlePage() {
     : null;
   const bossAttackTelegraph =
     state.raid.status === 'ACTIVE' &&
+    !clashFrozen &&
     bossAttack != null &&
     secondsToBossAttack != null &&
     secondsToBossAttack <= Number(bossAttack.telegraph_seconds ?? 0);
@@ -658,8 +684,22 @@ export default function RaidBattlePage() {
           </button>
         </div>
 
+        {state.raid.status === 'ACTIVE' && (
+          <ClashBuffOverlay session={clashSession} serverNow={clockNowMs + serverClockOffsetMs} />
+        )}
+
         <DamageLayer items={damageNumbers} />
         <PatternFeedbackLayer items={patternFeedback} />
+
+        {state.raid.status === 'ACTIVE' && (
+          <RaidClashOverlay
+            raidId={raidId}
+            clash={state.clash}
+            serverOffsetMs={serverClockOffsetMs}
+            attackBlocked={state.me.attack_blocked}
+            onClashUpdate={handleClashUpdate}
+          />
+        )}
 
         {raidDebugEnabled && batcherDiagnostics && (
           <RaidPerformanceDebugPanel diagnostics={batcherDiagnostics} />
@@ -832,7 +872,7 @@ function BossViewport({
         idleVideoUrl={phase?.loop_video_url}
         visual={phase?.visual ?? null}
         playbackState={playbackState}
-        cameraActive={state.raid.status === 'ACTIVE'}
+        cameraActive={state.raid.status === 'ACTIVE' && !state.clash?.session?.frozen /* RAID_CLASH_V1_20261028: 격돌 중 화면 흔들림 정지 */}
         cameraEvents={{
           patternRunId: state.combat?.active_pattern?.run_id ?? null,
           bossAttackSeq: state.combat?.boss_attack?.seq ?? null,

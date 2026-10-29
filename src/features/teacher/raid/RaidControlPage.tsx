@@ -69,11 +69,11 @@ type RaidForm = {
 
 // RAID_ADMIN_LAYOUT_TABS_20261023: 레이드 통제실을 탭으로 나눠 스크롤 이동을 줄인다.
 // BASIC/VISUAL/RULES = 보스 설정 폼(설정 저장 1개), COMBAT/PATTERNS/AUDIO/LOOT = 레이드 구성 패널, LIVE = 실시간 현황.
-type RaidPageTab = 'BASIC' | 'VISUAL' | 'RULES' | 'COMBAT' | 'PATTERNS' | 'AUDIO' | 'LOOT' | 'LIVE';
+type RaidPageTab = 'BASIC' | 'VISUAL' | 'RULES' | 'COMBAT' | 'PATTERNS' | 'AUDIO' | 'LOOT' | 'CLASH' | 'LIVE';
 type RaidEditorSection = 'BASIC' | 'VISUAL' | 'RULES';
 
 const EDITOR_SECTION_TABS: readonly RaidPageTab[] = ['BASIC', 'VISUAL', 'RULES'];
-const CONFIG_PANEL_TABS: readonly RaidPageTab[] = ['COMBAT', 'PATTERNS', 'AUDIO', 'LOOT'];
+const CONFIG_PANEL_TABS: readonly RaidPageTab[] = ['COMBAT', 'PATTERNS', 'AUDIO', 'LOOT', 'CLASH']; // RAID_CLASH_V1_20261028: CLASH 추가
 
 const ELEMENT_OPTIONS: Array<{ value: RaidElement; label: string }> = [
   { value: 'FIRE', label: '🔥 화' },
@@ -2067,6 +2067,7 @@ function RaidPageTabs({
     { key: 'PATTERNS', label: `🧩 패턴${patternCount === null ? '' : ` ${patternCount}`}`, group: 'config' },
     { key: 'AUDIO', label: '🔊 오디오', group: 'config' },
     { key: 'LOOT', label: '🎁 전리품', group: 'config' },
+    { key: 'CLASH', label: '⚔ 격돌', group: 'config' },
     { key: 'LIVE', label: '📡 실시간 운영', group: 'live' },
   ];
   const visible = creating ? tabs.filter((tab) => tab.group === 'editor') : tabs;

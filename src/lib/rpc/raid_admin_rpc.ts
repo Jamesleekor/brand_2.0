@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RpcResult } from './student_rpc';
 import type { RaidVisualConfigV1 } from '@/features/raid/visual/raidVisualTypes';
+import type { RaidClashPublicState } from './raid_student_rpc';
 
 export type RaidElement = 'FIRE' | 'WATER' | 'WIND' | 'EARTH' | 'LIGHT' | 'DARK';
 export type RaidStatus =
@@ -169,6 +170,8 @@ export interface TeacherRaidBroadcastParticipant {
 
 export interface TeacherRaidBroadcastState {
   server_now: string;
+  // RAID_CLASH_V1_20261028: 격돌 마이그레이션 전 서버에는 없을 수 있다.
+  clash?: RaidClashPublicState | null;
   raid: {
     id: number; title: string; boss_name: string; boss_element: RaidElement; status: RaidStatus;
     max_hp: number; current_hp: number; hp_ratio: number; damage_coefficient: number;

@@ -322,8 +322,18 @@ export function useRaidTapBatcher({
     return 'QUEUED';
   }, []);
 
+  // RAID_CLASH_V1_20261028: 격돌이 시작되면 아직 보내지 않은 탭과 재시도 묶음을 버린다.
+  // (격돌이 끝난 뒤 격돌 이전 탭이 버프 배율로 들어가지 않게)
+  const clearPending = useCallback(() => {
+    queueRef.current = [];
+    retryRef.current = null;
+    nextAttemptAtRef.current = 0;
+    busyStreakRef.current = 0;
+  }, []);
+
   return {
     queueTap,
     flush,
+    clearPending,
   };
 }

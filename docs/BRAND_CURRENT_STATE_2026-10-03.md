@@ -27,6 +27,8 @@
 - `submit_raid_tap_batch`와 `raid_combat_tick`은 브라우저의 일반 background REST 2-slot queue를 우회하는 critical fast path다.
 - tap batcher 자체의 1-in-flight, jitter, BUSY/backoff와 서버측 backpressure가 authoritative하다.
 - 일반 상태 조회는 기존 background queue/polling 정책을 유지한다.
+- 2026-10-28: 전투 엔진 v1.5 함수(`raid_combat_tick`, `raid_advance_patterns`, `raid_apply_barrier_damage` 등)의 원본은 저장소에 없고 운영 DB에만 있다. 운영 원본 98개는 `brand_backup.function_snapshots`(label `PRE_ELEMENT_V1_20261028`)에 보관했다. 레이드 함수를 고칠 때는 이 백업과 `pg_get_functiondef`를 기준으로 삼는다.
+- 격돌 RPC 3개(`student_volunteer_raid_clash`, `student_ready_raid_clash`, `student_submit_raid_clash_input`)도 fast path에 포함한다.
 
 ## 4. Dimensional Gate AI
 
@@ -93,3 +95,11 @@ Repo authoritative source:
 ## 12. 모험가 도구함 v1 (2026-10-17, 소스·SQL 준비)
 
 학생 개인 도구 6종(제비뽑기·사다리·룰렛·순서·타이머·팀 만들기)과 학급 활동 5종(버저·점수판·대진표·투표·카드 구름)을 추가했다. 새 표 8개와 `brand_toolbox` 내부 스키마, 공개 RPC 19개는 `supabase/migrations/20261017_03_adventurer_toolbox.sql`에 있다. 실시간은 `toolbox_pulse` 한 표만 Realtime에 넣는 신호 방식이며 경매·레이드 경로와 섞지 않는다. 기존 표는 읽기만 한다. **운영 DB 미적용, 사용자 로컬 build·로그인 E2E·LOADTEST 실측 미완료.** 적용 순서와 확인표: `docs/ADVENTURER_TOOLBOX_2026-10-17.md`.
+
+## 13. 레이드 속성 대미지 V1 (2026-10-28, 운영 DB 적용 완료)
+
+`supabase/BRAND_RAID_ELEMENT_V1_SERVER_20261017.sql`을 운영에 적용했다(migration `brand_raid_element_v1_server_20261017`). 공격식에 `snapshot_element_multiplier_bp` 배율 1곳만 추가됐고(함수 길이 +64자 확인), 기존 레이드 10개는 OFF, 기존 참가 기록 195건은 1.0배 그대로다. 교사 화면에서 "속성 대미지 사용"을 켜고 **저장한** 레이드만 V1이 된다. 주의: 메타데이터만 V1이고 칸이 OFF인 채로 시작된 레이드는 일시정지·종료 시 메타데이터 갱신 트리거가 "시작 후 규칙 변경"으로 막을 수 있으니, 시작 전에 한 번 저장해 칸을 맞춘다.
+
+## 14. 레이드 격돌(CLASH) V1 (2026-10-28, 소스·SQL 준비, 운영 DB 미적용)
+
+보스 HP가 처음 50% 이하가 되면 전투 전체를 멈추고 5초 지원 → 지원자 중 무작위 1명 → Q/W/E/R 고리 8회 → 결과(대성공 13~16 / 성공 8~12 / 실패 0~7·지원자 없음). 기본 OFF, 레이드별로 교사가 켠다(공명방벽 ON 레이드만). 서버: `supabase/migrations/20261028_01_raid_clash_v1.sql`(새 표 4개, 학생 RPC 3개, 교사 RPC 3개, 기존 함수 문자열 1곳 치환 16곳·불일치 시 전체 중단). 검증: `supabase/tests/raid_clash_v1_rollback_test.sql`(항상 롤백되는 트랜잭션에서 운영 함수 그대로 시험). 화면: `src/features/raid/clash/*`, `RaidClashBroadcastOverlay.tsx`, `RaidClashConfigTab.tsx`. 상세 규칙: `docs/BRAND_RAID_CLASH_HANDOFF_20261028.md`.

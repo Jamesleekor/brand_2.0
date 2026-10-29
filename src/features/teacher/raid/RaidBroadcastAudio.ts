@@ -167,6 +167,39 @@ export class RaidBroadcastAudioEngine {
     [392, 523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => this.schedule(index * 120, () => this.toneUi(frequency, index === 4 ? 0.7 : 0.26, 'triangle', 0.12)));
   }
 
+  // RAID_CLASH_V1_20261028 — 격돌 효과음(전용 음원 없이 합성음, 기존 오디오 설정값은 그대로)
+  playClashCue(cue: 'start' | 'volunteer_end' | 'reveal' | 'countdown' | 'ring' | 'perfect' | 'good' | 'bad' | 'miss' | 'great' | 'success' | 'fail') {
+    if (!this.unlocked || this.muted) return;
+    if (cue === 'start') {
+      [220, 220, 330, 440].forEach((frequency, index) => this.schedule(index * 160, () => this.toneUi(frequency, index === 3 ? 0.5 : 0.18, 'sawtooth', 0.11)));
+      return;
+    }
+    if (cue === 'volunteer_end' || cue === 'countdown') {
+      if (!this.allow(`clash-${cue}`, 600, 700)) return;
+      this.toneUi(cue === 'countdown' ? 660 : 523.25, 0.14, 'square', 0.07);
+      return;
+    }
+    if (cue === 'reveal') {
+      [392, 523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => this.schedule(index * 90, () => this.toneUi(frequency, 0.26, 'triangle', 0.10)));
+      return;
+    }
+    if (cue === 'ring') {
+      if (!this.allow('clash-ring', 120, 160)) return;
+      this.toneUi(880, 0.05, 'sine', 0.035);
+      return;
+    }
+    if (cue === 'perfect') { this.toneUi(1046.5, 0.16, 'triangle', 0.13); this.schedule(60, () => this.toneUi(1568, 0.22, 'sine', 0.10)); return; }
+    if (cue === 'good') { this.toneUi(784, 0.16, 'triangle', 0.11); return; }
+    if (cue === 'bad') { this.toneUi(220, 0.18, 'sawtooth', 0.09); return; }
+    if (cue === 'miss') { this.toneUi(147, 0.22, 'square', 0.07); return; }
+    if (cue === 'great') {
+      [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((frequency, index) => this.schedule(index * 110, () => this.toneUi(frequency, index === 4 ? 0.8 : 0.24, 'triangle', 0.13)));
+      return;
+    }
+    if (cue === 'success') { this.synthJingle(true); return; }
+    this.synthJingle(false);
+  }
+
   dispose() {
     for (const timer of this.timers) window.clearTimeout(timer);
     this.timers.clear();
@@ -233,6 +266,8 @@ export class RaidBroadcastAudioEngine {
 
   private handleCombat(row: RaidAudioFeedback) {
     const event = String(row.event_type || '');
+    // RAID_CLASH_V1_20261028: 격돌 효과음은 중계 화면이 상태 변화에 맞춰 playClashCue로 직접 낸다(이중 재생 방지).
+    if (event.startsWith('CLASH_')) return;
     const patternType = String(row.payload?.pattern_type ?? '');
     if (event === 'BARRIER_DAMAGED' || event === 'BOSS_ATTACK_RESOLVED') {
       if (this.allow('barrier-hit', 260, 380)) this.playSfx('barrier_hit_sfx_url', 'barrier_hit', 'boss', 0.78);

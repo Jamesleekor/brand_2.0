@@ -21,6 +21,9 @@ import { RaidBossVisualStage } from '@/features/raid/visual/RaidBossVisualStage'
 import { useRaidVisualState } from '@/features/raid/visual/useRaidVisualState';
 import { RaidBroadcastAudioEngine } from './RaidBroadcastAudio';
 import { RaidLootBroadcastLayer } from './RaidLootCeremonyOverlay';
+// RAID_CLASH_V1_20261028
+import RaidClashBroadcastOverlay, { useClashBroadcastCues, type ClashCuePlayer } from './RaidClashBroadcastOverlay';
+import { raidV15AdminRpc } from '@/lib/rpc/raid_v15_admin_rpc';
 
 
 type FeedbackTier = 'NORMAL' | 'CRIT' | 'POWERFUL' | 'DEVASTATING';
@@ -131,8 +134,17 @@ export default function RaidBroadcastPage() {
   );
   const audioProfile = audioProfileQuery.data;
 
+  // RAID_CLASH_V1_20261028: 격돌 이벤트가 실시간으로 오면 1초 폴링을 기다리지 않고 바로 다시 읽는다.
+  const clashRefetchRef = useRef<(() => void) | null>(null);
+  clashRefetchRef.current = () => { void broadcastQuery.refetch(); };
+  const [clashForceBusy, setClashForceBusy] = useState(false);
+  const playClashCue = useCallback<ClashCuePlayer>((cue) => audioEngineRef.current?.playClashCue(cue), []);
+
   const handleRealtimeFeedback = useCallback((row: BroadcastFeedbackRow) => {
     audioEngineRef.current?.handleFeedback(row);
+    if (row.event_kind === 'COMBAT' && String(row.event_type || '').startsWith('CLASH_')) {
+      clashRefetchRef.current?.();
+    }
     const now = Date.now();
     if (row.event_kind === 'ATTACK') {
       const tier: FeedbackTier = row.impact_tier ?? 'NORMAL';
@@ -257,6 +269,18 @@ export default function RaidBroadcastPage() {
     }
     previousAudioBarrierState.current = currentState;
   }, [audioEnabled, state?.combat.barrier_state]);
+
+  useClashBroadcastCues(state?.clash, audioEnabled ? playClashCue : null);
+
+  const forceFinishClash = async () => {
+    if (clashForceBusy) return;
+    if (!window.confirm('격돌을 강제로 끝낼까요?\n남은 노트는 MISS로 처리되고, 점수에 따라 결과가 바로 적용됩니다.')) return;
+    setClashForceBusy(true);
+    const result = await raidV15AdminRpc.forceFinishClash(supabase, raidId, 'broadcast');
+    setClashForceBusy(false);
+    if (result.success === false) window.alert(`격돌 강제 종료 실패: ${result.error}`);
+    void broadcastQuery.refetch();
+  };
 
   useEffect(() => {
     const onFullscreen = () => setFullscreen(Boolean(document.fullscreenElement));
@@ -395,6 +419,15 @@ export default function RaidBroadcastPage() {
         <RealtimeImpactLayer items={activeBursts} names={participantNames} />
         <CombatAnnouncementLayer items={activeAnnouncements} />
         {activePattern && <BroadcastMechanicOverlay pattern={activePattern} />}
+        {raid.status === 'ACTIVE' && (
+          <RaidClashBroadcastOverlay
+            clash={state.clash}
+            serverOffsetMs={serverOffsetMs}
+            names={state.participants.map((participant) => participant.brand_name || participant.name).filter(Boolean)}
+            forceFinishing={clashForceBusy}
+            onForceFinish={() => void forceFinishClash()}
+          />
+        )}
 
         <header className="pointer-events-none absolute inset-x-0 top-0 z-30 p-5 lg:p-7">
           <div className={cn(
@@ -754,6 +787,7 @@ function combatAnnouncementFor(row: BroadcastFeedbackRow, now: number): CombatAn
     until: now + ms,
   });
 
+  if (event.startsWith('CLASH_')) return null; // RAID_CLASH_V1_20261028: 격돌은 전용 오버레이가 보여준다
   if (event === 'BARRIER_COLLAPSED') return make('💥 공명방벽 붕괴', '공명방벽이 완전히 파괴되었습니다.', 'danger', 2600);
   if (event === 'BREAK_SUCCESS') return make('✦ BREAK SUCCESS', '보스의 자세가 무너졌습니다. 극딜 시간!', 'success', 2100);
   if (event === 'BREAK_FAILED') return make('⚠ BREAK FAILED', '브레이크 저지 실패 — 공명방벽 피해!', 'danger', 2100);

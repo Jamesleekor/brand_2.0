@@ -38,6 +38,10 @@ function isCriticalRestRequest(url: string): boolean {
     // They must not wait behind ordinary background REST reads.
     '/rest/v1/rpc/submit_raid_tap_batch',
     '/rest/v1/rpc/raid_combat_tick',
+    // RAID_CLASH_V1_20261028: 격돌 지원(5초)·준비·노트 입력은 시간이 생명이라 일반 대기열 뒤에 서지 않는다.
+    '/rest/v1/rpc/student_volunteer_raid_clash',
+    '/rest/v1/rpc/student_ready_raid_clash',
+    '/rest/v1/rpc/student_submit_raid_clash_input',
     '/rest/v1/rpc/place_live_auction_bid',
     // ADVENTURER_TOOLBOX_V1: 버저 입력은 순서가 생명이라 일반 대기열 뒤에 서지 않는다.
     '/rest/v1/rpc/student_toolbox_buzz',
