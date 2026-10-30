@@ -56,6 +56,7 @@ export default function TeacherTikatukaAdminPage({ activePanel }: { activePanel:
 
   const query = useQuery({
     queryKey: ['teacher-tikatuka-progress'],
+    enabled: activePanel === 'overview' || activePanel === 'progress',
     queryFn: async () => {
       const result = await tikatukaTeacherRpc.listProgress(supabase);
       if (result.success === false) throw new Error(tikatukaRpcErrorMessage(result));
@@ -193,7 +194,7 @@ export default function TeacherTikatukaAdminPage({ activePanel }: { activePanel:
                                 </div>
                                 <ResultSequence results={official.results} padTo={5} />
                                 <div className="mt-1 text-[10px] font-bold text-text-muted">
-                                  {official.status === 'COMPLETED' ? `${official.wins}승 · ${official.losses}패 · ${official.draws}무` : '진행 중'}
+                                  {official.status === 'CANCELLED' ? '취소됨 · 기록 보존' : official.status === 'COMPLETED' ? `${official.wins}승 · ${official.losses}패 · ${official.draws}무` : '진행 중'}
                                 </div>
                               </div>
                             ) : <span className="text-xs font-bold text-text-muted">-</span>}
