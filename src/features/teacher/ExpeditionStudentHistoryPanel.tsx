@@ -227,18 +227,20 @@ function RunHistoryCard({ run }: { run: Run }) {
         </div>
       </div>
       <div className="rounded-card-md border border-line bg-bg-card/50 p-3">
-        <h4 className="mb-2 text-sm font-black text-white">📖 발굴 기록</h4>
+        <h4 className="mb-2 text-sm font-black text-white">📚 탐사 일지 · 숨겨진 비밀</h4>
         {record ? <>
-          <p className="text-sm font-black text-white">{record.field_title ?? '현장 기록 없음'}</p>
+          <div className="mb-1 text-xs font-black text-[#FFD58A]">📖 탐사 일지 · 직접 방문하면 얻는 기록</div>
+          <p className="text-sm font-black text-white">{record.field_title ?? '탐사 일지 없음'}</p>
           {record.field_text && <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-[#F6EFE7]">{record.field_text}</p>}
+          <div className="mt-4 mb-2 text-xs font-black text-[#FFD58A]">🔎 숨겨진 비밀 · 발굴에 성공해야 얻는 기록</div>
           <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-white">
             <span className="rounded-pill border border-line px-3 py-1.5">발굴 판정: {record.discovery_attempted ? (record.discovery_success ? '발견 성공' : '발견 실패') : '시도 없음'}</span>
             {record.discovery_attempted && record.discovery_chance_percent !== null && <span className="rounded-pill border border-line px-3 py-1.5">당시 성공 확률 {record.discovery_chance_percent}%</span>}
-            {record.permanent_unlock_granted && <span className="rounded-pill border border-success/50 px-3 py-1.5 text-[#B9F5CC]">영구 발굴 해금</span>}
-            {record.discovery_already_unlocked && <span className="rounded-pill border border-line px-3 py-1.5">이전 발견 기록 있음</span>}
+            {record.permanent_unlock_granted && <span className="rounded-pill border border-success/50 px-3 py-1.5 text-[#B9F5CC]">숨겨진 비밀 영구 해금</span>}
+            {record.discovery_already_unlocked && <span className="rounded-pill border border-line px-3 py-1.5">숨겨진 비밀 이미 발견</span>}
           </div>
           {record.discovery_success && <div className="mt-3 rounded-card-md border border-gold/30 bg-gold/10 p-3">
-            <p className="text-sm font-black text-[#FFE0A2]">{record.discovery_title ?? '발굴 발견'}</p>
+            <p className="text-sm font-black text-[#FFE0A2]">{record.discovery_title ?? '숨겨진 비밀 발견'}</p>
             {record.discovery_text && <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-white">{record.discovery_text}</p>}
           </div>}
         </> : <p className="text-xs font-bold text-white">발굴 판정 스냅샷이 없습니다.</p>}
