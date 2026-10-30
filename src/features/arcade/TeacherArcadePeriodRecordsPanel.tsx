@@ -16,9 +16,8 @@ function kst(value: string | null) {
 }
 function score(value: number | null) { return value === null ? '—' : value.toLocaleString('ko-KR'); }
 
-export function TeacherArcadePeriodRecordsPanel({ classroomId }: { classroomId: number | null }) {
+export function TeacherArcadePeriodRecordsPanel({ classroomId, gameCode }: { classroomId: number | null; gameCode: typeof GAMES[number]['code'] }) {
   const [selectedPeriodId, setSelectedPeriodId] = useState<number | null>(null);
-  const [gameCode, setGameCode] = useState<typeof GAMES[number]['code']>('focus_reaction_01');
   const periods = useQuery({
     queryKey: ['teacher-arcade-record-periods', classroomId],
     enabled: classroomId !== null,
@@ -55,7 +54,7 @@ export function TeacherArcadePeriodRecordsPanel({ classroomId }: { classroomId: 
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
         <div>
           <div className="text-xs font-black tracking-[0.16em] text-gold">ARCADE PERIOD RECORDS</div>
-          <h2 className="mt-1 font-display text-lg text-white">학생 기간 기록 · 전체 3게임</h2>
+          <h2 className="mt-1 font-display text-lg text-white">학생 기간 기록 · {GAMES.find((game) => game.code === gameCode)?.name}</h2>
           <p className="mt-2 text-xs leading-5 text-white/85">공인 인증을 열기 전에도 일반 기록을 조회할 수 있습니다. 아래 기록은 선택한 기간만 집계합니다.</p>
         </div>
         <button className="btn-secondary shrink-0 text-xs" disabled={busy} onClick={() => { void periods.refetch(); if (period) void records.refetch(); }}>
@@ -69,16 +68,8 @@ export function TeacherArcadePeriodRecordsPanel({ classroomId }: { classroomId: 
         </select>
       </label>
       {period && <p className="mt-2 text-xs text-white/85">{kst(period.starts_at)} ~ {kst(period.ends_at_exclusive)} 전</p>}
-      <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        {GAMES.map((game) => {
-          const items = records.data?.rows.filter((row) => row.game_code === game.code) ?? [];
-          const participants = items.filter((row) => row.play_count > 0 || row.official_status !== null || row.current_rank !== null).length;
-          return <button type="button" key={game.code} aria-pressed={gameCode === game.code} onClick={() => setGameCode(game.code)}
-            className={`rounded-card-md border p-3 text-left ${gameCode === game.code ? 'border-gold/60 bg-gold/10' : 'border-line bg-bg-deep'}`}>
-            <b className="text-sm text-white">{game.name}</b>
-            <div className="mt-1 text-xs text-white/85">{records.data ? `${participants}명 참여 · ${items.reduce((sum, row) => sum + row.completed_count, 0)}건 ${game.code === 'rakaruka_03' ? '일반 경기 완료' : '기록 인정'}` : '조회 대기'}</div>
-          </button>;
-        })}
+      <div className="mt-4 rounded-card-md border border-gold/40 bg-gold/10 px-4 py-3 text-sm font-black text-white">
+        {GAMES.find((game) => game.code === gameCode)?.name} · 선택한 게임의 기록만 표시합니다.
       </div>
       {error && <div className="mt-4 rounded-card-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger">기간 기록을 불러오지 못했습니다. {error instanceof Error ? error.message : String(error)}</div>}
       {!error && busy && !records.data && <p className="mt-4 text-sm text-white">기간 기록을 불러오는 중...</p>}

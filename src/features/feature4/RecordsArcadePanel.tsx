@@ -64,7 +64,10 @@ export function RecordsArcadePanel() {
   });
 
   const periods = catalogQ.data?.periods ?? [];
-  const games = catalogQ.data?.games ?? [];
+  // Hide games whose public start date (KST) has not arrived yet (e.g. a pre-registered,
+  // still-hidden game). Pre-release test runs are never ranked, so nothing is lost.
+  const kstToday = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
+  const games = (catalogQ.data?.games ?? []).filter((row) => row.available_from <= kstToday);
   const defaultPeriod = useMemo(
     () => periods.find((row) => row.status === 'ACTIVE') ?? periods.find((row) => row.status === 'VERIFICATION' || row.status === 'READY_TO_FINALIZE') ?? periods[0] ?? null,
     [periods],
@@ -322,12 +325,14 @@ function runState(row: ArcadeHistoryRow) {
 function gameLabel(game: ArcadeGameRow) {
   if (game.code === 'focus_reaction_01') return '집중 반응 #01';
   if (game.code === 'pure_reaction_02') return '순수 반응속도 #02';
+  if (game.code === 'starlink_04') return '스타링크 #04';
   return game.internal_name || game.code;
 }
 
 function friendlyGameName(row: ArcadeHistoryRow) {
   if (row.game_code === 'focus_reaction_01') return '집중 반응 #01';
   if (row.game_code === 'pure_reaction_02') return '순수 반응속도 #02';
+  if (row.game_code === 'starlink_04') return '스타링크 #04';
   return row.game_name || row.game_code;
 }
 

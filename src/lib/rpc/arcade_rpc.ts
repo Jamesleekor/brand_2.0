@@ -46,6 +46,17 @@ export interface ArcadeRunStarted {
   config: Record<string, unknown>;
 }
 
+/** GAME 4 Starlink begin: hidden gameplay seed + nonce exist only after PLAYING. */
+export interface StarlinkRunStarted {
+  run_id: number;
+  play_started_at: string;
+  config: Record<string, unknown>;
+  gameplay_seed: number;
+  run_nonce: string;
+  run_context: 'STANDARD' | 'VERIFICATION';
+  seed_source: 'STANDARD_RANDOM' | 'VERIFICATION_PACK';
+}
+
 export interface ArcadeRunSubmissionResult {
   accepted: boolean;
   run_id?: number;
@@ -225,6 +236,10 @@ export const arcadeStudentRpc = {
     safeArcadeRpc<ArcadeSchemas.StudentSubmitFocusReactionRunInput, ArcadeRunSubmissionResult>(client, 'student_submit_focus_reaction_01_run', ArcadeSchemas.StudentSubmitFocusReactionRunSchema, input),
   submitPureReactionRun: (client: SupabaseClient, input: ArcadeSchemas.StudentSubmitPureReactionRunInput) =>
     safeArcadeRpc<ArcadeSchemas.StudentSubmitPureReactionRunInput, ArcadeRunSubmissionResult>(client, 'student_submit_pure_reaction_02_run', ArcadeSchemas.StudentSubmitPureReactionRunSchema, input),
+  beginStarlinkRun: (client: SupabaseClient, input: ArcadeSchemas.StudentBeginArcadeRunInput) =>
+    safeArcadeRpc<ArcadeSchemas.StudentBeginArcadeRunInput, StarlinkRunStarted>(client, 'student_begin_starlink_04_run', ArcadeSchemas.StudentBeginArcadeRunSchema, input),
+  submitStarlinkRun: (client: SupabaseClient, input: ArcadeSchemas.StudentSubmitStarlinkRunInput) =>
+    safeArcadeRpc<ArcadeSchemas.StudentSubmitStarlinkRunInput, ArcadeRunSubmissionResult>(client, 'student_submit_starlink_04_run', ArcadeSchemas.StudentSubmitStarlinkRunSchema, input),
   getLeaderboard: (client: SupabaseClient, input: ArcadeSchemas.ArcadeLeaderboardInput) =>
     safeArcadeRpc<ArcadeSchemas.ArcadeLeaderboardInput, ArcadeLeaderboardResult>(client, 'get_arcade_leaderboard', ArcadeSchemas.ArcadeLeaderboardSchema, input),
   getRunResult: (client: SupabaseClient, input: ArcadeSchemas.StudentArcadeRunResultInput) =>
@@ -234,6 +249,62 @@ export const arcadeStudentRpc = {
   createVerificationRun: (client: SupabaseClient, input: ArcadeSchemas.StudentCreateArcadeVerificationRunInput) =>
     safeArcadeRpc<ArcadeSchemas.StudentCreateArcadeVerificationRunInput, ArcadeRunBootstrap>(client, 'student_create_arcade_verification_run', ArcadeSchemas.StudentCreateArcadeVerificationRunSchema, input),
 };
+
+export type ArcadeForceFinalizePlan = 'FINALIZE_SUCCESS' | 'ADOPT_BEST_VERIFICATION' | 'ADOPT_FROZEN_RECORD' | 'CLOSE_KEEP_FROZEN_RANK' | 'NO_RECORD';
+
+export interface ArcadeForceFinalizeGamePreview {
+  game_id: number;
+  game_code: string;
+  game_name: string;
+  frozen: boolean;
+  verification_closed?: boolean;
+  target_rank_count?: number;
+  active_sessions?: number;
+  in_progress_runs?: number;
+  already_official?: number;
+  students_with_record?: number;
+  plan_counts?: Record<ArcadeForceFinalizePlan, number>;
+  projected_top10?: Array<{ rank: number; student_id: number; student_name: string; score: number; source: 'OFFICIAL' | 'VERIFIED_NOW' | 'FROZEN_RECORD' }>;
+  sessions?: Array<{ session_id: number; student_id: number; student_name: string; plan: ArcadeForceFinalizePlan; used_attempts: number; provisional_score: number | null; best_valid_score: number | null; in_progress_run_id: number | null }>;
+}
+
+export interface ArcadeForceFinalizePreview {
+  period_id: number;
+  period_name: string;
+  status: string;
+  year_month: string;
+  already_finalized: boolean;
+  finalization_id?: number | null;
+  period_running?: boolean;
+  needs_freeze?: boolean;
+  standard_runs_to_expire?: number;
+  games?: ArcadeForceFinalizeGamePreview[];
+  rakaruka?: { active: number; completed: number; active_sessions: Array<{ session_id: number; student_id: number; student_name: string; games_played: number; points: number; difficulty: number }> };
+  guild2?: { will_refresh: boolean; year_month: string };
+  blockers: string[];
+  can_execute: boolean;
+  requires_end_flag?: boolean;
+  generated_at?: string;
+}
+
+export interface ArcadeForceFinalizeResult {
+  period_id: number;
+  status: string;
+  already_finalized: boolean;
+  finalization_id?: number;
+  snapshot_count?: number;
+  forced?: boolean;
+  ended_running_period?: boolean;
+  froze?: boolean;
+  expired_standard_runs?: number;
+  cancelled_verification_runs?: number;
+  finalized_success_sessions?: number;
+  adopted_best_verification?: number;
+  adopted_provisional_results?: number;
+  overridden_sessions?: number;
+  cancelled_rakaruka_sessions?: number;
+  closed_games?: string[];
+}
 
 export const arcadeTeacherRpc = {
   getPeriodRecords: async (client: SupabaseClient, input: ArcadeSchemas.TeacherArcadePeriodRecordsInput): Promise<RpcResult<ArcadeSchemas.ArcadePeriodRecordsResult>> => {
@@ -269,6 +340,10 @@ export const arcadeTeacherRpc = {
     safeArcadeRpc<ArcadeSchemas.TeacherArcadeVerificationOverviewInput, ArcadeVerificationOverview>(client, 'teacher_get_arcade_verification_overview', ArcadeSchemas.TeacherArcadeVerificationOverviewSchema, input),
   forceCloseGameVerification: (client: SupabaseClient, input: ArcadeSchemas.TeacherForceCloseArcadeGameVerificationInput) =>
     safeArcadeRpc<ArcadeSchemas.TeacherForceCloseArcadeGameVerificationInput, Record<string, unknown>>(client, 'teacher_force_close_arcade_game_verification', ArcadeSchemas.TeacherForceCloseArcadeGameVerificationSchema, input),
+  getForceFinalizePreview: (client: SupabaseClient, input: ArcadeSchemas.TeacherArcadeForceFinalizePreviewInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherArcadeForceFinalizePreviewInput, ArcadeForceFinalizePreview>(client, 'teacher_get_arcade_force_finalize_preview', ArcadeSchemas.TeacherArcadeForceFinalizePreviewSchema, input),
+  forceFinalizePeriod: (client: SupabaseClient, input: ArcadeSchemas.TeacherForceFinalizeArcadePeriodInput) =>
+    safeArcadeRpc<ArcadeSchemas.TeacherForceFinalizeArcadePeriodInput, ArcadeForceFinalizeResult>(client, 'teacher_force_finalize_arcade_period', ArcadeSchemas.TeacherForceFinalizeArcadePeriodSchema, input),
   startVerificationSession: (client: SupabaseClient, input: ArcadeSchemas.TeacherStartArcadeVerificationSessionInput) =>
     safeArcadeRpc<ArcadeSchemas.TeacherStartArcadeVerificationSessionInput, Record<string, unknown>>(client, 'teacher_start_arcade_verification_session', ArcadeSchemas.TeacherStartArcadeVerificationSessionSchema, input),
   endVerificationSession: (client: SupabaseClient, input: ArcadeSchemas.TeacherEndArcadeVerificationSessionInput) =>
@@ -343,6 +418,18 @@ export function arcadeErrorMessage(error: { type: string; code?: string; error: 
     P0274: '오늘 순수 반응속도 도전 50회를 모두 사용했어요. 내일 00:00에 다시 도전할 수 있어요.',
     P0277: '이 게임의 공인 인증은 이미 마감되었어요.',
     P0278: '게임 인증 강제 종료 중 해결되지 않은 보상권 기록이 남았어요. 인증 현황을 새로고침한 뒤 다시 시도해주세요.',
+    P0280: '이미 고정된 스타링크 인증 기록은 바꿀 수 없어요.',
+    P0281: '스타링크가 아직 등록되지 않았어요. 운영국에 알려주세요.',
+    P0282: '스타링크 인증 보드를 준비하지 못했어요. 운영국에 알려주세요.',
+    P0283: '스타링크 인증 기회 번호가 올바르지 않아요. 운영국에 알려주세요.',
+    P0284: '스타링크 게임을 시작하지 못했어요. 다시 시도해주세요.',
+    P0285: '이 게임 화면은 더 이상 유효하지 않아요. 새로고침 후 다시 확인해주세요.',
+    P0286: '이 게임은 이미 다른 기록으로 제출되었어요.',
+    P0290: '확정할 월간 Arcade 기간을 찾지 못했어요.',
+    P0291: '월간 Arcade 기간만 강제 확정할 수 있어요.',
+    P0292: '기간이 아직 진행 중이에요. "진행 중인 기간을 지금 종료" 옵션을 켜고 다시 시도해주세요.',
+    P0293: '이 상태의 기간은 강제 확정할 수 없어요.',
+    P0294: '강제 확정 후에도 해결되지 않은 보상권 기록이 남았어요. 인증 현황을 새로고침한 뒤 다시 시도해주세요.',
   };
   if (messages[error.code ?? '']) return messages[error.code ?? ''];
   if (error.type === 'VALIDATION') return error.error;

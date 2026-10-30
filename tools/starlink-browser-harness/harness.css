@@ -1,0 +1,17 @@
+/* Minimal stand-in for the project Tailwind tokens used by StarlinkGame (harness only). */
+*{box-sizing:border-box} body{margin:0;background:#1A1625;color:#fff;font-family:system-ui,'Noto Sans KR',sans-serif}
+#root{max-width:720px;margin:0 auto;padding:12px}
+.glass-card{background:rgba(15,11,26,.85);border:1px solid rgba(165,180,252,.3);border-radius:20px}
+.p-3{padding:.75rem}.p-2{padding:.5rem}.p-4{padding:1rem}.mt-1{margin-top:.25rem}.mt-2{margin-top:.5rem}.mt-3{margin-top:.75rem}.mt-4{margin-top:1rem}
+.mx-auto{margin-left:auto;margin-right:auto}.max-w-\[560px\]{max-width:560px}.w-full{width:100%}
+.grid{display:grid}.grid-cols-3{grid-template-columns:repeat(3,1fr)}.grid-cols-2{grid-template-columns:repeat(2,1fr)}.gap-2{gap:.5rem}
+.flex{display:flex}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.items-center{align-items:center}.justify-between{justify-content:space-between}.justify-center{justify-content:center}
+.text-center{text-align:center}.text-xs{font-size:.75rem}.text-sm{font-size:.875rem}.text-2xl{font-size:1.5rem}.text-4xl{font-size:2.25rem}.text-7xl{font-size:4.5rem}.text-xl{font-size:1.25rem}
+.font-black{font-weight:900}.font-bold{font-weight:700}.font-display{font-family:'Black Han Sans',system-ui,sans-serif;font-weight:900}
+.rounded-card-md{border-radius:12px}.border{border:1px solid rgba(255,255,255,.2)}
+.relative{position:relative}.absolute{position:absolute}.inset-0{inset:0}.pointer-events-none{pointer-events:none}.block{display:block}
+.rounded-pill{border-radius:999px}.px-4{padding-left:1rem;padding-right:1rem}.py-2{padding-top:.5rem;padding-bottom:.5rem}
+.text-white{color:#fff}.text-amber-100{color:#fef3c7}.text-sky-100{color:#e0f2fe}.text-fuchsia-100{color:#fae8ff}.text-indigo-100{color:#e0e7ff}.text-rose-300{color:#fda4af}.text-rose-100{color:#ffe4e6}.text-rose-200{color:#fecdd3}.text-amber-200{color:#fde68a}
+.btn-primary,.btn-secondary{border:0;border-radius:12px;padding:.6rem 1rem;font-weight:900;color:#fff;background:#7c5cff}.btn-secondary{background:#2A2438}
+.top-3{top:.75rem}.left-1\/2{left:50%}.-translate-x-1\/2{transform:translateX(-50%)}.tabular-nums{font-variant-numeric:tabular-nums}
+.animate-pulse{animation:pulse 1s infinite}@keyframes pulse{50%{opacity:.5}}

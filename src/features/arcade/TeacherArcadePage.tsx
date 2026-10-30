@@ -2,24 +2,33 @@ import { useSearchParams } from 'react-router-dom';
 import TeacherArcadeLegacyPage from './TeacherArcadeLegacyPage';
 import TeacherTikatukaAdminPage from './TeacherTikatukaAdminPage';
 
+type ReactionPanel = 'overview' | 'verification' | 'records' | 'audit';
+type RakarukaPanel = 'overview' | 'official' | 'records' | 'progress';
+
+const REACTION_PANELS: readonly ReactionPanel[] = ['overview', 'verification', 'records', 'audit'];
+const RAKARUKA_PANELS: readonly RakarukaPanel[] = ['overview', 'official', 'records', 'progress'];
+
 export default function TeacherArcadePage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const mode = searchParams.get('game');
+  const [searchParams] = useSearchParams();
+  const requestedGame = searchParams.get('game');
+  const requestedPanel = searchParams.get('panel');
 
-  if (mode === 'tikatuka') return <TeacherTikatukaAdminPage />;
+  if (requestedGame === 'rakaruka' || requestedGame === 'tikatuka') {
+    const activePanel = RAKARUKA_PANELS.find((panel) => panel === requestedPanel) ?? 'overview';
+    return <TeacherTikatukaAdminPage key="rakaruka" activePanel={activePanel} />;
+  }
 
+  if (requestedGame === 'periods') {
+    return <TeacherArcadeLegacyPage key="periods" selectedGameCode="focus_reaction_01" activePanel="periods" />;
+  }
+
+  const isPure = requestedGame === 'pure';
+  const activePanel = REACTION_PANELS.find((panel) => panel === requestedPanel) ?? 'overview';
   return (
-    <>
-      <div className="fixed bottom-24 right-4 z-40 md:bottom-auto md:right-6 md:top-[76px]">
-        <button
-          type="button"
-          className="rounded-card-lg border border-brand-primary/40 bg-bg-overlay px-4 py-3 text-sm font-black text-white shadow-card backdrop-blur-card transition hover:-translate-y-0.5 hover:border-brand-primary/70"
-          onClick={() => setSearchParams({ game: 'tikatuka' })}
-        >
-          🛡️ 라카루카 관리
-        </button>
-      </div>
-      <TeacherArcadeLegacyPage />
-    </>
+    <TeacherArcadeLegacyPage
+      key={isPure ? 'pure' : 'focus'}
+      selectedGameCode={isPure ? 'pure_reaction_02' : 'focus_reaction_01'}
+      activePanel={activePanel}
+    />
   );
 }

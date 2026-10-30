@@ -80,6 +80,25 @@ export const StudentSubmitPureReactionRunSchema = z.object({
 });
 export type StudentSubmitPureReactionRunInput = z.infer<typeof StudentSubmitPureReactionRunSchema>;
 
+// GAME 4 Starlink — logical input events only (server replays them). spec v0.3 §35.
+const StarlinkWallMs = z.number().int().min(0).max(180_000);
+const StarlinkCell = z.number().int().min(0).max(48);
+export const StarlinkInputEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('PATH_START'), elapsed_ms: StarlinkWallMs, cell: StarlinkCell }).strict(),
+  z.object({ type: z.literal('CELL_ENTER'), elapsed_ms: StarlinkWallMs, cell: StarlinkCell }).strict(),
+  z.object({ type: z.literal('PATH_RELEASE'), elapsed_ms: StarlinkWallMs }).strict(),
+  z.object({ type: z.literal('PATH_CANCEL'), elapsed_ms: StarlinkWallMs }).strict(),
+]);
+export type StarlinkInputEventInput = z.infer<typeof StarlinkInputEventSchema>;
+
+export const StudentSubmitStarlinkRunSchema = z.object({
+  p_run_id: PositiveId,
+  p_run_nonce: z.string().uuid('실행 식별값이 올바르지 않습니다.'),
+  p_input_events: z.array(StarlinkInputEventSchema).max(5_000, '스타링크 입력 기록은 최대 5,000개입니다.'),
+  p_client_end_wall_ms: StarlinkWallMs,
+}).strict();
+export type StudentSubmitStarlinkRunInput = z.infer<typeof StudentSubmitStarlinkRunSchema>;
+
 export const ArcadeLeaderboardSchema = z.object({
   p_game_code: ArcadeGameCodeSchema,
   p_period_id: PositiveId,
@@ -188,6 +207,16 @@ export const TeacherForceCloseArcadeGameVerificationSchema = z.object({
   p_reason: z.string().trim().min(2, '강제 종료 사유는 2자 이상이어야 합니다.').max(500),
 });
 export type TeacherForceCloseArcadeGameVerificationInput = z.infer<typeof TeacherForceCloseArcadeGameVerificationSchema>;
+
+// Period-wide force finalize (preview + atomic execute). 2026-10-30.
+export const TeacherArcadeForceFinalizePreviewSchema = z.object({ p_period_id: PositiveId }).strict();
+export type TeacherArcadeForceFinalizePreviewInput = z.infer<typeof TeacherArcadeForceFinalizePreviewSchema>;
+export const TeacherForceFinalizeArcadePeriodSchema = z.object({
+  p_period_id: PositiveId,
+  p_reason: z.string().trim().min(2, '확정 사유는 2자 이상이어야 합니다.').max(500, '확정 사유는 500자 이하여야 합니다.'),
+  p_end_running_period: z.boolean(),
+}).strict();
+export type TeacherForceFinalizeArcadePeriodInput = z.infer<typeof TeacherForceFinalizeArcadePeriodSchema>;
 
 export const TeacherStartArcadeVerificationSessionSchema = z.object({
   p_period_id: PositiveId,

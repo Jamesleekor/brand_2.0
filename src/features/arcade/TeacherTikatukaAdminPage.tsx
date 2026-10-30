@@ -4,6 +4,9 @@ import { Link } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/shared/components';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { TeacherTikatukaOfficialWindowCard } from '@/features/arcade/TeacherTikatukaOfficialWindowCard';
+import { TeacherArcadePeriodRecordsPanel } from './TeacherArcadePeriodRecordsPanel';
+import { ArcadeAdminNavigation } from './ArcadeAdminNavigation';
+import { useClassroomId } from '@/stores/auth_store';
 import { supabase } from '@/lib/supabase/client';
 import { tikatukaRpcErrorMessage, tikatukaTeacherRpc } from '@/lib/rpc/tikatuka_rpc';
 import type { TikatukaDifficulty } from '@/lib/zod_schemas/tikatuka_schemas';
@@ -43,8 +46,9 @@ function ResultSequence({ results, padTo = 0 }: { results: string[]; padTo?: num
   );
 }
 
-export default function TeacherTikatukaAdminPage() {
+export default function TeacherTikatukaAdminPage({ activePanel }: { activePanel: 'overview' | 'official' | 'records' | 'progress' }) {
   const client = useQueryClient();
+  const classroomId = useClassroomId();
   const [drafts, setDrafts] = useState<Record<number, TikatukaDifficulty>>({});
   const [savingStudentId, setSavingStudentId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -88,19 +92,21 @@ export default function TeacherTikatukaAdminPage() {
   return (
     <TeacherShell>
       <div className="space-y-6">
-        <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
-          <div>
-            <div className="text-xs font-black tracking-[0.18em] text-brand-primary">ARCADE · GAME #03</div>
-            <h1 className="mt-1 font-display text-2xl text-brand-gradient">🛡️ 라카루카 관리</h1>
-            <p className="mt-1 text-sm font-bold text-text-secondary">공인 도전 운영과 학생별 최고 해금 난이도를 관리합니다.</p>
+        <ArcadeAdminNavigation activeGame="rakaruka" activeSection={activePanel} />
+        {activePanel === 'official' && <TeacherTikatukaOfficialWindowCard />}
+        {activePanel === 'records' && <TeacherArcadePeriodRecordsPanel classroomId={classroomId} gameCode="rakaruka_03" />}
+
+        {activePanel === 'overview' && <section className="glass-card border-brand-primary/30 p-5">
+          <div className="text-xs font-black tracking-[0.16em] text-gold">GAME 03 · OPERATIONS</div>
+          <h2 className="mt-1 font-display text-xl text-white">🛡️ 라카루카 운영 개요</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#f2e9d8]">라카루카 공인 도전은 기간당 학생별 1회, 총 5판입니다. 공인 창과 기록 조회, 난이도 관리를 각각 분리했습니다.</p>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <Link to="/teacher/arcade?game=rakaruka&panel=official" className="rounded-card-md border border-gold/50 bg-gold/10 p-4 text-white hover:border-gold/80"><b>🏅 공인 도전 운영</b><p className="mt-1 text-xs font-semibold text-[#f2e9d8]">창 열기·닫기 · 참여 현황</p></Link>
+            <Link to="/teacher/arcade?game=rakaruka&panel=records" className="rounded-card-md border border-line bg-bg-deep p-4 text-white hover:border-gold/60"><b>📊 기간별 기록</b><p className="mt-1 text-xs font-semibold text-[#f2e9d8]">경기 · 공인 순위 조회</p></Link>
+            <Link to="/teacher/arcade?game=rakaruka&panel=progress" className="rounded-card-md border border-line bg-bg-deep p-4 text-white hover:border-gold/60"><b>🔓 학생 난이도</b><p className="mt-1 text-xs font-semibold text-[#f2e9d8]">해금 단계 · 최근 5게임</p></Link>
           </div>
-          <Link className="btn-secondary" to="/teacher/arcade">← Arcade 운영</Link>
-        </div>
-
-        <TeacherTikatukaOfficialWindowCard />
-
-        <section className="glass-card border-brand-primary/30 p-5">
-          <h2 className="font-display text-lg text-white">관리 원칙</h2>
+          {query.data && <p className="mt-4 rounded-card-md border border-line bg-bg-deep p-3 text-sm font-black text-white">진행도 조회 대상 {query.data.items.length}명 · 승리 기록과 난이도 조정은 서로 독립적으로 관리됩니다.</p>}
+          <h3 className="mt-5 text-base font-black text-white">관리 원칙</h3>
           <div className="mt-3 grid gap-3 md:grid-cols-3">
             <InfoCard icon="🔓" title="해금 난이도" text="교사가 Lv.1~10 중 원하는 최고 난이도로 조정할 수 있습니다." />
             <InfoCard icon="🏆" title="클리어 기록" text="실제 완료 경기의 승리 기록에서 계산합니다. 교사 조정으로 지우거나 만들지 않습니다." />
@@ -109,7 +115,7 @@ export default function TeacherTikatukaAdminPage() {
           <p className="mt-4 rounded-card-md border border-warning/30 bg-warning/10 px-4 py-3 text-xs font-bold leading-relaxed text-warning">
             최고 해금 난이도를 낮춰도 과거 클리어 기록과 승패 이력은 그대로 남습니다. 학생 지원·테스트 등 명확한 이유가 있을 때만 조정하세요.
           </p>
-        </section>
+        </section>}
 
         {actionError && <div className="glass-card border-danger/40 p-4 text-sm font-bold text-danger">{actionError}</div>}
         {query.isLoading && <div className="py-16 text-center"><LoadingSpinner size="lg" /></div>}
@@ -121,7 +127,7 @@ export default function TeacherTikatukaAdminPage() {
           </div>
         )}
 
-        {query.data && (
+        {activePanel === 'progress' && query.data && (
           <section className="glass-card overflow-hidden p-0">
             <div className="border-b border-line p-5">
               <div className="flex flex-wrap items-end justify-between gap-2">
