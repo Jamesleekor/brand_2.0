@@ -160,7 +160,7 @@ function FriendCard({
       className={cn(
         'grid min-w-0 grid-cols-[58px_minmax(0,1fr)_auto] items-center gap-3 rounded-card-md px-3.5 py-3.5 transition-all sm:px-4',
         friend.transferredAt
-          ? 'border border-line bg-bg-deep/60 opacity-55 grayscale cursor-default'
+          ? 'border border-line bg-bg-deep/60 opacity-60 grayscale cursor-default'
           : friend.isMe
             ? 'bg-gold/8 border border-gold/30 hover-lift'
             : 'bg-bg-card backdrop-blur-card border border-line hover-lift'
