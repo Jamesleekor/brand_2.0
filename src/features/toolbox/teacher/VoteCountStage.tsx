@@ -43,10 +43,16 @@ export function countOrder(options: VoteOption[], counts: Record<string, number>
 /** 중계 화면·운영 화면이 함께 쓰는 개표 조작 */
 export function useCountControls(activityId: number, shown: number | null, onChanged: () => void) {
   const { run, busy } = useAction();
+  // 화면이 새 숫자를 받기 전에 다시 눌러도 '건너뜀'이 되지 않도록, 서버가 돌려준 개표 번호를 잠깐 기억한다.
+  const latest = useRef<number | null>(null);
+  useEffect(() => { latest.current = null; }, [shown]);
   const go = async (action: 'COUNT_START' | 'COUNT_NEXT' | 'COUNT_UNDO' | 'COUNT_ALL' | 'COUNT_RESET', ok?: string) => {
     if (busy) return null;
-    const args = shown !== null && (action === 'COUNT_NEXT' || action === 'COUNT_UNDO' || action === 'COUNT_ALL') ? { expect: shown } : {};
-    const r = await run(action, () => toolboxRpc.vote(supabase, activityId, action, args), ok);
+    const cur = latest.current ?? shown;
+    const args = cur !== null && (action === 'COUNT_NEXT' || action === 'COUNT_UNDO' || action === 'COUNT_ALL') ? { expect: cur } : {};
+    const r = await run(action, () => toolboxRpc.vote(supabase, activityId, action, args), ok) as { skipped?: boolean; state?: { count?: { shown?: number } } } | null;
+    const next = r?.state?.count?.shown;
+    latest.current = r && !r.skipped && typeof next === 'number' ? next : null;
     onChanged();
     return r;
   };

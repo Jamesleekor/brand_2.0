@@ -47,9 +47,16 @@ export function ToolboxBroadcastPage() {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.altKey || e.ctrlKey || e.metaKey) return;
       const t = e.target as HTMLElement | null;
-      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.isContentEditable)) return;
-      if ((e.key === ' ' || e.key === 'ArrowRight' || e.key === 'Enter') && !countDone) { e.preventDefault(); void counting.go('COUNT_NEXT'); }
-      else if (e.key === 'ArrowLeft' && count.shown > 0) { e.preventDefault(); void counting.go('COUNT_UNDO'); }
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      const isNext = e.key === ' ' || e.key === 'ArrowRight' || e.key === 'Enter';
+      const isUndo = e.key === 'ArrowLeft';
+      if (!isNext && !isUndo) return;
+      // 「⛶ 전체 화면」 같은 버튼을 누른 뒤 포커스가 남아 있으면 Space가 그 버튼을 다시 누른다.
+      // (전체 화면이 꺼지는 문제) → 버튼의 기본 동작을 막고 포커스를 풀어 개표 키로만 쓴다.
+      e.preventDefault();
+      if (t && t.tagName === 'BUTTON') t.blur();
+      if (isNext && !countDone) void counting.go('COUNT_NEXT');
+      else if (isUndo && count.shown > 0) void counting.go('COUNT_UNDO');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

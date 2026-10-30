@@ -226,7 +226,7 @@ function StudentVote({ st, activityId, studentId, onChanged }: { st: StudentActi
           <h2 className="tbx-h2">결과</h2>
           <VoteResults config={cfg} tally={st.tally} />
           {st.decision_note && <Notice icon="📝">{st.decision_note}</Notice>}
-          {mine && <p className="tbx-small">내가 고른 것: {mine.choices.map((k) => (k === 'ABSTAIN' ? '기권' : cfg.options.find((o) => o.key === k)?.label)).join(', ')}</p>}
+          {mine && <MyChoicePeek text={mine.choices.map((k) => (k === 'ABSTAIN' ? '기권' : cfg.options.find((o) => o.key === k)?.label)).join(', ')} />}
         </section>
       ) : (
         <section className="tbx-panel tbx-stack">
@@ -237,7 +237,7 @@ function StudentVote({ st, activityId, studentId, onChanged }: { st: StudentActi
           {!editing && mine ? (
             <>
               <div className="tbx-notice tbx-notice--signal"><span className="tbx-notice__icon">✓</span>
-                <div><b>투표했어요</b><div className="tbx-small">내가 고른 것: {mine.choices.map((k) => (k === 'ABSTAIN' ? '기권' : cfg.options.find((o) => o.key === k)?.label)).join(', ')}</div></div>
+                <div><b>투표했어요</b><MyChoicePeek text={mine.choices.map((k) => (k === 'ABSTAIN' ? '기권' : cfg.options.find((o) => o.key === k)?.label)).join(', ')} /></div>
               </div>
               {open && !mine.invalidated && <button type="button" className="tbx-btn" onClick={() => setEditing(true)}>내 표 바꾸기</button>}
             </>
@@ -270,6 +270,24 @@ function StudentVote({ st, activityId, studentId, onChanged }: { st: StudentActi
           <p className="tbx-small">참여 {st.tally?.submitted ?? 0} / {st.tally?.eligible ?? 0}명{cfg.close_at ? ` · ${new Date(cfg.close_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })} 마감` : ''}</p>
         </section>
       )}
+    </div>
+  );
+}
+
+/** 내가 고른 것: 옆자리 친구가 화면을 보더라도 드러나지 않게 기본은 가리고, 누르면 4초만 보여 준다. */
+function MyChoicePeek({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!show) return;
+    const t = window.setTimeout(() => setShow(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [show]);
+  return (
+    <div className="tbx-small" style={{ marginTop: 2 }}>
+      내가 고른 것:{' '}
+      {show
+        ? <b>{text}</b>
+        : <button type="button" className="tbx-btn tbx-btn--sm tbx-btn--ghost" style={{ padding: '2px 10px', minHeight: 0 }} onClick={() => setShow(true)}>👁 눌러서 확인</button>}
     </div>
   );
 }
