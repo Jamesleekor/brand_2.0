@@ -46,6 +46,21 @@ export type RaidStatus =
   | 'FAILED'
   | 'ARCHIVED';
 
+export interface RaidFinisher {
+  student_id: number;
+  name: string;
+  brand_name: string | null;
+  guild_id: number | null;
+  guild_name: string | null;
+  guild_logo_url: string | null;
+  equipped_character_id: number | null;
+  equipped_character_name: string | null;
+  equipped_character_image_url: string | null;
+  damage: number;
+  crit: boolean;
+  occurred_at: string | null;
+}
+
 export interface RaidPortalRaid {
   id: number;
   title: string;
@@ -66,6 +81,7 @@ export interface RaidPortalRaid {
     image_url: string | null;
     loop_video_url: string | null;
   } | null;
+  finisher?: RaidFinisher | null;
 }
 
 export type ActiveRaidSummary = RaidPortalRaid;
@@ -73,6 +89,7 @@ export type ActiveRaidSummary = RaidPortalRaid;
 export interface RaidPortalSummary {
   active: RaidPortalRaid | null;
   recent: RaidPortalRaid | null;
+  history: RaidPortalRaid[];
 }
 
 export interface RaidLobbyMe {
@@ -525,6 +542,7 @@ export interface RaidResult {
     starts_at: string | null;
     completed_at: string | null;
   };
+  finisher: RaidFinisher | null;
   ranking: RaidRankingRow[];
   me: RaidMyResult | null;
 }
