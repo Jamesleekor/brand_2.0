@@ -12,7 +12,7 @@ import { RaidResultModal } from '@/features/raid/RaidResultModal';
 export default function RaidPortalPage() {
   const studentId = useStudentId();
   const navigate = useNavigate();
-  const [recentResultOpen, setRecentResultOpen] = useState(false);
+  const [selectedResultRaidId, setSelectedResultRaidId] = useState<number | null>(null);
 
   const portalQuery = useQuery({
     queryKey: ['raid-portal', studentId],
@@ -52,7 +52,7 @@ export default function RaidPortalPage() {
     );
   }
 
-  const { active, recent } = portalQuery.data;
+  const { active, recent, history = [] } = portalQuery.data;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#06101c] px-4 py-5 text-white md:px-6 md:py-7">
@@ -109,60 +109,87 @@ export default function RaidPortalPage() {
         </section>
 
         <section className="mt-6 rounded-card-lg border border-white/15 bg-[#07111f]/78 p-5 backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <div className="text-xs font-black tracking-[0.16em] text-cyan-100">
-                최근 레이드
+                RAID ARCHIVE
               </div>
               <h2 className="mt-1 font-display text-lg text-white">
-                지난 전투 기록
+                지난 레이드 기록
               </h2>
+              <p className="mt-1 text-xs font-bold text-cyan-100/80">
+                TEST·초안 레이드는 제외하고 실제 전투 기록만 최신순으로 보여줍니다.
+              </p>
             </div>
-            {recent && (
-              <button
-                type="button"
-                onClick={() => setRecentResultOpen(true)}
-                className="rounded-card-md border border-yellow-300/40 bg-yellow-400/10 px-4 py-2 text-xs font-black text-yellow-100 hover:bg-yellow-400/20"
-              >
-                결과 확인 →
-              </button>
-            )}
+            <div className="rounded-pill border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-black text-white">
+              총 {history.length}회
+            </div>
           </div>
 
-          {recent ? (
-            <div className="mt-4 grid gap-3 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
-              <div>
-                <div className="text-sm font-black text-white">{recent.title}</div>
-                <div className="mt-1 text-xs font-bold text-cyan-100">
-                  {elementLabel(recent.boss_element)} · {recent.boss_name}
-                </div>
-              </div>
-              <div className="text-xs font-black text-white">
-                HP {Number(recent.max_hp).toLocaleString('ko-KR')}
-              </div>
-              <div className="text-xs font-black text-yellow-100">
-                {recent.status === 'COMPLETED' ? '토벌 성공' : '전투 종료'}
-              </div>
-              <div className="text-xs font-bold text-cyan-100">
-                {recent.completed_at ? formatDateTime(recent.completed_at) : '기록 없음'}
-              </div>
+          {history.length > 0 ? (
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              {history.map((raid) => (
+                <button
+                  key={raid.id}
+                  type="button"
+                  onClick={() => setSelectedResultRaidId(raid.id)}
+                  className="rounded-card-md border border-white/15 bg-black/20 p-4 text-left transition hover:border-yellow-300/40 hover:bg-yellow-400/5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-black text-white">{raid.title}</div>
+                      <div className="mt-1 truncate text-xs font-bold text-cyan-100">
+                        {elementLabel(raid.boss_element)} · {raid.boss_name}
+                      </div>
+                    </div>
+                    <span className={cn(
+                      'flex-none rounded-pill border px-2.5 py-1 text-[10px] font-black',
+                      raid.status === 'COMPLETED'
+                        ? 'border-emerald-300/35 bg-emerald-400/10 text-emerald-100'
+                        : 'border-red-300/30 bg-red-400/10 text-red-100',
+                    )}>
+                      {raid.status === 'COMPLETED' ? '토벌 성공' : '전투 종료'}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-bold sm:grid-cols-3">
+                    <div className="rounded-card-sm border border-white/10 bg-white/5 px-2.5 py-2 text-white">
+                      HP {Number(raid.max_hp).toLocaleString('ko-KR')}
+                    </div>
+                    <div className="rounded-card-sm border border-white/10 bg-white/5 px-2.5 py-2 text-cyan-100">
+                      {raid.completed_at ? formatDateTime(raid.completed_at) : '기록 없음'}
+                    </div>
+                    <div className="col-span-2 rounded-card-sm border border-yellow-300/20 bg-yellow-400/5 px-2.5 py-2 text-yellow-100 sm:col-span-1">
+                      {raid.finisher
+                        ? `⚔ 최후의 일격 · ${raid.finisher.brand_name || raid.finisher.name}`
+                        : raid.status === 'COMPLETED'
+                          ? '⚔ 최후의 일격 기록 없음'
+                          : '토벌 실패'}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 text-right text-[11px] font-black text-yellow-100">
+                    상세 결과 보기 →
+                  </div>
+                </button>
+              ))}
             </div>
           ) : (
             <div className="mt-4 rounded-card-md border border-dashed border-cyan-300/25 bg-cyan-500/5 p-6 text-center">
               <div className="text-3xl">📜</div>
               <div className="mt-2 text-sm font-black text-white">
-                아직 참가한 레이드 기록이 없습니다.
+                아직 공개할 레이드 기록이 없습니다.
               </div>
             </div>
           )}
         </section>
       </div>
 
-      {recent && (
+      {selectedResultRaidId != null && (
         <RaidResultModal
-          raidId={recent.id}
-          open={recentResultOpen}
-          onClose={() => setRecentResultOpen(false)}
+          raidId={selectedResultRaidId}
+          open
+          onClose={() => setSelectedResultRaidId(null)}
         />
       )}
     </div>
