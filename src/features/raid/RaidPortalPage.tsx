@@ -52,7 +52,7 @@ export default function RaidPortalPage() {
     );
   }
 
-  const { active, recent, history = [] } = portalQuery.data;
+  const { active, history = [] } = portalQuery.data;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#06101c] px-4 py-5 text-white md:px-6 md:py-7">
