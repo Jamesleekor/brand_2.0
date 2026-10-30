@@ -58,10 +58,9 @@ export function FriendsPage() {
       
       const { data } = await supabase
         .from('students')
-        .select('id, name, brand_name, cached_tier')
+        .select('id, name, brand_name, cached_tier, transferred_at')
         .eq('classroom_id', classroomId)
         .eq('role', 'STUDENT')
-        .is('transferred_at', null)
         .order('name');
       
       return (data ?? []).map((s: any) => ({
@@ -70,13 +69,17 @@ export function FriendsPage() {
         brandName: s.brand_name,
         tier: (s.cached_tier ?? '새싹') as Tier,
         isMe: s.id === studentId,
-      }));
+        transferredAt: s.transferred_at as string | null,
+      })).sort((a, b) => Number(Boolean(a.transferredAt)) - Number(Boolean(b.transferredAt)) || a.name.localeCompare(b.name, 'ko'));
     },
     enabled: classroomId !== null,
   });
   const { byStudentId: prestigeBorders } = useEquippedPrestigeBorders((classmates ?? []).map((student) => student.id));
   const { byStudentId: nameplateEffects } = useEquippedNameplateEffects((classmates ?? []).map((student) => student.id));
   
+  const enrolledCount = (classmates ?? []).filter((c) => !c.transferredAt).length;
+  const transferredCount = (classmates ?? []).length - enrolledCount;
+
   const filtered = (classmates ?? []).filter((c) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
@@ -107,17 +110,17 @@ export function FriendsPage() {
         ) : (
           <div>
             <div className="text-sm text-white/75 font-bold mb-2">
-              총 {filtered.length}명
+              재학 {enrolledCount}명{transferredCount > 0 ? ` · 전출 ${transferredCount}명` : ''} · 표시 {filtered.length}명
             </div>
             <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               {filtered.map((classmate) => (
                 <FriendCard
                   key={classmate.id}
                   friend={classmate}
-                  achievementTitle={achievementTitles.get(classmate.id) ?? null}
-                  guildName={guildsByStudentId.get(classmate.id)?.guildName ?? null}
-                  prestigeBorder={prestigeBorders.get(classmate.id) ?? null}
-                  nameplateEffect={nameplateEffects.get(classmate.id) ?? null}
+                  achievementTitle={classmate.transferredAt ? null : (achievementTitles.get(classmate.id) ?? null)}
+                  guildName={classmate.transferredAt ? null : (guildsByStudentId.get(classmate.id)?.guildName ?? null)}
+                  prestigeBorder={classmate.transferredAt ? null : (prestigeBorders.get(classmate.id) ?? null)}
+                  nameplateEffect={classmate.transferredAt ? null : (nameplateEffects.get(classmate.id) ?? null)}
                 />
               ))}
             </div>
@@ -142,7 +145,7 @@ function FriendCard({
   prestigeBorder,
   nameplateEffect,
 }: { 
-  friend: { id: number; name: string; brandName: string | null; tier: Tier; isMe: boolean };
+  friend: { id: number; name: string; brandName: string | null; tier: Tier; isMe: boolean; transferredAt: string | null };
   achievementTitle: EquippedAchievementTitle | null;
   guildName: string | null;
   prestigeBorder: OwnedPrestigeBorder | null;
@@ -152,12 +155,15 @@ function FriendCard({
     <NameplateEffect effect={nameplateEffect} variant="friend">
     <PrestigeFrame border={prestigeBorder} variant="friend">
     <motion.div
-      whileTap={{ scale: 0.98 }}
+      whileTap={friend.transferredAt ? undefined : { scale: 0.98 }}
+      aria-label={friend.transferredAt ? `${friend.name} · 전출` : friend.name}
       className={cn(
-        'grid min-w-0 grid-cols-[58px_minmax(0,1fr)_auto] items-center gap-3 rounded-card-md px-3.5 py-3.5 transition-all hover-lift sm:px-4',
-        friend.isMe
-          ? 'bg-gold/8 border border-gold/30'
-          : 'bg-bg-card backdrop-blur-card border border-line'
+        'grid min-w-0 grid-cols-[58px_minmax(0,1fr)_auto] items-center gap-3 rounded-card-md px-3.5 py-3.5 transition-all sm:px-4',
+        friend.transferredAt
+          ? 'border border-line bg-bg-deep/60 opacity-55 grayscale cursor-default'
+          : friend.isMe
+            ? 'bg-gold/8 border border-gold/30 hover-lift'
+            : 'bg-bg-card backdrop-blur-card border border-line hover-lift'
       )}
     >
       {/* 티어 아이콘 — 기존 48px 대비 약 20% 확대 */}
@@ -178,7 +184,10 @@ function FriendCard({
         {/* 브랜드명 + 길드 */}
         <div className="flex min-w-0 items-center gap-1.5 text-sm font-extrabold text-white sm:text-[15px]">
           <span className="min-w-0 truncate">{friend.brandName || friend.name}</span>
-          {friend.isMe && (
+          {friend.transferredAt && (
+            <span className="flex-shrink-0 rounded-pill border border-line px-1.5 py-0.5 text-[9px] font-black text-text-muted">전출</span>
+          )}
+          {friend.isMe && !friend.transferredAt && (
             <span className="flex-shrink-0 rounded-pill bg-gold/20 px-1.5 py-0.5 text-[9px] font-black text-gold">
               나
             </span>
