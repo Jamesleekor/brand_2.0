@@ -12,6 +12,7 @@ import {
   importMvpFoundationInputs,
   listMvpFoundationSessions,
   saveMvpFoundationInput,
+  saveMvpFoundationOperationalTrust,
   updateMvpFoundationSession,
   type MvpFoundationBoard,
   type MvpFoundationGrade,
@@ -38,7 +39,8 @@ type SortKey =
   | 'guildScore'
   | 'contribution'
   | 'donation'
-  | 'serviceSales';
+  | 'serviceSales'
+  | 'operationalTrust';
 
 type SettingsState = {
   title: string;
@@ -72,6 +74,14 @@ function defaultNewSession(): SettingsState {
 
 function formatNumber(value: number): string {
   return Math.round(value).toLocaleString('ko-KR');
+}
+
+function operationalTrustGrade(value: number | null): string {
+  if (value === null) return '미입력';
+  if (value >= 90) return '확고한 신뢰';
+  if (value >= 80) return '안정적 신뢰';
+  if (value >= 70) return '보통 신뢰';
+  return '취약한 신뢰';
 }
 
 function formatDecimal(value: number): string {
@@ -130,6 +140,7 @@ export default function MvpFoundationAdmin() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [assessmentStudent, setAssessmentStudent] = useState<MvpFoundationStudentRow | null>(null);
   const [titleStudent, setTitleStudent] = useState<MvpFoundationStudentRow | null>(null);
+  const [trustStudent, setTrustStudent] = useState<MvpFoundationStudentRow | null>(null);
   const [detailStudent, setDetailStudent] = useState<MvpFoundationStudentRow | null>(null);
   const [importPreview, setImportPreview] = useState<MvpImportPreview | null>(null);
 
@@ -179,6 +190,7 @@ export default function MvpFoundationAdmin() {
       if (sortKey === 'contribution') return row.personal_contribution_score;
       if (sortKey === 'donation') return row.donation_gold;
       if (sortKey === 'serviceSales') return row.secondary_job_sales_completed;
+      if (sortKey === 'operationalTrust') return row.operational_trust_pct ?? -Infinity;
       return row.evaluation_bv_earned;
     };
     return [...rows].sort((a, b) => {
@@ -256,6 +268,16 @@ export default function MvpFoundationAdmin() {
     await invalidate();
   };
 
+  const handleSaveTrust = async (row: MvpFoundationStudentRow, pct: number | null) => {
+    if (!selectedSessionId) return;
+    await saveMvpFoundationOperationalTrust(supabase, {
+      sessionId: selectedSessionId,
+      studentId: row.student_id,
+      operationalTrustPct: pct,
+    });
+    await invalidate();
+  };
+
   const handleCandidate = (row: MvpFoundationStudentRow) => run(`candidate-${row.student_id}`, async () => {
     if (!row.is_preliminary_candidate && candidateCount >= 12) throw new Error('예선 후보는 최대 12명입니다. 기존 후보를 한 명 해제한 뒤 선택해주세요.');
     await saveRowInput(row, { ...inputFromRow(row), is_preliminary_candidate: !row.is_preliminary_candidate });
@@ -300,7 +322,7 @@ export default function MvpFoundationAdmin() {
       return;
     }
     const ok = window.confirm(
-      `${board.session.title} 기초 데이터를 확정할까요?\n\n평가기간: ${board.session.evaluation_start_date} ~ ${board.session.evaluation_end_date}\n비교기간: ${board.session.comparison_start_date} ~ ${board.session.comparison_end_date}\n예선 진출: 12명\n\n확정 후 통계·후보·수업평가·전담 타이틀·비고를 수정하거나 다시 계산할 수 없습니다.`,
+      `${board.session.title} 기초 데이터를 확정할까요?\n\n평가기간: ${board.session.evaluation_start_date} ~ ${board.session.evaluation_end_date}\n비교기간: ${board.session.comparison_start_date} ~ ${board.session.comparison_end_date}\n예선 진출: 12명\n\n확정 후 통계·후보·수업평가·전담 타이틀·운영국 신뢰도·비고를 수정하거나 다시 계산할 수 없습니다.`,
     );
     if (!ok) return;
     void run('finalize', async () => {
@@ -409,7 +431,7 @@ export default function MvpFoundationAdmin() {
                     <button type="button" onClick={() => setFilter('CANDIDATES')} className={filter === 'CANDIDATES' ? 'btn-primary h-9 px-3 text-xs' : 'h-9 rounded-card-md border border-line px-3 text-xs font-black text-text-secondary'}>예선 진출 {candidateCount}</button>
                     <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="학생 검색" className="h-9 w-28 rounded-card-md border border-line bg-bg-deep px-2 text-xs font-bold text-white" />
                     <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className="h-9 rounded-card-md border border-line bg-bg-deep px-2 text-xs font-bold text-white">
-                      <option value="bv">획득 BV</option><option value="growth">BV 성장률</option><option value="dailyQuest">일일퀘</option><option value="achievementCount">업적 수</option><option value="achievementScore">업적 점수</option><option value="guildScore">길드 점수</option><option value="contribution">개인 기여도</option><option value="donation">기부량</option><option value="serviceSales">서비스 판매</option>
+                      <option value="bv">획득 BV</option><option value="growth">BV 성장률</option><option value="dailyQuest">일일퀘</option><option value="achievementCount">업적 수</option><option value="achievementScore">업적 점수</option><option value="guildScore">길드 점수</option><option value="contribution">개인 기여도</option><option value="donation">기부량</option><option value="serviceSales">서비스 판매</option><option value="operationalTrust">운영국 신뢰도</option>
                     </select>
                     <button type="button" onClick={() => setSortDesc((v) => !v)} className="h-9 rounded-card-md border border-line px-3 text-xs font-black text-text-secondary">{sortDesc ? '↓' : '↑'}</button>
                   </div>
@@ -421,6 +443,7 @@ export default function MvpFoundationAdmin() {
                   onCandidate={handleCandidate}
                   onAssessment={setAssessmentStudent}
                   onTitle={setTitleStudent}
+                  onTrust={setTrustStudent}
                   onDetail={setDetailStudent}
                 />
               </section>
@@ -455,6 +478,12 @@ export default function MvpFoundationAdmin() {
           await saveRowInput(titleStudent, input);
           setTitleStudent(null);
         }, `${titleStudent.student_name} 학생의 전담 타이틀을 저장했습니다.`);
+      }} />}
+      {trustStudent && board && <OperationalTrustModal row={trustStudent} readOnly={!isDraft} busy={Boolean(busy)} onClose={() => setTrustStudent(null)} onSave={async (pct) => {
+        await run(`trust-${trustStudent.student_id}`, async () => {
+          await handleSaveTrust(trustStudent, pct);
+          setTrustStudent(null);
+        }, `${trustStudent.student_name} 학생의 운영국 신뢰도를 저장했습니다.`);
       }} />}
       {detailStudent && selectedSessionId && <StudentDetailModal sessionId={selectedSessionId} row={detailStudent} onClose={() => setDetailStudent(null)} />}
       {importPreview && board && (
@@ -615,20 +644,21 @@ function specialtyTitleLabels(row: Pick<MvpFoundationStudentRow, 'specialty_engl
   return titles;
 }
 
-function MvpTable({ rows, isDraft, busy, onCandidate, onAssessment, onTitle, onDetail }: {
+function MvpTable({ rows, isDraft, busy, onCandidate, onAssessment, onTitle, onTrust, onDetail }: {
   rows: MvpFoundationStudentRow[];
   isDraft: boolean;
   busy: string | null;
   onCandidate: (row: MvpFoundationStudentRow) => void;
   onAssessment: (row: MvpFoundationStudentRow) => void;
   onTitle: (row: MvpFoundationStudentRow) => void;
+  onTrust: (row: MvpFoundationStudentRow) => void;
   onDetail: (row: MvpFoundationStudentRow) => void;
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-[1560px] w-full text-left">
+      <table className="min-w-[1720px] w-full text-left">
         <thead className="bg-bg-deep/80 text-[10px] font-black text-white/65"><tr>
-          <th className="px-3 py-2">예선</th><th className="px-3 py-2">학생</th><th className="px-3 py-2 text-right">획득 BV</th><th className="px-3 py-2 text-right">성장률</th><th className="px-3 py-2 text-right">일일퀘</th><th className="px-3 py-2 text-right">업적</th><th className="px-3 py-2 text-right">업적점수</th><th className="px-3 py-2 text-right">길드점수</th><th className="px-3 py-2 text-right">개인기여도*</th><th className="px-3 py-2 text-right">기부</th><th className="px-3 py-2 text-right">서비스</th><th className="px-3 py-2">수업평가</th><th className="px-3 py-2">전담 타이틀</th><th className="px-3 py-2">비고</th><th className="px-3 py-2">근거</th>
+          <th className="px-3 py-2">예선</th><th className="px-3 py-2">학생</th><th className="px-3 py-2 text-right">획득 BV</th><th className="px-3 py-2 text-right">성장률</th><th className="px-3 py-2 text-right">일일퀘</th><th className="px-3 py-2 text-right">업적</th><th className="px-3 py-2 text-right">업적점수</th><th className="px-3 py-2 text-right">길드점수</th><th className="px-3 py-2 text-right">개인기여도*</th><th className="px-3 py-2 text-right">기부</th><th className="px-3 py-2 text-right">서비스</th><th className="px-3 py-2">수업평가</th><th className="px-3 py-2">전담 타이틀</th><th className="px-3 py-2">운영국 신뢰도</th><th className="px-3 py-2">비고</th><th className="px-3 py-2">근거</th>
         </tr></thead>
         <tbody className="divide-y divide-line/70">
           {rows.map((row) => {
@@ -648,6 +678,12 @@ function MvpTable({ rows, isDraft, busy, onCandidate, onAssessment, onTitle, onD
                 <td className="px-3 py-3 text-right font-black text-white">{row.secondary_job_sales_completed}건</td>
                 <td className="px-3 py-3"><button type="button" onClick={() => onAssessment(row)} className={`rounded-card-md border px-2.5 py-1.5 text-[10px] font-black ${evaluationComplete(row) ? 'border-success/30 bg-success/10 text-success' : 'border-warning/30 bg-warning/10 text-warning'}`}>{evaluationComplete(row) ? `${row.preparation_responsibility_grade} · ${row.participation_listening_grade} · ${row.assignment_performance_grade} · ${row.improvement_growth_grade}` : '평가 입력'}</button></td>
                 <td className="px-3 py-3"><button type="button" onClick={() => onTitle(row)} className={`rounded-card-md border px-2.5 py-1.5 text-[10px] font-black ${titles.length ? 'border-brand-secondary/40 bg-brand-primary/10 text-brand-secondary' : 'border-line text-white/70'}`}>{titles.length ? titles.join(' · ') : '타이틀 체크'}</button></td>
+                <td className="px-3 py-3">
+                  <button type="button" onClick={() => onTrust(row)} className={`rounded-card-md border px-2.5 py-1.5 text-[10px] font-black ${row.operational_trust_pct === null ? 'border-line text-white/70' : row.operational_trust_pct >= 80 ? 'border-success/30 bg-success/10 text-success' : row.operational_trust_pct >= 70 ? 'border-warning/30 bg-warning/10 text-warning' : 'border-danger/30 bg-danger/10 text-danger'}`}>
+                    <span className="block text-xs">{row.operational_trust_pct === null ? '값 입력' : `${row.operational_trust_pct.toFixed(1)}%`}</span>
+                    <span className="block whitespace-nowrap text-[9px]">{operationalTrustGrade(row.operational_trust_pct)}</span>
+                  </button>
+                </td>
                 <td className="max-w-[180px] px-3 py-3 text-[10px] font-bold text-white/70"><div className="line-clamp-2">{row.notes || '-'}</div></td>
                 <td className="px-3 py-3"><button type="button" onClick={() => onDetail(row)} className="rounded-card-md border border-line px-2 py-1 text-[10px] font-black text-white/70 hover:text-white">상세 ›</button></td>
               </tr>
@@ -719,6 +755,47 @@ function SpecialtyTitleModal({ row, readOnly, busy, onClose, onSave }: {
           전담 타이틀은 수업평가 등급과 별개의 체크 기록이며 MVP 자동 점수로 환산하지 않습니다.
         </div>
         {!readOnly && <div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="h-9 rounded-card-md border border-line px-4 text-xs font-black text-white/70">취소</button><button type="button" disabled={busy} onClick={() => void onSave(form)} className="btn-primary h-9 disabled:opacity-40">{busy ? '저장 중…' : '타이틀 저장'}</button></div>}
+      </div>
+    </ModalShell>
+  );
+}
+
+function OperationalTrustModal({ row, readOnly, busy, onClose, onSave }: {
+  row: MvpFoundationStudentRow;
+  readOnly: boolean;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (pct: number | null) => Promise<void>;
+}) {
+  const [value, setValue] = useState(() => row.operational_trust_pct === null ? '' : row.operational_trust_pct.toFixed(1));
+  const trimmed = value.trim();
+  const parsed = trimmed === '' ? null : Number(trimmed);
+  const valid = trimmed === '' || (/^\d{1,3}(?:\.\d)?$/.test(trimmed) && parsed !== null && parsed >= 0 && parsed <= 100);
+  const grade = valid ? operationalTrustGrade(parsed) : '입력값 확인';
+
+  return (
+    <ModalShell title={`${row.student_name} · 운영국 신뢰도`} subtitle="교사가 학생별로 직접 평가합니다. 다른 데이터에서 자동 계산하지 않습니다." onClose={onClose}>
+      <div className="space-y-4">
+        <Field label="운영국 신뢰도 (%)">
+          <div className="flex items-center gap-2">
+            <input type="number" inputMode="decimal" min={0} max={100} step={0.1} disabled={readOnly} value={value}
+              onChange={(event) => setValue(event.target.value)}
+              placeholder="0.0 ~ 100.0"
+              className="h-11 w-full rounded-card-md border border-line bg-bg-deep px-3 text-base font-black text-white disabled:opacity-60" />
+            <span className="text-sm font-black text-text-muted">%</span>
+          </div>
+          {!valid && <p className="mt-2 text-xs font-bold text-danger">0.0부터 100.0까지 소수점 한 자리로 입력해주세요.</p>}
+        </Field>
+        <div className="rounded-card-md border border-line bg-bg-deep p-3">
+          <div className="text-[10px] font-bold text-text-muted">자동 판정 등급</div>
+          <div className="mt-1 text-base font-black text-white">{grade}</div>
+          <div className="mt-2 text-[10px] font-bold text-text-secondary">90.0% 이상 확고한 신뢰 · 80.0~89.9% 안정적 신뢰 · 70.0~79.9% 보통 신뢰 · 70.0% 미만 취약한 신뢰</div>
+        </div>
+        <p className="text-[10px] font-bold text-text-muted">미입력과 0.0%는 구분합니다. 빈칸으로 저장하면 미입력 상태가 됩니다.</p>
+        {!readOnly && <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="h-9 rounded-card-md border border-line px-4 text-xs font-black text-white/70">취소</button>
+          <button type="button" disabled={!valid || busy} onClick={() => void onSave(parsed)} className="btn-primary h-9 disabled:opacity-40">{busy ? '저장 중…' : '신뢰도 저장'}</button>
+        </div>}
       </div>
     </ModalShell>
   );
