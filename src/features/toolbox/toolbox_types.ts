@@ -143,6 +143,19 @@ export interface VoteTally {
   not_voted?: number;
 }
 
+/** 한 표씩 개표 방송 — 지금까지 공개된 표만으로 계산한 현황 (중계 화면 전용) */
+export interface VoteCountView {
+  shown: number;
+  total: number;
+  counts: Record<string, number>;
+  /** 후보가 지금 득표에 도달한 개표 번호. 동률이면 먼저 도달한 쪽이 앞 순위 */
+  reached: Record<string, number>;
+  abstain: number;
+  /** 방금 공개한 표의 선택(기권이면 ['ABSTAIN']) */
+  last: string[] | null;
+  started_at?: string;
+}
+
 export interface StudentRef {
   student_id: number;
   name: string;
@@ -196,6 +209,7 @@ export interface BroadcastState {
   scoreboard?: { id: number; scores: Record<string, number> };
   tally?: VoteTally;
   voters?: Record<string, string[]>;
+  count?: VoteCountView | null;
   cards?: { card_id: number; title: string; presented: boolean; author?: string }[];
   spotlight_card?: { card_id: number; title: string; body: string; author?: string } | null;
   submitted?: number;

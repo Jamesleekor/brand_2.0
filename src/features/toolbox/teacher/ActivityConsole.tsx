@@ -445,6 +445,7 @@ function VoteConsole({ st, act, busy, ask }: { st: TeacherActivityState; act: Ac
                 {st.state.reveal_names ? '개인별 선택 가리기' : '개인별 선택 중계 화면에 공개'}</button>)}
           </div>
           {st.status === 'OPEN' && <p className="tbx-hint">결과는 운영 화면에서만 미리 보여요. 학생과 중계 화면은 참여 수만 봐요.</p>}
+          {st.status === 'CLOSED' && <LiveCountPanel st={st} act={act} busy={busy} ask={ask} />}
         </section>
 
         <section className="tbx-panel tbx-stack">
@@ -470,7 +471,7 @@ function VoteConsole({ st, act, busy, ask }: { st: TeacherActivityState; act: Ac
                         <span className="tbx-h3" style={{ display: 'block' }}>{b.name} <span className="tbx-small">— {b.choices.map(optLabel).join(', ')}</span></span>
                         <span className="tbx-small">{b.revision > 1 ? `${b.revision}번 바꿈 · ` : ''}{new Date(b.updated_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}{b.invalidated_at ? ` · 무효: ${b.invalidated_reason}` : ''}</span>
                       </span>
-                      {!revealed && st.status !== 'ENDED' && (b.invalidated_at
+                      {!revealed && st.status !== 'ENDED' && !st.state.count && (b.invalidated_at
                         ? <button type="button" className="tbx-btn tbx-btn--sm" disabled={busy !== null} onClick={() => void act('restore', () => toolboxRpc.vote(supabase, st.id, 'RESTORE', { student_id: b.student_id }))}>무효 취소</button>
                         : <button type="button" className="tbx-btn tbx-btn--sm tbx-btn--ghost" onClick={() => { setInvalidating({ id: b.student_id, name: b.name }); setReason(''); }}>무효 처리</button>)}
                     </li>
@@ -529,6 +530,40 @@ function VoteConsole({ st, act, busy, ask }: { st: TeacherActivityState; act: Ac
         <p className="tbx-body" style={{ marginBottom: 10 }}>무효 표는 집계에서 빠지고, 사유와 함께 기록에 남아요. 학생은 이 표를 다시 바꿀 수 없어요.</p>
         <textarea className="tbx-textarea" maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="사유 (예: 다른 학생 기기로 대신 투표함을 확인)" />
       </Modal>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------
+// 투표 — 한 표씩 개표 방송 조작 (중계 화면에서 득표·순위가 실시간으로 바뀐다)
+// ---------------------------------------------------------------------
+function LiveCountPanel({ st, act, busy, ask }: { st: TeacherActivityState; act: Act; busy: string | null; ask: Ask }) {
+  const c = st.state.count as { shown: number; total: number } | undefined;
+  const vote = (action: string, args: Record<string, unknown> = {}, ok?: string) => act(action, () => toolboxRpc.vote(supabase, st.id, action, args), ok);
+  if (!c) {
+    return (
+      <div className="tbx-well tbx-stack">
+        <span className="tbx-h3">🗳️ 한 표씩 개표 방송</span>
+        <p className="tbx-small">중계 화면에서 표를 한 장씩 펼쳐요. 표를 받은 후보는 1표씩 오르고, 순위가 바뀌면 1위(가운데·금)·2위(왼쪽·은)·3위(오른쪽·동) 자리가 실시간으로 바뀌어요. 표 순서는 서버가 무작위로 섞고, 누가 낸 표인지는 화면에 나오지 않아요.</p>
+        <button type="button" className="tbx-btn tbx-btn--brass" style={{ alignSelf: 'flex-start' }} disabled={busy !== null}
+          onClick={() => void vote('COUNT_START', {}, '개표를 준비했어요. 중계 화면을 확인해 주세요')}>한 표씩 개표 시작</button>
+      </div>
+    );
+  }
+  const done = c.shown >= c.total;
+  return (
+    <div className="tbx-well tbx-stack">
+      <div className="tbx-row tbx-row--between"><span className="tbx-h3">🗳️ 개표 방송 {done ? '— 완료' : '진행 중'}</span><span className="tbx-count">{c.shown} / {c.total}표</span></div>
+      <div className="tbx-bar"><div className="tbx-bar__fill" style={{ width: `${c.total ? (c.shown / c.total) * 100 : 0}%` }} /></div>
+      <div className="tbx-row tbx-row--wrap">
+        <button type="button" className="tbx-btn tbx-btn--brass tbx-btn--lg" disabled={busy !== null || done} onClick={() => void vote('COUNT_NEXT', { expect: c.shown })}>다음 표 공개 ▶</button>
+        <button type="button" className="tbx-btn" disabled={busy !== null || c.shown === 0} onClick={() => void vote('COUNT_UNDO', { expect: c.shown })}>↩ 한 표 되돌리기</button>
+        <button type="button" className="tbx-btn" disabled={busy !== null || done}
+          onClick={async () => { if (await ask('남은 표를 한꺼번에 공개할까요?', `남은 ${c.total - c.shown}표가 한 번에 열려요.`, '모두 공개')) void vote('COUNT_ALL', { expect: c.shown }); }}>남은 표 한꺼번에</button>
+        <button type="button" className="tbx-btn tbx-btn--ghost" disabled={busy !== null}
+          onClick={async () => { if (await ask('개표를 초기화할까요?', '중계 화면의 개표가 사라지고, 다시 시작하면 표 순서를 새로 섞어요. 투표한 표는 그대로 남아요.', '초기화', true)) void vote('COUNT_RESET', {}, '개표를 초기화했어요'); }}>개표 초기화</button>
+      </div>
+      <p className="tbx-hint">중계 화면 창에서도 Space(또는 →) 키로 다음 표, ← 키로 되돌릴 수 있어요. 개표 중에는 표 정정(무효 처리)을 할 수 없어요.{st.state.revealed ? '' : ' 개표를 마친 뒤 「결과 공개」를 누르면 학생 화면에도 결과가 보여요.'}</p>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import { toToolboxError, toolboxRpc } from '../toolbox_rpc';
 import { Glyph, KIND_GLYPH, KIND_LABEL, useFullscreen, useToolboxPrefs } from '../ui';
 import { BracketView, CardCloud, ScoreboardBoard, VoteResults, electionOutcome } from '../views';
 import type { BroadcastState, VoteConfig } from '../toolbox_types';
+import { VoteCountStage, useCountControls } from './VoteCountStage';
 import '../toolbox.css';
 
 export function ToolboxBroadcastPage() {
@@ -37,6 +38,23 @@ export function ToolboxBroadcastPage() {
     lastPressCount.current = n;
   }, [b?.presses?.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // [개표 방송] 중계 화면에서도 키보드로 한 표씩: Space·→·Enter = 다음 표, ← = 한 표 되돌리기
+  const count = b?.kind === 'VOTE' ? b.count ?? null : null;
+  const counting = useCountControls(activityId, count ? count.shown : null, res.refresh);
+  const countDone = !!count && count.shown >= count.total;
+  useEffect(() => {
+    if (!count) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.repeat || e.altKey || e.ctrlKey || e.metaKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.isContentEditable)) return;
+      if ((e.key === ' ' || e.key === 'ArrowRight' || e.key === 'Enter') && !countDone) { e.preventDefault(); void counting.go('COUNT_NEXT'); }
+      else if (e.key === 'ArrowLeft' && count.shown > 0) { e.preventDefault(); void counting.go('COUNT_UNDO'); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [count?.shown, count?.total, counting.busy]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const gone = res.error && toToolboxError(res.error).code === 'P7T02';
   return (
     <div ref={fs.ref} className="tbx tbx-cast" data-reduce-motion={prefs.reduceMotion}>
@@ -50,6 +68,14 @@ export function ToolboxBroadcastPage() {
         </div>
         <div className="tbx-row tbx-cast__controls">
           {!pulse.connected && <span className="tbx-chip tbx-chip--ember">연결 확인 중</span>}
+          {b?.kind === 'VOTE' && b.status === 'CLOSED' && !count && (
+            <button type="button" className="tbx-btn tbx-btn--sm tbx-btn--brass" disabled={!!counting.busy} onClick={() => void counting.go('COUNT_START')}>🗳️ 한 표씩 개표 시작</button>)}
+          {count && (
+            <>
+              <button type="button" className="tbx-btn tbx-btn--sm" disabled={!!counting.busy || count.shown === 0} onClick={() => void counting.go('COUNT_UNDO')} title="← 키">↩ 되돌리기</button>
+              <button type="button" className="tbx-btn tbx-btn--sm tbx-btn--brass" disabled={!!counting.busy || countDone} onClick={() => void counting.go('COUNT_NEXT')} title="Space 또는 → 키">다음 표 ▶</button>
+            </>
+          )}
           <button type="button" className="tbx-btn tbx-btn--sm" onClick={() => prefs.setSound(!prefs.sound)}>{prefs.sound ? '🔊' : '🔇'}</button>
           <button type="button" className="tbx-btn tbx-btn--sm" onClick={() => void fs.toggle()}>{fs.on ? '전체 화면 끝내기' : '⛶ 전체 화면'}</button>
         </div>
@@ -62,7 +88,9 @@ export function ToolboxBroadcastPage() {
         {b?.kind === 'TOURNAMENT' && (b.state.revealed_at
           ? <div className="tbx-cast-bracket"><BracketView state={b.state} units={b.participants} reveal={Date.now() - new Date(b.state.revealed_at).getTime() < 20_000} /></div>
           : <CastMessage title="대진을 준비하고 있어요" body="곧 대진표가 공개돼요." />)}
-        {b?.kind === 'VOTE' && <CastVote b={b} />}
+        {b?.kind === 'VOTE' && (b.count
+          ? <VoteCountStage config={b.config as VoteConfig} count={b.count} reduceMotion={prefs.reduceMotion} play={prefs.play} />
+          : <CastVote b={b} />)}
         {b?.kind === 'CARDS' && <CastCards b={b} />}
       </div>
     </div>
