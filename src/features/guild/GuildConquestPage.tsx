@@ -202,7 +202,7 @@ function TerritoryValueComparison({ row }: { row: any }) {
   const revenueOrder = new Map(
     economy
       .slice()
-      .sort((a, b) => Number(b.projected_revenue ?? 0) - Number(a.projected_revenue ?? 0))
+      .sort((a, b) => Number(b.gross_spend ?? 0) - Number(a.gross_spend ?? 0))
       .map((item, index) => [Number(item.slot_no), index + 1]),
   );
   const auctionRound = economy.find((item) => item.auction_round_number)?.auction_round_number;
@@ -211,7 +211,7 @@ function TerritoryValueComparison({ row }: { row: any }) {
     <div className="flex flex-wrap items-start justify-between gap-2">
       <div>
         <h2 className="font-display text-lg">💰 영토 가치 · 세금 정산</h2>
-        <p className="mt-1 text-[11px] text-text-muted">{auctionRound ? `${auctionRound}회차 실제 경매 정산액` : '정산된 기준 경매 없음'} × 지역 세율로 점령 가치를 비교합니다. 점령 확정 뒤에는 실제 부과·징수·미납액도 표시됩니다.</p>
+        <p className="mt-1 text-[11px] text-text-muted">{auctionRound ? `${auctionRound}회차 기준` : '정산된 기준 경매 없음'} 영토 자금은 실제 GOLD 낙찰금에 낙찰자가 실제 소모한 SUPER PASS 환산가치를 더해 계산합니다. 영토세는 기존처럼 실제 GOLD 낙찰금만 기준으로 부과됩니다.</p>
       </div>
     </div>
     <div className="mt-3 grid gap-2 md:grid-cols-3">
@@ -226,10 +226,10 @@ function TerritoryValueComparison({ row }: { row: any }) {
               <div className="text-[10px] font-black text-bv">{item.auction_category}</div>
               <div className="mt-0.5 font-black text-white">{item.territory_name ?? `영토 ${slot}`}</div>
             </div>
-            <span className={`rounded-pill px-2 py-1 text-[9px] font-black ${occupier ? 'border border-success/30 text-success' : 'border border-gold/30 bg-gold/10 text-gold'}`}>{occupier ? `${occupier} 점령` : `예상 #${valueRank}`}</span>
+            <span className={`rounded-pill px-2 py-1 text-[9px] font-black ${occupier ? 'border border-success/30 text-success' : 'border border-gold/30 bg-gold/10 text-gold'}`}>{occupier ? `${occupier} 점령` : `자금 #${valueRank}`}</span>
           </div>
           <div className="mt-3 grid grid-cols-3 gap-2">
-            <MiniValue label="사용액" value={`${num(item.gross_spend)} G`}/>
+            <MiniValue label="영토 자금" value={`${num(item.gross_spend)} G`}/>
             <MiniValue label="세율" value={pct(item.tax_rate_percent)}/>
             <MiniValue label="예상 세수" value={`${num(item.projected_revenue)} G`} emphasis/>
           </div>
@@ -289,7 +289,7 @@ function TerritoryPopover({ guild, layout, yearMonth, economy, taxSummary, onClo
       <InfoCell label="FINAL GS" value={`${num(guild.total_gs)} GS`}/>
       <InfoCell label="지역 세율" value={pct(guild.tax_rate_percent)}/>
       <InfoCell label="점령 월" value={yearMonth}/>
-      <InfoCell label="경매 사용액" value={`${num(economy?.gross_spend ?? 0)} G`}/>
+      <InfoCell label="영토 자금" value={`${num(economy?.gross_spend ?? 0)} G`}/>
       <InfoCell label="예상 세수" value={`${num(economy?.projected_revenue ?? 0)} G`}/>
       <InfoCell label="실제 부과" value={`${num(taxSummary?.assessed_amount ?? 0)} G`}/>
       <InfoCell label="징수 / 미납" value={`${num(taxSummary?.collected_amount ?? 0)} / ${num(taxSummary?.outstanding_amount ?? 0)} G`}/>
