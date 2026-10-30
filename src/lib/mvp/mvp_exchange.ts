@@ -96,6 +96,8 @@ const MAIN_HEADERS = [
   '전담 타이틀-영어',
   '전담 타이틀-과학',
   '전담 타이틀-체육',
+  '운영국 신뢰도(%)',
+  '운영국 신뢰 등급',
   '비고',
 ] as const;
 
@@ -188,6 +190,8 @@ function mainRow(row: MvpFoundationStudentRow): Array<string | number> {
     row.specialty_english ? 'Y' : 'N',
     row.specialty_science ? 'Y' : 'N',
     row.specialty_pe ? 'Y' : 'N',
+    numberOrBlank(row.operational_trust_pct),
+    row.operational_trust_pct === null ? '미입력' : row.operational_trust_pct >= 90 ? '확고한 신뢰' : row.operational_trust_pct >= 80 ? '안정적 신뢰' : row.operational_trust_pct >= 70 ? '보통 신뢰' : '취약한 신뢰',
     row.notes ?? '',
   ];
 }
