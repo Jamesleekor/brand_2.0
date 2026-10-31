@@ -69,12 +69,18 @@ export async function getTeacherActionCenter(classroomId: number): Promise<Teach
         '/teacher/review?tab=secondary_job&item=' + a.id, 'students','review', nameOf(a.student)));
     }},
     { name: '과제 채점', run: async () => {
-      const { data, error } = await supabase.from('assignment_submissions')
-        .select('id,submitted_at,assignment_id,student:students!student_id(name,brand_name),assignment:assignments!assignment_id(title),grading:assignment_gradings(id,is_revoked)')
-        .eq('classroom_id', classroomId).order('submitted_at', { ascending: false }).limit(MAX_PAGE);
-      if (error) throw error;
-      if ((data ?? []).length === MAX_PAGE) throw new Error('제출 기록이 조회 상한에 도달했습니다. 추가 조회가 필요합니다.');
-      return (data ?? []).filter((s: any) => !(s.grading ?? []).some((g: any) => !g.is_revoked))
+      const all: any[] = [];
+      for (let offset=0;offset<10_000;offset+=MAX_PAGE) {
+        const {data,error} = await supabase.from('assignment_submissions')
+          .select('id,submitted_at,assignment_id,student:students!student_id(name,brand_name),assignment:assignments!assignment_id(title),grading:assignment_gradings(id,is_revoked)')
+          .eq('classroom_id', classroomId).order('submitted_at', {ascending:false})
+          .order('id',{ascending:false}).range(offset,offset+MAX_PAGE-1);
+        if (error) throw error;
+        all.push(...(data??[]));
+        if ((data??[]).length < MAX_PAGE) break;
+        if (offset+MAX_PAGE >= 10_000) throw new Error('제출 기록이 1만 건을 초과해 정확한 집계를 위해 서버 조회 개선이 필요합니다.');
+      }
+      return all.filter((s: any) => !(s.grading ?? []).some((g: any) => !g.is_revoked))
         .map((s: any) => record('assignment:' + s.id, '과제 채점 대기',
           (s.assignment?.title || '과제') + ' · 제출물 확인', s.submitted_at, '과제 채점',
           '/teacher/learning?tab=assignments&assignment=' + s.assignment_id + '&item=' + s.id,
