@@ -70,8 +70,8 @@ function defaultCustomRange() {
 export default function EconomyGuardPage({ embeddedTeacher = false }: { embeddedTeacher?: boolean }) {
   const queryClient = useQueryClient();
   const capturedSnapshot = useRef(false);
-  const [tab, setTab] = useState<GuardTab>('stream');
-  const [period, setPeriod] = useState<EconomyGuardPeriodKind>('week');
+  const [tab, setTab] = useState<GuardTab>(() => new URLSearchParams(window.location.search).get('tab') === 'alerts' ? 'alerts' : 'stream');
+  const [period, setPeriod] = useState<EconomyGuardPeriodKind>(() => new URLSearchParams(window.location.search).get('event') ? 'all' : 'week');
   const initialRange = useMemo(defaultCustomRange, []);
   const [customStartDraft, setCustomStartDraft] = useState(initialRange.start);
   const [customEndDraft, setCustomEndDraft] = useState(initialRange.end);
@@ -1162,6 +1162,13 @@ function AlertCenterTab({ dashboard, onRefresh }: { dashboard: EconomyGuardDashb
   const openAlerts = dashboard.events.filter((event) => event.is_open_alert);
   const finalFlags = dashboard.events.filter((event) => event.penalty !== null);
   const stale = openAlerts.filter((event) => event.review_is_stale);
+  const scrolled = useRef(false);
+  useEffect(() => {
+    if (scrolled.current) return;
+    const eventKey = new URLSearchParams(window.location.search).get('event');
+    if (!eventKey || !openAlerts.some(event => event.event_key===eventKey)) return;
+    requestAnimationFrame(() => { const node=document.getElementById('teacher-guard-event-'+eventKey); if(node){node.scrollIntoView({behavior:'smooth',block:'center'});scrolled.current=true;} });
+  }, [dashboard.events]);
 
   const openReview = (event: EconomyGuardEvent, mode: ReviewMode) => {
     setReviewEvent(event);
@@ -1182,7 +1189,7 @@ function AlertCenterTab({ dashboard, onRefresh }: { dashboard: EconomyGuardDashb
           {openAlerts.length === 0 ? (
             <div className="lg:col-span-2"><EmptyState emoji="✅" title="열린 이상거래가 없습니다" description="새 거래가 생기면 30초 이내 자동으로 다시 확인합니다." /></div>
           ) : openAlerts.map((event) => (
-            <div key={event.event_key} className={cn('flex h-full flex-col rounded-card-lg border p-3', event.review_is_stale ? 'border-warning/35 bg-warning-bg' : 'border-danger/25 bg-bg-deep')}>
+            <div key={event.event_key} id={'teacher-guard-event-'+event.event_key} className={cn('flex h-full flex-col rounded-card-lg border p-3', event.review_is_stale ? 'border-warning/35 bg-warning-bg' : 'border-danger/25 bg-bg-deep')}>
               <EventRow event={event} compact embedded />
               <div className="mt-auto grid grid-cols-2 gap-2 border-t border-line pt-3">
                 <button type="button" onClick={() => openReview(event, 'NORMAL')} className="btn-secondary inline-flex w-full items-center justify-center gap-1.5 whitespace-nowrap">
