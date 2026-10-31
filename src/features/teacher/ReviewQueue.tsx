@@ -45,7 +45,7 @@ interface SecondaryJobApplication {
 // =====================================================================
 
 export default function ReviewQueue() {
-  const [tab, setTab] = useState<Tab>('achievement');
+  const [tab, setTab] = useState<Tab>(() => new URLSearchParams(window.location.search).get('tab') === 'secondary_job' ? 'secondary_job' : 'achievement');
   
   return (
     <TeacherShell>
