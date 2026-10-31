@@ -130,12 +130,10 @@ export async function getTeacherActionCenter(classroomId: number): Promise<Teach
         'students','review',a.seller_name));
     }},
     { name: '일일퀘스트 정산', run: async () => {
-      const { data, error } = await supabase.from('daily_quest_reports')
-        .select('id,quest_date,submitted_at,status')
-        .eq('classroom_id',classroomId).eq('status','SUBMITTED')
-        .order('quest_date',{ascending:true});
+      // Private table: only the teacher-authorized RPC can read this summary.
+      const { data, error } = await supabase.rpc('teacher_get_pending_daily_quest_reports');
       if (error) throw error;
-      return (data ?? []).map(r => record('quest:' + r.id,'일일퀘스트 정산',
+      return ((data ?? []) as Array<{ id: number; quest_date: string; submitted_at: string | null }>).map(r => record('quest:' + r.id,'일일퀘스트 정산',
         r.quest_date + ' 보고서',r.submitted_at,'일일퀘스트 정산',
         '/teacher/daily-quests?date=' + r.quest_date,'growth','operation'));
     }},
