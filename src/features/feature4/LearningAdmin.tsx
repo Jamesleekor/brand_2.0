@@ -14,14 +14,14 @@ const STATUS:Record<AttendanceStatus,string>={PRESENT:'출석',LATE:'지각',ABS
 const ASSIGNMENT_STATUS:Record<string,string>={DRAFT:'초안',PUBLISHED:'공개 중',CLOSED:'종료된 과제',ARCHIVED:'보관'};
 
 export default function LearningAdmin(){
- const [tab,setTab]=useState<'attendance'|'assignments'>('attendance');
+ const [tab,setTab]=useState<'attendance'|'assignments'>(()=>new URLSearchParams(window.location.search).get('tab')==='assignments'?'assignments':'attendance');
  return <TeacherShell><div className="space-y-6"><div><h1 className="font-display text-2xl text-brand-gradient">📚 출석·과제 운영 <span className="text-xs text-text-muted">F4C · 4.1</span></h1><p className="text-sm text-text-secondary font-bold mt-1">교사 전용 출석 입력·과거 기록 정정·과제 생성·채점</p></div><div className="flex gap-2"><button onClick={()=>setTab('attendance')} className={tab==='attendance'?'btn-primary':'btn-secondary'}>📅 출석</button><button onClick={()=>setTab('assignments')} className={tab==='assignments'?'btn-primary':'btn-secondary'}>📝 과제</button></div>{tab==='attendance'?<AttendanceAdmin/>:<AssignmentsAdmin/>}</div></TeacherShell>;
 }
 
 function AttendanceAdmin(){
  const classroomId=useClassroomId(),qc=useQueryClient(),{call,isLoading}=useRpcCall();
  const today=getKstDateString();
- const [selectedDate,setSelectedDate]=useState(today);
+ const [selectedDate,setSelectedDate]=useState(()=>new URLSearchParams(window.location.search).get('date') || today);
  const q=useQuery({queryKey:['f4c-attendance-admin',classroomId,selectedDate],enabled:!!classroomId,queryFn:async()=>{
   const [s,a]=await Promise.all([
    supabase.from('students').select('id,name,brand_name').eq('classroom_id',classroomId!).eq('role','STUDENT').is('transferred_at',null).order('name'),
@@ -71,7 +71,7 @@ function AttendanceRewardSettingsAdmin({ classroomId }: { classroomId: number })
 function AssignmentsAdmin(){
  const classroomId=useClassroomId(),teacher=useCurrentStudent(),qc=useQueryClient(),{call,isLoading}=useRpcCall();
  const [title,setTitle]=useState(''),[desc,setDesc]=useState(''),[subject,setSubject]=useState(''),[due,setDue]=useState(new Date(Date.now()+86400000).toISOString().slice(0,16)),[max,setMax]=useState(100),[gold,setGold]=useState(0),[bv,setBv]=useState(0),[publishNow,setPublishNow]=useState(true);
- const [selected,setSelected]=useState<number|null>(null),[scores,setScores]=useState<Record<number,string>>({}),[feedback,setFeedback]=useState<Record<number,string>>({});
+ const [selected,setSelected]=useState<number|null>(()=>{const id=Number(new URLSearchParams(window.location.search).get('assignment'));return Number.isInteger(id)&&id>0?id:null;}),[scores,setScores]=useState<Record<number,string>>({}),[feedback,setFeedback]=useState<Record<number,string>>({});
  const q=useQuery({queryKey:['f4c-assignments-admin',classroomId],enabled:!!classroomId,queryFn:async()=>{const {data,error}=await supabase.from('assignments').select('id,title,subject,due_at,max_score,base_reward_gold,full_score_reward_bv,status,created_at,published_at,updated_at').eq('classroom_id',classroomId!).order('created_at',{ascending:false}).limit(50);if(error)throw feature4QueryError('F4C','assignment-admin-list',error);return data??[];}});
  const submissions=useQuery({queryKey:['f4c-submissions-admin',selected],enabled:!!selected,queryFn:async()=>{const {data,error}=await supabase.from('assignment_submissions').select('id,student_id,status,is_late,submitted_at,content_text,attachment_urls,student:students!student_id(name,brand_name),grading:assignment_gradings(score,feedback,is_revoked)').eq('assignment_id',selected!).order('submitted_at',{ascending:true});if(error)throw feature4QueryError('F4C','assignment-submissions',error);return data??[];}});
  const refresh=()=>{qc.invalidateQueries({queryKey:['f4c-assignments-admin']});qc.invalidateQueries({queryKey:['f4c-submissions-admin']});};
