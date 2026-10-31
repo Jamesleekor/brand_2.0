@@ -23,8 +23,8 @@ const EMPTY_FORM=():ProgramForm=>({programId:null,studentId:null,missed:49,bvPer
 export default function NewbieSupportAdmin(){
   const qc=useQueryClient(); const {call,isLoading}=useRpcCall();
   const [form,setForm]=useState<ProgramForm|null>(null); const [preview,setPreview]=useState<any|null>(null); const [review,setReview]=useState<ReviewState|null>(null);
-  const [tab,setTab]=useState<'programs'|'review'|'history'>('programs');
-  const [selectedProgramId,setSelectedProgramId]=useState<number|null>(null);
+  const [tab,setTab]=useState<'programs'|'review'|'history'>(()=>{const t=new URLSearchParams(window.location.search).get('tab');return t==='review'||t==='history'?t:'programs';});
+  const [selectedProgramId,setSelectedProgramId]=useState<number|null>(()=>{const id=Number(new URLSearchParams(window.location.search).get('program'));return id>0?id:null;});
   const [showAllPrograms,setShowAllPrograms]=useState(false);
   const [historyStatus,setHistoryStatus]=useState('ALL');
   const [historyStudent,setHistoryStudent]=useState('ALL');
