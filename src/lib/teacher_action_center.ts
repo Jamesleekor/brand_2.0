@@ -73,7 +73,7 @@ export async function getTeacherActionCenter(classroomId: number): Promise<Teach
       for (let offset=0;offset<10_000;offset+=MAX_PAGE) {
         const {data,error} = await supabase.from('assignment_submissions')
           .select('id,submitted_at,assignment_id,student:students!student_id(name,brand_name),assignment:assignments!assignment_id(title),grading:assignment_gradings(id,is_revoked)')
-          .eq('classroom_id', classroomId).order('submitted_at', {ascending:false})
+          .eq('classroom_id', classroomId).eq('status','SUBMITTED').order('submitted_at', {ascending:false})
           .order('id',{ascending:false}).range(offset,offset+MAX_PAGE-1);
         if (error) throw error;
         all.push(...(data??[]));
