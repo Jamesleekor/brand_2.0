@@ -161,7 +161,17 @@ export async function getTeacherActionCenter(classroomId: number): Promise<Teach
         'economy','urgent', (e.sender_brand_name || e.sender_name) + ' · ' + (e.receiver_brand_name || e.receiver_name)));
     }},
   ];
-  const results = await Promise.allSettled(sources.map(source => source.run()));
+  // The Supabase client deliberately caps ordinary REST requests at two in flight.
+  // Launching every source at once would overflow its eight-second waiting queue.
+  const results: PromiseSettledResult<TeacherAction[]>[] = new Array(sources.length);
+  let next = 0;
+  await Promise.all([0,1].map(async () => {
+    while (next < sources.length) {
+      const index = next++;
+      try { results[index] = { status:'fulfilled', value:await sources[index].run() }; }
+      catch (reason) { results[index] = { status:'rejected', reason }; }
+    }
+  }));
   const items: TeacherAction[] = [];
   const errors: TeacherActionCenter['errors'] = [];
   results.forEach((result,index) => {
