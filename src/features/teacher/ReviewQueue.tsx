@@ -9,7 +9,7 @@
 // 핵심 패턴: Stage 4-D의 안전장치 ②번 (검토 윈도우)
 // =====================================================================
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -45,7 +45,7 @@ interface SecondaryJobApplication {
 // =====================================================================
 
 export default function ReviewQueue() {
-  const [tab, setTab] = useState<Tab>('achievement');
+  const [tab, setTab] = useState<Tab>(() => new URLSearchParams(window.location.search).get('tab') === 'secondary_job' ? 'secondary_job' : 'achievement');
   
   return (
     <TeacherShell>
@@ -184,6 +184,9 @@ function AchievementQueue() {
 }
 
 function AchievementReviewCard({ application: app }: { application: TeacherAchievementReviewItem }) {
+  const linked = new URLSearchParams(window.location.search).get('item') === String(app.id);
+  const focusRef = useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(linked) focusRef.current?.scrollIntoView({behavior:'smooth',block:'center'});},[linked]);
   const queryClient = useQueryClient();
   const { call, isLoading } = useRpcCall();
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -247,7 +250,8 @@ function AchievementReviewCard({ application: app }: { application: TeacherAchie
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="rounded-card-lg border border-line bg-bg-card p-4 backdrop-blur-card"
+      ref={focusRef}
+      className={'rounded-card-lg border border-line bg-bg-card p-4 backdrop-blur-card ' + (linked ? 'ring-2 ring-gold/60' : '')}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -361,6 +365,9 @@ function HelperRecommendationBlock({ recommendations, enabled }: { recommendatio
 }
 
 function SpecialReportReviewCard({ application: app, candidates }: { application: TeacherAchievementReviewItem; candidates: SecretAchievementCandidate[] }) {
+  const linked = new URLSearchParams(window.location.search).get('item') === String(app.id);
+  const focusRef = useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(linked) focusRef.current?.scrollIntoView({behavior:'smooth',block:'center'});},[linked]);
   const queryClient = useQueryClient();
   const { call, isLoading } = useRpcCall();
   const [selectedId, setSelectedId] = useState(app.achievement_id ? String(app.achievement_id) : '');
@@ -428,7 +435,7 @@ function SpecialReportReviewCard({ application: app, candidates }: { application
   const isSavedMatch = Boolean(app.achievement_id && selectedId === String(app.achievement_id));
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="rounded-card-lg border border-amber-300/30 bg-amber-300/[0.055] p-4">
+    <motion.div ref={focusRef} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className={'rounded-card-lg border border-amber-300/30 bg-amber-300/[0.055] p-4 ' + (linked?'ring-2 ring-gold/60':'')}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-pill bg-warning-bg px-2 py-0.5 text-2xs font-black text-warning">🌟 특별보고 · 교사 전용</span>
         {app.achievement_id && <span className="rounded-pill bg-success-bg px-2 py-0.5 text-2xs font-black text-success">✓ 히든 후보 연결됨</span>}
@@ -556,6 +563,9 @@ function SecondaryJobQueue() {
 }
 
 function SecondaryJobReviewCard({ application: app }: { application: SecondaryJobApplication }) {
+  const linked = new URLSearchParams(window.location.search).get('item') === String(app.id);
+  const focusRef = useRef<HTMLDivElement>(null);
+  useEffect(()=>{if(linked) focusRef.current?.scrollIntoView({behavior:'smooth',block:'center'});},[linked]);
   const teacher = useCurrentStudent();
   const queryClient = useQueryClient();
   const { call, isLoading } = useRpcCall();
@@ -613,7 +623,8 @@ function SecondaryJobReviewCard({ application: app }: { application: SecondaryJo
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="bg-bg-card backdrop-blur-card border border-line rounded-card-lg p-4"
+      ref={focusRef}
+      className={'bg-bg-card backdrop-blur-card border border-line rounded-card-lg p-4 ' + (linked ? 'ring-2 ring-gold/60' : '')}
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex-1">

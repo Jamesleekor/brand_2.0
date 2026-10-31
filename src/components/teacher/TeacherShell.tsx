@@ -10,6 +10,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore, useCurrentStudent } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
 import { TeacherPresenceSummary } from '@/components/teacher/TeacherPresenceSummary';
+import { useTeacherActionCenter } from '@/lib/teacher_action_center';
+import { TeacherActionContext, ActionBell, ActionNavCount } from '@/components/teacher/TeacherActionWidgets';
 
 interface TeacherShellProps {
   children: ReactNode;
@@ -97,7 +99,9 @@ function activeGroupId(pathname: string) {
 }
 
 export function TeacherShell({ children }: TeacherShellProps) {
+  const actions = useTeacherActionCenter();
   return (
+    <TeacherActionContext.Provider value={actions}>
     <div className="teacher-shell min-h-screen bg-bg-base">
       <TeacherTopBar />
       <div className="flex">
@@ -108,6 +112,7 @@ export function TeacherShell({ children }: TeacherShellProps) {
       </div>
       <TeacherMobileNav />
     </div>
+    </TeacherActionContext.Provider>
   );
 }
 
@@ -130,6 +135,7 @@ function TeacherTopBar() {
         </div>
         <div className="flex items-center gap-3">
           <TeacherPresenceSummary />
+          <ActionBell />
           <div className="hidden text-right sm:block">
             <div className="text-xs font-extrabold text-text-primary">{teacher?.studentName ?? '선생님'}</div>
             <div className="text-2xs font-bold text-text-muted">{teacher?.classroomName ?? ''}</div>
@@ -197,7 +203,8 @@ function TeacherSidebar() {
               >
                 <span className="text-lg">{group.icon}</span>
                 <span className={cn('flex-1 text-sm font-extrabold', groupActive ? 'text-gold' : 'text-text-secondary')}>{group.label}</span>
-                <span className={cn('text-xs font-black text-text-muted transition-transform', open && 'rotate-180')}>⌄</span>
+                <ActionNavCount group={group.id === 'students' ? 'students' : group.id === 'growth' ? 'growth' : group.id === 'economy' ? 'economy' : undefined} />
+          <span className={cn('text-xs font-black text-text-muted transition-transform', open && 'rotate-180')}>⌄</span>
               </button>
               {open && (
                 <div className="space-y-1 px-2 pb-2">
@@ -215,6 +222,7 @@ function TeacherSidebar() {
                       >
                         <span>{item.icon}</span>
                         <span>{item.label}</span>
+                        <ActionNavCount to={item.to}/>
                         {item.to === '/teacher/test-fixture' && <span className="ml-auto rounded-pill border border-line px-1.5 py-0.5 text-[8px] text-text-muted">DEV</span>}
                       </Link>
                     );
