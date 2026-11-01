@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { LoadingSpinner } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
+import { homeworkRpc } from '@/lib/rpc/homework_check_rpc';
 import {
   calculateMvpFoundationData,
   createMvpFoundationSession,
@@ -400,6 +401,24 @@ export default function MvpFoundationAdmin() {
                     <p className="text-2xs font-bold text-text-muted">기본 정렬은 평가기간 획득 BV입니다. 종합 MVP 점수는 자동 계산하지 않습니다.</p>
                   </div>
                   <div className="ml-auto flex flex-wrap gap-2">
+                    {isDraft && board.calculated && (
+                      <button type="button" disabled={Boolean(busy)} onClick={() => void run('autoTrust', async () => {
+                        if (!selectedSessionId) return;
+                        const rows = await homeworkRpc.trustPreview(supabase, selectedSessionId);
+                        const ready = rows.filter(r => r.ready && r.trust_pct !== null);
+                        const waiting = rows.filter(r => !r.ready);
+                        if (!ready.length) {
+                          throw new Error(`산정 가능한 학생이 없습니다. 과제 5건 이상 확정 및 길드 미션 판정을 확인하세요. 자료 부족 ${waiting.length}명.`);
+                        }
+                        const ok = window.confirm(`운영국 신뢰도 자동 산정\n산정 가능 ${ready.length}명 / 자료 부족·미션 미판정 ${waiting.length}명\n\n기존 수동 입력값도 해당 학생은 덮어씁니다. 적용할까요?`);
+                        if (!ok) return;
+                        const applied = await homeworkRpc.applyTrust(supabase, selectedSessionId);
+                        await invalidate();
+                        window.alert(`${applied.applied}명의 신뢰도 자동 산정 완료. 미산정 학생은 수동 입력 또는 추가 데이터가 필요합니다.`);
+                      })} className="flex h-9 items-center rounded-card-md border border-gold/40 bg-gold/10 px-3 text-xs font-black text-gold disabled:opacity-40">
+                        ✦ 신뢰도 자동 산정
+                      </button>
+                    )}
                     <details className="relative">
                       <summary className="flex h-9 cursor-pointer list-none items-center rounded-card-md border border-line px-3 text-xs font-black text-white hover:border-line-brand/50">
                         ↓ 내보내기

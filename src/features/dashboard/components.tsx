@@ -434,6 +434,11 @@ export function PrimaryJobCard({ jobName, dailyWage, className }: PrimaryJobCard
       <div className="mt-1 text-sm font-black text-gold">
         {hasAssignment && dailyWage != null ? `일급 ${formatNumber(dailyWage)} GOLD` : '일급 -'}
       </div>
+      {Boolean(jobName && /제출\s*관리(관|자)/.test(jobName)) && (
+        <Link to="/homework-manager" className="mt-2 inline-flex rounded-md border border-gold/40 bg-gold/10 px-2.5 py-1.5 text-xs font-black text-gold" onClick={e=>e.stopPropagation()}>
+          📜 과제 검수대 열기 →
+        </Link>
+      )}
     </motion.div>
   );
 }
