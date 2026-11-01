@@ -13,6 +13,7 @@ import DashboardPage from '@/features/dashboard/DashboardPage';
 import WalletPage from '@/features/wallet/WalletPage';
 import ProfilePage from '@/features/profile/ProfilePage';
 import AchievementPage from '@/features/achievement/AchievementPage';
+import PrimaryJobArchivePage from '@/features/primary-job/PrimaryJobArchivePage';
 import AchievementHelperPage from '@/features/achievement/AchievementHelperPage';
 import CharacterCollectionPage from '@/features/character/CharacterCollectionPage';
 import DimensionalGatePage from '@/features/character/DimensionalGatePage';
@@ -141,6 +142,7 @@ export default function App() {
           path="/achievement/helper"
           element={<AppShell><AchievementHelperPage /></AppShell>}
         />
+        <Route path="/primary-jobs" element={<AppShell><PrimaryJobArchivePage /></AppShell>} />
         <Route 
           path="/profile" 
           element={<AppShell><ProfilePage /></AppShell>} 

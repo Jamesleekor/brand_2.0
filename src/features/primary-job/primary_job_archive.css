@@ -1,0 +1,86 @@
+.pja-page, .pja-loading {
+  color: #fff4db;
+  padding: 16px 16px calc(90px + env(safe-area-inset-bottom, 0px));
+}
+.pja-page { max-width: 1180px; margin: 0 auto; }
+.pja-page *, .pja-page *::before, .pja-page *::after { box-sizing: border-box; }
+.pja-page button, .pja-page input, .pja-page select { font: inherit; }
+.pja-page button { color: inherit; cursor: pointer; }
+.pja-page button:disabled { cursor: wait; }
+.pja-page button:focus-visible, .pja-page select:focus-visible, .pja-page input:focus-visible { outline: 2px solid #e9cbff; outline-offset: 3px; }
+.pja-year-row, .pja-list-heading, .pja-history-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.pja-year-row { margin-bottom: 12px; font-size: 13px; }
+.pja-text-button { background: none; border: 0; padding: 5px 0; color: #e9cbff !important; font-size: 13px !important; }
+.pja-mine { display: flex; flex-wrap: wrap; align-items: center; gap: 7px 15px; padding: 12px 14px; margin-bottom: 16px; border: 1px solid #b98bea70; background: #38224c; border-radius: 12px; }
+.pja-mine-label { color: #f0d8ff; font-size: 12px; font-weight: 700; }
+.pja-mine-role { flex: 1; min-width: 130px; overflow-wrap: anywhere; }
+.pja-wage { color: #ffe09c; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pja-tabs { display: flex; gap: 24px; border-bottom: 1px solid #e7d4a633; margin-bottom: 16px; }
+.pja-tabs > button { border: 0; border-bottom: 3px solid transparent; background: none; padding: 10px 0 12px; font-size: 14px; white-space: nowrap; }
+.pja-tabs > button[aria-selected="true"] { color: #efd4ff; border-bottom-color: #d2a3ff; font-weight: 800; }
+.pja-months { display: grid; grid-template-columns: repeat(9,minmax(0,1fr)); gap: 6px; margin-bottom: 12px; }
+.pja-months button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 42px; background: #211e2e; border: 1px solid #e7d4a633; border-radius: 8px; padding: 7px 2px; }
+.pja-months button[aria-pressed="true"] { background: #714b91; border-color: #ddbcff; color: #fff8ec; font-weight: 800; }
+.pja-months small { font-size: 11px; color: #ffe5ae; }
+.pja-notice { color: #ffe4a6; font-size: 13px; margin: 8px 0 14px; }
+.pja-toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.pja-toolbar label, .pja-history-heading label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; min-width: 0; }
+.pja-search { flex: 1; min-width: 160px !important; }
+.pja-page input, .pja-page select { max-width: 100%; background: #211e2e; border: 1px solid #e7d4a64d; border-radius: 8px; color: #fff4db; padding: 9px 10px; min-width: 0; font-size: 14px; }
+.pja-page input::placeholder { color: #e9d2ae; }
+.pja-list-heading { margin-bottom: 8px; }
+.pja-list-heading h2 { margin: 0; font-size: 15px; font-weight: 800; }
+.pja-list-heading > span, .pja-history-heading > span { color: #f2dcb4; font-size: 12px; }
+.pja-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 20px; }
+.pja-entry { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 5px 12px; padding: 12px; border-bottom: 1px solid #e7d4a633; background: #221e2c; }
+.pja-entry-mine { background: #38224c; box-shadow: inset 3px 0 #d2a3ff; }
+.pja-role { padding: 0; border: 0; background: none; font-size: 14px !important; font-weight: 700 !important; text-align: left; overflow-wrap: anywhere; }
+.pja-role:hover, .pja-person:hover { text-decoration: underline; text-underline-offset: 3px; }
+.pja-entry > .pja-wage { align-self: start; font-size: 14px; white-space: nowrap; }
+.pja-people { font-size: 13px; min-width: 0; }
+.pja-person-wrap { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pja-person { padding: 0; border: 0; background: none; color: #fff4db !important; text-align: left; }
+.pja-me { color: #efd4ff; font-size: 11px; font-weight: 800; }
+.pja-historical { color: #ffe5ae; font-size: 11px; }
+.pja-delta { text-align: right; font-size: 11px; color: #f2dcb4; }
+.pja-pending, .pja-unregistered { color: #ffe5ae; font-size: 12px; font-weight: 400; }
+.pja-footnote { color: #f2dcb4; font-size: 12px; line-height: 1.7; margin: 14px 0 0; }
+.pja-empty { grid-column: 1 / -1; padding: 28px 12px; color: #fff4db; }
+.pja-empty strong { color: #ffe4a6; }
+.pja-empty p { margin: 7px 0 0; font-size: 13px; }
+.pja-history-heading { margin-bottom: 14px; }
+.pja-history-heading label { max-width: 100%; }
+.pja-role-background { margin: 0 0 14px; font-size: 13px; line-height: 1.8; color: #f5dfba; }
+.pja-role-background p { margin: 0; }
+.pja-related { display: flex; flex-wrap: wrap; gap: 0 18px; }
+.pja-history { border-collapse: collapse; font-size: 13px; width: 100%; }
+.pja-history th, .pja-history td { border-bottom: 1px solid #e7d4a633; padding: 10px 8px; text-align: left; overflow-wrap: anywhere; }
+.pja-history thead th { color: #f4dbb0; font-size: 12px; font-weight: 500; }
+.pja-history tbody th { width: 52px; white-space: nowrap; font-weight: 500; vertical-align: middle; }
+.pja-history .pja-number { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pja-history .pja-comparison { font-size: 12px; color: #f2dcb4; }
+.pja-selected-month { background: #38224c; }
+.pja-lost { color: #ffe4a6; }
+/* Content-width columns: salary stays next to the role, never at the far page edge. */
+.pja-student-history { width: auto; max-width: 100%; }
+.pja-student-history .pja-student-role { max-width: 19em; padding-right: 20px; }
+.pja-student-history .pja-number { min-width: 64px; }
+.pja-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0; }
+.pja-loading { display: flex; flex-direction: column; align-items: center; gap: 12px; padding-top: 48px; }
+.pja-action { padding: 10px 14px; background: #38224c; color: #fff4db; border: 1px solid #d2a3ff; border-radius: 8px; }
+@media (max-width: 680px) { .pja-list { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 420px) {
+  .pja-tabs { gap: 19px; }
+  .pja-tabs > button { font-size: 13px; }
+  .pja-months { grid-template-columns: repeat(5,minmax(0,1fr)); }
+  .pja-history th, .pja-history td { padding: 9px 4px; }
+  .pja-history tbody th { width: 40px; }
+  .pja-role-history .pja-comparison { max-width: 65px; }
+  .pja-student-history .pja-student-role { max-width: 14em; padding-right: 12px; }
+  .pja-student-history .pja-role { font-size: 13px !important; }
+  .pja-student-history .pja-number { min-width: 56px; }
+}
+@media (pointer: coarse) {
+  .pja-page button, .pja-page input, .pja-page select { min-height: 44px; }
+  .pja-page input, .pja-page select { font-size: 16px; }
+}

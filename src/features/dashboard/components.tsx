@@ -424,9 +424,11 @@ export function PrimaryJobCard({ jobName, dailyWage, className }: PrimaryJobCard
       whileTap={{ scale: 0.98 }}
       className={cnDashboardCard(className)}
     >
+      <Link to="/primary-jobs" className="absolute inset-0 z-10 rounded-card-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-bv" aria-label="나의 1인1역과 전체 역할 기록 보기" />
       <div className="flex items-center gap-1.5 mb-1.5">
         <span className="text-sm">🧑‍💼</span>
         <span className="text-sm text-white/90 font-extrabold tracking-tight">나의 1인1역</span>
+        <span className="ml-auto text-sm text-white/90" aria-hidden="true">›</span>
       </div>
       <div className="truncate text-sm font-black text-white" title={jobName ?? undefined}>
         {hasAssignment ? jobName : '배정 없음'}
