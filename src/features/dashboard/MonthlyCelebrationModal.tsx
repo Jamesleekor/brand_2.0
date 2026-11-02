@@ -113,20 +113,23 @@ function GuildRow({ guild, rank, score, highlight = false }: { guild: string; ra
 function GuardianRow({ guild, name, score, note }: { guild: string; name: string; score: number; note: string | null }) {
   const isBest = guild === '슈퍼노바';
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/15 px-3.5 py-3">
-      <div className="flex min-w-0 items-center gap-3">
-        <img className="h-11 w-11 shrink-0 object-contain" src={GUILD_ICONS[guild]} alt="" loading="lazy" />
+    <div className="flex min-h-[58px] items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/15 px-3 py-2">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <img className="h-10 w-10 shrink-0 object-contain" src={GUILD_ICONS[guild]} alt="" loading="lazy" />
         <div className="min-w-0">
-          <div className="truncate text-[13px] font-bold text-white/55">{guild}</div>
-          <div className="truncate text-[22px] font-black leading-tight text-white">{name}</div>
+          <div className="truncate text-[12px] font-bold text-white/60">{guild}</div>
+          <div className="truncate text-[19px] font-black leading-tight text-white">{name}</div>
         </div>
       </div>
-      <div className="shrink-0 text-right">
-        <div className="text-[30px] font-black leading-none tabular-nums text-amber-200">
-          {formatDecimal(score)}
-          <span className="ml-1 text-sm font-bold text-white/45">점</span>
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2.5">
+        {note && (
+          <span className={`whitespace-nowrap rounded-lg border px-2 py-1 text-[12px] font-black sm:text-[14px] ${isBest ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-emerald-300/20 bg-emerald-200/10 text-emerald-200'}`}>
+            {note}
+          </span>
+        )}
+        <div className="min-w-[92px] text-right text-[25px] font-black leading-none tabular-nums text-amber-200 sm:text-[27px]">
+          {formatDecimal(score)}<span className="ml-1 text-xs font-bold text-white/50">점</span>
         </div>
-        {note && <div className={`mt-1 text-xs font-black ${isBest ? 'text-amber-200' : 'text-emerald-200/90'}`}>{note}</div>}
       </div>
     </div>
   );
