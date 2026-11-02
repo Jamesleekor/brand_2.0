@@ -275,6 +275,18 @@ export default function DashboardPage() {
       
       {/* 메뉴 row — 친구·길드·시장·랭킹 (아래줄, 우측 정렬) */}
       <TopMenuRow guildAlertCount={dashboardData?.guildAlertCount ?? 0} />
+
+      {/* October celebration is always revisitable, even after the automatic dialog was closed/hidden. */}
+      <div className="relative z-10 mx-4 mt-2 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setCelebrationOpen(true)}
+          className="rounded-full border border-gold/30 bg-bg-card/70 px-3 py-1.5 text-xs font-bold text-gold transition hover:border-gold/60 hover:bg-gold/10"
+          aria-label="2026년 10월 최고의 길드 축전 다시 보기"
+        >
+          ✨ 10월 최고의 길드 축전 보기
+        </button>
+      </div>
       
       {/* 상단 메뉴와 카드가 해상도에 따라 겹치지 않도록 카드 레일을 absolute가 아닌 레이아웃 흐름에 둔다. */}
       <div className="relative z-10 lg:grid lg:grid-cols-[minmax(0,1fr)_164px] lg:gap-4 lg:items-start">
