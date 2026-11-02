@@ -175,9 +175,12 @@ function CelebrationHeroPage() {
           <SectionTitle icon={<Star className="h-5 w-5" />}>10월 핵심 성과</SectionTitle>
           <div className="mt-4 grid gap-2.5">
             {KEY_ACHIEVEMENTS.map((item, index) => (
-              <div key={item} className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-[18px] font-black leading-[1.5] text-amber-100 sm:text-[20px]">
+              <div
+                key={item}
+                className={`rounded-xl border border-white/10 bg-black/20 py-3 font-black leading-[1.5] text-amber-100 ${index === 2 ? 'px-3 text-[clamp(11px,1.05vw,15px)] tracking-[-0.04em] lg:whitespace-nowrap' : 'px-4 text-[18px] sm:text-[20px]'}`}
+              >
                 <span className="mr-2 text-amber-300">{index + 1}.</span>
-                <span className="break-keep text-white">{item}</span>
+                <span className={index === 2 ? 'text-white lg:whitespace-nowrap' : 'break-keep text-white'}>{item}</span>
               </div>
             ))}
           </div>
