@@ -34,6 +34,7 @@ import { useActiveEmergencies } from '@/hooks/useActiveEmergencies';
 import { useToastStore } from '@/stores/ui_store';
 import { achievementA1Rpc } from '@/lib/rpc/achievement_a1_rpc';
 import { dailyQuestS3Rpc } from '@/lib/rpc/daily_quest_s3_rpc';
+import { homeworkRpc } from '@/lib/rpc/homework_check_rpc';
 import { resolveAssetUrl } from '@/lib/assets/asset_urls';
 import { HomeCustomizationPanel } from '@/features/dashboard/HomeCustomizationPanel';
 import { homePersonalizationRpc, type HomePersonalization, type HomeShowcaseSlot } from '@/lib/rpc/home_personalization_rpc';
@@ -88,6 +89,17 @@ export default function DashboardPage() {
     refetchOnWindowFocus: false,
   });
   
+  // BRAND_HOMEWORK_HOME_ENTRY_V1: use server-side role checks, not a displayed role name.
+  const homeworkAccessQuery = useQuery({
+    queryKey: ['homework-manager-home-access', studentId],
+    enabled: Boolean(studentId),
+    queryFn: () => homeworkRpc.access(supabase),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    retry: 1,
+  });
+
   // 모달 상태
   const [attendanceOpen, setAttendanceOpen] = useState(false);
   const [homeCustomizeOpen, setHomeCustomizeOpen] = useState(false);
@@ -296,6 +308,25 @@ export default function DashboardPage() {
                 </div>
               </div>
               <span className="flex-none text-sm font-black text-gold">열기 →</span>
+            </button>
+          )}
+
+          {/* BRAND_HOMEWORK_HOME_BANNER_V1: separate from the clickable primary-job history card. */}
+          {homeworkAccessQuery.data?.can_operate === true && homeworkAccessQuery.data?.is_teacher === false && (
+            <button
+              type="button"
+              onClick={() => navigate('/homework-manager')}
+              aria-label="제출관리관 과제 검수대 열기"
+              className="mx-4 mt-2 flex w-[calc(100%-32px)] items-center justify-between gap-3 rounded-card-lg border border-sky-400/30 bg-gradient-to-r from-sky-500/10 to-brand-primary/10 px-4 py-3 text-left transition hover:border-sky-300/50 hover:bg-sky-500/15"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-10 w-10 flex-none items-center justify-center rounded-card-md bg-sky-400/15 text-xl">📜</div>
+                <div className="min-w-0">
+                  <div className="text-sm font-black text-white">제출관리관 업무 · 과제 검수대</div>
+                  <div className="mt-0.5 truncate text-2xs font-bold text-text-secondary">과제 등록 · 제출 검사 · 지난 기록 확인</div>
+                </div>
+              </div>
+              <span className="flex-none text-sm font-black text-sky-200">열기 →</span>
             </button>
           )}
 
