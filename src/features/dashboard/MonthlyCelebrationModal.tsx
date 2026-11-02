@@ -123,7 +123,7 @@ function GuardianRow({ guild, name, score, note }: { guild: string; name: string
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2.5">
         {note && (
-          <span className={`whitespace-nowrap rounded-lg border px-2 py-1 text-[12px] font-black sm:text-[14px] ${isBest ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-emerald-300/20 bg-emerald-200/10 text-emerald-200'}`}>
+          <span className={`whitespace-nowrap rounded-lg border px-2.5 py-1 text-[13px] font-black sm:text-[16px] ${isBest ? 'border-amber-300/30 bg-amber-300/10 text-amber-200' : 'border-emerald-300/20 bg-emerald-200/10 text-emerald-200'}`}>
             {note}
           </span>
         )}
