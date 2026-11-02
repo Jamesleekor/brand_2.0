@@ -8,11 +8,11 @@ const HIDE_FOR_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const CELEBRATION_IMAGE_URL = `${import.meta.env.BASE_URL}assets/guild/celebration/2026OCT-Top1Guild-Supernova.webp`;
 
 const GUILD_ICONS: Record<string, string> = {
-  '슈퍼노바': `${import.meta.env.BASE_URL}assets/guild/logo-webp/guild-Supernova.webp`,
-  '아블루션': `${import.meta.env.BASE_URL}assets/guild/logo-webp/guild-Ablution.webp`,
-  '루나 네이비': `${import.meta.env.BASE_URL}assets/guild/logo-webp/guild-LunaNavy.webp`,
-  '와사비': `${import.meta.env.BASE_URL}assets/guild/logo-webp/guild-Wasabi.webp`,
-  'Phoenix': `${import.meta.env.BASE_URL}assets/guild/logo-webp/guild-Phoenix.webp`,
+  '슈퍼노바': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2026_guild_logo/2-Supernova.webp',
+  '아블루션': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2026_guild_logo/2-Ablution.webp',
+  '루나 네이비': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2026_guild_logo/2-LunaNavy.webp',
+  '와사비': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2026_guild_logo/2-Wasabi.webp',
+  'Phoenix': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2026_guild_logo/2-Phoenix.webp',
 };
 
 const RANKINGS = [
@@ -158,6 +158,12 @@ function CelebrationHeroPage() {
               loading="eager"
             />
           </figure>
+
+          <div className="rounded-2xl border border-amber-300/30 bg-gradient-to-r from-amber-200/[0.12] via-amber-100/[0.045] to-transparent px-5 py-4 text-center">
+            <p className="break-keep font-display text-[22px] font-bold leading-[1.65] text-amber-100 sm:text-[24px]">
+            작지만 가장 강한 팀.<br />믿음으로 하나 된 4인의 엘리트,<br />슈퍼노바의 2개월 연속 1위를 축하합니다.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -189,11 +195,6 @@ function CelebrationHeroPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-amber-300/30 bg-gradient-to-r from-amber-200/[0.12] via-amber-100/[0.045] to-transparent px-5 py-4 text-center">
-          <p className="break-keep font-display text-[22px] font-bold leading-[1.65] text-amber-100 sm:text-[24px]">
-            작지만 가장 강한 팀.<br />믿음으로 하나 된 4인의 엘리트,<br />슈퍼노바의 2개월 연속 1위를 축하합니다.
-          </p>
-        </div>
       </section>
     </div>
   );
