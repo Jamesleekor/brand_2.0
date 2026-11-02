@@ -44,6 +44,12 @@ export const characterC2Rpc = {
   myCollection: (supabase: SupabaseClient) =>
     callRpc<StudentCharacterCollectionRow[]>(supabase, 'get_my_character_collection_status'),
 
-  equip: (supabase: SupabaseClient, characterId: number | null) =>
-    callRpc<void>(supabase, 'equip_character', { p_character_id: characterId }),
+  equip: (
+    supabase: SupabaseClient,
+    characterId: number | null,
+    visualVariantNo: 1 | 2 | 3 = 1,
+  ) => callRpc<void>(supabase, 'student_equip_character_visual', {
+    p_character_id: characterId,
+    p_visual_variant_no: visualVariantNo,
+  }),
 };

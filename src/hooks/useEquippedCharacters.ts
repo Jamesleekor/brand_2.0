@@ -20,13 +20,25 @@ export interface EquippedCharacterIdentity {
   fullImageUrl: string | null;
   cardImageUrl: string | null;
   avatarImageUrl: string | null;
+  showcaseImageUrl2: string | null;
+  showcaseImageUrl3: string | null;
+  visualVariantNo: 1 | 2 | 3;
 }
 
 export function getEquippedCharacterImageUrl(
   character: EquippedCharacterIdentity | null | undefined,
   preference: 'avatar' | 'card' | 'full' = 'avatar',
 ): string | null {
-  if (!character || character.resourceKind === 'EMOJI') return null;
+  if (!character) return null;
+
+  const showcaseRaw = character.visualVariantNo === 3
+    ? character.showcaseImageUrl3
+    : character.visualVariantNo === 2
+      ? character.showcaseImageUrl2
+      : null;
+
+  if (showcaseRaw) return resolveAssetUrl(showcaseRaw, 'character');
+  if (character.resourceKind === 'EMOJI') return null;
 
   const raw = preference === 'full'
     ? character.fullImageUrl || character.cardImageUrl || character.avatarImageUrl || character.resourceUrl
@@ -56,7 +68,7 @@ export function useClassroomEquippedCharacters() {
 
       const profilesRes = await supabase
         .from('student_character_profiles')
-        .select('student_id,equipped_character_id')
+        .select('student_id,equipped_character_id,visual_variant_no')
         .eq('classroom_id', classroomId)
         .not('equipped_character_id', 'is', null);
 
@@ -75,7 +87,7 @@ export function useClassroomEquippedCharacters() {
 
       const charactersRes = await supabase
         .from('characters')
-        .select('id,name,epithet,resource_kind,resource_url,emoji,full_image_url,card_image_url,avatar_image_url,is_active')
+        .select('id,name,epithet,resource_kind,resource_url,emoji,full_image_url,card_image_url,avatar_image_url,showcase_image_url_2,showcase_image_url_3,is_active')
         .in('id', characterIds)
         .eq('is_active', true);
 
@@ -103,6 +115,13 @@ export function useClassroomEquippedCharacters() {
           fullImageUrl: character.full_image_url ?? null,
           cardImageUrl: character.card_image_url ?? null,
           avatarImageUrl: character.avatar_image_url ?? null,
+          showcaseImageUrl2: character.showcase_image_url_2 ?? null,
+          showcaseImageUrl3: character.showcase_image_url_3 ?? null,
+          visualVariantNo: profile.visual_variant_no === 3
+            ? 3
+            : profile.visual_variant_no === 2
+              ? 2
+              : 1,
         } satisfies EquippedCharacterIdentity];
       });
     },

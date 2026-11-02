@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -15,6 +15,13 @@ import ExpeditionChroniclePanel from './ExpeditionChroniclePanel';
 import { characterS1Rpc, type StudentCharacterRecruitmentRow } from '@/lib/rpc/character_s1_rpc';
 import { expeditionRpc } from '@/lib/rpc/expedition_rpc';
 import { useWallet } from '@/hooks/useWallet';
+import {
+  getEquippedCharacterImageUrl,
+  useMyEquippedCharacter,
+  type EquippedCharacterIdentity,
+} from '@/hooks/useEquippedCharacters';
+import { resolveAssetUrl } from '@/lib/assets/asset_urls';
+import { homePersonalizationRpc } from '@/lib/rpc/home_personalization_rpc';
 import { cn } from '@/lib/utils/cn';
 import { EXPEDITION_ASSETS } from './expedition/expeditionAssets';
 
@@ -47,6 +54,14 @@ type CharacterExpeditionProfile = {
   character_id: number;
   specialty_code: ExpeditionSpecialtyCode;
   profile_status: 'DRAFT' | 'ACTIVE' | 'INACTIVE';
+};
+
+type CharacterProfileVisualOption = {
+  no: 1 | 2 | 3;
+  label: string;
+  url: string | null;
+  locked: boolean;
+  luxury: boolean;
 };
 
 const EXPEDITION_SPECIALTY_META: Record<ExpeditionSpecialtyCode, { label: string; asset: string; className: string }> = {
@@ -187,6 +202,7 @@ export default function CharacterCollectionPage() {
   const recruitmentQuery = useCharacterRecruitmentStore();
   const elementQuery = useCharacterElementProfiles();
   const expeditionProfileQuery = useCharacterExpeditionProfiles();
+  const equippedCharacterQuery = useMyEquippedCharacter();
   const expeditionBoardQuery = useQuery({
     queryKey: ['expedition-board'],
     queryFn: async () => {
@@ -282,6 +298,7 @@ export default function CharacterCollectionPage() {
               totalCount={characters.length}
               eligibleCount={eligibleCount}
               equipped={equipped}
+              equippedImageUrl={getEquippedCharacterImageUrl(equippedCharacterQuery.character, 'card')}
               onEquippedClick={() => equipped && setSelected(equipped)}
             />
 
@@ -408,6 +425,7 @@ export default function CharacterCollectionPage() {
         recruitment={selected ? recruitmentById.get(selected.character_id) ?? null : null}
         elementProfile={selected ? elementById.get(selected.character_id) ?? null : null}
         expeditionProfile={selected ? expeditionProfileById.get(selected.character_id) ?? null : null}
+        equippedIdentity={equippedCharacterQuery.character}
         onClose={() => setSelected(null)}
       />
     </>
@@ -497,12 +515,14 @@ function CharacterLibrarySummary({
   totalCount,
   eligibleCount,
   equipped,
+  equippedImageUrl,
   onEquippedClick,
 }: {
   ownedCount: number;
   totalCount: number;
   eligibleCount: number;
   equipped: StudentCharacterCollectionRow | null;
+  equippedImageUrl: string | null;
   onEquippedClick: () => void;
 }) {
   const completion = totalCount > 0 ? Math.round((ownedCount / totalCount) * 100) : 0;
@@ -546,7 +566,15 @@ function CharacterLibrarySummary({
         >
           <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-card-md border border-line bg-bg-base">
             {equipped ? (
-              <CharacterArtwork character={equipped} compact />
+              equippedImageUrl ? (
+                <img
+                  src={equippedImageUrl}
+                  alt={equipped.name}
+                  className="h-full w-full object-cover object-top"
+                />
+              ) : (
+                <CharacterArtwork character={equipped} compact />
+              )
             ) : (
               <div className="flex h-full w-full items-center justify-center text-2xl opacity-40">✦</div>
             )}
@@ -849,18 +877,93 @@ function CharacterDetailModal({
   recruitment,
   elementProfile,
   expeditionProfile,
+  equippedIdentity,
   onClose,
 }: {
   character: StudentCharacterCollectionRow | null;
   recruitment: StudentCharacterRecruitmentRow | null;
   elementProfile: CharacterElementProfile | null;
   expeditionProfile: CharacterExpeditionProfile | null;
+  equippedIdentity: EquippedCharacterIdentity | null;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
   const { call, isLoading } = useRpcCall();
   const { wallet } = useWallet();
   const [recruitConfirmOpen, setRecruitConfirmOpen] = useState(false);
+  const [selectedVisualVariant, setSelectedVisualVariant] = useState<1 | 2 | 3>(1);
+
+  const profileVisualQuery = useQuery<CharacterProfileVisualOption[]>({
+    queryKey: ['character-profile-visuals', character?.character_id],
+    enabled: Boolean(character?.is_owned),
+    staleTime: 20_000,
+    queryFn: async () => {
+      if (!character) return [];
+
+      const [visualRes, entitlementResult] = await Promise.all([
+        supabase
+          .from('characters')
+          .select('showcase_image_url_2,showcase_image_url_3')
+          .eq('id', character.character_id)
+          .single(),
+        homePersonalizationRpc.visualEntitlements(supabase),
+      ]);
+
+      if (visualRes.error) {
+        throw new Error(`[Character profile visuals] ${visualRes.error.message}`);
+      }
+      if (entitlementResult.success === false) {
+        throw new Error(`[Character profile entitlements] ${entitlementResult.error}`);
+      }
+
+      const entitlement = (entitlementResult.data ?? [])
+        .find((row) => row.character_id === character.character_id);
+      const unlocked = new Set<1 | 2 | 3>(entitlement?.unlocked_visual_variants ?? [1]);
+      const labels = entitlement?.visual_variant_labels ?? {};
+      const baseUrl = character.full_image_url
+        ?? character.card_image_url
+        ?? character.avatar_image_url
+        ?? character.resource_url;
+
+      const options: CharacterProfileVisualOption[] = [{
+        no: 1,
+        label: '기본 이미지',
+        url: baseUrl,
+        locked: false,
+        luxury: false,
+      }];
+
+      if (visualRes.data.showcase_image_url_2) {
+        options.push({
+          no: 2,
+          label: labels['2'] || '스페셜 이미지 2',
+          url: visualRes.data.showcase_image_url_2,
+          locked: !unlocked.has(2),
+          luxury: Boolean(labels['2']),
+        });
+      }
+      if (visualRes.data.showcase_image_url_3) {
+        options.push({
+          no: 3,
+          label: labels['3'] || '스페셜 이미지 3',
+          url: visualRes.data.showcase_image_url_3,
+          locked: !unlocked.has(3),
+          luxury: Boolean(labels['3']),
+        });
+      }
+
+      return options;
+    },
+  });
+
+  const currentVisualVariant: 1 | 2 | 3 = character?.is_equipped
+    && equippedIdentity?.characterId === character.character_id
+    ? equippedIdentity.visualVariantNo
+    : 1;
+
+  useEffect(() => {
+    setSelectedVisualVariant(currentVisualVariant);
+  }, [character?.character_id, currentVisualVariant]);
 
   if (typeof document === 'undefined') return null;
 
@@ -869,11 +972,16 @@ function CharacterDetailModal({
     onClose();
   };
 
-  const handleEquip = async (nextCharacterId: number | null) => {
+  const handleEquip = async (
+    nextCharacterId: number | null,
+    visualVariantNo: 1 | 2 | 3 = 1,
+  ) => {
     await call(
-      () => characterC2Rpc.equip(supabase, nextCharacterId),
+      () => characterC2Rpc.equip(supabase, nextCharacterId, visualVariantNo),
       {
-        successTitle: nextCharacterId === null ? '편린 장착을 해제했어요' : `${character?.name ?? '편린'} 장착 완료`,
+        successTitle: nextCharacterId === null
+          ? '편린 장착을 해제했어요'
+          : `${character?.name ?? '편린'} 프로필 적용 완료`,
         onSuccess: () => {
           void queryClient.invalidateQueries({ queryKey: ['character-collection'] });
           void queryClient.invalidateQueries({ queryKey: ['equipped-characters'] });
@@ -969,6 +1077,19 @@ function CharacterDetailModal({
                   </p>
                 </div>
 
+                {character.is_owned && (
+                  <CharacterProfileVisualSelector
+                    character={character}
+                    options={profileVisualQuery.data ?? []}
+                    selectedVariant={selectedVisualVariant}
+                    currentVariant={currentVisualVariant}
+                    isLoading={profileVisualQuery.isLoading}
+                    isError={profileVisualQuery.isError}
+                    onSelect={setSelectedVisualVariant}
+                    onRetry={() => void profileVisualQuery.refetch()}
+                  />
+                )}
+
                 {!character.is_owned && (
                   <RecruitmentOfferPanel
                     character={character}
@@ -986,20 +1107,33 @@ function CharacterDetailModal({
               {character.is_owned && (
                 <div className="flex-none border-t border-line bg-bg-card/95 p-4 backdrop-blur-sm lg:p-5">
                   {character.is_equipped ? (
-                    <button
-                      onClick={() => void handleEquip(null)}
-                      disabled={isLoading}
-                      className="w-full rounded-card-md border border-line-strong bg-bg-deep py-3 text-sm font-black text-text-primary transition hover:border-brand-primary/50 disabled:opacity-50"
-                    >
-                      {isLoading ? '처리 중...' : '장착 해제'}
-                    </button>
+                    <div className="grid grid-cols-[0.72fr_1.28fr] gap-2">
+                      <button
+                        onClick={() => void handleEquip(null)}
+                        disabled={isLoading}
+                        className="rounded-card-md border border-line-strong bg-bg-deep py-3 text-sm font-black text-[#FFF7ED] transition hover:border-brand-primary/50 disabled:opacity-50"
+                      >
+                        {isLoading ? '처리 중...' : '장착 해제'}
+                      </button>
+                      <button
+                        onClick={() => void handleEquip(character.character_id, selectedVisualVariant)}
+                        disabled={isLoading || selectedVisualVariant === currentVisualVariant}
+                        className="btn-primary py-3 text-sm disabled:cursor-default disabled:opacity-50"
+                      >
+                        {isLoading
+                          ? '적용 중...'
+                          : selectedVisualVariant === currentVisualVariant
+                            ? '현재 대표 이미지'
+                            : '선택 이미지로 변경'}
+                      </button>
+                    </div>
                   ) : (
                     <button
-                      onClick={() => void handleEquip(character.character_id)}
+                      onClick={() => void handleEquip(character.character_id, selectedVisualVariant)}
                       disabled={isLoading}
                       className="btn-primary w-full py-3 text-sm"
                     >
-                      {isLoading ? '장착 중...' : '✦ 이 편린 장착하기'}
+                      {isLoading ? '장착 중...' : '✦ 선택 이미지로 프로필 장착'}
                     </button>
                   )}
                 </div>
@@ -1037,6 +1171,128 @@ function CharacterDetailModal({
       )}
     </AnimatePresence>,
     document.body,
+  );
+}
+
+function CharacterProfileVisualSelector({
+  character,
+  options,
+  selectedVariant,
+  currentVariant,
+  isLoading,
+  isError,
+  onSelect,
+  onRetry,
+}: {
+  character: StudentCharacterCollectionRow;
+  options: CharacterProfileVisualOption[];
+  selectedVariant: 1 | 2 | 3;
+  currentVariant: 1 | 2 | 3;
+  isLoading: boolean;
+  isError: boolean;
+  onSelect: (variant: 1 | 2 | 3) => void;
+  onRetry: () => void;
+}) {
+  if (!isLoading && !isError && options.length <= 1) return null;
+
+  return (
+    <section className="mt-3 overflow-hidden rounded-card-lg border border-[#E9C46A]/30 bg-gradient-to-br from-[#231B32] via-[#171321] to-[#2A1D31] p-4 shadow-card">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[14px] font-black uppercase tracking-[0.13em] text-[#FFD58A]">
+            프로필 대표 이미지
+          </div>
+          <p className="mt-1 text-xs font-bold leading-5 text-[#FFF7ED]">
+            친구들이 랭킹·길드·프로필에서 보게 될 모습을 선택하세요.
+          </p>
+        </div>
+        <span className="rounded-pill border border-[#E9C46A]/35 bg-[#E9C46A]/10 px-2 py-1 text-[10px] font-black text-[#FFE3A3]">
+          PROFILE
+        </span>
+      </div>
+
+      {isLoading ? (
+        <div className="mt-3 flex items-center justify-center gap-2 rounded-card-md border border-white/10 bg-black/20 px-3 py-7 text-xs font-bold text-[#FFF7ED]">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#FFD58A] border-t-transparent" />
+          선택 가능한 이미지를 확인하는 중...
+        </div>
+      ) : isError ? (
+        <div className="mt-3 rounded-card-md border border-danger/35 bg-danger-bg/80 p-3 text-center">
+          <p className="text-xs font-black text-[#FFF7ED]">대표 이미지 정보를 불러오지 못했어요.</p>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-2 rounded-pill border border-white/20 bg-black/20 px-3 py-1.5 text-xs font-black text-white"
+          >
+            다시 불러오기
+          </button>
+        </div>
+      ) : (
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {options.map((option) => {
+            const selected = selectedVariant === option.no;
+            const current = character.is_equipped && currentVariant === option.no;
+
+            return (
+              <button
+                key={option.no}
+                type="button"
+                disabled={option.locked}
+                onClick={() => onSelect(option.no)}
+                className={cn(
+                  'group relative overflow-hidden rounded-card-md border text-left transition-all',
+                  selected
+                    ? 'border-[#FFD58A] bg-[#FFD58A]/12 shadow-[0_0_18px_rgba(255,213,138,0.16)]'
+                    : 'border-white/10 bg-black/20 hover:border-[#FFD58A]/45',
+                  option.locked && 'cursor-not-allowed opacity-65',
+                )}
+              >
+                <div className="relative aspect-[4/5] overflow-hidden bg-[#0F0C16]">
+                  {option.url ? (
+                    <img
+                      src={resolveAssetUrl(option.url, 'character')}
+                      alt={option.label}
+                      className="h-full w-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.03]"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-4xl">
+                      {character.emoji || '✦'}
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/90 to-transparent" />
+                  {option.locked && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 px-2 text-center backdrop-blur-[2px]">
+                      <span className="text-xl">◇</span>
+                      <span className="mt-1 text-[10px] font-black leading-4 text-[#FFE3A3]">명품관 구매 후 해금</span>
+                    </div>
+                  )}
+                  {current && !option.locked && (
+                    <span className="absolute left-2 top-2 rounded-pill border border-[#FFE3A3]/50 bg-black/75 px-2 py-1 text-[9px] font-black text-[#FFE3A3]">
+                      현재 적용
+                    </span>
+                  )}
+                  {option.luxury && !option.locked && (
+                    <span className="absolute right-2 top-2 rounded-pill border border-[#D7B8FF]/45 bg-[#3B2457]/85 px-2 py-1 text-[9px] font-black text-[#F0DDFF]">
+                      A CLASS
+                    </span>
+                  )}
+                </div>
+                <div className="min-h-[50px] px-2.5 py-2">
+                  <div className="line-clamp-2 text-[11px] font-black leading-4 text-[#FFF7ED]">{option.label}</div>
+                  <div className={cn(
+                    'mt-1 text-[9px] font-black',
+                    selected ? 'text-[#FFD58A]' : 'text-[#D9CFE7]',
+                  )}>
+                    {selected ? '선택됨' : option.locked ? '잠김' : '선택 가능'}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
