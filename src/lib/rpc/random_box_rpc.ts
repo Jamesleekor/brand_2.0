@@ -47,6 +47,41 @@ export interface RandomBoxOpenResult {
   remaining_box_quantity: number;
 }
 
+
+export interface TeacherRandomBoxProbabilityReward {
+  reward_code: string;
+  label: string;
+  kind: RandomBoxRewardKind;
+  weight_bp: number;
+  probability_percent: number;
+  display_order: number;
+}
+
+export interface TeacherRandomBoxProbabilityPreset {
+  id: number;
+  name: string;
+  weights: Record<string, number>;
+  updated_at: string;
+}
+
+export interface TeacherRandomBoxProbabilityHistory {
+  id: number;
+  created_at: string;
+  previous_weights: Record<string, number>;
+  new_weights: Record<string, number>;
+  reveal_probabilities: boolean;
+  change_note: string | null;
+}
+
+export interface TeacherRandomBoxProbabilityAdmin {
+  classroom_id: number;
+  random_box_key: string;
+  reveal_probabilities: boolean;
+  rewards: TeacherRandomBoxProbabilityReward[];
+  presets: TeacherRandomBoxProbabilityPreset[];
+  history: TeacherRandomBoxProbabilityHistory[];
+}
+
 export interface TeacherRandomBoxManualReward {
   opening_id: number;
   student_id: number;
@@ -89,5 +124,49 @@ export const randomBoxRpc = {
     }>(supabase, 'teacher_mark_random_box_manual_reward_delivered', {
       p_opening_id: openingId,
       p_note: note?.trim() || null,
+    }),
+  teacherProbabilityAdmin: (supabase: SupabaseClient, classroomId: number, randomBoxKey = 'SUMMER_2026_RB1') =>
+    callRpc<TeacherRandomBoxProbabilityAdmin>(supabase, 'teacher_get_random_box_probability_admin', {
+      p_classroom_id: classroomId,
+      p_random_box_key: randomBoxKey,
+    }),
+  teacherSaveProbabilityConfig: (
+    supabase: SupabaseClient,
+    classroomId: number,
+    weights: Record<string, number>,
+    revealProbabilities: boolean,
+    changeNote?: string | null,
+    randomBoxKey = 'SUMMER_2026_RB1',
+  ) =>
+    callRpc<TeacherRandomBoxProbabilityAdmin>(supabase, 'teacher_save_random_box_probability_config', {
+      p_classroom_id: classroomId,
+      p_random_box_key: randomBoxKey,
+      p_weights: weights,
+      p_reveal_probabilities: revealProbabilities,
+      p_change_note: changeNote?.trim() || null,
+    }),
+  teacherSaveProbabilityPreset: (
+    supabase: SupabaseClient,
+    classroomId: number,
+    presetName: string,
+    weights: Record<string, number>,
+    randomBoxKey = 'SUMMER_2026_RB1',
+  ) =>
+    callRpc<TeacherRandomBoxProbabilityAdmin>(supabase, 'teacher_save_random_box_probability_preset', {
+      p_classroom_id: classroomId,
+      p_random_box_key: randomBoxKey,
+      p_preset_name: presetName.trim(),
+      p_weights: weights,
+    }),
+  teacherDeleteProbabilityPreset: (
+    supabase: SupabaseClient,
+    classroomId: number,
+    presetId: number,
+    randomBoxKey = 'SUMMER_2026_RB1',
+  ) =>
+    callRpc<TeacherRandomBoxProbabilityAdmin>(supabase, 'teacher_delete_random_box_probability_preset', {
+      p_classroom_id: classroomId,
+      p_random_box_key: randomBoxKey,
+      p_preset_id: presetId,
     }),
 };
