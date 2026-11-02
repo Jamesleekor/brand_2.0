@@ -82,7 +82,7 @@ export type Guild5TeacherDashboard = {
 export type Guild5StudentHistory = Array<{
   year_month: string;
   version_no: number;
-  finalized_at: string;
+  finalized_at: string;
   conquest_status?: string;
   my_contribution: Record<string, any> | null;
   my_guild: Record<string, any> | null;
@@ -106,6 +106,166 @@ export const guild5TeacherRpc = {
   lockSeason: (c: SupabaseClient, input: S.SeasonLockInput) => call<S.SeasonLockInput, Record<string, any>>(c, 'teacher_lock_guild5_season', S.SeasonLockSchema, input),
   prepareTestGuilds: (c: SupabaseClient, input: S.YearMonthInput) => call<S.YearMonthInput, Record<string, any>>(c, 'teacher_prepare_guild5_test_guilds_for_month', S.YearMonthSchema, input),
   forceTestTurnDue: (c: SupabaseClient, input: S.TurnIdInput) => call<S.TurnIdInput, Record<string, any>>(c, 'teacher_force_guild5_test_turn_due', S.TurnIdSchema, input),
+};
+
+// ── 2026-11-02 점령 운영 (세율 선언 · 이의 제기 · 확정 징수 · 분배 · 이력) ──
+export type Guild5TerritoryCategory = '자리' | '1인1역' | '급식순서';
+
+export type Guild5RateSettlement = {
+  id: number;
+  version_id: number;
+  conquest_turn_id: number;
+  owner_guild_id: number;
+  owner_guild_name_snapshot: string;
+  territory_slot_no: number;
+  territory_name_snapshot: string;
+  auction_category: Guild5TerritoryCategory;
+  status: 'RATE_DECLARED' | 'FINALIZED';
+  declared_rate_percent: number;
+  declared_at: string;
+  final_rate_percent?: number | null;
+  finalized_at?: string | null;
+  settlement_summary?: Record<string, any> | null;
+};
+
+export type Guild5Objection = {
+  id: number;
+  settlement_id: number;
+  objector_guild_id: number;
+  objector_rank_position: number;
+  objector_guild_name_snapshot: string;
+  declared_rate_snapshot: number;
+  proposed_rate_percent: number;
+  status: 'FILED' | 'PASSED' | 'REJECTED' | 'WITHDRAWN';
+  vote_threshold: number;
+  yes_votes?: number | null;
+  no_votes?: number | null;
+  note?: string | null;
+  filed_at: string;
+  decided_at?: string | null;
+  withdrawn_at?: string | null;
+  withdraw_reason?: string | null;
+};
+
+export type Guild5TaxDistribution = {
+  id: number;
+  basis_amount: number;
+  roster_count: number;
+  divisor: number;
+  per_member_amount: number;
+  paid_member_count: number;
+  distributed_amount: number;
+  retained_amount: number;
+  note?: string | null;
+  created_at: string;
+  lines: Array<{ student_id: number; student_name?: string | null; amount: number; line_status: 'PAID' | 'SKIPPED_TRANSFERRED' }>;
+};
+
+export type Guild5TurnTaxStats = {
+  assessment_count: number;
+  taxpayer_count: number;
+  assessed_amount: number;
+  collected_amount: number;
+  outstanding_amount: number;
+  surcharge_count: number;
+  surcharge_assessed_amount: number;
+  voided_count: number;
+  voided_assessed_amount: number;
+  refunded_amount: number;
+  auction_rounds: number[];
+};
+
+export type Guild5ConquestTurnOps = {
+  turn_id: number;
+  version_id: number;
+  rank_position: number;
+  guild_id: number;
+  guild_name?: string | null;
+  roster_count: number;
+  distribution_divisor: number;
+  turn_status: 'WAITING' | 'ACTIVE' | 'ASSIGNED' | 'AUTO_ASSIGNED';
+  assignment_method?: 'MANUAL' | 'AUTO' | null;
+  chosen_at?: string | null;
+  territory_id?: number | null;
+  territory_name?: string | null;
+  slot_no?: number | null;
+  auction_category?: Guild5TerritoryCategory | null;
+  rate_snapshot?: number | null;
+  settlement: Guild5RateSettlement | null;
+  objections: Guild5Objection[];
+  tax: Guild5TurnTaxStats;
+  distributions: Guild5TaxDistribution[];
+  distributed_basis: number;
+  distributable_amount: number;
+};
+
+export type Guild5ConquestOps = {
+  year_month: string;
+  finalized: boolean;
+  closure_id?: number | null;
+  version_id?: number | null;
+  vote_threshold: number;
+  economy: Array<{
+    slot_no: number;
+    auction_category: Guild5TerritoryCategory;
+    auction_id?: number | null;
+    auction_round_number?: number | null;
+    auction_ended_at?: string | null;
+    settled_item_count?: number;
+    auction_gold_spend?: number;
+    super_pass_consumed_count?: number;
+    super_pass_equivalent_value?: number;
+    gross_spend?: number;
+    territory_name?: string | null;
+  }>;
+  auction_id?: number | null;
+  guilds: Array<{ guild_id: number; guild_name: string; rank_position?: number | null; roster_count: number }>;
+  guild_spend: Array<{
+    guild_id: number;
+    auction_category: Guild5TerritoryCategory;
+    gold_spend: number;
+    item_count: number;
+    super_pass_count: number;
+    super_pass_unit_value: number;
+  }>;
+  turns: Guild5ConquestTurnOps[];
+  prior_tax_conflicts: Array<{
+    prior_version_id: number;
+    prior_year_month: string;
+    slot_no: number;
+    territory_name: string;
+    auction_category: Guild5TerritoryCategory;
+    auction_round_number: number;
+    owner_guild_name?: string | null;
+    assessment_count: number;
+    assessed_amount: number;
+    collected_amount: number;
+  }>;
+  student_count: number;
+};
+
+export type Guild5ConquestHistory = Array<{
+  year_month: string;
+  closure_id: number;
+  version_id: number;
+  version_no: number;
+  finalized_at: string;
+  conquest_status: string;
+  rankings: Array<{ guild_id: number; guild_name: string; rank_position: number; total_gs: number; roster_count: number }>;
+  economy: Array<{ slot_no: number; auction_category: Guild5TerritoryCategory; auction_round_number?: number | null; auction_gold_spend?: number; gross_spend?: number }>;
+  territories: Guild5ConquestTurnOps[];
+}>;
+
+export const guild5ConquestRpc = {
+  ops: (c: SupabaseClient, input: S.YearMonthInput) => call<S.YearMonthInput, Guild5ConquestOps>(c, 'teacher_get_guild5_conquest_ops', S.YearMonthSchema, input),
+  history: (c: SupabaseClient) => call<{}, Guild5ConquestHistory>(c, 'teacher_get_guild5_conquest_history', S.NoArgsSchema, {}),
+  declareRate: (c: SupabaseClient, input: S.DeclareTerritoryRateInput) => call<S.DeclareTerritoryRateInput, Guild5RateSettlement>(c, 'teacher_declare_guild5_territory_rate', S.DeclareTerritoryRateSchema, input),
+  fileObjection: (c: SupabaseClient, input: S.FileObjectionInput) => call<S.FileObjectionInput, Guild5Objection>(c, 'teacher_file_guild5_territory_objection', S.FileObjectionSchema, input),
+  withdrawObjection: (c: SupabaseClient, input: S.WithdrawObjectionInput) => call<S.WithdrawObjectionInput, Guild5Objection>(c, 'teacher_withdraw_guild5_territory_objection', S.WithdrawObjectionSchema, input),
+  recordVote: (c: SupabaseClient, input: S.ObjectionVoteInput) => call<S.ObjectionVoteInput, Guild5Objection>(c, 'teacher_record_guild5_objection_vote', S.ObjectionVoteSchema, input),
+  finalizeRate: (c: SupabaseClient, input: S.SettlementIdInput) => call<S.SettlementIdInput, Record<string, any>>(c, 'teacher_finalize_guild5_territory_rate', S.SettlementIdSchema, input),
+  distribute: (c: SupabaseClient, input: S.DistributeTaxInput) => call<S.DistributeTaxInput, Record<string, any>>(c, 'teacher_distribute_guild5_territory_tax', S.DistributeTaxSchema, input),
+  refundPriorTax: (c: SupabaseClient, input: S.PriorTaxRefundInput) => call<S.PriorTaxRefundInput, Record<string, any>>(c, 'teacher_refund_guild5_prior_territory_tax', S.PriorTaxRefundSchema, input),
 };
 
 export const guild5StudentRpc = {

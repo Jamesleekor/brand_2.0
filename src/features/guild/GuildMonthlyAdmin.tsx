@@ -6,6 +6,7 @@ import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { supabase } from '@/lib/supabase/client';
 import { guild5RpcError, guild5TeacherRpc, type Guild5TeacherDashboard } from '@/lib/rpc/guild5_rpc';
 import { useToastStore } from '@/stores/ui_store';
+import { GuildConquestHistoryPanel, GuildConquestOpsPanel } from '@/features/guild/GuildConquestOpsPanel';
 
 const currentYearMonth = () => {
   const d = new Date();
@@ -36,7 +37,11 @@ export default function GuildMonthlyAdmin() {
       return r.data;
     },
   });
-  const refresh = () => void qc.invalidateQueries({ queryKey: ['guild5-dashboard', yearMonth] });
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ['guild5-dashboard', yearMonth] });
+    void qc.invalidateQueries({ queryKey: ['guild5-conquest-ops', yearMonth] });
+    void qc.invalidateQueries({ queryKey: ['guild5-conquest-history'] });
+  };
   const actionM = useMutation({
     mutationFn: async (job: { label: string; fn: () => Promise<any> }) => {
       const r = await job.fn();
@@ -117,6 +122,10 @@ function Dashboard({ data, yearMonth, busy, run, refresh }: { data: Guild5Teache
 
     {closureState === 'FINALIZED' && <section className="glass-card p-4 space-y-4"><div className="flex flex-wrap justify-between gap-3"><div><h2 className="font-display text-xl">🏆 FINAL 결과</h2><p className="text-xs text-text-secondary mt-1">version {currentVersion?.version_no ?? '-'} · 확정 {dt(currentVersion?.finalized_at)} · tie seed 보존</p></div>{currentVersion?.conquest_status === 'RECONQUEST_REQUIRED' && <button className="btn-primary" disabled={busy} onClick={reconquest}>⚔️ 재정복 시작</button>}</div><FinalRanking rows={data.guild_snapshots ?? []}/><Conquest data={data} busy={busy} run={run}/></section>}
 
+    <GuildConquestOpsPanel yearMonth={yearMonth}/>
+
+    <GuildConquestHistoryPanel/>
+
     {data.versions.length > 0 && <section className="glass-card p-4"><h2 className="font-display text-lg mb-3">월 마감 Version History</h2><div className="space-y-2">{data.versions.map((v) => <div key={v.id} className="rounded-card-md border border-line bg-bg-deep p-3 flex flex-wrap justify-between gap-2"><div><b>v{v.version_no}</b> <span className="text-xs text-text-secondary">#{v.id}</span><div className="text-xs text-text-muted mt-1">FINAL {dt(v.finalized_at)} · 정복 {v.conquest_status}</div></div><div className="text-xs text-text-secondary">{v.rank_changed_from_previous ? '⚠️ 이전 version 대비 순위 변경' : '순위 변경 없음'}</div></div>)}</div></section>}
 
     <section className="glass-card p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-display text-lg">Season lock</h2><p className="text-xs text-text-secondary mt-1">시즌 자체가 CLOSED가 된 뒤 최종 잠금할 수 있습니다. 잠근 뒤 월 REOPEN은 차단됩니다.</p></div><button className="btn-secondary" disabled={busy || !data.season || data.season.lifecycle_status !== 'CLOSED' || Boolean(data.season_lock)} onClick={lockSeason}>{data.season_lock ? '🔒 잠금 완료' : '🔒 시즌 잠금'}</button></div></section>
@@ -166,6 +175,7 @@ function TerritoryConfig({ data, drafts, setDrafts, busy, run }: { data: Guild5T
     <div className="mb-3">
       <h2 className="font-display text-xl">🗺️ 정복 영토 3개 · 최종 점령</h2>
       <p className="text-xs text-text-secondary mt-1">영토 이름·세율 설정, 영토 자금, 최종 점령 길드 지정까지 이 카드에서 처리합니다. 영토 자금은 실제 GOLD 낙찰금 + 실제 소모 SUPER PASS 환산가치이며, 영토세는 실제 GOLD 낙찰금만 기준으로 정산됩니다.</p>
+      <p className="text-xs text-amber-100 mt-1">점령을 확정해도 세금은 바로 걷히지 않습니다. 실제 세율은 아래 「⚖️ 점령 운영」에서 점령 길드가 선언(10~50%)하고, 이의 제기·투표를 거쳐 최종 확정할 때 걷힙니다. 이 카드의 세율은 예상 세수 계산용 기본값입니다.</p>
     </div>
     <div className="grid lg:grid-cols-3 gap-3">{drafts.map((d, i) => {
       const economy = economyBySlot.get(d.slot);
@@ -191,7 +201,7 @@ function TerritoryConfig({ data, drafts, setDrafts, busy, run }: { data: Guild5T
 
         <input className="input-field w-full mt-2" placeholder="영토 이름" value={d.name} onChange={(e) => setDrafts((rows) => rows.map((x, j) => j === i ? {...x,name:e.target.value} : x))}/>
         <input className="input-field w-full mt-2" placeholder="설명 (선택)" value={d.description} onChange={(e) => setDrafts((rows) => rows.map((x, j) => j === i ? {...x,description:e.target.value} : x))}/>
-        <label className="mt-2 block text-[10px] font-black text-text-muted">지역 세율 (%)<input type="number" min={0} max={100} step={0.1} className="input-field w-full mt-1" value={d.taxRatePercent} onChange={(e) => { const next = Number(e.target.value); setDrafts((rows) => rows.map((x, j) => j === i ? {...x,taxRatePercent:Number.isFinite(next)?Math.min(100,Math.max(0,next)):0} : x)); }}/></label>
+        <label className="mt-2 block text-[10px] font-black text-text-muted">예상 세수 계산용 기본 세율 (%)<input type="number" min={0} max={100} step={0.1} className="input-field w-full mt-1" value={d.taxRatePercent} onChange={(e) => { const next = Number(e.target.value); setDrafts((rows) => rows.map((x, j) => j === i ? {...x,taxRatePercent:Number.isFinite(next)?Math.min(100,Math.max(0,next)):0} : x)); }}/></label>
 
         <div className="mt-3 rounded-card-md border border-gold/20 bg-bg-card/70 p-2.5">
           <div className="flex items-center justify-between gap-2 text-[10px]">
@@ -200,7 +210,7 @@ function TerritoryConfig({ data, drafts, setDrafts, busy, run }: { data: Guild5T
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <div><div className="text-[9px] font-black text-text-muted">영토 자금</div><div className="text-sm font-black text-white">{num(grossSpend)} G</div></div>
-            <div><div className="text-[9px] font-black text-text-muted">예상 세수</div><div className="text-sm font-black text-gold">{num(projectedRevenue)} G</div></div>
+            <div><div className="text-[9px] font-black text-text-muted">예상 세수(기본 세율)</div><div className="text-sm font-black text-gold">{num(projectedRevenue)} G</div></div>
           </div>
           <div className="mt-1 text-[9px] text-text-muted">정산 {num(economy?.settled_item_count ?? 0)}건 · SUPER PASS 환산 포함 · 예상 세수는 GOLD 낙찰금 기준</div>
         </div>
@@ -219,14 +229,14 @@ function TerritoryConfig({ data, drafts, setDrafts, busy, run }: { data: Guild5T
             <div className="mt-1 text-xs text-text-secondary">월간 FINAL 후 1위 → 2위 → 3위 순으로 점령 길드를 지정합니다.</div>
           ) : activeTurn ? <>
             <div className="mt-1 text-xs font-black text-gold">현재 {activeTurn.rank_position}위 · {activeGuildName} 선택 차례</div>
-            <div className="mt-1 text-[10px] text-text-muted">이 영토를 선택하면 {economy?.auction_category ?? '해당 카테고리'} 낙찰분의 영토세가 즉시 정산됩니다.</div>
+            <div className="mt-1 text-[10px] text-amber-100">점령 확정 후 아래 「점령 운영」에서 세율을 최종 확정하면 {economy?.auction_category ?? '해당 카테고리'} 낙찰분의 영토세가 걷힙니다.</div>
             <button
               className="btn-primary w-full mt-2"
               disabled={busy || !canAssign}
               onClick={() => {
                 if (!savedTerritory || !activeTurn) return;
-                if (window.confirm(`${activeTurn.rank_position}위 ${activeGuildName} 길드에 '${savedTerritory.territory_name}'을(를) 배정할까요?\n배정과 동시에 해당 경매 카테고리의 영토세가 정산됩니다.`)) {
-                  run('정복 영토와 영토세를 확정했어요', () => guild5TeacherRpc.chooseTerritory(supabase, { p_turn_id: Number(activeTurn.id), p_territory_id: Number(savedTerritory.id) }));
+                if (window.confirm(`${activeTurn.rank_position}위 ${activeGuildName} 길드에 '${savedTerritory.territory_name}'을(를) 배정할까요?\n세금은 아래 「점령 운영」에서 세율을 최종 확정할 때 걷힙니다.`)) {
+                  run('정복 영토 점령을 확정했어요', () => guild5TeacherRpc.chooseTerritory(supabase, { p_turn_id: Number(activeTurn.id), p_territory_id: Number(savedTerritory.id) }));
                 }
               }}
             >이 영토 점령 확정</button>
