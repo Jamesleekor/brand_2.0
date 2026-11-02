@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader, LoadingSpinner } from '@/components/shared/components';
 import { supabase } from '@/lib/supabase/client';
-import { useClassroomId, useStudentId } from '@/stores/auth_store';
+import { useStudentId } from '@/stores/auth_store';
 import { formatNumber } from '@/lib/utils/format';
 import { feature4QueryError } from '@/lib/feature4_debug';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
@@ -40,49 +40,9 @@ type LiveTransaction = {
 };
 
 export default function RecordsPage() {
-  const classroomId = useClassroomId();
   const studentId = useStudentId();
   const [mainTab, setMainTab] = useState<MainTab>('HONOR');
   const [myTab, setMyTab] = useState<MyTab | null>(null);
-
-  const honorQ = useQuery({
-    queryKey: ['f4d-record-room', classroomId],
-    enabled: !!classroomId,
-    queryFn: async () => {
-      const { data: latest, error: latestError } = await supabase
-        .from('rankings')
-        .select('as_of_date')
-        .eq('classroom_id', classroomId!)
-        .order('as_of_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (latestError) throw feature4QueryError('F4D', 'latest-ranking-date', latestError);
-
-      const date = latest?.as_of_date;
-      const [{ data: ranks, error: ranksError }, { data: stats, error: statsError }] = await Promise.all([
-        date
-          ? supabase
-              .from('rankings')
-              .select('student_id,ranking_type,rank_position,value,student:students!student_id(name,brand_name)')
-              .eq('classroom_id', classroomId!)
-              .eq('as_of_date', date)
-              .order('rank_position', { ascending: true })
-          : Promise.resolve({ data: [], error: null } as any),
-        supabase
-          .from('daily_statistics')
-          .select('stat_date,total_gold,total_bv,total_crystal,gini_gold,gini_bv,transactions_count')
-          .eq('classroom_id', classroomId!)
-          .order('stat_date', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-      ]);
-
-      if (ranksError) throw feature4QueryError('F4D', 'latest-rankings', ranksError);
-      if (statsError) throw feature4QueryError('F4D', 'latest-statistics', statsError);
-
-      return { ranks: ranks ?? [], stats, date };
-    },
-  });
 
   const myQ = useQuery({
     queryKey: ['f4d-my-records', studentId],
@@ -140,32 +100,6 @@ export default function RecordsPage() {
     },
   });
 
-  if (honorQ.isLoading) {
-    return (
-      <>
-        <PageHeader title="기록실" emoji="🏛️" />
-        <div className="py-12 flex justify-center"><LoadingSpinner size="lg" /></div>
-      </>
-    );
-  }
-
-  if (honorQ.isError) {
-    return (
-      <>
-        <PageHeader title="기록실" emoji="🏛️" />
-        <div className="px-4 py-4 max-w-5xl mx-auto">
-          <Feature4ErrorPanel domain="F4D" error={honorQ.error} onRetry={() => void honorQ.refetch()} />
-        </div>
-      </>
-    );
-  }
-
-  const grouped = new Map<string, any[]>();
-  (honorQ.data?.ranks ?? []).forEach((rank: any) => {
-    if (!grouped.has(rank.ranking_type)) grouped.set(rank.ranking_type, []);
-    grouped.get(rank.ranking_type)!.push(rank);
-  });
-
   return (
     <>
       <PageHeader title="기록실" emoji="🏛️" />
@@ -177,7 +111,7 @@ export default function RecordsPage() {
         </div>
 
         {mainTab === 'HONOR' ? (
-          <RecordsHonorPanel data={honorQ.data} grouped={grouped} studentId={studentId} />
+          <RecordsHonorPanel />
         ) : mainTab === 'MVP' ? (
           <RecordsMonthlyMvpPanel />
         ) : myQ.isLoading ? (

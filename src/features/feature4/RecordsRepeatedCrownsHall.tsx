@@ -107,8 +107,8 @@ export function RecordsRepeatedCrownsHall({ entries }: { entries: HallOfGloryEnt
             title="왕관을 가장 자주 눈앞에 두었던 자들"
             description={
               <>
-                월간 MVP 후보에 가장 많이 오른 기록을 TOP 3 순위까지 보존합니다.<br />
-                같은 횟수의 공동 3위는 모두 하나의 회랑에 이름을 남깁니다.
+                월간 MVP 후보에 가장 많이 오른 기록을 TOP 4 순위까지 보존합니다.<br />
+                같은 횟수의 후보들은 공동 순위의 회랑에 함께 이름을 남깁니다.
               </>
             }
           />
@@ -221,7 +221,6 @@ function FinalistCourt({ rows }: { rows: HallOfGloryEntry[] }) {
   if (rows.length === 0) return null;
   const rank1 = rows.filter((row) => row.rank_position === 1);
   const rank2 = rows.filter((row) => row.rank_position === 2);
-  const rank3 = rows.filter((row) => row.rank_position === 3);
 
   return (
     <div className="relative overflow-hidden rounded-[30px] border border-rose-100/18 bg-[radial-gradient(circle_at_50%_0%,rgba(211,116,144,0.085),transparent_30%),linear-gradient(180deg,rgba(42,22,34,0.88),rgba(17,10,20,0.98))] px-4 py-6 shadow-[inset_0_0_34px_rgba(246,176,194,0.012)] sm:px-6 sm:py-8">
@@ -235,24 +234,28 @@ function FinalistCourt({ rows }: { rows: HallOfGloryEntry[] }) {
           {rank2.map((entry) => <CourtSeat key={entry.id} entry={entry} rank={2} />)}
         </div>
 
-        {rank3.length > 0 && (
-          <div className="w-full max-w-5xl rounded-[24px] border border-rose-100/16 bg-black/18 px-4 py-4 sm:px-5">
-            <div className="flex flex-col items-center text-center">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-rose-100/22 bg-rose-100/[0.05] font-display text-base text-rose-100">3</div>
-              <div className="mt-2 text-[10px] font-black tracking-[0.18em] text-rose-200/56">JOINT THIRD · THE RIVAL GALLERY</div>
-              <div className="mt-1 font-display text-lg text-rose-50 sm:text-xl">공동 3위의 회랑</div>
+        {[3, 4].map((rank) => {
+          const tiedRows = rows.filter((row) => row.rank_position === rank);
+          if (tiedRows.length === 0) return null;
+          return (
+            <div key={rank} className="w-full max-w-5xl rounded-[24px] border border-rose-100/16 bg-black/18 px-4 py-4 sm:px-5">
+              <div className="flex flex-col items-center text-center">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-rose-100/22 bg-rose-100/[0.05] font-display text-base text-rose-100">{rank}</div>
+                <div className="mt-2 text-[10px] font-black tracking-[0.18em] text-rose-100">{rank === 3 ? 'THIRD' : 'FOURTH'} · THE RIVAL GALLERY</div>
+                <div className="mt-1 font-display text-lg text-rose-50 sm:text-xl">{tiedRows.length > 1 ? '공동 ' : ''}{rank}위의 회랑</div>
+              </div>
+              <div className={`mt-4 grid gap-3 sm:grid-cols-2 ${tiedRows.length > 2 ? 'lg:grid-cols-4' : ''}`}>
+                {tiedRows.map((entry) => (
+                  <div key={entry.id} className="rounded-[18px] border border-rose-100/16 bg-[linear-gradient(180deg,rgba(111,53,75,0.22),rgba(18,11,20,0.78))] px-3 py-3 text-center">
+                    <Gem className="mx-auto h-4 w-4 text-rose-100/52" strokeWidth={1.4} />
+                    <div className="mt-2 whitespace-nowrap font-display text-lg text-rose-50">{entry.subject_display_name}</div>
+                    <div className="mt-1 font-display text-xl text-amber-100">{formatNumber(entry.value_primary ?? 0)}회</div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              {rank3.map((entry) => (
-                <div key={entry.id} className="rounded-[18px] border border-rose-100/16 bg-[linear-gradient(180deg,rgba(111,53,75,0.22),rgba(18,11,20,0.78))] px-3 py-3 text-center">
-                  <Gem className="mx-auto h-4 w-4 text-rose-100/52" strokeWidth={1.4} />
-                  <div className="mt-2 whitespace-nowrap font-display text-lg text-rose-50">{entry.subject_display_name}</div>
-                  <div className="mt-1 font-display text-xl text-amber-100">{formatNumber(entry.value_primary ?? 0)}회</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+          );
+        })}
       </div>
     </div>
   );

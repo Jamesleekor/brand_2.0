@@ -19,19 +19,19 @@ const MVP_PORTRAITS: MvpPortrait[] = [
   {
     month: '3월',
     name: '김서영',
-    imageUrl: `${MVP_IMAGE_BASE}March_MVP.webp`,
+    imageUrl: `${MVP_IMAGE_BASE}March_MVP.webp?v=20261102`,
     accent: 'silver',
   },
   {
     month: '4월',
     name: '류은우',
-    imageUrl: `${MVP_IMAGE_BASE}April_MVP.webp`,
+    imageUrl: `${MVP_IMAGE_BASE}April_MVP.webp?v=20261102`,
     accent: 'gold',
   },
   {
     month: '5월',
     name: '한서현',
-    imageUrl: `${MVP_IMAGE_BASE}May_MVP.webp`,
+    imageUrl: `${MVP_IMAGE_BASE}May_MVP.webp?v=20261102`,
     accent: 'rose',
     flip: true,
   },
@@ -44,13 +44,19 @@ const MVP_PORTRAITS: MvpPortrait[] = [
   {
     month: '7월',
     name: '김서영',
-    imageUrl: `${MVP_IMAGE_BASE}July_MVP.webp`,
+    imageUrl: `${MVP_IMAGE_BASE}July_MVP.webp?v=20261102`,
     accent: 'gold',
   },
   {
     month: '9월',
     name: '부희주',
     imageUrl: `${MVP_IMAGE_BASE}September_MVP.webp`,
+    accent: 'gold',
+  },
+  {
+    month: '10월',
+    name: '이준혁',
+    imageUrl: `${MVP_IMAGE_BASE}October_MVP.webp`,
     accent: 'gold',
   },
 ];
@@ -150,7 +156,7 @@ export function MonthlyMvpGallery({ variant = 'records' }: { variant?: MonthlyMv
 
 
 const LOGIN_MVP_LEFT = MVP_PORTRAITS.filter((mvp) => ['3월', '4월', '9월'].includes(mvp.month));
-const LOGIN_MVP_RIGHT = MVP_PORTRAITS.filter((mvp) => ['5월', '6월', '7월'].includes(mvp.month));
+const LOGIN_MVP_RIGHT = MVP_PORTRAITS.filter((mvp) => ['5월', '6월', '7월', '10월'].includes(mvp.month));
 
 function repeatPortraits(items: MvpPortrait[], minimumItems: number) {
   const output: MvpPortrait[] = [];

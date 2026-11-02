@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  BarChart3,
   ChevronRight,
   Coins,
   Crown,
@@ -9,7 +8,6 @@ import {
   Gamepad2,
   Gem,
   Landmark,
-  LineChart,
   Medal,
   Rocket,
   ScrollText,
@@ -19,7 +17,7 @@ import {
   Trophy,
   type LucideIcon,
 } from 'lucide-react';
-import { EmptyState, LoadingSpinner } from '@/components/shared/components';
+import { LoadingSpinner } from '@/components/shared/components';
 import { RecordsHonorOfficialPanels } from '@/features/feature4/RecordsHonorOfficialPanels';
 import { RecordsArcadeRulersHall } from '@/features/feature4/RecordsArcadeRulersHall';
 import { Feature4ErrorPanel } from '@/features/feature4/Feature4ErrorPanel';
@@ -40,15 +38,6 @@ import {
   type HallOfGloryEntry,
 } from '@/lib/rpc/records_history_rpc';
 import { formatNumber } from '@/lib/utils/format';
-
-const RANK_LABEL: Record<string, string> = {
-  TIER: '티어',
-  BRAND_VALUE: '브랜드 가치',
-  GOLD_ASSET: 'GOLD 자산',
-  CRYSTAL_ASSET: 'CRYSTAL 자산',
-  ACHIEVEMENT_COUNT: '업적 수',
-  CONTRIBUTION: '기여도',
-};
 
 type HallDefinition = {
   key: HallKey;
@@ -157,7 +146,7 @@ const HALLS: HallDefinition[] = [
   },
 ];
 
-export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; grouped: Map<string, any[]>; studentId: number | null }) {
+export function RecordsHonorPanel() {
   const historyQ = useQuery({
     queryKey: ['f4d-hall-of-glory'],
     queryFn: () => recordsHistoryRpc.hallOfGlory(supabase),
@@ -236,70 +225,6 @@ export function RecordsHonorPanel({ data, grouped, studentId }: { data: any; gro
         </div>
       </details>
 
-      <details className="group rounded-card-md border border-line bg-bg-card/75">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4">
-          <div className="flex items-start gap-3">
-            <BarChart3 className="mt-0.5 h-5 w-5 shrink-0 text-bv" />
-            <div>
-              <div className="text-sm font-extrabold text-text-primary">현재 시즌 참고 기록</div>
-              <div className="mt-1 text-xs font-bold text-text-secondary">최신 랭킹과 학급 통계는 영광의 전당과 분리된 보조 자료입니다.</div>
-            </div>
-          </div>
-          <span className="text-text-secondary transition group-open:rotate-180">⌄</span>
-        </summary>
-        <div className="space-y-6 border-t border-line px-4 py-5">
-          <section>
-            <SectionTitle icon={BarChart3} title="최신 공식 랭킹" description={data?.date ? `${data.date} 기준 · 각 부문 TOP 5` : '선생님이 확정한 가장 최근 랭킹 snapshot'} />
-            {grouped.size === 0 ? (
-              <EmptyState emoji="📊" title="아직 공식 랭킹 snapshot이 없어요" description="선생님이 기록 갱신을 실행하면 공식 참가자만 포함한 랭킹이 생성됩니다." />
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                {Array.from(grouped.entries()).map(([type, rows]) => (
-                  <div key={type} className="rounded-card-md border border-line bg-bg-deep p-3">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <div className="text-sm font-black text-bv">{RANK_LABEL[type] || type}</div>
-                      <OfficialBadge compact />
-                    </div>
-                    {rows.slice(0, 5).map((rank: any) => (
-                      <div key={`${type}-${rank.student_id}`} className={`flex items-center justify-between gap-3 rounded-card-sm px-2 py-2 text-xs ${rank.student_id === studentId ? 'bg-gold/10' : ''}`}>
-                        <span className={rank.student_id === studentId ? 'font-black text-gold' : 'font-bold text-text-secondary'}>
-                          {rank.rank_position}. {rank.student?.name || rank.student?.brand_name}
-                          {rank.student_id === studentId && <span className="ml-1 text-2xs">나</span>}
-                        </span>
-                        <span className="font-mono text-text-primary">{formatNumber(rank.value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section>
-            <SectionTitle icon={LineChart} title="학급 최신 통계" description="공식 참가자 기준으로 생성된 가장 최근 일일 통계 snapshot" />
-            {!data?.stats ? (
-              <EmptyState emoji="📈" title="아직 학급 통계 snapshot이 없어요" description="선생님이 기록 갱신을 실행하면 자산·거래 통계가 이곳에 표시됩니다." />
-            ) : (
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <OfficialBadge />
-                  <span className="text-xs font-bold text-text-secondary">{data.stats.stat_date} 기준</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <Mini label="학급 총 GOLD" value={formatNumber(data.stats.total_gold)} />
-                  <Mini label="학급 총 BV" value={formatNumber(data.stats.total_bv)} />
-                  <Mini label="학급 총 CRYSTAL" value={formatNumber(data.stats.total_crystal)} />
-                  <Mini label="snapshot 거래" value={formatNumber(data.stats.transactions_count)} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Mini label="Gini GOLD" value={Number(data.stats.gini_gold).toFixed(3)} />
-                  <Mini label="Gini BV" value={Number(data.stats.gini_bv).toFixed(3)} />
-                </div>
-              </div>
-            )}
-          </section>
-        </div>
-      </details>
     </div>
   );
 }
@@ -843,18 +768,6 @@ function formatDateLabel(value: string) {
   return `${year}.${month}.${day}`;
 }
 
-function SectionTitle({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: string }) {
-  return (
-    <div className="mb-3 flex items-start gap-2.5">
-      <Icon className="mt-0.5 h-5 w-5 shrink-0 text-bv" />
-      <div>
-        <h2 className="font-display text-lg text-brand-gradient">{title}</h2>
-        <div className="mt-1 text-xs font-bold text-text-secondary">{description}</div>
-      </div>
-    </div>
-  );
-}
-
 function HallRecordBadge({ live, mixed = false, compact = false }: { live: boolean; mixed?: boolean; compact?: boolean }) {
   const label = mixed ? '역대 · 현재 통합' : live ? '현재 공식 기록' : '공식 확정 기록';
   const tone = live ? 'border-bv/40 bg-bv/10 text-bv' : 'border-gold/40 bg-gold/10 text-gold';
@@ -863,23 +776,5 @@ function HallRecordBadge({ live, mixed = false, compact = false }: { live: boole
       <ShieldCheck className={compact ? 'h-3 w-3' : 'h-4 w-4'} />
       {label}
     </span>
-  );
-}
-
-function OfficialBadge({ compact = false }: { compact?: boolean }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-pill border border-gold/40 bg-gold/10 font-black text-gold ${compact ? 'px-2.5 py-1 text-[10px]' : 'px-3.5 py-1.5 text-xs'}`}>
-      <ShieldCheck className={compact ? 'h-3 w-3' : 'h-4 w-4'} />
-      공식 확정 기록
-    </span>
-  );
-}
-
-function Mini({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-card-md border border-line bg-bg-card p-3">
-      <div className="text-xs font-bold text-text-secondary">{label}</div>
-      <div className="mt-1 font-display text-lg text-gold">{value}</div>
-    </div>
   );
 }

@@ -26,7 +26,8 @@ type IncarnationThemeKey =
   | 'BLOOM_POTENTIAL'
   | 'PATHFINDER_TIDE'
   | 'PROCESSION_LINK'
-  | 'AURORA_REBIRTH';
+  | 'AURORA_REBIRTH'
+  | 'PROVEN_TRUST';
 
 type IncarnationSpec = {
   title: string;
@@ -54,6 +55,7 @@ const INCARNATIONS_2026: Record<number, IncarnationSpec> = {
   6: { title: '길을 여는 자', themeKey: 'PATHFINDER_TIDE', motif: '✥' },
   7: { title: '대열을 잇는 자', themeKey: 'PROCESSION_LINK', motif: '☾' },
   9: { title: '딛고 일어서는 자', themeKey: 'AURORA_REBIRTH', motif: '✧' },
+  10: { title: '신뢰를 증명하는 자', themeKey: 'PROVEN_TRUST', motif: '✦' },
 };
 
 const MVP_ARCHIVE_THEMES: Record<IncarnationThemeKey, MvpArchiveTheme> = {
@@ -87,6 +89,11 @@ const MVP_ARCHIVE_THEMES: Record<IncarnationThemeKey, MvpArchiveTheme> = {
     border: 'rgba(230,211,177,.50)', glow: 'rgba(239,220,188,.36)', softGlow: 'rgba(151,198,172,.15)',
     particle: 'rgba(239,184,109,.70)', titleGradient: 'linear-gradient(180deg,#FFFDF5 0%,#EADCC0 48%,#B6D8C4 100%)',
   },
+  PROVEN_TRUST: {
+    background: '#070D20', panel: '#10182B', primary: '#F6C675', secondary: '#E6AB59', accent: '#FFF0CF',
+    border: 'rgba(238,192,117,.56)', glow: 'rgba(255,159,53,.42)', softGlow: 'rgba(240,187,103,.16)',
+    particle: 'rgba(255,192,95,.80)', titleGradient: 'linear-gradient(180deg,#FFF7E0 0%,#F6D598 48%,#D89445 100%)',
+  },
 };
 
 const DISPLAY_YEARS = [2023, 2026] as const;
@@ -97,6 +104,7 @@ const RIVAL_ORDER_OVERRIDES: Record<string, string[]> = {
   '2026-5': ['정민준', '김서영', '이태우'],
   '2026-6': ['한서현', '지담', '김서영'],
   '2026-7': ['지담', '한서현', '정우림'],
+  '2026-10': ['김서영', '류은우', '한서현'],
 };
 
 // 2023 월간 MVP는 Production 아카이브의 확정 기록을 그대로 사용한다.
@@ -161,6 +169,10 @@ const PORTRAITS_2026: Record<string, PortraitSpec> = {
   },
   '9': {
     imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/September-MVP.webp',
+    accent: 'gold', fit: 'cover', objectPosition: '50% 42%'
+  },
+  '10': {
+    imageUrl: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/mvp/All-Time-MVP-Winners/2026-October-MVP.webp',
     accent: 'gold', fit: 'cover', objectPosition: '50% 42%'
   },
 };
@@ -1643,7 +1655,7 @@ function PremiumPortraitStageV4({
     );
   }
 
-  const localFallback = `${import.meta.env.BASE_URL}records/mvp/2026/${row.month_no === 9 ? 'September_MVP' : ({3:'March_MVP',4:'April_MVP',5:'May_MVP',6:'June_MVP',7:'July_MVP'} as Record<number,string>)[row.month_no] ?? 'March_MVP'}.webp`;
+  const localFallback = `${import.meta.env.BASE_URL}records/mvp/2026/${row.month_no === 9 ? 'September_MVP' : ({3:'March_MVP',4:'April_MVP',5:'May_MVP',6:'June_MVP',7:'July_MVP',10:'October_MVP'} as Record<number,string>)[row.month_no] ?? 'March_MVP'}.webp`;
 
   return (
     <div
