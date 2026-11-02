@@ -911,3 +911,16 @@ button.tbx-match:hover:not(:disabled) { border-color: var(--tbx-line-strong); }
   font-size: clamp(17px, 1.6vw, 30px); font-weight: 800; color: var(--tbx-ivory); animation: tbx-rise .5s ease-out;
 }
 .tbx-lc__final b { color: var(--tbx-brass-hi); }
+
+/* 투표 숫자는 공통 overflow-wrap: anywhere를 상속하지 않고 한 줄로 유지한다. */
+.tbx-lc__nums,
+.tbx-pod__count,
+.tbx-pod__n,
+.tbx-lc__row-n,
+.tbx-vote-row__count {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  flex-shrink: 0;
+}
+.tbx-pod__count small { flex-shrink: 0; }
