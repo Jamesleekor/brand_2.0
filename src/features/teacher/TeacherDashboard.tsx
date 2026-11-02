@@ -1,11 +1,13 @@
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, ClipboardList, Coins, Users, Wallet, Activity, ArrowUpRight } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ClipboardList, Coins, Users, Wallet, Activity, ArrowUpRight, Sparkles } from 'lucide-react';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { DashboardActionWorklist, useTeacherActions } from '@/components/teacher/TeacherActionWidgets';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId, useCurrentStudent } from '@/stores/auth_store';
 import { formatNumber } from '@/lib/utils/format';
+import { MonthlyCelebrationModal, shouldOpenMonthlyCelebration } from '@/features/dashboard/MonthlyCelebrationModal';
 
 function OperatingSummary() {
   const actions = useTeacherActions();
@@ -102,6 +104,12 @@ const SHORTCUTS = [
 ];
 export default function TeacherDashboard() {
   const teacher = useCurrentStudent();
+  const [celebrationOpen, setCelebrationOpen] = useState(false);
+  useEffect(() => {
+    // The teacher has no studentId, so the student-home effect cannot show this modal.
+    // Keep an independent per-month teacher suppression key; a manual preview always works.
+    setCelebrationOpen(shouldOpenMonthlyCelebration(null));
+  }, []);
   return <TeacherShell><div className="space-y-4 pb-6">
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div>
@@ -112,7 +120,14 @@ export default function TeacherDashboard() {
           {teacher?.classroomName??''} · B.R.A.N.D 운영국 통합 관제센터
         </p>
       </div>
-      <span className="rounded-lg border border-line bg-bg-card px-3 py-2 text-xs text-text-muted">30초 자동 갱신</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => setCelebrationOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-gold/40 bg-gold/10 px-3 py-2 text-xs font-black text-gold transition hover:border-gold/70 hover:bg-gold/20"
+          aria-label="2026년 10월 최고의 길드 축전 미리보기">
+          <Sparkles size={15} /> 10월 축전 보기
+        </button>
+        <span className="rounded-lg border border-line bg-bg-card px-3 py-2 text-xs text-text-muted">30초 자동 갱신</span>
+      </div>
     </div>
     <OperatingSummary/>
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.85fr)_minmax(275px,1fr)]">
@@ -128,5 +143,10 @@ export default function TeacherDashboard() {
         className="inline-flex items-center gap-1 rounded-lg border border-line bg-bg-deep px-3 py-2 text-xs font-bold text-text-secondary hover:border-gold/40 hover:text-white">
         {a.label}<ArrowUpRight size={12}/></Link>)}</div>
     </section>
+    <MonthlyCelebrationModal
+      isOpen={celebrationOpen}
+      studentId={null}
+      onClose={() => setCelebrationOpen(false)}
+    />
   </div></TeacherShell>;
 }
