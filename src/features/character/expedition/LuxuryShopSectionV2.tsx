@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { PrestigeFrame } from '@/components/shared/PrestigeFrame';
@@ -14,6 +15,11 @@ import { LuxuryHiddenShardGallery } from './LuxuryHiddenShardGallery';
 type LuxuryClass = 'A' | 'B' | 'C';
 type FrameTheme = 'MOON' | 'TREE' | 'DRAGON';
 type PreviewPlace = 'FRIENDS' | 'GUILD' | 'RANKING';
+type LuxuryPricing = ExpeditionLuxuryItem['pricing'][number];
+type PendingLuxuryPurchase = {
+  item: ExpeditionLuxuryItem;
+  pricing: LuxuryPricing;
+};
 
 const CLASS_TABS: Array<{ key: LuxuryClass; title: string; subtitle: string; level: number }> = [
   { key: 'A', title: 'A클래스', subtitle: '히든 편린', level: 1 },
@@ -85,6 +91,8 @@ export function LuxuryShopSectionV2({
   const [previewOwned, setPreviewOwned] = useState<OwnedPrestigeBorder | null>(null);
   const [busyBorderId, setBusyBorderId] = useState<number | null>(null);
   const [equipNotice, setEquipNotice] = useState<string | null>(null);
+  const [pendingPurchase, setPendingPurchase] = useState<PendingLuxuryPurchase | null>(null);
+  const [confirmingPurchase, setConfirmingPurchase] = useState(false);
 
   const items = shop?.items ?? [];
   const aItems = items.filter((item) => item.luxury_group === 'A' && !isNameplateLuxuryItem(item));
@@ -152,7 +160,35 @@ export function LuxuryShopSectionV2({
     setEquipNotice(null);
   };
 
+  const requestPurchase = async (item: ExpeditionLuxuryItem, pricingId: number) => {
+    if (busyAction !== null || confirmingPurchase || pendingPurchase) return;
+    const pricing = item.pricing.find((entry) => entry.pricing_id === pricingId);
+    if (!pricing) return;
+    setPendingPurchase({ item, pricing });
+  };
+
+  const cancelPurchase = () => {
+    if (confirmingPurchase) return;
+    setPendingPurchase(null);
+  };
+
+  const confirmPurchase = async () => {
+    if (!pendingPurchase || confirmingPurchase || busyAction !== null) return;
+    const target = pendingPurchase;
+    setConfirmingPurchase(true);
+    try {
+      await onBuy(target.item, target.pricing.pricing_id);
+      if (isNameplateLuxuryItem(target.item)) {
+        await queryClient.invalidateQueries({ queryKey: ['my-nameplate-effects'] });
+      }
+      setPendingPurchase(null);
+    } finally {
+      setConfirmingPurchase(false);
+    }
+  };
+
   return (
+    <>
     <section className="overflow-hidden rounded-card-xl border border-[#D9B977]/45 bg-[#171522] shadow-card" aria-labelledby="luxury-shop-title">
       <div className="border-b border-[#D9B977]/25 bg-gradient-to-r from-[#34271E] via-[#23202F] to-[#151F2D] px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -198,7 +234,7 @@ export function LuxuryShopSectionV2({
             loading={loading}
             error={error}
             busyAction={busyAction}
-            onBuy={onBuy}
+            onBuy={requestPurchase}
           />
         )}
 
@@ -279,7 +315,7 @@ export function LuxuryShopSectionV2({
                 error={error}
                 busyAction={busyAction}
                 onPreview={(item) => { setSelectedItemId(item.item_id); setPreviewOwned(null); setTheme(themeFor(item)); }}
-                onBuy={onBuy}
+                onBuy={requestPurchase}
                 columns="sm:grid-cols-3"
               />
             </div>
@@ -295,12 +331,101 @@ export function LuxuryShopSectionV2({
               loading={loading}
               error={error}
               busyAction={busyAction}
-              onBuy={onBuy}
+              onBuy={requestPurchase}
             />
           </div>
         )}
       </div>
     </section>
+    {pendingPurchase && (
+      <LuxuryPurchaseConfirmDialog
+        purchase={pendingPurchase}
+        isSubmitting={confirmingPurchase || busyAction !== null}
+        onCancel={cancelPurchase}
+        onConfirm={confirmPurchase}
+      />
+    )}
+    </>
+  );
+}
+
+function LuxuryPurchaseConfirmDialog({
+  purchase,
+  isSubmitting,
+  onCancel,
+  onConfirm,
+}: {
+  purchase: PendingLuxuryPurchase;
+  isSubmitting: boolean;
+  onCancel: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
+  const currencyLabel = purchase.pricing.value_token === 'CRYSTAL' ? '크리스탈' : '골드';
+  const currencyIcon = purchase.pricing.value_token === 'CRYSTAL' ? '💎' : '🪙';
+
+  useEffect(() => {
+    confirmButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isSubmitting) onCancel();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSubmitting, onCancel]);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[1800] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="luxury-purchase-confirm-title"
+      aria-describedby="luxury-purchase-confirm-description"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onCancel();
+      }}
+    >
+      <div className="w-full max-w-md overflow-hidden rounded-card-xl border border-[#E9C46A]/55 bg-[#15131E] shadow-[0_24px_80px_rgba(0,0,0,.65)]">
+        <div className="border-b border-[#E9C46A]/25 bg-gradient-to-r from-[#3A2B1F] via-[#27202E] to-[#171D2B] px-5 py-4">
+          <p className="text-[11px] font-black tracking-[0.16em] text-[#FFD58A]">FINAL PURCHASE CONFIRMATION</p>
+          <h3 id="luxury-purchase-confirm-title" className="mt-1 font-display text-xl font-black text-[#FFF7ED]">명품관 구매 최종 확인</h3>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <div className="flex items-center gap-3 rounded-card-lg border border-white/10 bg-black/20 p-3">
+            {purchase.item.resource_url && (
+              <img src={purchase.item.resource_url} alt="" className="h-16 w-16 flex-none object-contain" />
+            )}
+            <div className="min-w-0">
+              <p className="text-[11px] font-black text-[#EBD29A]">{purchase.item.luxury_group} CLASS</p>
+              <p className="mt-1 text-base font-black leading-5 text-[#FFF7ED]">{purchase.item.name}</p>
+            </div>
+          </div>
+
+          <p id="luxury-purchase-confirm-description" className="rounded-card-lg border border-[#FF9B8F]/35 bg-[#5C211C]/25 px-4 py-3 text-sm font-black leading-6 text-[#FFD8D3]">
+            구매 후 재판매 또는 환불은 불가능합니다. 정말 구매하시겠습니까?
+          </p>
+
+          <div className="flex items-center justify-between rounded-card-lg border border-[#E9C46A]/35 bg-[#E9C46A]/10 px-4 py-3">
+            <span className="text-sm font-black text-[#FFF7ED]">최종 가격</span>
+            <span className="text-base font-black text-[#FFD58A]">
+              {currencyIcon} {purchase.pricing.price.toLocaleString('ko-KR')} {currencyLabel}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 border-t border-white/10 bg-black/20 p-4">
+          <button type="button" onClick={onCancel} disabled={isSubmitting} className="btn-secondary py-3 disabled:opacity-50">
+            취소
+          </button>
+          <button ref={confirmButtonRef} type="button" onClick={() => void onConfirm()} disabled={isSubmitting} className="btn-primary py-3 disabled:opacity-50">
+            {isSubmitting ? '구매 처리 중…' : '구매 확정'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

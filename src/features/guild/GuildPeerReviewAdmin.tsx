@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { EmptyState, LoadingSpinner, Modal } from '@/components/shared/components';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { GuildPeerReviewStudentJudgement } from './GuildPeerReviewStudentJudgement';
+import { GuildPeerReviewOverview } from './GuildPeerReviewOverview';
 import { supabase } from '@/lib/supabase/client';
 import {
   guild4RpcError,
@@ -34,9 +35,27 @@ export default function GuildPeerReviewAdmin() {
       return r.data;
     },
   });
+  const missionGroups = useMemo(() => {
+    const groups = new Map<string, { key: string; title: string; rounds: Guild4TeacherRoundListItem[] }>();
+    for (const round of listQ.data ?? []) {
+      // Distinct Guild3 missions with the same visible name remain separate.
+      const key = Number(round.mission_id) > 0
+        ? `mission:${round.mission_id}`
+        : `title:${round.mission_title}:${round.source_finalized_at ?? ''}`;
+      const group = groups.get(key);
+      if (group) group.rounds.push(round);
+      else groups.set(key, { key, title: round.mission_title, rounds: [round] });
+    }
+    return Array.from(groups.values());
+  }, [listQ.data]);
+
   useEffect(() => {
-    if (selected === null && listQ.data?.length) setSelected(listQ.data[0].round_id);
+    if (listQ.data && !listQ.data.length) { if (selected !== null) setSelected(null); return; }
+    if (listQ.data?.length && !listQ.data.some((round) => round.round_id === selected)) {
+      setSelected(listQ.data[0].round_id);
+    }
   }, [selected, listQ.data]);
+  const selectedMission = missionGroups.find((group) => group.rounds.some((row) => row.round_id === selected));
 
   const detailQ = useQuery({
     queryKey: ['guild4-teacher-detail', selected],
@@ -88,39 +107,68 @@ export default function GuildPeerReviewAdmin() {
 
   return <TeacherShell><div className="space-y-5">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><div className="text-xs text-text-muted font-black">Guild 4</div><h1 className="font-display text-2xl text-brand-gradient">동료평가 운영</h1><p className="text-sm text-text-secondary mt-1">Guild3 FINALIZED snapshot을 그대로 사용해 평가·예외·벌금·Peer /300을 관리합니다.</p></div>
-      <div className="flex flex-wrap gap-2"><Link to="/teacher/guild" className="btn-secondary">← 길드 운영</Link><button className="btn-primary" disabled={syncM.isPending || actionM.isPending} onClick={() => syncM.mutate()}>{syncM.isPending ? '동기화 중...' : '🔄 Guild3 → G4 동기화'}</button></div>
+      <div>
+        <div className="text-xs font-black text-[#f2ddbc]">Guild 4</div>
+        <h1 className="font-display text-2xl text-brand-gradient">동료평가 운영</h1>
+        <p className="mt-1 text-sm text-[#f7e7d0]">미션별로 묶어 보고, 길드를 선택해 학생별 받은 점수·준 점수·미제출 현황을 확인합니다.</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Link to="/teacher/guild" className="btn-secondary">← 길드 운영</Link>
+        <button className="btn-primary" disabled={syncM.isPending || actionM.isPending} onClick={() => syncM.mutate()}>{syncM.isPending ? '동기화 중...' : '🔄 Guild3 → G4 동기화'}</button>
+      </div>
     </div>
 
     {actionError && <div role="alert" className="rounded-card-md border border-danger/40 bg-danger/10 p-3 text-sm text-danger"><b>최근 작업 오류</b><div className="mt-1 break-all">{actionError}</div></div>}
 
-    <div className="grid lg:grid-cols-[330px_minmax(0,1fr)] gap-4">
-      <section className="glass-card p-3 h-fit">
-        <div className="flex items-center justify-between px-1 mb-2"><h2 className="font-black">평가 Round</h2><span className="text-2xs text-text-muted">최신순</span></div>
-        {listQ.isLoading ? <div className="py-10 flex justify-center"><LoadingSpinner/></div>
+    <div className="grid gap-4 lg:grid-cols-[255px_minmax(0,1fr)]">
+      <aside className="glass-card h-fit p-3">
+        <div className="mb-3 flex items-center justify-between px-1"><h2 className="font-display text-lg text-[#fff0cf]">평가 미션</h2><span className="text-xs font-black text-[#f2ddbc]">{missionGroups.length}개 · 최신순</span></div>
+        {listQ.isLoading ? <div className="flex justify-center py-10"><LoadingSpinner/></div>
           : listQ.isError ? <div className="p-3 text-sm text-danger">{(listQ.error as Error).message}</div>
-          : (listQ.data ?? []).length === 0 ? <EmptyState emoji="🤝" title="아직 Round가 없습니다" description="Guild3에서 Peer ON 미션을 FINALIZED한 뒤 동기화하세요."/>
-          : <div className="space-y-2">{(listQ.data ?? []).map((row) => <RoundListButton key={row.round_id} row={row} selected={selected === row.round_id} onClick={() => setSelected(row.round_id)}/>)}</div>}
-      </section>
+          : missionGroups.length === 0 ? <EmptyState emoji="🤝" title="아직 평가 미션이 없습니다" description="Guild3에서 Peer ON 미션을 FINALIZED한 뒤 동기화하세요."/>
+          : <div className="space-y-2">{missionGroups.map((group) => <MissionListButton key={group.key} title={group.title} rounds={group.rounds} selected={selectedMission?.key === group.key} onClick={() => setSelected(group.rounds[0].round_id)}/>)}</div>}
+      </aside>
 
-      <section className="glass-card min-h-[520px]">
-        {selected === null ? <EmptyState emoji="🤝" title="Round를 선택하세요"/>
-          : detailQ.isLoading ? <div className="py-24 flex justify-center"><LoadingSpinner size="lg"/></div>
-          : detailQ.isError ? <div className="p-5 text-danger">{(detailQ.error as Error).message}</div>
-          : detailQ.data ? <RoundDetailPanel detail={detailQ.data} busy={actionM.isPending} run={run} refresh={refresh}/> : null}
-      </section>
+      <main className="min-w-0 space-y-3">
+        {selectedMission && <section className="glass-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div><div className="text-xs font-black text-[#f2ddbc]">선택한 미션</div><h2 className="font-display text-xl text-[#fff0cf]">{selectedMission.title}</h2></div>
+            <span className="text-xs font-black text-[#f2ddbc]">길드 {selectedMission.rounds.length}개</span>
+          </div>
+          <div role="tablist" aria-label="길드별 동료평가" className="mt-3 flex flex-wrap gap-2">
+            {selectedMission.rounds.map((row) => {
+              const active = row.round_id === selected;
+              const done = Number(row.submitted_required_count);
+              const required = Number(row.required_obligation_count);
+              return <button key={row.round_id} role="tab" aria-selected={active} type="button" onClick={() => setSelected(row.round_id)} className={`min-w-[130px] flex-1 rounded-card-md border px-3 py-2.5 text-left transition ${active ? 'border-bv bg-bv/20 text-[#fff5e6] ring-1 ring-bv' : 'border-line bg-bg-deep text-[#f2ddbc] hover:border-gold/50'}`}>
+                <div className="flex items-center justify-between gap-2"><span className="truncate font-black">{row.guild_name}</span><span className={`text-xs font-black ${done < required ? 'text-amber-200' : 'text-emerald-200'}`}>{done}/{required}</span></div>
+                <div className="mt-1 flex items-center gap-2 text-xs"><StateBadge state={row.lifecycle_state}/>{done < required && <span className="text-amber-200">미제출 {required - done}건</span>}</div>
+              </button>;
+            })}
+          </div>
+        </section>}
+        <section className="glass-card min-h-[520px] min-w-0">
+          {selected === null ? <EmptyState emoji="🤝" title="평가 미션을 선택하세요"/>
+            : detailQ.isLoading ? <div className="flex justify-center py-24"><LoadingSpinner size="lg"/></div>
+            : detailQ.isError ? <div className="p-5 text-danger">{(detailQ.error as Error).message}</div>
+            : detailQ.data ? <RoundDetailPanel key={selected} detail={detailQ.data} busy={actionM.isPending} run={run} refresh={refresh}/> : null}
+        </section>
+      </main>
     </div>
   </div></TeacherShell>;
 }
 
-function RoundListButton({ row, selected, onClick }: { row: Guild4TeacherRoundListItem; selected: boolean; onClick: () => void }) {
-  const required = Number(row.required_obligation_count);
-  const done = Number(row.submitted_required_count);
-  return <button type="button" onClick={onClick} className={`w-full rounded-card-md border p-3 text-left transition ${selected ? 'border-bv bg-bv/10' : 'border-line bg-bg-deep hover:border-bv/40'}`}>
-    <div className="flex items-center justify-between gap-2"><span className="font-black truncate">{row.mission_title}</span><StateBadge state={row.lifecycle_state}/></div>
-    <div className="text-xs text-text-secondary mt-1 truncate">{row.guild_name}</div>
-    <div className="mt-2 flex items-center justify-between text-2xs text-text-muted"><span>필수 제출 {done}/{required}</span><span>면제 {row.excused_count}</span></div>
-    <div className="text-2xs text-text-muted mt-1">마감 {fmt(row.deadline_at)}</div>
+function MissionListButton({ title, rounds, selected, onClick }: { title: string; rounds: Guild4TeacherRoundListItem[]; selected: boolean; onClick: () => void }) {
+  const required = rounds.reduce((total, row) => total + Number(row.required_obligation_count), 0);
+  const done = rounds.reduce((total, row) => total + Number(row.submitted_required_count), 0);
+  const state = rounds.every((row) => row.lifecycle_state === 'FINALIZED') ? 'FINALIZED'
+    : rounds.some((row) => row.lifecycle_state === 'OPEN') ? 'OPEN' : 'CLOSED';
+  return <button type="button" onClick={onClick} aria-current={selected ? 'true' : undefined} className={`w-full rounded-card-md border p-3 text-left transition ${selected ? 'border-bv bg-bv/15 ring-1 ring-bv/40' : 'border-line bg-bg-deep hover:border-gold/40'}`}>
+    <div className="flex items-start justify-between gap-2"><span className="font-black text-[#fff5e6]">{title}</span><StateBadge state={state}/></div>
+    <div className="mt-2 text-xs font-bold text-[#f2ddbc]">{rounds.length}개 길드 · 제출 {done}/{required}</div>
+    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-bg-card"><div className="h-full bg-bv" style={{ width: `${required ? Math.min(100, done / required * 100) : 100}%` }}/></div>
+    <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-xs text-[#f2ddbc]">{rounds.map((row) => <span key={row.round_id}>{row.guild_name}</span>)}</div>
+    <div className="mt-2 text-xs text-[#edd4ae]">마감 {fmt(rounds[0]?.deadline_at)}</div>
   </button>;
 }
 
@@ -130,10 +178,10 @@ function RoundDetailPanel({ detail, busy, run, refresh }: { detail: Guild4Teache
   const [deadlineOpen, setDeadlineOpen] = useState(false);
   const [obligationModal, setObligationModal] = useState<{ kind: 'exception' | 'review'; obligation: Guild4TeacherRoundDetail['obligations'][number] } | null>(null);
   const [waivePenalty, setWaivePenalty] = useState<Record<string, any> | null>(null);
-  const [viewMode, setViewMode] = useState<'submissions' | 'students'>(state === 'OPEN' ? 'submissions' : 'students');
+  const [viewMode, setViewMode] = useState<'overview' | 'submissions' | 'students'>('overview');
 
   useEffect(() => {
-    setViewMode(state === 'OPEN' ? 'submissions' : 'students');
+    setViewMode('overview');
   }, [round.id, state]);
   const participantsByStudent = useMemo(() => new Map(detail.participants.map((p) => [Number(p.student_id), p.student_name])), [detail.participants]);
   const required = detail.obligations.filter((o) => o.obligation_status === 'REQUIRED');
@@ -161,11 +209,14 @@ function RoundDetailPanel({ detail, busy, run, refresh }: { detail: Guild4Teache
     <div className="grid grid-cols-2 md:grid-cols-4 gap-2"><Metric label="참가자" value={`${detail.participants.length}명`}/><Metric label="필수 평가" value={`${submitted.length}/${required.length}`}/><Metric label="미제출" value={`${missing.length}건`}/><Metric label="EXCUSED" value={`${excused.length}건`}/></div>
 
     <div className="flex flex-wrap items-center gap-2 rounded-card-md border border-line bg-bg-deep p-1.5">
-      <button type="button" className={`rounded-card-sm px-4 py-2 text-sm font-black transition ${viewMode === 'submissions' ? 'bg-bv text-white' : 'text-text-secondary hover:bg-bg-card'}`} onClick={() => setViewMode('submissions')}>제출 현황</button>
+      <button type="button" className={`rounded-card-sm px-4 py-2 text-sm font-black transition ${viewMode === 'overview' ? 'bg-bv text-white' : 'text-[#f2ddbc] hover:bg-bg-card'}`} onClick={() => setViewMode('overview')}>평가 한눈에</button>
+      <button type="button" className={`rounded-card-sm px-4 py-2 text-sm font-black transition ${viewMode === 'submissions' ? 'bg-bv text-white' : 'text-[#f2ddbc] hover:bg-bg-card'}`} onClick={() => setViewMode('submissions')}>제출·정정 관리</button>
       <button type="button" className={`rounded-card-sm px-4 py-2 text-sm font-black transition ${viewMode === 'students' ? 'bg-bv text-white' : 'text-text-secondary hover:bg-bg-card'}`} onClick={() => setViewMode('students')}>학생별 판정</button>
     </div>
 
-    {viewMode === 'submissions' ? (
+    {viewMode === 'overview' ? (
+      <GuildPeerReviewOverview detail={detail}/>
+    ) : viewMode === 'submissions' ? (
       <section className="space-y-3"><div className="flex items-center justify-between"><div><h3 className="font-display text-lg">평가 제출 현황</h3><p className="text-xs text-text-secondary mt-1">교사는 reviewer·target·raw score·comment를 모두 확인할 수 있습니다.</p></div></div><div className="overflow-x-auto rounded-card-md border border-line"><table className="min-w-[820px] w-full text-xs"><thead className="bg-bg-deep text-text-muted"><tr><Th>평가자</Th><Th>대상</Th><Th>상태</Th><Th>점수</Th><Th>의견</Th><Th>Revision</Th><Th>관리</Th></tr></thead><tbody>{detail.obligations.map((o) => <tr key={o.obligation_id} className="border-t border-line align-top"><Td><b>{o.reviewer_name}</b></Td><Td>{o.target_name}</Td><Td>{o.obligation_status === 'EXCUSED' ? <span className="text-text-muted font-black">EXCUSED</span> : o.latest_review ? <span className="text-success font-black">제출 ✓</span> : <span className="text-warning font-black">미제출</span>}</Td><Td>{o.latest_review?.score ?? '-'}</Td><Td><div className="max-w-[250px] whitespace-pre-wrap">{o.latest_review?.comment ?? (o.current_exception_reason ? `면제: ${o.current_exception_reason}` : '-')}</div></Td><Td>{o.latest_revision_number ? `${o.latest_revision_number}차` : '-'}</Td><Td><div className="flex flex-wrap gap-1">{state !== 'FINALIZED' && <button className="btn-secondary !px-2 !py-1 text-2xs" disabled={busy} onClick={() => setObligationModal({ kind: 'exception', obligation: o })}>{o.obligation_status === 'EXCUSED' ? '면제 해제' : 'EXCUSED'}</button>}{state === 'FINALIZED' && round.monthly_eligible !== false && <><button className="btn-secondary !px-2 !py-1 text-2xs" disabled={busy} onClick={() => setObligationModal({ kind: 'exception', obligation: o })}>예외 정정</button>{o.latest_review && <button className="btn-secondary !px-2 !py-1 text-2xs" disabled={busy} onClick={() => setObligationModal({ kind: 'review', obligation: o })}>리뷰 정정</button>}</>}</div></Td></tr>)}</tbody></table></div></section>
     ) : (
       <GuildPeerReviewStudentJudgement detail={detail} busy={busy}/>
