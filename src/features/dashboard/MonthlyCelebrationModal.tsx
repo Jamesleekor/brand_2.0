@@ -205,15 +205,16 @@ function CelebrationHeroPage() {
 
 function CelebrationResultsPage() {
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2 lg:gap-5">
-      <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 sm:p-5">
+    <div className="grid items-stretch gap-4 lg:grid-cols-2 lg:gap-5">
+      <div className="flex min-w-0 flex-col gap-3.5">
+      <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-3.5 sm:p-4">
         <SectionTitle
           icon={<Crown className="h-5 w-5" />}
           right={<span className="text-[11px] font-extrabold text-white/50">2026.10 · 공식 GS</span>}
         >
           10월 길드 최종 순위
         </SectionTitle>
-        <div className="mt-4 space-y-2.5">
+        <div className="mt-3 space-y-1.5">
           {RANKINGS.map((row) => (
             <GuildRow
               key={row.guild}
@@ -224,29 +225,12 @@ function CelebrationResultsPage() {
             />
           ))}
         </div>
-        <p className="mt-4 break-keep text-[16px] font-semibold leading-[1.75] text-white/78 sm:text-[17px]">
+        <p className="mt-3 break-keep text-[15px] font-semibold leading-[1.75] text-white/78 sm:text-[17px]">
           10월은 상위권 길드 간의 점수 차이가 9월보다 더 좁혀진 치열한 한 달이었습니다. 그 속에서도 끝내 가장 높은 자리를 지켜낸 길드는 <GoldEmphasis>슈퍼노바</GoldEmphasis>였습니다.
         </p>
       </section>
 
-      <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 sm:p-5">
-        <SectionTitle
-          icon={<ShieldCheck className="h-5 w-5" />}
-          right={<span className="text-[11px] font-bold text-amber-200/85">길드별 기여도 1위 · 업적 신청 가능</span>}
-        >
-          길드의 수호신
-        </SectionTitle>
-        <div className="mt-4 space-y-2.5">
-          {GUILD_GUARDIANS.map((row) => (
-            <GuardianRow key={row.guild} guild={row.guild} name={row.name} score={row.score} note={row.note} />
-          ))}
-        </div>
-        <p className="mt-4 break-keep text-[16px] font-semibold leading-[1.75] text-white/78 sm:text-[17px]">
-          이번 달에는 네 개 길드에서 개인 최고 기록이 새롭게 경신되었습니다. 특히 이태우는 <GoldEmphasis>779.5점</GoldEmphasis>으로 단일 월 개인기여도 역대 최고 기록을 새로 쓰며 기록실에 이름을 올렸습니다.
-        </p>
-      </section>
-
-      <section className="rounded-2xl border border-amber-300/25 bg-gradient-to-br from-amber-300/[0.10] via-violet-200/[0.06] to-black/10 p-4 sm:p-5">
+      <section className="flex-1 rounded-2xl border border-amber-300/25 bg-gradient-to-br from-amber-300/[0.10] via-violet-200/[0.06] to-black/10 p-4 sm:p-5">
         <SectionTitle icon={<Trophy className="h-5 w-5" />}>10월 월간 MVP</SectionTitle>
         <div className="mt-4 flex flex-wrap items-center gap-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-amber-300/30 bg-amber-300/10">
@@ -254,7 +238,7 @@ function CelebrationResultsPage() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[12px] font-extrabold tracking-[0.14em] text-amber-200">2026년 10월 월간 MVP</div>
-            <h3 className="font-display text-[40px] font-black leading-[1.05] text-amber-100 sm:text-[48px]">이준혁</h3>
+            <h3 className="font-display text-[48px] font-black leading-[1.05] text-amber-100 sm:text-[56px]">이준혁</h3>
           </div>
           <span className="rounded-full border border-amber-300/30 bg-black/20 px-3 py-1.5 text-xs font-bold text-amber-200">TOP 1</span>
         </div>
@@ -266,38 +250,58 @@ function CelebrationResultsPage() {
         </p>
       </section>
 
-      <section className="space-y-4">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 sm:p-5">
+      </div>
+      <div className="flex min-w-0 flex-col gap-3.5 lg:justify-between">
+      <section className="rounded-2xl border border-white/10 bg-white/[0.035] p-3.5 sm:p-4">
+        <SectionTitle
+          icon={<ShieldCheck className="h-5 w-5" />}
+          right={<span className="text-[11px] font-bold text-amber-200/85">길드별 기여도 1위 · 업적 신청 가능</span>}
+        >
+          길드의 수호신
+        </SectionTitle>
+        <div className="mt-3 space-y-1.5">
+          {GUILD_GUARDIANS.map((row) => (
+            <GuardianRow key={row.guild} guild={row.guild} name={row.name} score={row.score} note={row.note} />
+          ))}
+        </div>
+        <p className="mt-3 break-keep text-[15px] font-semibold leading-[1.75] text-white/78 sm:text-[17px]">
+          이번 달에는 네 개 길드에서 개인 최고 기록이 새롭게 경신되었습니다. 특히 이태우는 <GoldEmphasis>779.5점</GoldEmphasis>으로 단일 월 개인기여도 역대 최고 기록을 새로 쓰며 기록실에 이름을 올렸습니다.
+        </p>
+      </section>
+
+      <section className="flex min-w-0 flex-col gap-3">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3.5 sm:p-4">
           <SectionTitle icon={<Star className="h-5 w-5" />}>10월 월간 MVP TOP 4</SectionTitle>
-          <div className="mt-4 grid grid-cols-2 gap-2.5">
+          <div className="mt-2.5 grid grid-cols-2 gap-2">
             {MVP_TOP4.map((row) => (
               <div
                 key={`${row.rank}-${row.name}`}
-                className={`min-w-0 rounded-xl border px-3.5 py-3 ${row.rank === 'TOP 1' ? 'border-amber-300/35 bg-amber-300/[0.08]' : 'border-white/10 bg-black/15'}`}
+                className={`min-w-0 rounded-xl border px-3 py-2 ${row.rank === 'TOP 1' ? 'border-amber-300/35 bg-amber-300/[0.08]' : 'border-white/10 bg-black/15'}`}
               >
                 <div className="text-[11px] font-extrabold tracking-[0.08em] text-amber-200/80">{row.rank}</div>
                 <div className="mt-1 font-display text-[26px] font-black leading-tight text-white sm:text-[28px]">{row.name}</div>
               </div>
             ))}
           </div>
-          <p className="mt-4 break-keep text-[16px] font-semibold leading-[1.8] text-white/80 sm:text-[17px]">
+          <p className="mt-2.5 break-keep text-[15px] font-semibold leading-[1.55] text-white/80 sm:text-[17px]">
             10월의 TOP4는 누구나 인정할만한 뛰어난 학생들의 각축전이었습니다.
           </p>
-          <p className="mt-2 break-keep text-[16px] font-semibold leading-[1.8] text-white/80 sm:text-[17px]">
+          <p className="mt-1.5 break-keep text-[15px] font-semibold leading-[1.55] text-white/80 sm:text-[17px]">
             김서영, 류은우, 한서현은 각 월간MVP 본선 <GoldEmphasis>6회, 5회, 5회</GoldEmphasis> 무대에 오르며 변함없이 최상위권에 이름을 올리는 저력을 보여주었습니다.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-amber-300/20 bg-gradient-to-br from-amber-200/[0.08] to-violet-300/[0.065] p-4 sm:p-5">
+        <div className="rounded-2xl border border-amber-300/20 bg-gradient-to-br from-amber-200/[0.08] to-violet-300/[0.065] p-3.5 sm:p-4">
           <SectionTitle icon={<Sparkles className="h-5 w-5" />}>다음 장을 향하여</SectionTitle>
-          <p className="mt-4 break-keep text-[16px] font-semibold leading-[1.8] text-white/82 sm:text-[17px]">
+          <p className="mt-2.5 break-keep text-[15px] font-semibold leading-[1.55] text-white/82 sm:text-[17px]">
             <GoldEmphasis>10월의 테마는 ‘신뢰’</GoldEmphasis>였습니다. 서로를 믿고 믿음을 줄 수 있는 이들의 승리를 축하합니다.
           </p>
-          <p className="mt-2 break-keep text-[16px] font-semibold leading-[1.8] text-white/82 sm:text-[17px]">
+          <p className="mt-1.5 break-keep text-[15px] font-semibold leading-[1.55] text-white/82 sm:text-[17px]">
             <GoldEmphasis>11월의 테마는 ‘각성’과 ‘증명’</GoldEmphasis>입니다. 스스로를 약자라고 생각해왔던 이들이 증명하는 자리가 될 수 있기를 바랍니다.
           </p>
         </div>
       </section>
+      </div>
     </div>
   );
 }
