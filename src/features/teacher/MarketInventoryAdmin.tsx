@@ -16,6 +16,7 @@ import { formatNumber } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { randomBoxRpc, type TeacherRandomBoxManualReward } from '@/lib/rpc/random_box_rpc';
 import { StudentInventoryAdminModal } from '@/features/teacher/StudentInventoryAdminModal';
+import { RandomBoxProbabilityAdmin } from '@/features/teacher/RandomBoxProbabilityAdmin';
 
 const TYPE_META: Record<MarketItemType, { label: string; emoji: string }> = {
   SNACK: { label: '간식', emoji: '🍪' },
@@ -164,6 +165,8 @@ export default function MarketInventoryAdmin() {
           <StatCard emoji="🎒" label="학생 인벤토리 보유" value={owned} color="crystal" />
           <StatCard emoji="📈" label="재고연동 시세" value={dynamic} color="bv" />
         </div>
+        <RandomBoxProbabilityAdmin classroomId={classroomId} />
+
         <div className="rounded-card-lg border border-gold/30 bg-gold/5 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
