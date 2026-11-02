@@ -462,7 +462,7 @@ function RandomBoxOpenModal({ item, board, onClose, onDone }: { item: StudentInv
               <p className="mt-2 text-xs font-bold leading-relaxed text-slate-300">상자 1개를 사용해 서버에서 즉시 추첨합니다. GOLD와 간식 쿠폰은 자동 지급되고, 편린·슈퍼패스는 선생님 확인 후 지급됩니다.</p>
             </div>
             {board?.rewards?.length ? <div className="grid grid-cols-2 gap-1.5 rounded-card-md border border-line bg-bg-deep p-3 sm:grid-cols-3">
-              {board.rewards.map((reward) => <div key={reward.reward_code} className="rounded-card-sm bg-white/[0.035] px-2 py-1.5 text-[10px] font-bold text-slate-300"><span className="text-white">{reward.label}</span><span className="ml-1 text-gold">{Number(reward.probability_percent).toFixed(1)}%</span></div>)}
+              {board.rewards.map((reward) => <div key={reward.reward_code} className="rounded-card-sm bg-white/[0.035] px-2 py-1.5 text-[10px] font-bold text-slate-300"><span className="text-white">{reward.label}</span>{reward.probability_percent !== null ? <span className="ml-1 text-gold">{Number(reward.probability_percent).toFixed(1)}%</span> : null}</div>)}
             </div> : null}
             <button type="button" disabled={isLoading || item.available_quantity < 1} onClick={() => void openBox()} className="btn-primary w-full text-sm disabled:opacity-40">{isLoading ? '상자를 여는 중…' : '✨ 상자 1개 열기'}</button>
           </>
