@@ -8,7 +8,7 @@ export interface RandomBoxRewardPreview {
   reward_code: string;
   label: string;
   kind: RandomBoxRewardKind;
-  probability_percent: number;
+  probability_percent: number | null;
   manual_required: boolean;
 }
 
