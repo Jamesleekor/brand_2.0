@@ -27,7 +27,7 @@ export type TeacherTikatukaProgressItem = z.infer<typeof TeacherTikatukaProgress
 
 export const TeacherTikatukaOfficialChallengeSchema = z.object({
   session_id: z.number().int().positive(),
-  status: z.enum(['ACTIVE', 'COMPLETED']),
+  status: z.enum(['ACTIVE', 'COMPLETED', 'CANCELLED']),
   difficulty: TikatukaDifficultySchema,
   games_played: z.number().int().min(0).max(5),
   wins: z.number().int().min(0).max(5),

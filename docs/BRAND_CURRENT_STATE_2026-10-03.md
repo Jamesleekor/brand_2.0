@@ -103,3 +103,7 @@ Repo authoritative source:
 ## 14. 레이드 격돌(CLASH) V1 (2026-10-28, 소스·SQL 준비, 운영 DB 미적용)
 
 보스 HP가 처음 50% 이하가 되면 전투 전체를 멈추고 5초 지원 → 지원자 중 무작위 1명 → Q/W/E/R 고리 8회 → 결과(대성공 13~16 / 성공 8~12 / 실패 0~7·지원자 없음). 기본 OFF, 레이드별로 교사가 켠다(공명방벽 ON 레이드만). 서버: `supabase/migrations/20261028_01_raid_clash_v1.sql`(새 표 4개, 학생 RPC 3개, 교사 RPC 3개, 기존 함수 문자열 1곳 치환 16곳·불일치 시 전체 중단). 검증: `supabase/tests/raid_clash_v1_rollback_test.sql`(항상 롤백되는 트랜잭션에서 운영 함수 그대로 시험). 화면: `src/features/raid/clash/*`, `RaidClashBroadcastOverlay.tsx`, `RaidClashConfigTab.tsx`. 상세 규칙: `docs/BRAND_RAID_CLASH_HANDOFF_20261028.md`.
+
+## 1인1역 기록실 학생 화면 (2026-10-31, 소스 구현·배포 대기)
+
+홈의 ‘나의 1인1역’ 카드를 `/primary-jobs`에 연결하고 월별 담당표·역할별 이력·학생별 이력을 추가했다. 현재 운영 RPC의 187행을 읽으며, 6월 기록 분실·일급 미등록·11월 배정 대기를 구분한다. 학생별 표는 내용 폭으로 역할과 일급을 가까이 정렬한다. 기존 메뉴·운영 배정·급여는 바꾸지 않는다. 정적 검증 후 전달하며 사용자 로컬 build·commit/push·배포 후 로그인 E2E는 후속 확인이다. 상세: `docs/PRIMARY_JOB_ARCHIVE_STUDENT_UI_20261031.md`.

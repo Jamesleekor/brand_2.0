@@ -165,7 +165,7 @@ function TerritoryConfig({ data, drafts, setDrafts, busy, run }: { data: Guild5T
   return <section className="glass-card p-4">
     <div className="mb-3">
       <h2 className="font-display text-xl">🗺️ 정복 영토 3개 · 최종 점령</h2>
-      <p className="text-xs text-text-secondary mt-1">영토 이름·세율 설정, 경매 가치, 최종 점령 길드 지정까지 이 카드에서 처리합니다. FINAL 이후 현재 선택권을 가진 길드에 원하는 영토를 배정하면 해당 카테고리의 영토세도 함께 정산됩니다.</p>
+      <p className="text-xs text-text-secondary mt-1">영토 이름·세율 설정, 영토 자금, 최종 점령 길드 지정까지 이 카드에서 처리합니다. 영토 자금은 실제 GOLD 낙찰금 + 실제 소모 SUPER PASS 환산가치이며, 영토세는 실제 GOLD 낙찰금만 기준으로 정산됩니다.</p>
     </div>
     <div className="grid lg:grid-cols-3 gap-3">{drafts.map((d, i) => {
       const economy = economyBySlot.get(d.slot);
@@ -173,7 +173,7 @@ function TerritoryConfig({ data, drafts, setDrafts, busy, run }: { data: Guild5T
       const savedTerritory = territoryBySlot.get(d.slot);
       const assignedTurn = assignedBySlot.get(d.slot);
       const grossSpend = Number(economy?.gross_spend ?? 0);
-      const projectedRevenue = grossSpend * d.taxRatePercent / 100;
+      const projectedRevenue = Number(economy?.projected_revenue ?? 0);
       const assignedGuildName = assignedTurn ? guildNames.get(Number(assignedTurn.guild_id)) ?? `Guild #${assignedTurn.guild_id}` : null;
       const canAssign = closureState === 'FINALIZED'
         && Boolean(activeTurn)
@@ -199,10 +199,10 @@ function TerritoryConfig({ data, drafts, setDrafts, busy, run }: { data: Guild5T
             <span className="text-text-muted">{economy?.auction_round_number ? `${economy.auction_round_number}회차 기준` : '기준 경매 없음'}</span>
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            <div><div className="text-[9px] font-black text-text-muted">경매 사용액</div><div className="text-sm font-black text-white">{num(grossSpend)} G</div></div>
+            <div><div className="text-[9px] font-black text-text-muted">영토 자금</div><div className="text-sm font-black text-white">{num(grossSpend)} G</div></div>
             <div><div className="text-[9px] font-black text-text-muted">예상 세수</div><div className="text-sm font-black text-gold">{num(projectedRevenue)} G</div></div>
           </div>
-          <div className="mt-1 text-[9px] text-text-muted">정산 {num(economy?.settled_item_count ?? 0)}건 · 개인 세율감면 적용 전 단순 예상</div>
+          <div className="mt-1 text-[9px] text-text-muted">정산 {num(economy?.settled_item_count ?? 0)}건 · SUPER PASS 환산 포함 · 예상 세수는 GOLD 낙찰금 기준</div>
         </div>
 
         <div className={`mt-3 rounded-card-md border p-2.5 ${assignedTurn ? 'border-success/25 bg-success/5' : 'border-line bg-bg-card/70'}`}>

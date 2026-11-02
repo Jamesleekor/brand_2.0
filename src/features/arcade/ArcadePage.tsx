@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PageHeader, LoadingSpinner } from '@/components/shared/components';
 import { FocusReactionGame, type FocusPlaySummary } from '@/features/arcade/FocusReactionGame';
 import { PureReactionGame, type PureReactionPlaySummary } from '@/features/arcade/PureReactionGame';
+import { StarlinkGame, type StarlinkPlaySummary } from '@/features/arcade/games/starlink_04/ui/StarlinkGame';
 import { TikatukaGame } from '@/features/arcade/tikatuka/ui/TikatukaGame';
 import { RakarukaCompetitionPanel } from '@/features/arcade/tikatuka/ui/RakarukaCompetitionPanel';
 import { formatReactionAverage } from '@/features/arcade/pure_reaction_engine';
@@ -12,6 +13,7 @@ import { useClassroomId, useStudentId } from '@/stores/auth_store';
 import { useClassroomStudentGuilds, type StudentGuildIdentity } from '@/hooks/useStudentGuilds';
 
 const RAKARUKA_CODE = 'rakaruka_03';
+const STARLINK_CODE = 'starlink_04';
 
 interface ArcadeGameRow {
   id: number;
@@ -41,7 +43,7 @@ export default function ArcadePage() {
   const [selectedGameCode, setSelectedGameCode] = useState('focus_reaction_01');
   const [bootstrap, setBootstrap] = useState<ArcadeRunBootstrap | null>(null);
   const [result, setResult] = useState<ArcadeRunSubmissionResult | null>(null);
-  const [playSummary, setPlaySummary] = useState<FocusPlaySummary | PureReactionPlaySummary | null>(null);
+  const [playSummary, setPlaySummary] = useState<FocusPlaySummary | PureReactionPlaySummary | StarlinkPlaySummary | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);  const [isCreatingRun, setIsCreatingRun] = useState(false);
   const creatingRunRef = useRef(false);
   const verificationRequestRef = useRef<{ sessionId: number; key: string } | null>(null);
@@ -66,7 +68,24 @@ export default function ArcadePage() {
 
   const visiblePeriods = useMemo(() => (arcadeQuery.data?.periods ?? []).filter((period) => ['ACTIVE', 'VERIFICATION', 'READY_TO_FINALIZE', 'FINALIZED'].includes(period.status)), [arcadeQuery.data?.periods]);
   const selectedPeriod = visiblePeriods.find((period) => period.id === selectedPeriodId) ?? visiblePeriods[0] ?? null;
-  const playableGames = (arcadeQuery.data?.games ?? []).filter((entry) => entry.is_active && ['focus_reaction_01', 'pure_reaction_02'].includes(entry.code));
+  // Starlink is listed only when the server says this student may start it now
+  // (public window or pre-release test access). Hidden registration stays invisible.
+  const starlinkRow = (arcadeQuery.data?.games ?? []).find((entry) => entry.code === STARLINK_CODE && entry.is_active) ?? null;
+  const starlinkAccessQuery = useQuery({
+    queryKey: ['arcade', 'game-access', studentId, STARLINK_CODE, 'catalog'],
+    enabled: Boolean(starlinkRow && studentId),
+    staleTime: 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: async () => {
+      const rpc = await arcadeStudentRpc.getGameAccess(supabase, { p_game_code: STARLINK_CODE });
+      if (rpc.success === false) throw new Error(arcadeErrorMessage(rpc));
+      return rpc.data;
+    },
+  });
+  const starlinkVisible = Boolean(starlinkRow && starlinkAccessQuery.data && starlinkAccessQuery.data.mode !== 'CLOSED');
+  const playableGames = (arcadeQuery.data?.games ?? []).filter((entry) => entry.is_active && (['focus_reaction_01', 'pure_reaction_02'].includes(entry.code) || (entry.code === STARLINK_CODE && starlinkVisible)));
   const isRakarukaSelected = selectedGameCode === RAKARUKA_CODE;
   const game = isRakarukaSelected ? null : (playableGames.find((entry) => entry.code === selectedGameCode) ?? playableGames[0] ?? null);  const gameAccessQuery = useQuery({
     queryKey: ['arcade', 'game-access', studentId, game?.code],
@@ -174,7 +193,7 @@ export default function ArcadePage() {
     }
   };
 
-const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPlaySummary | PureReactionPlaySummary) => {
+const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPlaySummary | PureReactionPlaySummary | StarlinkPlaySummary) => {
     setResult({ ...nextResult, is_prerelease_test: bootstrap?.is_prerelease_test ?? false });
     setPlaySummary(summary);if (bootstrap?.is_prerelease_test) return;
     setIsResultRankingUpdating(true);
@@ -230,6 +249,7 @@ const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPla
         {!isRakarukaSelected && !bootstrap && verificationState?.available && <VerificationChallengeCard state={verificationState} isLoading={verificationQuery.isFetching || isCreatingRun} onStart={() => void startVerificationGame(verificationState)} />}
         {bootstrap?.game_code === 'focus_reaction_01' && <FocusReactionGame bootstrap={bootstrap} myRank={leaderboardQuery.data?.my_rank ?? null} myBestScore={leaderboardQuery.data?.my_score ?? null} isRankingUpdating={isResultRankingUpdating || leaderboardQuery.isFetching} onRecorded={handleRecorded} onExit={handleFinished} onInlineError={setActionError} />}
         {bootstrap?.game_code === 'pure_reaction_02' && <PureReactionGame bootstrap={bootstrap} myRank={leaderboardQuery.data?.my_rank ?? null} myBestScore={leaderboardQuery.data?.my_score ?? null} isRankingUpdating={isResultRankingUpdating || leaderboardQuery.isFetching} onRecorded={handleRecorded} onExit={handleFinished} onInlineError={setActionError} />}
+        {bootstrap?.game_code === STARLINK_CODE && <StarlinkGame bootstrap={bootstrap} myRank={leaderboardQuery.data?.my_rank ?? null} myBestScore={leaderboardQuery.data?.my_score ?? null} isRankingUpdating={isResultRankingUpdating || leaderboardQuery.isFetching} onRecorded={handleRecorded} onExit={handleFinished} onInlineError={setActionError} />}
 
         {!bootstrap && isRakarukaSelected && <section className="glass-card overflow-hidden border-gold/25">
           <div className="grid gap-0 md:grid-cols-[1.1fr_.9fr]">
@@ -323,7 +343,7 @@ function CertifiedScore({ score, status }: { score: number | null; status: Arcad
   return <span className="text-text-muted">—</span>;
 }
 
-function ResultCard({ gameCode, result, isVerification, summary, myRank, myBestScore, isRankingUpdating, onRetry }: { gameCode: string; result: ArcadeRunSubmissionResult; isVerification: boolean; summary: FocusPlaySummary | PureReactionPlaySummary | null; myRank: number | null; myBestScore: number | null; isRankingUpdating: boolean; onRetry: () => void }) {
+function ResultCard({ gameCode, result, isVerification, summary, myRank, myBestScore, isRankingUpdating, onRetry }: { gameCode: string; result: ArcadeRunSubmissionResult; isVerification: boolean; summary: FocusPlaySummary | PureReactionPlaySummary | StarlinkPlaySummary | null; myRank: number | null; myBestScore: number | null; isRankingUpdating: boolean; onRetry: () => void }) {
   const accepted = result.accepted;
   const prerelease = result.is_prerelease_test === true;
   const focusSummary = summary && 'maxCombo' in summary ? summary : null;
@@ -345,7 +365,7 @@ function formatScore(value: number | null | undefined) { return value === undefi
 function attemptStatusLabel(attempt: ArcadeVerificationAttempt) { if (attempt.status === 'TECHNICAL_CANCELLED') return '기술 취소'; if (attempt.status === 'RESTORED') return '복구됨'; if (attempt.status !== 'TERMINAL') return '진행 중'; if (!attempt.valid_run) return '유효 기록 없음'; return attempt.official_score === null ? '종료' : `${Number(attempt.official_score).toLocaleString('ko-KR')}점`; }
 function studentRankLabel(rank: number) { return rank === 1 ? '👑 1' : rank === 2 ? '🥈 2' : rank === 3 ? '🥉 3' : String(rank); }
 function periodStatusLabel(status: ArcadePeriodRow['status']) { return status === 'FINALIZED' ? '확정' : status === 'VERIFICATION' ? '인증 중' : status === 'READY_TO_FINALIZE' ? '확정 대기' : '진행 중'; }
-function gameMeta(code: string) { if (code === 'pure_reaction_02') return { emoji: '⚡', title: '순수 반응속도 #02', subtitle: 'Pure Visual Reaction · 5 Trials', number: 'Game #02', rules: ['마력핵이 점화되는 순간 Space 또는 화면을 누릅니다.', '총 5회 반응의 평균 속도로 SCORE를 계산합니다.', '신호 전 입력, 120ms 미만 입력, 3000ms 이상 반응은 즉시 GAME OVER입니다.'] }; return { emoji: '🎯', title: '집중 반응 #01', subtitle: '4-Lane Visual Reaction · Go / No-Go', number: 'Game #01', rules: ['D / F / J / K 또는 터치로 4개 레인을 조작합니다.', '파란 신호는 누르고, 빨간 ✕ 신호는 누르지 않습니다.', 'Life 3, Combo, 실제 경과시간 기반 판정입니다.'] }; }
+function gameMeta(code: string) { if (code === STARLINK_CODE) return { emoji: '✨', title: '스타링크 #04', subtitle: '천공의 성좌판 · 60초 별 잇기', number: 'Game #04', rules: ['같은 별을 손가락으로 3개 이상 이어 떼면 제거되고, 길게 이을수록 점수가 커집니다.', '고유 별 5개 이상으로 시작 별에 되돌아와 고리를 만들면 같은 종류 별이 모두 사라집니다.', '2초 안에 다음 별을 지우면 콤보(최대 ×1.50). 점수는 서버가 입력 기록을 다시 계산해 확정합니다.'] }; if (code === 'pure_reaction_02') return { emoji: '⚡', title: '순수 반응속도 #02', subtitle: 'Pure Visual Reaction · 5 Trials', number: 'Game #02', rules: ['마력핵이 점화되는 순간 Space 또는 화면을 누릅니다.', '총 5회 반응의 평균 속도로 SCORE를 계산합니다.', '신호 전 입력, 120ms 미만 입력, 3000ms 이상 반응은 즉시 GAME OVER입니다.'] }; return { emoji: '🎯', title: '집중 반응 #01', subtitle: '4-Lane Visual Reaction · Go / No-Go', number: 'Game #01', rules: ['D / F / J / K 또는 터치로 4개 레인을 조작합니다.', '파란 신호는 누르고, 빨간 ✕ 신호는 누르지 않습니다.', 'Life 3, Combo, 실제 경과시간 기반 판정입니다.'] }; }
 function Bonus({ rank, points }: { rank: string; points: string }) { return <div className="rounded-card-md border border-line bg-bg-card px-3 py-2"><span className="text-xs text-text-secondary">{rank}</span><b className="float-right text-gold">{points}</b></div>; }
 function LoadError({ detail, retry }: { detail: string; retry: () => void }) { return <div className="glass-card border-danger/40 p-5"><div className="font-black text-danger">Arcade 정보를 불러오지 못했습니다.</div><p className="mt-2 break-all text-xs text-text-secondary">{detail}</p><button className="btn-secondary mt-3" onClick={retry}>다시 시도</button></div>; }
 function formatElapsed(ms: number) { const seconds = Math.floor(ms / 1000); return `${Math.floor(seconds / 60)}분 ${String(seconds % 60).padStart(2, '0')}초`; }

@@ -50,6 +50,7 @@ export interface MvpFoundationStudentRow {
   specialty_english: boolean;
   specialty_science: boolean;
   specialty_pe: boolean;
+  operational_trust_pct: number | null;
   notes: string | null;
   input_updated_at?: string | null;
 }
@@ -157,6 +158,7 @@ function normalizeStudent(row: Record<string, unknown>): MvpFoundationStudentRow
     specialty_english: Boolean(row.specialty_english),
     specialty_science: Boolean(row.specialty_science),
     specialty_pe: Boolean(row.specialty_pe),
+    operational_trust_pct: nullableN(row.operational_trust_pct),
     notes: row.notes == null ? null : String(row.notes),
     input_updated_at: row.input_updated_at == null ? null : String(row.input_updated_at),
   };
@@ -207,10 +209,20 @@ export async function calculateMvpFoundationData(supabase: SupabaseClient, sessi
 }
 
 export async function getMvpFoundationSession(supabase: SupabaseClient, sessionId: number): Promise<MvpFoundationBoard> {
-  const { data, error } = await supabase.rpc('teacher_get_mvp_foundation_session', { p_session_id: sessionId });
-  if (error) throw error;
-  const raw = (data ?? {}) as Record<string, unknown>;
-  const students = Array.isArray(raw.students) ? raw.students.map((row) => normalizeStudent(row as Record<string, unknown>)) : [];
+  const [boardResult, trustResult] = await Promise.all([
+    supabase.rpc('teacher_get_mvp_foundation_session', { p_session_id: sessionId }),
+    supabase.rpc('teacher_get_mvp_foundation_operational_trust', { p_session_id: sessionId }),
+  ]);
+  if (boardResult.error) throw boardResult.error;
+  if (trustResult.error) throw trustResult.error;
+  const raw = (boardResult.data ?? {}) as Record<string, unknown>;
+  const trustByStudent = (trustResult.data ?? {}) as Record<string, unknown>;
+  const students = Array.isArray(raw.students)
+    ? raw.students.map((row) => {
+        const student = row as Record<string, unknown>;
+        return normalizeStudent({ ...student, operational_trust_pct: trustByStudent[String(student.student_id)] ?? null });
+      })
+    : [];
   return {
     session: raw.session as MvpFoundationSession,
     summary: (raw.summary ?? {}) as MvpFoundationSummary,
@@ -239,6 +251,19 @@ export async function saveMvpFoundationInput(
   });
   if (error) throw error;
   return n((data as Record<string, unknown> | null)?.candidate_count);
+}
+
+/** Manual teacher value, independent of assessment/title saves. NULL means not entered. */
+export async function saveMvpFoundationOperationalTrust(
+  supabase: SupabaseClient,
+  input: { sessionId: number; studentId: number; operationalTrustPct: number | null },
+): Promise<void> {
+  const { error } = await supabase.rpc('teacher_set_mvp_foundation_operational_trust', {
+    p_session_id: input.sessionId,
+    p_student_id: input.studentId,
+    p_pct: input.operationalTrustPct,
+  });
+  if (error) throw error;
 }
 
 export async function getMvpFoundationStudentDetail(

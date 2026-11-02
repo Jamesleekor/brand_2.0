@@ -1240,11 +1240,24 @@ function SeverityBadge({ severity }: { severity: unknown }) {
   return <span className={cn('inline-flex rounded-pill border px-1.5 py-0.5 text-[9px] font-black', tone)}>{String(severity ?? '-')}</span>;
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const e = error as Record<string, unknown>;
+    const message = typeof e.message === 'string' ? e.message : '';
+    const code = typeof e.code === 'string' ? ` [${e.code}]` : '';
+    if (message) return `${message}${code}`;
+    try { return JSON.stringify(error); } catch { return '알 수 없는 서버 오류'; }
+  }
+  return '알 수 없는 오류';
+}
+
 function ErrorBox({ error, retry }: { error: unknown; retry: () => void }) {
   return (
     <div className="rounded-card-lg border border-danger/40 bg-danger/10 p-3">
       <div className="text-xs font-black text-danger">데이터를 불러오지 못했습니다.</div>
-      <div className="mt-1 break-all text-2xs font-bold text-text-secondary">{error instanceof Error ? error.message : String(error ?? '알 수 없는 오류')}</div>
+      <div className="mt-1 break-all text-2xs font-bold text-text-secondary">{errorMessage(error)}</div>
       <button type="button" onClick={retry} className="mt-2 h-7 rounded-card-md border border-danger/30 px-2.5 text-2xs font-black text-danger">다시 시도</button>
     </div>
   );

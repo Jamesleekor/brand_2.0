@@ -898,7 +898,7 @@ function SiteCard({
         onClick={onStory}
         className="mt-3 w-full rounded-pill border border-line bg-bg-card/80 px-2.5 py-1.5 text-sm font-black text-[#FFF7ED] hover:border-brand-primary/40"
       >
-        탐사 기록 보기
+        탐사지 이야기 보기
       </button>
     </div>
   );
@@ -1090,13 +1090,13 @@ function RunResultCard({
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <MiniStat label="내가 남긴 흔적" value={`+${run.trace_contribution}`} />
             <MiniStat label="원정 인원" value="3명" />
-            <MiniStat label="탐사 기록" value={run.record?.discovery?.new_permanent_unlock ? '새 발굴!' : '확인 완료'} />
+            <MiniStat label="숨겨진 비밀" value={run.record?.discovery?.new_permanent_unlock ? '새 비밀!' : run.record?.discovery?.success ? '발견 성공' : run.record?.discovery?.attempted ? '미발견' : '기록 없음'} />
           </div>
 
           {run.record?.discovery?.new_permanent_unlock && (
             <div className="mt-3 flex items-center gap-2 rounded-card-md border border-gold/40 bg-gold/10 px-3 py-2 text-sm font-black text-gold">
               <img src={EXPEDITION_ASSETS.common.discoverySuccess} alt="" className="h-7 w-7 flex-none object-contain" decoding="async" />
-              <span>새 발굴 기록이 해금되었습니다 · {run.record.discovery.title}</span>
+              <span>숨겨진 비밀을 발견했습니다 · {run.record.discovery.title}</span>
             </div>
           )}
         </div>
@@ -1642,7 +1642,7 @@ function StoryModal({ story, onClose }: { story: ExpeditionSiteStory; onClose: (
               <img src={getExpeditionSiteAsset(story.site_code) ?? undefined} alt="" className="h-14 w-16 flex-none rounded-card-md object-cover" loading="lazy" decoding="async" />
             )}
             <div className="min-w-0">
-              <div className="text-sm font-black uppercase tracking-[0.14em] text-[#FFD58A]">탐사 기록</div>
+              <div className="text-sm font-black uppercase tracking-[0.14em] text-[#FFD58A]">탐사지 이야기</div>
               <h3 className="mt-1 truncate font-display text-2xl text-[#FFF7ED]">{story.site_name}</h3>
               <div className="mt-1 text-sm font-bold text-[#F6EFE7]">누적 흔적 {story.cumulative_trace} · {story.highest_story_stage_label} · {story.mastery_label}</div>
             </div>
@@ -1679,13 +1679,13 @@ function StoryModal({ story, onClose }: { story: ExpeditionSiteStory; onClose: (
 
           <div className="grid gap-3 md:grid-cols-2">
             <RecordBlock
-              title="현장 기록"
+              title="탐사 일지"
               unlocked={story.field_record.unlocked}
               recordTitle={story.field_record.title}
               text={story.field_record.text}
             />
             <RecordBlock
-              title="발굴 기록"
+              title="숨겨진 비밀"
               unlocked={story.discovery_record.unlocked}
               recordTitle={story.discovery_record.title}
               text={story.discovery_record.text}
@@ -1711,6 +1711,7 @@ function RecordBlock({
   return (
     <div className={cn('rounded-card-lg border p-4', unlocked ? 'border-gold/30 bg-gold/5' : 'border-line bg-bg-deep/45')}>
       <div className="text-sm font-black uppercase tracking-[0.13em] text-[#FFD58A]">{title}</div>
+      <p className="mt-1 text-xs font-semibold text-[#F6EFE7]">{title === '탐사 일지' ? '방문하면 확인하는 지역 이야기' : '발굴에 성공해야 얻는 특별한 이야기'}</p>
       {unlocked ? (
         <>
           <div className="mt-2 text-sm font-black text-[#FFF7ED]">{recordTitle}</div>
@@ -1720,7 +1721,7 @@ function RecordBlock({
         <div className="mt-2 flex items-center gap-2">
           <img src={EXPEDITION_ASSETS.chronicleRecordLocked} alt="" className="h-9 w-9 flex-none object-contain opacity-70" loading="lazy" decoding="async" />
           <p className="text-sm font-semibold text-[#F6EFE7]">
-            {title === '현장 기록' ? '이 지역에 직접 원정을 보내면 확인할 수 있습니다.' : '원정 중 발견하면 영구적으로 기록됩니다.'}
+            {title === '탐사 일지' ? '이 지역에 원정대를 한 번 보내면 열립니다.' : '원정 중 발굴에 성공하면 영구 해금됩니다.'}
           </p>
         </div>
       )}

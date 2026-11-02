@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LoadingSpinner, Modal } from '@/components/shared/components';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { ExpeditionLuxuryAdmin } from '@/features/teacher/ExpeditionLuxuryAdmin';
+import { ExpeditionStudentHistoryPanel } from '@/features/teacher/ExpeditionStudentHistoryPanel';
 import {
   expeditionAdminRpc,
   type ExpeditionAdminBoard,
@@ -490,6 +491,7 @@ export default function ExpeditionAdminPage() {
               search={search}
               setSearch={setSearch}
             />
+            {classroomId !== null && <ExpeditionStudentHistoryPanel classroomId={classroomId} />}
             {classroomId && <ExpeditionLuxuryAdmin classroomId={classroomId} />}
           </main>
 

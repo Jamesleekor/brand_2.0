@@ -100,11 +100,58 @@ export function RaidResultModal({
             )
           ) : (
             <>
+              <RaidFinisherCard result={result} />
               {/* RAID_LOOT_V1_2_RESULT_SECTION_20261018: 공개된 전리품만 표시 */}
               {result.raid.status === 'COMPLETED' || result.raid.status === 'ARCHIVED' ? <RaidLootResultSection raidId={raidId} /> : null}
               {tab === 'ranking' ? <RankingTable result={result} /> : <MyBattleRecord result={result} />}
             </>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RaidFinisherCard({ result }: { result: RaidResult }) {
+  const finisher = result.finisher;
+  if (!finisher) {
+    if (result.raid.status !== 'COMPLETED' && result.raid.status !== 'ARCHIVED') return null;
+    return (
+      <div className="mb-4 rounded-card-lg border border-white/15 bg-white/5 p-4">
+        <div className="text-xs font-black tracking-[0.14em] text-yellow-100">⚔ 최후의 일격</div>
+        <div className="mt-1 text-sm font-bold text-cyan-100">기록을 확인할 수 없습니다.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4 rounded-card-lg border border-yellow-300/35 bg-yellow-400/10 p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        {finisher.equipped_character_image_url ? (
+          <img
+            src={finisher.equipped_character_image_url}
+            alt=""
+            className="h-12 w-12 rounded-full border border-yellow-200/40 bg-black/25 object-cover"
+          />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-yellow-200/30 bg-black/25 text-2xl">⚔</div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-xs font-black tracking-[0.14em] text-yellow-100">최후의 일격</div>
+          <div className="mt-0.5 truncate text-base font-black text-white">
+            {finisher.brand_name || finisher.name}
+          </div>
+          <div className="mt-0.5 text-xs font-bold text-cyan-100">
+            {finisher.guild_name || '무소속'}
+            {finisher.equipped_character_name ? ` · ${finisher.equipped_character_name}` : ''}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="text-[10px] font-black text-yellow-100">마지막 피해</div>
+          <div className="mt-0.5 font-mono text-lg font-black text-white">
+            {formatNumber(finisher.damage)}
+            {finisher.crit ? <span className="ml-1 text-yellow-200">CRIT</span> : null}
+          </div>
         </div>
       </div>
     </div>

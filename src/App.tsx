@@ -13,6 +13,7 @@ import DashboardPage from '@/features/dashboard/DashboardPage';
 import WalletPage from '@/features/wallet/WalletPage';
 import ProfilePage from '@/features/profile/ProfilePage';
 import AchievementPage from '@/features/achievement/AchievementPage';
+import PrimaryJobArchivePage from '@/features/primary-job/PrimaryJobArchivePage';
 import AchievementHelperPage from '@/features/achievement/AchievementHelperPage';
 import CharacterCollectionPage from '@/features/character/CharacterCollectionPage';
 import DimensionalGatePage from '@/features/character/DimensionalGatePage';
@@ -20,6 +21,7 @@ import MarketPage from '@/features/market/MarketPage';
 import BakeryPage from '@/features/bakery/BakeryPage';
 import EconomyGuardPage from '@/features/guard/EconomyGuardPage';
 import DailyQuestManagerPage from '@/features/daily-quest/DailyQuestManagerPage';
+import HomeworkManagerPage from '@/features/homework/HomeworkManagerPage';
 import SavingsBankPage from '@/features/savings/SavingsBankPage';
 import GuildPage from '@/features/guild/GuildPage';
 import GuildAdmin from '@/features/guild/GuildAdmin';
@@ -140,6 +142,7 @@ export default function App() {
           path="/achievement/helper"
           element={<AppShell><AchievementHelperPage /></AppShell>}
         />
+        <Route path="/primary-jobs" element={<AppShell><PrimaryJobArchivePage /></AppShell>} />
         <Route 
           path="/profile" 
           element={<AppShell><ProfilePage /></AppShell>} 
@@ -158,6 +161,7 @@ export default function App() {
         <Route path="/market/history" element={<AppShell><MarketPage /></AppShell>} />
         <Route path="/bakery" element={<AppShell hideBottomNav><BakeryPage /></AppShell>} />
         <Route path="/daily-quest" element={<AppShell hideBottomNav><DailyQuestManagerPage /></AppShell>} />
+        <Route path="/homework-manager" element={<AppShell hideBottomNav><HomeworkManagerPage /></AppShell>} />
         <Route path="/newbie-support" element={<AppShell hideBottomNav><NewbieSupportPage /></AppShell>} />
         <Route 
           path="/market/auction" 
@@ -253,6 +257,7 @@ export default function App() {
         <Route path="/teacher/bank" element={<SavingsBankAdmin />} />
         <Route path="/teacher/primary-jobs" element={<PrimaryJobAdmin />} />
         <Route path="/teacher/daily-quests" element={<DailyQuestSettlementAdmin />} />
+        <Route path="/teacher/homework" element={<TeacherShell><HomeworkManagerPage /></TeacherShell>} />
         <Route path="/teacher/newbie-support" element={<NewbieSupportAdmin />} />
         <Route path="/teacher/secondary-jobs" element={<SecondaryJobAdmin />} />
         <Route path="/teacher/secondary-jobs/public-requests" element={<SecondaryJobPublicRequestAdmin />} />

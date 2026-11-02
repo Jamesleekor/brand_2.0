@@ -1,6 +1,7 @@
 node_modules
 dist
 .tikatuka-test-build
+.starlink-test-build
 .env.local
 *.log
 
@@ -43,3 +44,6 @@ Thumbs.db
 # Adventurer toolbox load tester (credentials/results never commit)
 tools/toolbox-load-tester/TOOLBOX_LOAD_TEST_CREDENTIALS.csv
 tools/toolbox-load-tester/results/
+tools/starlink-browser-harness/bundle.js
+tools/starlink-browser-harness/out/
+supabase/tests/starlink_04_replica_e2e_last_run.json

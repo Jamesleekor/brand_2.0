@@ -8,7 +8,15 @@ async function rpcJson(
   args: Record<string, unknown>,
 ): Promise<AnalyticsJson> {
   const { data, error } = await supabase.rpc(functionName, args);
-  if (error) throw error;
+  if (error) {
+    const code = error.code ? ` [${error.code}]` : '';
+    const details = [error.message, error.details].filter(Boolean).join(' · ');
+    const isTimeout = /statement timeout|canceling statement/i.test(details);
+    const message = isTimeout
+      ? '통계 집계가 시간 제한을 초과했습니다. 잠시 후 다시 시도하거나 관리자에게 알려주세요.'
+      : (details || '통계 데이터를 불러오지 못했습니다.');
+    throw new Error(`${message}${code} · ${functionName}`);
+  }
   return (data ?? {}) as AnalyticsJson;
 }
 

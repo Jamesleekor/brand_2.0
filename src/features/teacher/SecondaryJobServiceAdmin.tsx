@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
@@ -43,8 +43,10 @@ export default function SecondaryJobServiceAdmin(){
   const queryClient=useQueryClient();
   const {call,isLoading}=useRpcCall();
 
-  const [section,setSection]=useState<'ORDERS'|'ADS'>('ORDERS');
-  const [filter,setFilter]=useState<'ALL'|'ACTIVE'|'DISPUTED'|'DONE'>('ACTIVE');
+  const [section,setSection]=useState<'ORDERS'|'ADS'>(()=>new URLSearchParams(window.location.search).get('section')==='ADS'?'ADS':'ORDERS');
+  const [filter,setFilter]=useState<'ALL'|'ACTIVE'|'DISPUTED'|'DONE'>(()=>new URLSearchParams(window.location.search).get('filter')==='DISPUTED'?'DISPUTED':'ACTIVE');
+  const targetItemId = new URLSearchParams(window.location.search).get('item');
+  const targetWasScrolled = useRef(false);
   const [resolve,setResolve]=useState<{order:TeacherServiceOrder;action:'REFUND'|'PAY_SELLER'}|null>(null);
   const [reason,setReason]=useState('');
   const [adReview,setAdReview]=useState<{ad:TeacherServiceAd;action:'APPROVE'|'REJECT'}|null>(null);
@@ -73,6 +75,12 @@ export default function SecondaryJobServiceAdmin(){
     staleTime:10_000,
     refetchInterval:30_000,
   });
+
+  useEffect(()=>{
+    if (targetWasScrolled.current || !targetItemId || (!board.data && !adBoard.data)) return;
+    const id = (section==='ADS' ? 'teacher-ad-' : 'teacher-order-') + targetItemId;
+    requestAnimationFrame(()=>{ const node=document.getElementById(id); if(node){node.scrollIntoView({behavior:'smooth',block:'center'});targetWasScrolled.current=true;} });
+  },[targetItemId,section,board.data,adBoard.data]);
 
   const refresh=()=>{
     void queryClient.invalidateQueries({queryKey:['teacher-secondary-job-service-orders']});
@@ -163,7 +171,7 @@ export default function SecondaryJobServiceAdmin(){
       {board.isLoading?<div className="py-10 flex justify-center"><LoadingSpinner size="lg"/></div>:
         board.isError?<EmptyState emoji="⚠️" title="거래 목록을 불러오지 못했습니다" description={board.error instanceof Error?board.error.message:undefined}/>:
         !items.length?<EmptyState emoji="📭" title="해당 거래가 없습니다"/>:
-        <div className="space-y-2.5">{items.map(o=><div key={o.id} className={cn('bg-bg-card border rounded-card-md p-4',o.status==='DISPUTED'?'border-danger/50':'border-line')}>
+        <div className="space-y-2.5">{items.map(o=><div key={o.id} id={'teacher-order-'+o.id} className={cn('bg-bg-card border rounded-card-md p-4',o.status==='DISPUTED'?'border-danger/50':'border-line',targetItemId===String(o.id)&&'ring-2 ring-gold/50')}>
           <div className="flex flex-wrap justify-between gap-3">
             <div>
               <div className="text-2xs text-text-muted">주문 #{o.id} · {o.job_name}</div>
@@ -216,7 +224,7 @@ export default function SecondaryJobServiceAdmin(){
         adBoard.isError?<EmptyState emoji="⚠️" title="광고 신청 목록을 불러오지 못했습니다" description={adBoard.error instanceof Error?adBoard.error.message:undefined}/>:
         !(adBoard.data?.ads.length)?<EmptyState emoji="📭" title="광고 신청 이력이 없습니다"/>:
         <div className="space-y-2.5">
-          {adBoard.data.ads.map((ad)=><div key={ad.id} className={cn('rounded-card-md border bg-bg-card p-4',ad.status==='PENDING'?'border-gold/45':'border-line')}>
+          {adBoard.data.ads.map((ad)=><div key={ad.id} id={'teacher-ad-'+ad.id} className={cn('rounded-card-md border bg-bg-card p-4',ad.status==='PENDING'?'border-gold/45':'border-line',targetItemId===String(ad.id)&&'ring-2 ring-gold/50')}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="text-2xs font-black text-brand-glow">{ad.job_name} · 광고 #{ad.id}</div>

@@ -424,9 +424,11 @@ export function PrimaryJobCard({ jobName, dailyWage, className }: PrimaryJobCard
       whileTap={{ scale: 0.98 }}
       className={cnDashboardCard(className)}
     >
+      <Link to="/primary-jobs" className="absolute inset-0 z-10 rounded-card-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-bv" aria-label="나의 1인1역과 전체 역할 기록 보기" />
       <div className="flex items-center gap-1.5 mb-1.5">
         <span className="text-sm">🧑‍💼</span>
         <span className="text-sm text-white/90 font-extrabold tracking-tight">나의 1인1역</span>
+        <span className="ml-auto text-sm text-white/90" aria-hidden="true">›</span>
       </div>
       <div className="truncate text-sm font-black text-white" title={jobName ?? undefined}>
         {hasAssignment ? jobName : '배정 없음'}
@@ -434,6 +436,11 @@ export function PrimaryJobCard({ jobName, dailyWage, className }: PrimaryJobCard
       <div className="mt-1 text-sm font-black text-gold">
         {hasAssignment && dailyWage != null ? `일급 ${formatNumber(dailyWage)} GOLD` : '일급 -'}
       </div>
+      {Boolean(jobName && /제출\s*관리(관|자)/.test(jobName)) && (
+        <Link to="/homework-manager" className="mt-2 inline-flex rounded-md border border-gold/40 bg-gold/10 px-2.5 py-1.5 text-xs font-black text-gold" onClick={e=>e.stopPropagation()}>
+          📜 과제 검수대 열기 →
+        </Link>
+      )}
     </motion.div>
   );
 }

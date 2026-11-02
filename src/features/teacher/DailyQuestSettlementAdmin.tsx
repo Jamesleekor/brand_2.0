@@ -48,7 +48,7 @@ const LEGACY_KEY = 'daily-quest-s3-teacher-legacy-archive';
 export default function DailyQuestSettlementAdmin() {
   const queryClient = useQueryClient();
   const today = seoulDateString();
-  const [date, setDate] = useState(today);
+  const [date, setDate] = useState(() => { const requested = new URLSearchParams(window.location.search).get('date'); return requested && /^\d{4}-\d{2}-\d{2}$/.test(requested) && requested <= today ? requested : today; });
   const [showAll, setShowAll] = useState(false);
   const [overrideTarget, setOverrideTarget] = useState<{ student: DailyQuestTeacherStudent; check: DailyQuestCheck } | null>(null);
   const [overrideResult, setOverrideResult] = useState<'PASS' | 'FAIL'>('PASS');

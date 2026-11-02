@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
@@ -55,6 +55,7 @@ export default function SecondaryJobPublicRequestAdmin() {
   const [reviewFeedback, setReviewFeedback] = useState('');
   const [cancelAssignment, setCancelAssignment] = useState<TeacherPublicAssignment | null>(null);
   const [assignmentCancelReason, setAssignmentCancelReason] = useState('');
+  const openedDeepLink = useRef(false);
 
   const board = useQuery<TeacherPublicBoard>({
     queryKey: ['teacher-secondary-job-public-board', classroomId], enabled: classroomId !== null,
@@ -76,6 +77,13 @@ export default function SecondaryJobPublicRequestAdmin() {
     ];
     return () => { channels.forEach((ch) => void supabase.removeChannel(ch)); };
   }, [classroomId, queryClient]);
+
+  useEffect(() => {
+    if (openedDeepLink.current || !board.data) return;
+    const id = Number(new URLSearchParams(window.location.search).get('assignment'));
+    const found = id > 0 ? board.data.assignments.find(a => a.id === id && a.status === 'SUBMITTED') : null;
+    if (found) { openedDeepLink.current = true; setReviewing(found); setReviewAction('APPROVE'); setReviewFeedback(''); }
+  }, [board.data]);
 
   const requests = board.data?.requests ?? [];
   const assignments = board.data?.assignments ?? [];
