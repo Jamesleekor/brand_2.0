@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>영토 세율 정산판</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Myeongjo:wght@700;800&display=swap" rel="stylesheet">
+<style>
+/* 레이아웃: 밤의 작전 지도 위에 세 거점 카드를 나란히 놓고, 아래에 길드별 손익 장부를 둔다. 프로젝터용 단일 다크 테마. */
+:root{
+  --ink:#0a1020;
+  --panel:#111a2e;
+  --panel-2:#17233c;
+  --line:rgba(243,236,220,.13);
+  --text:#f6efe0;
+  --text-2:#e2d6bc;
+  --gold:#f2c14e;
+  --good:#7fe3a9;
+  --bad:#ff8f86;
+  --warn:#ffd36e;
+  --display:"Nanum Myeongjo","Batang",serif;
+  --latin:"Cinzel","Times New Roman",serif;
+  --body:"IBM Plex Sans KR","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--ink);color:var(--text);font-family:var(--body);font-size:clamp(14px,.9vw,18px);line-height:1.55}
+body{
+  min-height:100%;
+  background:
+    radial-gradient(1200px 520px at 50% -180px, rgba(242,193,78,.10), transparent 70%),
+    radial-gradient(900px 600px at 0% 100%, rgba(90,184,255,.07), transparent 70%),
+    repeating-linear-gradient(0deg, rgba(243,236,220,.025) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(90deg, rgba(243,236,220,.025) 0 1px, transparent 1px 64px),
+    var(--ink);
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px;border-radius:8px}
+.num{font-variant-numeric:tabular-nums}
+.app{width:min(1840px,100%);margin:0 auto;padding:clamp(16px,2.2vw,40px)}
+
+/* 머리 */
+.top{display:flex;flex-wrap:wrap;gap:20px 32px;align-items:flex-end;justify-content:space-between}
+.title-block{display:flex;gap:18px;align-items:center;min-width:0}
+.crest{width:64px;height:64px;flex:0 0 auto}
+.eyebrow{font-family:var(--latin);font-weight:800;letter-spacing:.22em;font-size:.78rem;color:var(--gold)}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,2.6vw,52px);line-height:1.12;margin:4px 0 4px;letter-spacing:-.02em;text-wrap:balance}
+.sub{color:var(--text-2);margin:0;font-size:.95rem}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+.tab,.tool{border:1px solid var(--line);background:rgba(17,26,46,.8);padding:10px 16px;border-radius:999px;font-weight:600;color:var(--text)}
+.tab[aria-current="page"]{background:var(--gold);color:#1b1404;border-color:var(--gold)}
+.tool:hover,.tab:hover{border-color:rgba(242,193,78,.6)}
+.tool.danger-armed{border-color:var(--bad);color:var(--bad)}
+
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:22px}
+.kpi{background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line);border-radius:16px;padding:14px 18px}
+.kpi .k{font-size:.82rem;color:var(--text-2);font-weight:600}
+.kpi .v{font-family:var(--latin);font-weight:800;font-size:clamp(22px,1.9vw,36px);margin-top:2px}
+.kpi .v small{font-family:var(--body);font-size:.5em;color:var(--text-2);margin-left:4px;font-weight:600}
+.kpi.hi .v{color:var(--gold)}
+
+.view{display:none;margin-top:22px}
+.view.on{display:block}
+
+/* 거점 카드 */
+.terr-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.terr{position:relative;border:1px solid var(--line);border-radius:22px;background:linear-gradient(180deg,rgba(23,35,60,.96),rgba(12,19,34,.98));padding:18px 18px 16px;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.terr:before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--tc)}
+.terr.vacant{opacity:.92}
+.terr-head{display:flex;gap:14px;align-items:center}
+.emblem{width:58px;height:58px;flex:0 0 auto;border-radius:14px;display:grid;place-items:center;background:color-mix(in srgb,var(--tc) 14%,transparent);border:1px solid color-mix(in srgb,var(--tc) 40%,transparent)}
+.emblem svg{width:40px;height:40px}
+.terr-name{font-family:var(--display);font-weight:800;font-size:clamp(22px,1.7vw,32px);line-height:1.1}
+.terr-cat{color:var(--text-2);font-size:.86rem;margin-top:2px}
+.fund{margin-left:auto;text-align:right}
+.fund .k{font-size:.75rem;color:var(--text-2)}
+.fund .v{font-family:var(--latin);font-weight:800;font-size:1.35rem;color:var(--tc)}
+.fund .d{font-size:.72rem;color:var(--text-2)}
+
+.owner{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(10,16,32,.6);border:1px solid var(--line)}
+.owner label{font-size:.78rem;color:var(--text-2);white-space:nowrap}
+.owner select{flex:1;min-width:0;background:transparent;border:0;font-weight:700;font-size:1.05rem;padding:4px 0}
+.owner select option{background:var(--panel);color:var(--text)}
+.owner .swatch{width:12px;height:12px;border-radius:4px;flex:0 0 auto}
+
+.rate-box{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px}
+.step-btn{width:46px;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--panel);font-size:1.4rem;font-weight:700}
+.step-btn:disabled{opacity:.35;cursor:not-allowed}
+.rate-big{text-align:center}
+.rate-big .k{font-size:.78rem;color:var(--text-2)}
+.rate-big .v{font-family:var(--latin);font-weight:800;font-size:clamp(40px,3.6vw,68px);line-height:1;color:var(--tc)}
+.rate-big .v small{font-size:.45em}
+.lock{font-size:.74rem;color:var(--warn);margin-top:2px;min-height:1.1em}
+input[type=range]{width:100%;accent-color:var(--tc);height:28px}
+.ticks{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:-4px}
+.tick{text-align:center;font-size:.72rem;color:var(--text-2);padding:4px 0;border-radius:8px}
+.tick b{display:block;font-family:var(--latin);font-size:.95rem;color:var(--text)}
+.tick.on{background:color-mix(in srgb,var(--tc) 16%,transparent);color:var(--text)}
+.ticks-cap{font-size:.72rem;color:var(--text-2);text-align:center}
+
+.who{display:flex;flex-direction:column;gap:6px}
+.who-title{display:flex;justify-content:space-between;font-size:.8rem;color:var(--text-2);font-weight:600}
+.stack{display:flex;height:14px;border-radius:999px;overflow:hidden;background:rgba(243,236,220,.07)}
+.stack span{display:block;height:100%;transition:width .35s ease}
+.rows{display:grid;gap:3px}
+.row{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:8px;align-items:center;font-size:.86rem;padding:3px 2px}
+.row .dot{width:10px;height:10px;border-radius:3px}
+.row .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .nm em{font-style:normal;font-size:.7rem;padding:1px 6px;border-radius:999px;margin-left:6px;border:1px solid var(--line);color:var(--text-2)}
+.row .nm em.own{border-color:var(--tc);color:var(--tc)}
+.row .nm em.obj{border-color:var(--bad);color:var(--bad)}
+.row .rt{color:var(--text-2);font-size:.78rem;text-align:right;min-width:4.6em}
+.row .tx{font-weight:700;text-align:right;min-width:5.4em}
+
+.result{border-radius:16px;padding:14px;background:color-mix(in srgb,var(--tc) 9%,rgba(10,16,32,.7));border:1px solid color-mix(in srgb,var(--tc) 35%,transparent);display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center}
+.result .k{font-size:.76rem;color:var(--text-2)}
+.result .v{font-family:var(--latin);font-weight:800;font-size:clamp(22px,1.7vw,32px);line-height:1.1}
+.result .per .v{color:var(--gold);font-size:clamp(26px,2.1vw,40px)}
+.result .op{font-family:var(--latin);font-size:1.3rem;color:var(--text-2);text-align:center}
+.result .foot{grid-column:1/-1;font-size:.78rem;color:var(--text-2);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.vacant-msg{padding:22px 14px;border-radius:14px;border:1px dashed var(--line);text-align:center;color:var(--text-2)}
+
+.obj-bar{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;padding-top:2px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:.78rem;font-weight:700;border:1px solid var(--line);color:var(--text-2)}
+.chip.pending{border-color:var(--warn);color:var(--warn)}
+.chip.passed{border-color:var(--good);color:var(--good)}
+.chip.rejected{border-color:var(--bad);color:var(--bad)}
+.link-btn{background:none;border:1px solid var(--line);padding:6px 12px;border-radius:999px;font-size:.8rem;font-weight:600}
+.link-btn:hover{border-color:var(--gold);color:var(--gold)}
+
+/* 장부 */
+.ledger{margin-top:18px;border:1px solid var(--line);border-radius:22px;background:rgba(17,26,46,.85);padding:18px}
+.ledger-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.ledger-head h2{font-family:var(--display);font-weight:800;margin:0;font-size:clamp(20px,1.5vw,28px)}
+.ledger-head p{margin:0;color:var(--text-2);font-size:.82rem}
+.ledger-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
+.gtile{border-radius:16px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--gc)}
+.gtile .nm{font-weight:700;font-size:1.05rem}
+.gtile .meta{font-size:.76rem;color:var(--text-2)}
+.gline{display:flex;justify-content:space-between;font-size:.84rem;margin-top:6px}
+.gline span:first-child{color:var(--text-2)}
+.gnet{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline}
+.gnet .v{font-family:var(--latin);font-weight:800;font-size:1.35rem}
+.pos{color:var(--good)} .neg{color:var(--bad)} .zero{color:var(--text)}
+.footnote{margin-top:14px;font-size:.78rem;color:var(--text-2)}
+
+/* 투표 */
+.ballot{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:16px}
+.panel{border:1px solid var(--line);border-radius:22px;background:linear-gradient(180deg,rgba(23,35,60,.96),rgba(12,19,34,.98));padding:20px}
+.panel h2{font-family:var(--display);font-weight:800;margin:0 0 4px;font-size:clamp(22px,1.7vw,32px)}
+.panel .lead{color:var(--text-2);margin:0 0 14px;font-size:.88rem}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.seg button{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:10px;text-align:left}
+.seg button[aria-pressed="true"]{border-color:var(--tc);background:color-mix(in srgb,var(--tc) 14%,var(--panel))}
+.seg button b{display:block;font-family:var(--display);font-size:1.05rem}
+.seg button span{font-size:.74rem;color:var(--text-2)}
+.field{margin-top:14px}
+.field > label{display:block;font-size:.8rem;color:var(--text-2);font-weight:600;margin-bottom:6px}
+.field select,.field input[type=number],.field input[type=text]{width:100%;height:46px;border-radius:12px;border:1px solid var(--line);background:#0d1527;padding:0 12px;font-weight:600}
+.counter{display:grid;grid-template-columns:56px 1fr 56px;gap:8px;align-items:center}
+.counter .step-btn{width:56px;height:56px}
+.counter output{font-family:var(--latin);font-weight:800;font-size:clamp(40px,3.4vw,64px);text-align:center;line-height:1}
+.meter{position:relative;height:12px;border-radius:999px;background:rgba(243,236,220,.08);margin-top:10px}
+.meter span{position:absolute;inset:0 auto 0 0;border-radius:999px;background:linear-gradient(90deg,#4fbf86,var(--good));transition:width .25s}
+.meter i{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--gold)}
+.meter-cap{display:flex;justify-content:space-between;font-size:.78rem;color:var(--text-2);margin-top:8px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.btn{height:48px;border-radius:14px;border:1px solid var(--line);background:var(--panel);padding:0 18px;font-weight:700}
+.btn.primary{background:var(--gold);color:#1b1404;border-color:var(--gold);flex:1}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;position:relative}
+.case{border-radius:18px;border:1px solid var(--line);padding:16px;background:rgba(10,16,32,.55);transition:opacity .3s,border-color .3s}
+.case.win{border-color:var(--cc);box-shadow:0 0 0 1px var(--cc) inset}
+.case.lose{opacity:.42}
+.case h3{margin:0;font-size:.95rem;color:var(--cc)}
+.case .cond{font-size:.78rem;color:var(--text-2)}
+.cline{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;gap:8px}
+.cline span:first-child{font-size:.82rem;color:var(--text-2)}
+.cline b{font-family:var(--latin);font-size:1.3rem}
+.cline.big b{font-size:clamp(26px,2vw,38px);color:var(--gold)}
+.stamp{position:absolute;left:var(--sx,50%);top:50%;transform:translate(-50%,-50%) rotate(-8deg) scale(1);font-family:var(--display);font-weight:800;font-size:clamp(44px,4.4vw,84px);padding:4px 28px;border:6px solid currentColor;border-radius:18px;background:rgba(10,16,32,.82);pointer-events:none;letter-spacing:.08em}
+.stamp.pass{color:var(--good)} .stamp.fail{color:var(--bad)}
+.stamp.anim{animation:stamp .5s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes stamp{from{transform:translate(-50%,-50%) rotate(-8deg) scale(2.4);opacity:0}to{transform:translate(-50%,-50%) rotate(-8deg) scale(1);opacity:1}}
+.verdict{margin-top:14px;padding:14px 16px;border-radius:14px;font-weight:700;font-size:.95rem;border:1px solid var(--line)}
+.verdict.pass{border-color:var(--good);color:var(--good);background:rgba(127,227,169,.07)}
+.verdict.fail{border-color:var(--bad);color:var(--bad);background:rgba(255,143,134,.07)}
+.verdict.wait{color:var(--text-2)}
+.empty{padding:30px;text-align:center;color:var(--text-2);border:1px dashed var(--line);border-radius:16px}
+
+/* 규칙 */
+.rules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.rule{border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:18px}
+.rule .no{font-family:var(--latin);color:var(--gold);font-weight:800;letter-spacing:.14em;font-size:.8rem}
+.rule h3{font-family:var(--display);font-size:1.25rem;margin:6px 0 6px}
+.rule p{margin:0;color:var(--text-2);font-size:.9rem}
+.rule p b{color:var(--text)}
+.formula{margin-top:14px;border:1px dashed rgba(242,193,78,.4);border-radius:16px;padding:16px 18px;background:rgba(242,193,78,.05)}
+.formula h3{margin:0 0 6px;font-family:var(--display)}
+.formula p{margin:4px 0;color:var(--text-2)}
+.formula code{font-family:var(--body);color:var(--text);font-weight:700}
+
+/* 편집기 */
+.modal{position:fixed;inset:0;background:rgba(4,7,14,.78);display:none;align-items:flex-start;justify-content:center;padding:24px;z-index:20;overflow:auto}
+.modal.on{display:flex}
+.sheet{width:min(1200px,100%);background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:22px}
+.sheet h2{font-family:var(--display);margin:0}
+.sheet .lead{color:var(--text-2);margin:4px 0 14px;font-size:.88rem}
+.sheet h3{font-size:1rem;margin:18px 0 8px;color:var(--gold)}
+.grid-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.grid-form label{display:flex;flex-direction:column;gap:4px;font-size:.78rem;color:var(--text-2);font-weight:600}
+.grid-form input{height:40px;border-radius:10px;border:1px solid var(--line);background:#0d1527;padding:0 10px;font-weight:600}
+.check{flex-direction:row!important;align-items:center;gap:8px!important;font-size:.88rem!important;color:var(--text)!important}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px}
+table.ed{border-collapse:collapse;width:100%;min-width:940px;font-size:.84rem}
+table.ed th,table.ed td{padding:6px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+table.ed th{color:var(--text-2);font-weight:600;background:#0d1527}
+table.ed input{width:100%;height:36px;border-radius:8px;border:1px solid var(--line);background:#0d1527;padding:0 8px;font-weight:600}
+table.ed input[type=color]{padding:2px;width:44px}
+table.ed input.n{width:84px}
+table.ed input.s{width:64px}
+textarea{width:100%;min-height:140px;border-radius:12px;border:1px solid var(--line);background:#0d1527;padding:10px;font-family:ui-monospace,Consolas,monospace;font-size:.78rem}
+.msg{min-height:1.4em;font-size:.86rem;margin-top:8px}
+.msg.ok{color:var(--good)} .msg.err{color:var(--bad)}
+
+@media (max-width:1180px){
+  .terr-grid{grid-template-columns:1fr}
+  .ballot{grid-template-columns:1fr}
+  .rules{grid-template-columns:1fr 1fr}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:560px){
+  .rules,.compare{grid-template-columns:1fr}
+  .seg{grid-template-columns:1fr}
+  .result{grid-template-columns:1fr}
+  .result .op{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="title-block">
+      <svg class="crest" viewBox="0 0 64 64" aria-hidden="true">
+        <path d="M32 3 L57 12 V30 C57 45 46 56 32 61 C18 56 7 45 7 30 V12 Z" fill="#17233c" stroke="#f2c14e" stroke-width="2.5"/>
+        <path d="M14 40 L23 26 L29 35 L36 22 L50 40 Z" fill="none" stroke="#f2c14e" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="32" cy="15" r="3" fill="#f2c14e"/>
+      </svg>
+      <div style="min-width:0">
+        <div class="eyebrow">B.R.A.N.D 2.0 · TERRITORY TREASURY</div>
+        <h1 id="pageTitle">영토 세율 정산</h1>
+        <p class="sub" id="pageSub"></p>
+      </div>
+    </div>
+    <nav class="toolbar" aria-label="화면 이동">
+      <button class="tab" data-view="settle" id="tab-settle" type="button">영토 정산</button>
+      <button class="tab" data-view="ballot" id="tab-ballot" type="button">이의 제기 투표</button>
+      <button class="tab" data-view="rules" id="tab-rules" type="button">규칙</button>
+      <button class="tool" id="btnEdit" type="button">데이터 편집</button>
+      <button class="tool" id="btnReset" type="button">진행 초기화</button>
+      <button class="tool" id="btnFull" type="button">전체 화면</button>
+    </nav>
+  </header>
+
+  <section class="kpis" aria-label="이번 달 요약">
+    <div class="kpi"><div class="k">세 거점 경매대금</div><div class="v num"><span id="kFund">0</span><small>G</small></div></div>
+    <div class="kpi"><div class="k">확정 세수 합계</div><div class="v num"><span id="kTax">0</span><small>G</small></div></div>
+    <div class="kpi hi"><div class="k">점령 길드원에게 분배</div><div class="v num"><span id="kPaid">0</span><small>G</small></div></div>
+    <div class="kpi"><div class="k">운영국 회수</div><div class="v num"><span id="kKept">0</span><small>G</small></div></div>
+  </section>
+
+  <section class="view" id="view-settle" aria-label="영토 정산">
+    <div class="terr-grid" id="terrGrid"></div>
+    <section class="ledger" aria-label="길드별 손익">
+      <div class="ledger-head">
+        <h2>길드별 손익 장부</h2>
+        <p>낸 세금은 세 거점 합계, 받는 분배는 점령한 거점에서 길드원 모두가 받는 몫의 합계입니다.</p>
+      </div>
+      <div class="ledger-grid" id="ledgerGrid"></div>
+      <p class="footnote" id="footnote"></p>
+    </section>
+  </section>
+
+  <section class="view" id="view-ballot" aria-label="이의 제기 투표">
+    <div class="ballot">
+      <div class="panel" id="ballotSetup"></div>
+      <div class="panel">
+        <h2>가결과 부결, 무엇이 달라지나</h2>
+        <p class="lead" id="ballotLead">찬성표를 입력하고 「결과 발표」를 누르면 실제로 적용될 쪽이 표시됩니다.</p>
+        <div class="compare" id="compare"></div>
+        <div class="verdict wait" id="verdict">아직 결과를 발표하지 않았습니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="view-rules" aria-label="규칙">
+    <div class="rules" id="rulesGrid"></div>
+    <div class="formula" id="formulaBox"></div>
+  </section>
+</div>
+
+<div class="modal" id="editor" role="dialog" aria-modal="true" aria-labelledby="edTitle">
+  <div class="sheet">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
+      <div>
+        <h2 id="edTitle">이번 달 데이터 편집</h2>
+        <p class="lead">교사 패널 「거점별 길드 자금」 표의 GOLD 낙찰금과 슈퍼패스 장수를 그대로 옮겨 적으면 됩니다. 저장하면 이 브라우저에 기억됩니다.</p>
+      </div>
+      <button class="btn" id="edClose" type="button">닫기</button>
+    </div>
+    <h3>기본 정보</h3>
+    <div class="grid-form" id="edBasic"></div>
+    <h3>거점</h3>
+    <div class="grid-form" id="edTerr"></div>
+    <h3>길드와 거점별 자금</h3>
+    <div class="table-wrap"><table class="ed" id="edGuilds"></table></div>
+    <div class="actions" style="margin-top:10px">
+      <button class="btn" id="edAddGuild" type="button">길드 추가</button>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="edSave" type="button">저장하고 적용</button>
+      <button class="btn" id="edDefault" type="button">처음 값(파일 안 CONFIG)으로 되돌리기</button>
+    </div>
+    <div class="msg" id="edMsg" role="status"></div>
+    <h3>JSON으로 옮기기</h3>
+    <p class="lead" style="margin-top:0">다른 컴퓨터로 옮기거나 파일에 영구 저장할 때 씁니다. 「복사」한 내용을 HTML 파일 위쪽 <b>DEFAULT_CONFIG</b> 자리에 붙여 넣으면 다음 달에도 그 값으로 시작합니다.</p>
+    <textarea id="edJson" aria-label="설정 JSON" spellcheck="false"></textarea>
+    <div class="actions">
+      <button class="btn" id="edCopy" type="button">JSON 복사</button>
+      <button class="btn" id="edImport" type="button">붙여 넣은 JSON 불러오기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   매달 바꾸는 곳 — DEFAULT_CONFIG
+   · monthLabel / auctionLabel : 화면 제목에 쓰이는 달과 경매 회차
+   · guilds : 길드 이름, 순위, 마감 당시 인원, 색, 거점별 GOLD 낙찰금(gold)과 슈퍼패스 장수(pass)
+   · 화면의 「데이터 편집」에서 바꾼 뒤 「JSON 복사」로 이 자리에 붙여 넣어도 된다.
+   ===================================================================== */
+const DEFAULT_CONFIG = {
+  monthLabel: "2026년 10월",
+  auctionLabel: "8회차 경매",
+  voterCount: 23,
+  voteThreshold: 14,
+  rateMin: 10,
+  rateMax: 50,
+  defaultRate: 30,
+  surchargePp: 10,
+  minDivisor: 5,
+  taxIncludesSuperPass: true,
+  occupierRanks: [1, 2, 3],
+  objectorRanks: [4, 5],
+  territories: [
+    { id: "mountain", name: "산악 요새", category: "1인1역", passUnit: 2500, color: "#6fd8b0" },
+    { id: "castle",   name: "중앙 왕성", category: "자리",   passUnit: 2000, color: "#f2c14e" },
+    { id: "coast",    name: "우측 해안", category: "급식순서", passUnit: 1500, color: "#62bdff" }
+  ],
+  guilds: [
+    { id: "g1", name: "슈퍼노바",   rank: 1, members: 4, color: "#ff9a6b", spend: { mountain: { gold: 3409, pass: 4 }, castle: { gold: 4055, pass: 2 }, coast: { gold: 4063, pass: 2 } } },
+    { id: "g2", name: "아블루션",   rank: 2, members: 5, color: "#b9a0ff", spend: { mountain: { gold: 3757, pass: 2 }, castle: { gold: 1764, pass: 2 }, coast: { gold: 8900, pass: 1 } } },
+    { id: "g3", name: "루나 네이비", rank: 3, members: 5, color: "#6fb8ff", spend: { mountain: { gold: 8204, pass: 0 }, castle: { gold: 4305, pass: 1 }, coast: { gold: 4277, pass: 2 } } },
+    { id: "g4", name: "와사비",     rank: 4, members: 5, color: "#9ee07a", spend: { mountain: { gold: 5336, pass: 3 }, castle: { gold: 1040, pass: 2 }, coast: { gold: 2482, pass: 1 } } },
+    { id: "g5", name: "Phoenix",   rank: 5, members: 5, color: "#ff7f9a", spend: { mountain: { gold: 1986, pass: 1 }, castle: { gold: 6632, pass: 0 }, coast: { gold: 5160, pass: 0 } } }
+  ]
+};
+
+/* ---------------- 저장 도우미 (실패해도 화면은 동작) ---------------- */
+const CFG_KEY = "brand-conquest-config-v1";
+const store = {
+  get(k){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} }
+};
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const clamp = (n, a, b) => Math.min(b, Math.max(a, Number.isFinite(n) ? n : a));
+const fmt = (n) => Math.round(Number(n) || 0).toLocaleString("ko-KR");
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+let config = normalizeConfig(store.get(CFG_KEY) || clone(DEFAULT_CONFIG));
+let state = loadState();
+let ballotTid = config.territories[0].id;
+let revealAnim = false;
+
+function normalizeConfig(c){
+  const d = clone(DEFAULT_CONFIG);
+  const out = Object.assign({}, d, c || {});
+  out.territories = (Array.isArray(out.territories) && out.territories.length ? out.territories : d.territories).map((t, i) => ({
+    id: String(t.id || ("t" + i)), name: String(t.name || "거점"), category: String(t.category || ""),
+    passUnit: Math.max(0, Number(t.passUnit) || 0), color: t.color || "#f2c14e"
+  }));
+  out.guilds = (Array.isArray(out.guilds) ? out.guilds : []).map((g, i) => {
+    const spend = {};
+    out.territories.forEach((t) => {
+      const s = (g.spend && g.spend[t.id]) || {};
+      spend[t.id] = { gold: Math.max(0, Math.round(Number(s.gold) || 0)), pass: Math.max(0, Math.round(Number(s.pass) || 0)) };
+    });
+    return { id: String(g.id || ("g" + (i + 1))), name: String(g.name || ("길드 " + (i + 1))), rank: Math.round(Number(g.rank) || (i + 1)),
+             members: Math.max(1, Math.round(Number(g.members) || 1)), color: g.color || "#cccccc", spend };
+  });
+  ["voterCount","voteThreshold","rateMin","rateMax","defaultRate","surchargePp","minDivisor"].forEach((k) => { out[k] = Number(out[k]); if (!Number.isFinite(out[k])) out[k] = d[k]; });
+  out.taxIncludesSuperPass = Boolean(out.taxIncludesSuperPass);
+  return out;
+}
+function stateKey(){ return "brand-conquest-state-v1:" + config.monthLabel + "|" + config.auctionLabel; }
+function freshTerritoryState(){
+  return { occupier: null, rate: clamp(config.defaultRate, config.rateMin, config.rateMax),
+           objection: { status: "none", objector: null, proposed: config.rateMin, yes: 0 } };
+}
+function loadState(){
+  const saved = store.get(stateKey()) || {};
+  const s = { territories: {} };
+  config.territories.forEach((t) => {
+    const base = freshTerritoryState();
+    const v = saved.territories && saved.territories[t.id];
+    if (v) {
+      base.occupier = config.guilds.some((g) => g.id === v.occupier) ? v.occupier : null;
+      base.rate = clamp(Number(v.rate), config.rateMin, config.rateMax);
+      if (v.objection) Object.assign(base.objection, v.objection);
+    }
+    s.territories[t.id] = base;
+  });
+  return s;
+}
+function saveState(){ store.set(stateKey(), state); }
+
+const guildById = (id) => config.guilds.find((g) => g.id === id) || null;
+const terrById = (id) => config.territories.find((t) => t.id === id);
+const occupierCandidates = () => config.guilds.filter((g) => config.occupierRanks.includes(g.rank)).sort((a, b) => a.rank - b.rank);
+const objectorCandidates = () => config.guilds.filter((g) => config.objectorRanks.includes(g.rank)).sort((a, b) => a.rank - b.rank);
+
+/* ---------------- 계산 (화면 표시용, 서버 정산과 같은 규칙) ----------------
+   길드 g가 거점 t에 내는 세금 = 버림( 과세 대상 × 적용 세율 )
+   과세 대상 = GOLD 낙찰금 (+ 슈퍼패스 장수 × 환산가, 설정이 켜져 있을 때)
+   적용 세율 = 이의 제기 가결이면 요구 세율, 아니면 선언 세율. 부결이면 제기 길드만 + 가산 %p
+   1인당 분배 = 버림( 거점 세수 ÷ max(점령 길드 인원, 최소 나누는 수) )
+---------------------------------------------------------------------------- */
+function computeTerritory(t, ts, override){
+  const o = Object.assign({}, ts.objection, (override && override.objection) || {});
+  const rate = override && override.rate != null ? override.rate : ts.rate;
+  const owner = guildById(ts.occupier);
+  const finalRate = o.status === "passed" ? o.proposed : rate;
+  let fundGold = 0, fundPass = 0;
+  const rows = config.guilds.map((g) => {
+    const sp = g.spend[t.id] || { gold: 0, pass: 0 };
+    fundGold += sp.gold; fundPass += sp.pass;
+    const base = sp.gold + (config.taxIncludesSuperPass ? sp.pass * t.passUnit : 0);
+    const sur = owner && o.status === "rejected" && o.objector === g.id ? config.surchargePp : 0;
+    const eff = owner ? Math.min(100, finalRate + sur) : 0;
+    const tax = owner ? Math.floor(base * eff / 100) : 0;
+    return { g, gold: sp.gold, pass: sp.pass, base, sur, eff, tax };
+  });
+  const total = rows.reduce((s, r) => s + r.tax, 0);
+  const divisor = owner ? Math.max(owner.members, config.minDivisor) : config.minDivisor;
+  const per = owner ? Math.floor(total / divisor) : 0;
+  const paidOut = owner ? per * owner.members : 0;
+  return { t, owner, rate, finalRate, objection: o, rows, fundGold, fundPass, fund: fundGold + fundPass * t.passUnit,
+           taxBase: rows.reduce((s, r) => s + r.base, 0), total, divisor, per, paidOut, kept: total - paidOut };
+}
+function computeAll(){
+  const terr = config.territories.map((t) => computeTerritory(t, state.territories[t.id]));
+  const ledger = config.guilds.map((g) => {
+    let paid = 0, recv = 0, owns = [];
+    terr.forEach((m) => {
+      const r = m.rows.find((x) => x.g.id === g.id); paid += r ? r.tax : 0;
+      if (m.owner && m.owner.id === g.id) { recv += m.paidOut; owns.push(m.t.name); }
+    });
+    return { g, paid, recv, net: recv - paid, owns };
+  });
+  return {
+    terr, ledger,
+    fund: terr.reduce((s, m) => s + m.fund, 0),
+    tax: terr.reduce((s, m) => s + m.total, 0),
+    paid: terr.reduce((s, m) => s + m.paidOut, 0),
+    kept: terr.reduce((s, m) => s + m.kept, 0)
+  };
+}
+
+/* ---------------- 숫자 애니메이션 ---------------- */
+const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function setNum(el, value, opts){
+  if (!el) return;
+  const signed = opts && opts.signed;
+  const to = Math.round(value);
+  const from = Number(el.dataset.v ?? to);
+  el.dataset.v = to;
+  const show = (n) => { const r = Math.round(n); el.textContent = (signed && r > 0 ? "+" : "") + fmt(r); };
+  if (reduceMotion || from === to) { show(to); return; }
+  const start = performance.now(), dur = 380;
+  const step = (now) => { const p = Math.min(1, (now - start) / dur); show(from + (to - from) * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+const $ = (id) => document.getElementById(id);
+
+/* ---------------- 거점 문장(엠블럼) ---------------- */
+function emblem(id, color){
+  const s = `stroke="${color}" stroke-width="2.4" fill="none" stroke-linejoin="round" stroke-linecap="round"`;
+  if (id === "mountain") return `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M3 34 L15 13 L21 23 L27 15 L37 34 Z" ${s}/><path d="M15 13 V5 L21 7.5 L15 10" ${s}/><path d="M11 34 V27 H19 V34" ${s}/></svg>`;
+  if (id === "castle") return `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M6 35 V15 H10 V11 H13 V15 H16 V11 H19 V15 H21 V11 H24 V15 H27 V11 H30 V15 H34 V35 Z" ${s}/><path d="M17 35 V27 A3 3 0 0 1 23 27 V35" ${s}/><path d="M20 11 V3 L26 5 L20 7" ${s}/></svg>`;
+  if (id === "coast") return `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M24 30 L26 9 H30 L32 30" ${s}/><path d="M24.5 6 H31.5 L28 2.5 Z" ${s}/><path d="M2 30 C6 27 9 27 13 30 C17 33 20 33 24 30 C28 27 31 27 38 30" ${s}/><path d="M2 36 C6 33 9 33 13 36 C17 39 20 39 24 36 C28 33 31 33 38 36" ${s}/></svg>`;
+  return `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="14" ${s}/></svg>`;
+}
+
+/* ---------------- 영토 정산 화면 ---------------- */
+function renderSettle(){
+  const used = new Set(Object.values(state.territories).map((x) => x.occupier).filter(Boolean));
+  $("terrGrid").innerHTML = config.territories.map((t) => {
+    const ts = state.territories[t.id];
+    const owner = guildById(ts.occupier);
+    const locked = ts.objection.status !== "none";
+    const opts = occupierCandidates().map((g) => {
+      const dis = used.has(g.id) && g.id !== ts.occupier ? " disabled" : "";
+      return `<option value="${esc(g.id)}"${g.id === ts.occupier ? " selected" : ""}${dis}>${g.rank}위 ${esc(g.name)} · ${g.members}명</option>`;
+    }).join("");
+    const ticks = [];
+    for (let r = config.rateMin; r <= config.rateMax; r += Math.max(1, Math.round((config.rateMax - config.rateMin) / 4))) ticks.push(r);
+    while (ticks.length > 5) ticks.pop();
+    return `
+    <article class="terr${owner ? "" : " vacant"}" style="--tc:${t.color}" aria-label="${esc(t.name)}">
+      <div class="terr-head">
+        <div class="emblem">${emblem(t.id, t.color)}</div>
+        <div><div class="terr-name">${esc(t.name)}</div><div class="terr-cat">${esc(t.category)} 경매대금</div></div>
+        <div class="fund"><div class="k">경매대금</div><div class="v num"><span id="f-${t.id}">0</span>G</div><div class="d num" id="fd-${t.id}"></div></div>
+      </div>
+      <div class="owner">
+        <span class="swatch" style="background:${owner ? owner.color : "transparent"};border:1px solid var(--line)"></span>
+        <label for="own-${t.id}">점령 길드</label>
+        <select id="own-${t.id}" data-own="${t.id}"${locked ? " disabled" : ""}>
+          <option value="">아직 정해지지 않음</option>${opts}
+        </select>
+      </div>
+      ${owner ? `
+      <div>
+        <div class="rate-box">
+          <button class="step-btn" type="button" data-rate-step="${t.id}" data-d="-1" aria-label="세율 1%p 낮추기"${locked ? " disabled" : ""}>−</button>
+          <div class="rate-big"><div class="k">${ts.objection.status === "passed" ? "최종 세율 (이의 제기 가결)" : "점령 길드 선언 세율"}</div><div class="v num"><span id="r-${t.id}">${ts.objection.status === "passed" ? ts.objection.proposed : ts.rate}</span><small>%</small></div>
+            <div class="lock">${locked ? "이의 제기가 접수되어 선언 세율을 바꿀 수 없습니다" : ""}</div></div>
+          <button class="step-btn" type="button" data-rate-step="${t.id}" data-d="1" aria-label="세율 1%p 올리기"${locked ? " disabled" : ""}>+</button>
+        </div>
+        <input type="range" id="rg-${t.id}" data-range="${t.id}" min="${config.rateMin}" max="${config.rateMax}" step="1" value="${ts.rate}" aria-label="${esc(t.name)} 세율"${locked ? " disabled" : ""}>
+        <div class="ticks">${ticks.map((r) => `<div class="tick" id="tk-${t.id}-${r}">${r}%<b class="num" id="tkv-${t.id}-${r}">0</b></div>`).join("")}</div>
+        <div class="ticks-cap">세율별 점령 길드원 1인당 분배 (G)</div>
+      </div>
+      <div class="who">
+        <div class="who-title"><span>누가 얼마나 내나</span><span>과세 대상 <b class="num" id="tb-${t.id}">0</b>G</span></div>
+        <div class="stack" aria-hidden="true">${config.guilds.map((g) => `<span id="sb-${t.id}-${g.id}" style="background:${g.color};width:0"></span>`).join("")}</div>
+        <div class="rows">${config.guilds.map((g) => {
+          const isOwn = owner.id === g.id;
+          const isObj = ts.objection.status !== "none" && ts.objection.objector === g.id;
+          return `<div class="row"><span class="dot" style="background:${g.color}"></span>
+            <span class="nm">${esc(g.name)}${isOwn ? `<em class="own">점령</em>` : ""}${isObj ? `<em class="obj">이의 제기</em>` : ""}</span>
+            <span class="rt num" id="rr-${t.id}-${g.id}"></span><span class="tx num"><span id="rx-${t.id}-${g.id}">0</span>G</span></div>`;
+        }).join("")}</div>
+      </div>
+      <div class="result">
+        <div><div class="k">확정 세수</div><div class="v num"><span id="tt-${t.id}">0</span>G</div></div>
+        <div class="op">÷ <span id="dv-${t.id}">5</span></div>
+        <div class="per"><div class="k">길드원 1인당 분배</div><div class="v num"><span id="pp-${t.id}">0</span>G</div></div>
+        <div class="foot"><span id="pf-${t.id}"></span><span>운영국 회수 <b class="num" id="kp-${t.id}">0</b>G</span></div>
+      </div>
+      <div class="obj-bar">${objChip(t.id)}
+        <button class="link-btn" type="button" data-goto-ballot="${t.id}">${ts.objection.status === "none" ? "이의 제기 열기" : "투표 화면으로"}</button>
+      </div>` : `<div class="vacant-msg">1~3위 길드 중 이 거점을 점령한 길드를 고르면<br>세율과 분배 금액이 계산됩니다.</div>`}
+    </article>`;
+  }).join("");
+
+  $("ledgerGrid").innerHTML = config.guilds.slice().sort((a, b) => a.rank - b.rank).map((g) => `
+    <div class="gtile" style="--gc:${g.color}">
+      <div class="nm">${esc(g.name)}</div>
+      <div class="meta">${g.rank}위 · ${g.members}명 · <span id="go-${g.id}"></span></div>
+      <div class="gline"><span>낸 세금</span><b class="num neg">−<span id="gp-${g.id}">0</span>G</b></div>
+      <div class="gline"><span>받는 분배</span><b class="num pos">+<span id="gr-${g.id}">0</span>G</b></div>
+      <div class="gnet"><span style="font-size:.8rem;color:var(--text-2)">길드 순손익</span><span class="v num" id="gn-${g.id}">0</span></div>
+      <div class="gline"><span>1인당 평균</span><b class="num" id="gm-${g.id}">0G</b></div>
+    </div>`).join("");
+  updateSettle();
+}
+
+function objChip(tid){
+  const o = state.territories[tid].objection;
+  const g = guildById(o.objector);
+  if (o.status === "none") return `<span class="chip">이의 제기 없음</span>`;
+  if (o.status === "pending") return `<span class="chip pending">투표 전 · ${esc(g ? g.name : "")} ${o.proposed}% 요구</span>`;
+  if (o.status === "passed") return `<span class="chip passed">가결 · ${o.proposed}%로 확정</span>`;
+  return `<span class="chip rejected">부결 · ${esc(g ? g.name : "")} +${config.surchargePp}%p</span>`;
+}
+
+function updateSettle(){
+  const M = computeAll();
+  setNum($("kFund"), M.fund); setNum($("kTax"), M.tax); setNum($("kPaid"), M.paid); setNum($("kKept"), M.kept);
+  M.terr.forEach((m) => {
+    const id = m.t.id;
+    setNum($("f-" + id), m.fund);
+    $("fd-" + id).textContent = `GOLD ${fmt(m.fundGold)} + 슈퍼패스 ${m.fundPass}장`;
+    if (!m.owner) return;
+    $("r-" + id).textContent = m.finalRate;
+    const rg = $("rg-" + id); if (rg && Number(rg.value) !== m.rate) rg.value = m.rate;
+    setNum($("tb-" + id), m.taxBase);
+    m.rows.forEach((r) => {
+      $("sb-" + id + "-" + r.g.id).style.width = (m.total > 0 ? (r.tax / m.total) * 100 : 0) + "%";
+      $("rr-" + id + "-" + r.g.id).textContent = `${fmt(r.base)}G × ${r.eff}%`;
+      setNum($("rx-" + id + "-" + r.g.id), r.tax);
+    });
+    setNum($("tt-" + id), m.total);
+    $("dv-" + id).textContent = m.divisor;
+    setNum($("pp-" + id), m.per);
+    setNum($("kp-" + id), m.kept);
+    $("pf-" + id).textContent = m.owner.members < config.minDivisor
+      ? `${m.owner.name} ${m.owner.members}명 · ${config.minDivisor}등분 중 ${m.owner.members}몫 지급`
+      : `${m.owner.name} ${m.owner.members}명 모두에게 지급`;
+    const tsx = state.territories[id];
+    document.querySelectorAll(`[id^="tk-${id}-"]`).forEach((el) => {
+      const r = Number(el.id.split("-").pop());
+      const sim = computeTerritory(m.t, tsx, { rate: r, objection: { status: "none" } });
+      setNum($("tkv-" + id + "-" + r), sim.per);
+      el.classList.toggle("on", r === m.finalRate);
+    });
+  });
+  M.ledger.forEach((L) => {
+    setNum($("gp-" + L.g.id), L.paid); setNum($("gr-" + L.g.id), L.recv);
+    const n = $("gn-" + L.g.id); setNum(n, L.net, { signed: true });
+    n.className = "v num " + (L.net > 0 ? "pos" : L.net < 0 ? "neg" : "zero");
+    const per = Math.round(L.net / L.g.members);
+    const pm = $("gm-" + L.g.id); pm.textContent = (per > 0 ? "+" : "") + fmt(per) + "G";
+    pm.className = "num " + (per > 0 ? "pos" : per < 0 ? "neg" : "zero");
+    $("go-" + L.g.id).textContent = L.owns.length ? L.owns.join(", ") + " 점령" : "점령 없음";
+  });
+  $("footnote").textContent = `과세 대상 = GOLD 낙찰금${config.taxIncludesSuperPass ? " + 슈퍼패스 환산액" : ""}. 실제 징수는 낙찰 1건마다 버림으로 계산하고, 세율 감면 버프가 있는 학생은 그만큼 덜 내므로 몇 G 차이가 날 수 있습니다. 운영국 회수 = 확정 세수 − 길드원에게 지급한 금액.`;
+}
+
+/* ---------------- 이의 제기 투표 화면 ---------------- */
+function renderBallot(){
+  const occupied = config.territories.filter((t) => state.territories[t.id].occupier);
+  if (!occupied.length) {
+    $("ballotSetup").innerHTML = `<h2>이의 제기 투표</h2><div class="empty">먼저 「영토 정산」에서 점령 길드를 정해 주세요.</div>`;
+    $("compare").innerHTML = ""; $("verdict").className = "verdict wait"; $("verdict").textContent = "점령된 거점이 없습니다.";
+    return;
+  }
+  if (!state.territories[ballotTid] || !state.territories[ballotTid].occupier) ballotTid = occupied[0].id;
+  const t = terrById(ballotTid), ts = state.territories[t.id], o = ts.objection;
+  const owner = guildById(ts.occupier);
+  const cands = objectorCandidates();
+  const canObject = ts.rate > config.rateMin && cands.length > 0;
+  if (o.status === "none" && canObject) { o.objector = o.objector && cands.some((g) => g.id === o.objector) ? o.objector : cands[0].id; o.proposed = clamp(o.proposed, config.rateMin, ts.rate - 1); }
+  const decided = o.status === "passed" || o.status === "rejected";
+
+  $("ballotSetup").style.setProperty("--tc", t.color);
+  $("ballotSetup").innerHTML = `
+    <h2>이의 제기 투표</h2>
+    <p class="lead">영토당 1건 · ${config.objectorRanks.join("·")}위 길드만 제기 · 찬성 ${config.voteThreshold}표 이상이면 가결</p>
+    <div class="seg" role="group" aria-label="거점 선택">${config.territories.map((x) => {
+      const xs = state.territories[x.id]; const xo = guildById(xs.occupier);
+      return `<button type="button" data-btid="${x.id}" aria-pressed="${x.id === t.id}" style="--tc:${x.color}"${xo ? "" : " disabled"}>
+        <b>${esc(x.name)}</b><span>${xo ? `${esc(xo.name)} · ${xs.rate}%` : "점령 전"}${xs.objection.status !== "none" ? " · 이의 제기" : ""}</span></button>`;
+    }).join("")}</div>
+    <div class="field"><label>점령 길드 · 선언 세율</label>
+      <div style="font-family:var(--display);font-size:1.5rem;font-weight:800">${esc(owner.name)} <span style="color:${t.color}">${ts.rate}%</span></div></div>
+    ${!canObject && o.status === "none" ? `<div class="empty" style="margin-top:14px">${cands.length ? `선언 세율이 최저(${config.rateMin}%)라 더 낮은 세율을 요구할 수 없습니다.` : "이의 제기할 수 있는 길드가 없습니다."}</div>` : `
+    <div class="field"><label for="bObj">이의 제기 길드</label>
+      <select id="bObj"${decided ? " disabled" : ""}>${cands.map((g) => `<option value="${esc(g.id)}"${g.id === o.objector ? " selected" : ""}>${g.rank}위 ${esc(g.name)} · ${g.members}명</option>`).join("")}</select></div>
+    <div class="field"><label for="bProp">요구 세율 (${config.rateMin}% ~ ${ts.rate - 1}%)</label>
+      <div class="counter"><button class="step-btn" type="button" id="bPropDown" aria-label="요구 세율 낮추기"${decided ? " disabled" : ""}>−</button>
+      <output id="bProp" class="num">${o.proposed}%</output>
+      <button class="step-btn" type="button" id="bPropUp" aria-label="요구 세율 올리기"${decided ? " disabled" : ""}>+</button></div></div>
+    <div class="field"><label>찬성표 (전체 ${config.voterCount}명)</label>
+      <div class="counter"><button class="step-btn" type="button" id="bYesDown" aria-label="찬성표 1 빼기"${decided ? " disabled" : ""}>−</button>
+      <output id="bYes" class="num">${o.yes}</output>
+      <button class="step-btn" type="button" id="bYesUp" aria-label="찬성표 1 더하기"${decided ? " disabled" : ""}>+</button></div>
+      <div class="meter" aria-hidden="true"><span id="bMeter" style="width:${(o.yes / Math.max(1, config.voterCount)) * 100}%"></span><i style="left:${(config.voteThreshold / Math.max(1, config.voterCount)) * 100}%"></i></div>
+      <div class="meter-cap"><span id="bNeed"></span><span>기준선 ${config.voteThreshold}표</span></div></div>
+    <div class="actions">
+      ${o.status === "none" ? `<button class="btn primary" type="button" id="bOpen">이의 제기 접수</button>` : ""}
+      ${o.status === "pending" ? `<button class="btn primary" type="button" id="bReveal">결과 발표</button><button class="btn" type="button" id="bWithdraw">이의 제기 철회</button>` : ""}
+      ${decided ? `<button class="btn" type="button" id="bRedo">투표 다시 하기</button><button class="btn" type="button" id="bWithdraw">이의 제기 철회</button>` : ""}
+    </div>`}`;
+  updateBallot();
+}
+
+function updateBallot(){
+  const t = terrById(ballotTid); if (!t) return;
+  const ts = state.territories[t.id], o = ts.objection;
+  if (!ts.occupier) return;
+  const need = $("bNeed");
+  if (need) need.textContent = o.yes >= config.voteThreshold ? `찬성 ${o.yes}표 · 가결 기준 충족` : `가결까지 ${config.voteThreshold - o.yes}표 더 필요`;
+  const meter = $("bMeter"); if (meter) meter.style.width = (o.yes / Math.max(1, config.voterCount)) * 100 + "%";
+  const out = $("bYes"); if (out) out.textContent = o.yes;
+  const prop = $("bProp"); if (prop) prop.textContent = o.proposed + "%";
+
+  if (o.status === "none" && !$("bOpen")) { $("compare").innerHTML = ""; return; }
+  const objG = guildById(o.objector);
+  const pass = computeTerritory(t, ts, { objection: { status: "passed" } });
+  const fail = computeTerritory(t, ts, { objection: { status: "rejected" } });
+  const objRow = (m) => m.rows.find((r) => r.g.id === o.objector) || { tax: 0, eff: 0 };
+  const decided = o.status === "passed" || o.status === "rejected";
+  const caseHtml = (m, kind) => {
+    const win = decided && ((kind === "pass") === (o.status === "passed"));
+    const cls = decided ? (win ? " win" : " lose") : "";
+    const color = kind === "pass" ? "var(--good)" : "var(--bad)";
+    return `<div class="case${cls}" style="--cc:${color}">
+      <h3>${kind === "pass" ? "가결" : "부결"}</h3>
+      <div class="cond">${kind === "pass" ? `찬성 ${config.voteThreshold}표 이상` : `찬성 ${config.voteThreshold - 1}표 이하`}</div>
+      <div class="cline"><span>최종 세율</span><b class="num">${m.finalRate}%</b></div>
+      <div class="cline"><span>${esc(objG ? objG.name : "")} 적용 세율</span><b class="num" style="color:${kind === "pass" ? "inherit" : "var(--bad)"}">${objRow(m).eff}%</b></div>
+      <div class="cline"><span>${esc(objG ? objG.name : "")}가 내는 세금</span><b class="num">${fmt(objRow(m).tax)}G</b></div>
+      <div class="cline"><span>확정 세수</span><b class="num">${fmt(m.total)}G</b></div>
+      <div class="cline big"><span>${esc(m.owner.name)} 1인당 분배</span><b class="num">${fmt(m.per)}G</b></div>
+    </div>`;
+  };
+  $("compare").innerHTML = caseHtml(pass, "pass") + caseHtml(fail, "fail") +
+    (decided ? `<div class="stamp ${o.status === "passed" ? "pass" : "fail"}${revealAnim ? " anim" : ""}" style="--sx:${o.status === "passed" ? "75%" : "25%"}">${o.status === "passed" ? "가결" : "부결"}</div>` : "");
+  revealAnim = false;
+  const v = $("verdict");
+  if (o.status === "pending") { v.className = "verdict wait"; v.textContent = `${t.name}: ${objG ? objG.name : ""}가 ${ts.rate}% → ${o.proposed}%를 요구했습니다. 찬성표를 입력한 뒤 「결과 발표」를 누르세요.`; }
+  else if (o.status === "passed") { v.className = "verdict pass"; v.textContent = `찬성 ${o.yes}표로 가결. ${t.name}의 세율은 ${o.proposed}%로 확정되고, 추가 세금은 없습니다.`; }
+  else if (o.status === "rejected") { v.className = "verdict fail"; v.textContent = `찬성 ${o.yes}표로 부결. ${t.name}의 세율은 ${ts.rate}% 그대로이며, ${objG ? objG.name : ""} 길드원은 ${Math.min(100, ts.rate + config.surchargePp)}%를 냅니다.`; }
+  else { v.className = "verdict wait"; v.textContent = "이의 제기를 접수하면 가결·부결 결과를 미리 비교할 수 있습니다."; }
+  $("ballotLead").textContent = `${t.name} · ${config.auctionLabel} ${t.category} 경매대금 기준`;
+}
+
+/* ---------------- 규칙 화면 ---------------- */
+function renderRules(){
+  const c = config;
+  const objNames = objectorCandidates().map((g) => g.name).join("·") || `${c.objectorRanks.join("·")}위 길드`;
+  const items = [
+    ["01", "점령과 세율 선언", `${c.occupierRanks.join("·")}위 길드가 세 거점을 하나씩 점령하고, 그 거점 경매대금에 매길 세율을 <b>${c.rateMin}% ~ ${c.rateMax}%</b> 사이에서 선언합니다. 점령 길드원도 자기 거점 세금을 냅니다.`],
+    ["02", "이의 제기", `<b>${esc(objNames)}</b> 길드는 세율이 너무 높다고 생각하면 원하는 세율을 제시해 공식 이의를 제기할 수 있습니다. <b>거점마다 1건</b>만 받습니다.`],
+    ["03", "토론과 익명 투표", `점령 길드와 이의 제기 길드가 토론한 뒤 전체 익명 투표를 합니다. 찬성 <b>${c.voteThreshold}표 이상</b>이면 가결되어 요구 세율로 확정됩니다.`],
+    ["04", "부결되면", `점령 길드가 선언한 세율이 그대로 확정되고, 이의를 제기한 길드의 길드원은 그 거점에 <b>+${c.surchargePp}%p</b>를 더 냅니다. 예: ${c.rateMax}% 확정 → 이의 제기 길드 ${Math.min(100, c.rateMax + c.surchargePp)}%.`]
+  ];
+  $("rulesGrid").innerHTML = items.map(([n, h, p]) => `<div class="rule"><div class="no">STEP ${n}</div><h3>${h}</h3><p>${p}</p></div>`).join("");
+  $("formulaBox").innerHTML = `
+    <h3>세금과 분배는 이렇게 계산합니다</h3>
+    <p><code>경매대금</code> = GOLD 낙찰금 + 슈퍼패스 환산액 (${c.territories.map((t) => `${esc(t.category)} ${fmt(t.passUnit)}G`).join(" · ")})</p>
+    <p><code>내는 세금</code> = ${c.taxIncludesSuperPass ? "그 길드원이 쓴 경매대금" : "그 길드원이 쓴 GOLD 낙찰금"} × 확정 세율</p>
+    <p><code>1인당 분배</code> = 거점 확정 세수 ÷ 점령 길드 인원 (단, ${c.minDivisor}명보다 적으면 ${c.minDivisor}으로 나눔 → 남는 몫은 운영국 회수)</p>`;
+}
+
+/* ---------------- 화면 전환 ---------------- */
+const VIEWS = ["settle", "ballot", "rules"];
+function showView(v){
+  if (!VIEWS.includes(v)) v = "settle";
+  VIEWS.forEach((x) => {
+    $("view-" + x).classList.toggle("on", x === v);
+    const tab = $("tab-" + x); if (x === v) tab.setAttribute("aria-current", "page"); else tab.removeAttribute("aria-current");
+  });
+  if (v === "settle") renderSettle();
+  if (v === "ballot") renderBallot();
+  if (v === "rules") renderRules();
+  try { if (location.hash !== "#" + v) history.replaceState(null, "", "#" + v); } catch(e) {}
+}
+function currentView(){ const h = (location.hash || "").replace("#", ""); return VIEWS.includes(h) ? h : "settle"; }
+function renderHeader(){
+  $("pageTitle").textContent = `${config.monthLabel} 영토 세율 정산`;
+  $("pageSub").textContent = `${config.auctionLabel} 경매대금 기준 · 세율 ${config.rateMin}~${config.rateMax}% · 이의 제기 가결 기준 찬성 ${config.voteThreshold}표`;
+  document.title = `${config.monthLabel} 영토 세율 정산판`;
+}
+function rerender(){ renderHeader(); showView(currentView()); }
+
+/* ---------------- 이벤트 ---------------- */
+document.addEventListener("click", (e) => {
+  const tab = e.target.closest("[data-view]"); if (tab) { showView(tab.dataset.view); return; }
+  const st = e.target.closest("[data-rate-step]");
+  if (st) { const ts = state.territories[st.dataset.rateStep]; ts.rate = clamp(ts.rate + Number(st.dataset.d), config.rateMin, config.rateMax); saveState(); updateSettle(); return; }
+  const gb = e.target.closest("[data-goto-ballot]"); if (gb) { ballotTid = gb.dataset.gotoBallot; showView("ballot"); return; }
+  const bt = e.target.closest("[data-btid]"); if (bt) { ballotTid = bt.dataset.btid; renderBallot(); return; }
+  const id = e.target.closest("button") && e.target.closest("button").id;
+  const ts = state.territories[ballotTid]; const o = ts && ts.objection;
+  const decided = o && (o.status === "passed" || o.status === "rejected");
+  switch (id) {
+    case "bYesUp": if (!decided) { o.yes = clamp(o.yes + 1, 0, config.voterCount); saveState(); updateBallot(); } break;
+    case "bYesDown": if (!decided) { o.yes = clamp(o.yes - 1, 0, config.voterCount); saveState(); updateBallot(); } break;
+    case "bPropUp": if (!decided) { o.proposed = clamp(o.proposed + 1, config.rateMin, ts.rate - 1); saveState(); updateBallot(); } break;
+    case "bPropDown": if (!decided) { o.proposed = clamp(o.proposed - 1, config.rateMin, ts.rate - 1); saveState(); updateBallot(); } break;
+    case "bOpen": o.status = "pending"; o.yes = 0; saveState(); renderBallot(); break;
+    case "bReveal": o.status = o.yes >= config.voteThreshold ? "passed" : "rejected"; revealAnim = true; saveState(); renderBallot(); break;
+    case "bRedo": o.status = "pending"; saveState(); renderBallot(); break;
+    case "bWithdraw": state.territories[ballotTid].objection = freshTerritoryState().objection; saveState(); renderBallot(); break;
+    case "btnEdit": openEditor(); break;
+    case "edClose": closeEditor(); break;
+    case "edSave": saveEditor(); break;
+    case "edDefault": config = normalizeConfig(clone(DEFAULT_CONFIG)); store.del(CFG_KEY); state = loadState(); fillEditor(); rerender(); edMsg("파일에 적힌 처음 값으로 되돌렸습니다.", true); break;
+    case "edAddGuild": addGuildRow(); break;
+    case "edCopy": copyJson(); break;
+    case "edImport": importJson(); break;
+    case "btnFull": try { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {}); else document.exitFullscreen(); } catch(err) {} break;
+    case "btnReset": armReset(e.target.closest("button")); break;
+  }
+  const del = e.target.closest("[data-del-guild]"); if (del) { del.closest("tr").remove(); }
+});
+document.addEventListener("input", (e) => {
+  if (e.target.dataset.range) { const ts = state.territories[e.target.dataset.range]; ts.rate = clamp(Number(e.target.value), config.rateMin, config.rateMax); saveState(); updateSettle(); }
+});
+document.addEventListener("change", (e) => {
+  if (e.target.dataset.own) {
+    const ts = state.territories[e.target.dataset.own];
+    ts.occupier = e.target.value || null;
+    ts.objection = freshTerritoryState().objection;
+    saveState(); renderSettle();
+  }
+  if (e.target.id === "bObj") { state.territories[ballotTid].objection.objector = e.target.value; saveState(); updateBallot(); renderBallot(); }
+});
+window.addEventListener("hashchange", () => showView(currentView()));
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("editor").classList.contains("on")) closeEditor(); });
+
+let resetTimer = null;
+function armReset(btn){
+  if (btn.classList.contains("danger-armed")) {
+    clearTimeout(resetTimer); btn.classList.remove("danger-armed"); btn.textContent = "진행 초기화";
+    store.del(stateKey()); state = loadState(); rerender(); return;
+  }
+  btn.classList.add("danger-armed"); btn.textContent = "한 번 더 누르면 초기화";
+  resetTimer = setTimeout(() => { btn.classList.remove("danger-armed"); btn.textContent = "진행 초기화"; }, 3000);
+}
+
+/* ---------------- 데이터 편집기 ---------------- */
+function openEditor(){ fillEditor(); $("editor").classList.add("on"); $("edMsg").textContent = ""; $("edClose").focus(); }
+function closeEditor(){ $("editor").classList.remove("on"); $("btnEdit").focus(); }
+function edMsg(t, ok){ const m = $("edMsg"); m.textContent = t; m.className = "msg " + (ok ? "ok" : "err"); }
+function fillEditor(){
+  const c = config;
+  const f = (id, label, val, type = "number") => `<label for="${id}">${label}<input id="${id}" type="${type}" value="${esc(val)}"></label>`;
+  $("edBasic").innerHTML =
+    f("e_month", "달 (제목)", c.monthLabel, "text") + f("e_auction", "경매 회차", c.auctionLabel, "text") +
+    f("e_voters", "투표 인원", c.voterCount) + f("e_thr", "가결 기준 찬성표", c.voteThreshold) +
+    f("e_min", "최저 세율 %", c.rateMin) + f("e_max", "최고 세율 %", c.rateMax) + f("e_def", "처음 표시 세율 %", c.defaultRate) +
+    f("e_sur", "부결 가산 %p", c.surchargePp) + f("e_div", "최소 나누는 수", c.minDivisor) +
+    f("e_occ", "점령 가능 순위 (쉼표)", c.occupierRanks.join(","), "text") + f("e_objr", "이의 제기 가능 순위 (쉼표)", c.objectorRanks.join(","), "text") +
+    `<label class="check" for="e_incsp"><input id="e_incsp" type="checkbox"${c.taxIncludesSuperPass ? " checked" : ""} style="width:20px;height:20px"> 슈퍼패스 환산액도 세금에 포함</label>`;
+  $("edTerr").innerHTML = c.territories.map((t, i) =>
+    f(`e_tn_${i}`, `거점 ${i + 1} 이름`, t.name, "text") + f(`e_tc_${i}`, `거점 ${i + 1} 경매 종류`, t.category, "text") + f(`e_tp_${i}`, `슈퍼패스 1장 환산 G`, t.passUnit)
+  ).join("");
+  const head = `<tr><th>길드 이름</th><th>순위</th><th>인원</th><th>색</th>${c.territories.map((t) => `<th>${esc(t.name)} GOLD</th><th>슈퍼패스</th>`).join("")}<th></th></tr>`;
+  $("edGuilds").innerHTML = head + c.guilds.map((g) => guildRow(g)).join("");
+  $("edJson").value = JSON.stringify(c, null, 2);
+}
+function guildRow(g){
+  return `<tr data-gid="${esc(g.id)}">
+    <td><input type="text" data-k="name" value="${esc(g.name)}" aria-label="길드 이름"></td>
+    <td><input type="number" class="s" data-k="rank" value="${g.rank}" aria-label="순위"></td>
+    <td><input type="number" class="s" data-k="members" value="${g.members}" aria-label="인원"></td>
+    <td><input type="color" data-k="color" value="${esc(g.color)}" aria-label="색"></td>
+    ${config.territories.map((t) => `<td><input type="number" class="n" data-t="${t.id}" data-f="gold" value="${g.spend[t.id] ? g.spend[t.id].gold : 0}" aria-label="${esc(t.name)} GOLD"></td>
+      <td><input type="number" class="s" data-t="${t.id}" data-f="pass" value="${g.spend[t.id] ? g.spend[t.id].pass : 0}" aria-label="${esc(t.name)} 슈퍼패스"></td>`).join("")}
+    <td><button class="link-btn" type="button" data-del-guild>삭제</button></td></tr>`;
+}
+function addGuildRow(){
+  const n = $("edGuilds").querySelectorAll("tr[data-gid]").length + 1;
+  const g = { id: "g" + Date.now().toString(36), name: "새 길드", rank: n, members: 5, color: "#cccccc", spend: {} };
+  config.territories.forEach((t) => { g.spend[t.id] = { gold: 0, pass: 0 }; });
+  $("edGuilds").insertAdjacentHTML("beforeend", guildRow(g));
+}
+function readEditor(){
+  const v = (id) => $(id).value;
+  const ranks = (s) => String(s).split(",").map((x) => parseInt(x, 10)).filter(Number.isFinite);
+  const c = clone(config);
+  c.monthLabel = v("e_month").trim() || c.monthLabel; c.auctionLabel = v("e_auction").trim() || c.auctionLabel;
+  c.voterCount = parseInt(v("e_voters"), 10); c.voteThreshold = parseInt(v("e_thr"), 10);
+  c.rateMin = parseInt(v("e_min"), 10); c.rateMax = parseInt(v("e_max"), 10); c.defaultRate = parseInt(v("e_def"), 10);
+  c.surchargePp = parseInt(v("e_sur"), 10); c.minDivisor = parseInt(v("e_div"), 10);
+  c.occupierRanks = ranks(v("e_occ")); c.objectorRanks = ranks(v("e_objr"));
+  c.taxIncludesSuperPass = $("e_incsp").checked;
+  c.territories.forEach((t, i) => { t.name = v(`e_tn_${i}`).trim() || t.name; t.category = v(`e_tc_${i}`).trim(); t.passUnit = parseInt(v(`e_tp_${i}`), 10) || 0; });
+  c.guilds = [...$("edGuilds").querySelectorAll("tr[data-gid]")].map((tr) => {
+    const g = { id: tr.dataset.gid, spend: {} };
+    tr.querySelectorAll("[data-k]").forEach((inp) => { g[inp.dataset.k] = inp.type === "number" ? parseInt(inp.value, 10) : inp.value; });
+    tr.querySelectorAll("[data-t]").forEach((inp) => { g.spend[inp.dataset.t] = g.spend[inp.dataset.t] || {}; g.spend[inp.dataset.t][inp.dataset.f] = parseInt(inp.value, 10) || 0; });
+    return g;
+  });
+  return c;
+}
+function validate(c){
+  if (!(c.rateMin >= 0 && c.rateMax <= 100 && c.rateMin < c.rateMax)) return "세율 범위를 확인해 주세요. (최저 < 최고, 0~100)";
+  if (!(c.voteThreshold >= 1 && c.voterCount >= c.voteThreshold)) return "투표 인원은 가결 기준 찬성표보다 크거나 같아야 합니다.";
+  if (!(c.minDivisor >= 1)) return "최소 나누는 수는 1 이상이어야 합니다.";
+  if (!c.guilds.length) return "길드가 한 개 이상 있어야 합니다.";
+  if (c.guilds.some((g) => !String(g.name || "").trim())) return "이름이 빈 길드가 있습니다.";
+  if (c.guilds.some((g) => !(g.members >= 1))) return "길드 인원은 1명 이상이어야 합니다.";
+  const rk = c.guilds.map((g) => g.rank); if (new Set(rk).size !== rk.length) return "같은 순위의 길드가 두 개 있습니다.";
+  return null;
+}
+function applyConfig(c, msg){
+  const err = validate(c); if (err) { edMsg(err, false); return false; }
+  config = normalizeConfig(c);
+  store.set(CFG_KEY, config);
+  state = loadState();
+  fillEditor(); rerender(); edMsg(msg, true); return true;
+}
+function saveEditor(){ applyConfig(readEditor(), "저장했습니다. 화면에 바로 반영되었습니다."); }
+function copyJson(){
+  const text = JSON.stringify(readEditor(), null, 2);
+  $("edJson").value = text;
+  try { navigator.clipboard.writeText(text).then(() => edMsg("JSON을 복사했습니다.", true), () => { $("edJson").select(); edMsg("자동 복사가 막혀 있습니다. 상자 안 글자를 Ctrl+C로 복사해 주세요.", false); }); }
+  catch(e){ $("edJson").select(); edMsg("자동 복사가 막혀 있습니다. 상자 안 글자를 Ctrl+C로 복사해 주세요.", false); }
+}
+function importJson(){
+  let c; try { c = JSON.parse($("edJson").value); } catch(e) { edMsg("JSON 형식이 올바르지 않습니다. 괄호나 쉼표가 빠졌는지 확인해 주세요.", false); return; }
+  applyConfig(c, "붙여 넣은 JSON을 불러왔습니다.");
+}
+
+rerender();
+</script>
+</body>
+</html>
