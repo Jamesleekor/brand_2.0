@@ -22,6 +22,13 @@ import { RaidResultModal } from '@/features/raid/RaidResultModal';
 import { RaidBossVisualStage } from '@/features/raid/visual/RaidBossVisualStage';
 import { useRaidVisualState } from '@/features/raid/visual/useRaidVisualState';
 import {
+  isRaidTapAllowedLocally,
+  normalizeRaidTargeting,
+  raidTargetingInstruction,
+  type RaidTargetingPublicConfig,
+} from '@/features/raid/targeting/raidTargeting';
+// RAID_TARGETING_V1_20261103
+import {
   useRaidTapBatcher,
   type RaidTapBatcherDiagnostics,
 } from '@/features/raid/hooks/useRaidTapBatcher';
@@ -78,6 +85,11 @@ interface BossImpact {
   damage: number;
 }
 
+interface TargetingGuideState {
+  text: string;
+  showZone: boolean;
+}
+
 export default function RaidBattlePage() {
   const params = useParams<{ raidId: string }>();
   const raidId = Number(params.raidId);
@@ -93,6 +105,7 @@ export default function RaidBattlePage() {
   const [clockNowMs, setClockNowMs] = useState(() => Date.now());
   const [bossImpact, setBossImpact] = useState<BossImpact | null>(null);
   const [patternFeedback, setPatternFeedback] = useState<PatternFeedback[]>([]);
+  const [targetingGuide, setTargetingGuide] = useState<TargetingGuideState | null>(null);
   const [batcherDiagnostics, setBatcherDiagnostics] =
     useState<RaidTapBatcherDiagnostics | null>(null);
   const raidDebugEnabled = useMemo(() => {
@@ -105,6 +118,9 @@ export default function RaidBattlePage() {
   const bossImpactTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const patternFeedbackTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const serverClockOffsetRef = useRef(0);
+  const targetingGuideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const targetingMissTimesRef = useRef<number[]>([]);
+  const targetingIntroKeyRef = useRef<string | null>(null);
 
   const battleQuery = useQuery({
     queryKey: ['raid-battle-state', raidId],
@@ -122,6 +138,58 @@ export default function RaidBattlePage() {
   });
 
   const state = battleQuery.data;
+
+  const targeting = normalizeRaidTargeting(state?.raid.phase?.targeting);
+
+  const showTargetingGuide = useCallback((text: string, showZone: boolean, durationMs: number) => {
+    if (targetingGuideTimerRef.current) clearTimeout(targetingGuideTimerRef.current);
+    setTargetingGuide({ text, showZone });
+    targetingGuideTimerRef.current = setTimeout(() => {
+      setTargetingGuide(null);
+      targetingGuideTimerRef.current = null;
+    }, Math.max(250, durationMs));
+  }, []);
+
+  useEffect(() => () => {
+    if (targetingGuideTimerRef.current) clearTimeout(targetingGuideTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    const phaseId = state?.raid.phase?.id;
+    if (
+      state?.raid.status !== 'ACTIVE' ||
+      !phaseId ||
+      targeting.mode === 'BODY' ||
+      !targeting.valid ||
+      !targeting.primary_zone
+    ) {
+      if (targeting.mode === 'BODY') targetingIntroKeyRef.current = null;
+      return;
+    }
+
+    const key = `${raidId}:${phaseId}:${targeting.mode}`;
+    if (targetingIntroKeyRef.current === key) return;
+    targetingIntroKeyRef.current = key;
+    targetingMissTimesRef.current = [];
+    showTargetingGuide(
+      targeting.hint_text,
+      true,
+      targeting.show_initial_guide_ms,
+    );
+  }, [
+    raidId,
+    showTargetingGuide,
+    state?.raid.phase?.id,
+    state?.raid.status,
+    targeting.hint_text,
+    targeting.mode,
+    targeting.primary_zone?.height,
+    targeting.primary_zone?.width,
+    targeting.primary_zone?.x,
+    targeting.primary_zone?.y,
+    targeting.show_initial_guide_ms,
+    targeting.valid,
+  ]);
 
   useEffect(() => {
     const serverNow = state?.combat?.server_now;
@@ -400,6 +468,9 @@ export default function RaidBattlePage() {
       setDisplayHp(Number(batch.raid_hp));
       setDisplayHpRatio(Number(batch.raid_hp_ratio));
       setMyDamage(Number(batch.my_total_damage));
+      if (batch.results.some((item) => !item.accepted && item.reason === 'OUTSIDE_TARGET_ZONE')) {
+        showTargetingGuide(targeting.miss_text, true, targeting.show_miss_guide_ms);
+      }
       showPatternFeedback(batch);
 
       if (batch.pattern || batch.clash_triggered || batch.clash_active) {
@@ -453,7 +524,7 @@ export default function RaidBattlePage() {
         }
       }
     },
-    [queryClient, raidId, showPatternFeedback],
+    [queryClient, raidId, showPatternFeedback, showTargetingGuide, targeting.miss_text, targeting.show_miss_guide_ms],
   );
 
   // RAID_CLASH_V1_20261028: 격돌(모집·대표 공개·QTE) 중에는 전투 전체가 멈춘다.
@@ -504,6 +575,17 @@ export default function RaidBattlePage() {
 
     const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
     const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+
+    if (!isRaidTapAllowedLocally(targeting, state?.combat.active_pattern ?? null, x, y)) {
+      const now = Date.now();
+      const recentMisses = targetingMissTimesRef.current.filter((value) => now - value <= 2000);
+      recentMisses.push(now);
+      const emphasizeZone = recentMisses.length >= targeting.miss_repeat_threshold;
+      targetingMissTimesRef.current = emphasizeZone ? [] : recentMisses;
+      showTargetingGuide(targeting.miss_text, emphasizeZone, targeting.show_miss_guide_ms);
+      return;
+    }
+    targetingMissTimesRef.current = [];
 
     const queueResult = queueTap({
       x: Number(x.toFixed(6)),
@@ -597,6 +679,11 @@ export default function RaidBattlePage() {
           onPointerDown={handleBossPointerDown}
           groggyActive={groggyActive}
           bossAttackTelegraph={bossAttackTelegraph}
+        />
+
+        <TargetingGuideOverlay
+          targeting={targeting}
+          guide={targetingGuide}
         />
 
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.34),transparent_23%,transparent_70%,rgba(0,0,0,0.52))]" />
@@ -764,7 +851,7 @@ export default function RaidBattlePage() {
                 ? '표시된 핵의 순서를 확인하고 공격'
                 : activePattern?.pattern_type === 'SPLIT_TARGET'
                   ? '양쪽 목표를 균형 있게 공격'
-                  : '보스를 직접 터치하여 공격'}
+                  : raidTargetingInstruction(targeting)}
           </div>
         )}
       </div>
@@ -884,6 +971,46 @@ function BossViewport({
     </div>
   );
 }
+
+function TargetingGuideOverlay({
+  targeting,
+  guide,
+}: {
+  targeting: RaidTargetingPublicConfig;
+  guide: TargetingGuideState | null;
+}) {
+  if (!guide || targeting.mode === 'BODY') return null;
+  const zone = targeting.primary_zone;
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[33]">
+      {guide.showZone && zone ? (
+        <div
+          className={cn(
+            'absolute flex items-center justify-center rounded-[28px] border-4 backdrop-blur-[1px] animate-pulse',
+            targeting.mode === 'DOMAIN'
+              ? 'border-cyan-200/90 bg-cyan-300/10 shadow-[0_0_42px_rgba(34,211,238,0.48)]'
+              : 'border-yellow-200/90 bg-yellow-300/10 shadow-[0_0_42px_rgba(250,204,21,0.48)]',
+          )}
+          style={{
+            left: `${zone.x * 100}%`,
+            top: `${zone.y * 100}%`,
+            width: `${zone.width * 100}%`,
+            height: `${zone.height * 100}%`,
+            animationDuration: '0.9s',
+          }}
+        >
+          <span className="rounded-pill border border-white/35 bg-black/75 px-3 py-1.5 text-xs font-black text-white">
+            {targeting.mode === 'DOMAIN' ? '🎯 지배 영역' : '🎯 핵심 표적'}
+          </span>
+        </div>
+      ) : null}
+      <div className="absolute left-1/2 top-[46%] -translate-x-1/2 rounded-card-lg border-2 border-cyan-200/65 bg-black/82 px-5 py-3 text-center text-sm font-black text-white shadow-xl backdrop-blur">
+        {guide.text}
+      </div>
+    </div>
+  );
+}
+
 
 function BossHud({
   state,

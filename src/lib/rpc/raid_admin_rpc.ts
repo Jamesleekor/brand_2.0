@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RpcResult } from './student_rpc';
 import type { RaidVisualConfigV1 } from '@/features/raid/visual/raidVisualTypes';
+import type { RaidTargetingPublicConfig, RaidTargetingSavePayload } from '@/features/raid/targeting/raidTargeting';
+// RAID_TARGETING_V1_20261103
 import type { RaidClashPublicState } from './raid_student_rpc';
 
 export type RaidElement = 'FIRE' | 'WATER' | 'WIND' | 'EARTH' | 'LIGHT' | 'DARK';
@@ -176,7 +178,7 @@ export interface TeacherRaidBroadcastState {
     id: number; title: string; boss_name: string; boss_element: RaidElement; status: RaidStatus;
     max_hp: number; current_hp: number; hp_ratio: number; damage_coefficient: number;
     lobby_open_at: string | null; starts_at: string | null; ends_at: string | null; completed_at: string | null; end_reason: string | null;
-    phase: { id: number; phase_no: number; image_url: string | null; loop_video_url: string | null; visual: RaidVisualConfigV1 | null } | null;
+    phase: { id: number; phase_no: number; image_url: string | null; loop_video_url: string | null; visual: RaidVisualConfigV1 | null; targeting?: RaidTargetingPublicConfig | null } | null;
   };
   combat: {
     barrier_enabled: boolean; barrier_max_hp: number; barrier_current_hp: number; barrier_ratio: number;
@@ -311,6 +313,19 @@ export const raidAdminRpc = {
       p_phase_no: phaseNo,
       p_payload: payload,
     }),
+
+  saveTargeting: (
+    supabase: SupabaseClient,
+    raidId: number,
+    phaseNo: number,
+    payload: RaidTargetingSavePayload,
+  ) =>
+    callRpc<RaidTargetingPublicConfig>(supabase, 'teacher_save_raid_targeting', {
+      p_raid_id: raidId,
+      p_phase_no: phaseNo,
+      p_payload: payload,
+    }),
+
 
   audioProfile: (supabase: SupabaseClient, raidId: number) =>
     callRpc<TeacherRaidAudioProfile>(supabase, 'teacher_get_raid_audio_profile', {

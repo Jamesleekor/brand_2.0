@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { RpcResult } from './student_rpc';
 import type { RaidVisualConfigV1 } from '@/features/raid/visual/raidVisualTypes';
+import type { RaidTargetingPublicConfig } from '@/features/raid/targeting/raidTargeting';
+// RAID_TARGETING_V1_20261103
 
 export type RaidElement = 'FIRE' | 'WATER' | 'WIND' | 'EARTH' | 'LIGHT' | 'DARK';
 // RAID_ELEMENT_V1_20261017
@@ -374,6 +376,7 @@ export interface RaidBattleState {
       image_url: string | null;
       loop_video_url: string | null;
       visual: RaidVisualConfigV1 | null;
+      targeting?: RaidTargetingPublicConfig | null;
     } | null;
   };
   combat: RaidCombatState;

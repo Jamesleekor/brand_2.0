@@ -19,6 +19,8 @@ import { supabase } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils/cn';
 import { RaidBossVisualStage } from '@/features/raid/visual/RaidBossVisualStage';
 import { useRaidVisualState } from '@/features/raid/visual/useRaidVisualState';
+import { normalizeRaidTargeting, type RaidTargetingPublicConfig } from '@/features/raid/targeting/raidTargeting';
+// RAID_TARGETING_V1_20261103
 import { RaidBroadcastAudioEngine } from './RaidBroadcastAudio';
 import { RaidLootBroadcastLayer } from './RaidLootCeremonyOverlay';
 // RAID_CLASH_V1_20261028
@@ -101,6 +103,8 @@ export default function RaidBroadcastPage() {
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [audioMuted, setAudioMuted] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [targetingIntroUntil, setTargetingIntroUntil] = useState(0);
+  const targetingIntroKeyRef = useRef<string | null>(null);
 
   const broadcastQuery = useQuery({
     queryKey: ['teacher-raid-broadcast', raidId],
@@ -133,6 +137,38 @@ export default function RaidBroadcastPage() {
     (state?.participants ?? []).map((participant) => Number(participant.student_id)),
   );
   const audioProfile = audioProfileQuery.data;
+
+  const broadcastTargeting = normalizeRaidTargeting(state?.raid.phase?.targeting);
+
+  useEffect(() => {
+    const phaseId = state?.raid.phase?.id;
+    if (
+      state?.raid.status !== 'ACTIVE' ||
+      !phaseId ||
+      broadcastTargeting.mode === 'BODY' ||
+      !broadcastTargeting.valid ||
+      !broadcastTargeting.primary_zone
+    ) {
+      if (broadcastTargeting.mode === 'BODY') targetingIntroKeyRef.current = null;
+      return;
+    }
+
+    const key = `${raidId}:${phaseId}:${broadcastTargeting.mode}`;
+    if (targetingIntroKeyRef.current === key) return;
+    targetingIntroKeyRef.current = key;
+    setTargetingIntroUntil(Date.now() + Math.max(1200, broadcastTargeting.show_initial_guide_ms));
+  }, [
+    broadcastTargeting.mode,
+    broadcastTargeting.primary_zone?.height,
+    broadcastTargeting.primary_zone?.width,
+    broadcastTargeting.primary_zone?.x,
+    broadcastTargeting.primary_zone?.y,
+    broadcastTargeting.show_initial_guide_ms,
+    broadcastTargeting.valid,
+    raidId,
+    state?.raid.phase?.id,
+    state?.raid.status,
+  ]);
 
   // RAID_CLASH_V1_20261028: 격돌 이벤트가 실시간으로 오면 1초 폴링을 기다리지 않고 바로 다시 읽는다.
   const clashRefetchRef = useRef<(() => void) | null>(null);
@@ -390,6 +426,10 @@ export default function RaidBroadcastPage() {
           @keyframes raidBroadcastTeamPulse { 0%,100% { filter: brightness(1); } 45% { filter: brightness(1.65) saturate(1.25); } }
         `}</style>
         <BroadcastBossMedia state={state} />
+        <BroadcastTargetingGuide
+          targeting={broadcastTargeting}
+          visible={clockNow < targetingIntroUntil}
+        />
 
         {bossImpact && (
           <div className={cn(
@@ -564,6 +604,41 @@ export default function RaidBroadcastPage() {
     </div>
   );
 }
+
+function BroadcastTargetingGuide({
+  targeting,
+  visible,
+}: {
+  targeting: RaidTargetingPublicConfig;
+  visible: boolean;
+}) {
+  if (!visible || targeting.mode === 'BODY' || !targeting.primary_zone) return null;
+  const zone = targeting.primary_zone;
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[16]">
+      <div
+        className={cn(
+          'absolute flex items-center justify-center rounded-[30px] border-4 backdrop-blur-[1px] animate-pulse',
+          targeting.mode === 'DOMAIN'
+            ? 'border-cyan-200/80 bg-cyan-300/8 shadow-[0_0_55px_rgba(34,211,238,0.42)]'
+            : 'border-yellow-200/80 bg-yellow-300/8 shadow-[0_0_55px_rgba(250,204,21,0.42)]',
+        )}
+        style={{
+          left: `${zone.x * 100}%`,
+          top: `${zone.y * 100}%`,
+          width: `${zone.width * 100}%`,
+          height: `${zone.height * 100}%`,
+          animationDuration: '1s',
+        }}
+      >
+        <span className="rounded-pill border border-white/30 bg-black/75 px-4 py-2 text-sm font-black text-white">
+          {targeting.mode === 'DOMAIN' ? '🎯 지배 영역 공격' : '🎯 핵심 표적 공격'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 
 function BroadcastBossMedia({ state }: { state: TeacherRaidBroadcastState }) {
   const phase = state.raid.phase;

@@ -12,6 +12,8 @@ import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
 import RaidV15ConfigPanel, { type RaidConfigTabKey } from '@/features/teacher/raid/RaidV15ConfigPanel';
+import RaidTargetingEditor from '@/features/teacher/raid/RaidTargetingEditor';
+// RAID_TARGETING_V1_20261103
 import { isValidOptionalHttpUrl, mergeRaidVisualV2Metadata, readRaidVisualV2 } from '@/features/raid/visual/raidVisualConfig';
 import type { RaidVisualFxConfig, RaidVisualFxIntensity, RaidVisualFxPreset, RaidVisualCameraConfig, RaidVisualCameraPreset } from '@/features/raid/visual/raidVisualTypes';
 import { RAID_CAMERA_PRESETS } from '@/features/raid/visual/raidCameraPresets';
@@ -826,6 +828,15 @@ export default function RaidControlPage() {
                       pendingBossPresetKey={pendingBossPresetKey}
                       onBossPresetSelect={selectBossPreset}
                       onSave={save}
+                    />
+                  ) : null}
+
+                  {pageTab === 'RULES' ? (
+                    <RaidTargetingEditor
+                      raidId={detail.raid.id}
+                      raidStatus={detail.raid.status}
+                      phase={detail.phases.find((phase) => phase.phase_no === 1) ?? null}
+                      onSaved={() => void detailQuery.refetch()}
                     />
                   ) : null}
 
