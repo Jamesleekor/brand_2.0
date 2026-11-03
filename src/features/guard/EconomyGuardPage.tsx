@@ -1366,9 +1366,8 @@ function InequalityTab({ dashboard }: { dashboard: EconomyGuardDashboard }) {
   const inequality = dashboard.inequality;
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <InequalityMetric label="GOLD 지니계수" value={inequality.gini_gold.toFixed(3)} hint={giniLabel(inequality.gini_gold)} />
-        <InequalityMetric label="BV 지니계수" value={inequality.gini_bv.toFixed(3)} hint={giniLabel(inequality.gini_bv)} />
         <InequalityMetric label="상위 20% GOLD" value={formatPercent(inequality.top20_gold_share, 1)} hint="전체 GOLD 점유율" />
         <InequalityMetric label="공식 참가자" value={`${inequality.student_count}명`} hint={`총 ${formatNumber(inequality.total_gold)} GOLD`} />
       </div>
@@ -1382,11 +1381,10 @@ function InequalityTab({ dashboard }: { dashboard: EconomyGuardDashboard }) {
           <SectionTitle icon={<Coins className="h-4 w-4" />} title="현재 GOLD 순위" description="Live Test Agent는 공식 통계에서 제외됩니다." />
           <div className="mt-3 max-h-[390px] space-y-1.5 overflow-y-auto pr-1">
             {inequality.ranked.map((row) => (
-              <div key={row.student_id} className="grid grid-cols-[36px_minmax(0,1fr)_auto_auto] items-center gap-2 rounded-card-sm border border-line bg-bg-deep px-3 py-2">
+              <div key={row.student_id} className="grid grid-cols-[36px_minmax(0,1fr)_auto] items-center gap-2 rounded-card-sm border border-line bg-bg-deep px-3 py-2">
                 <span className="font-mono text-xs font-black text-text-muted">#{row.rank}</span>
                 <span className="truncate text-xs font-black text-text-primary">{displayName(row.name, row.brand_name)}</span>
                 <span className="font-mono text-xs font-black text-gold">{formatNumber(row.gold)} G</span>
-                <span className="hidden font-mono text-2xs font-bold text-bv sm:block">{formatNumber(row.bv)} BV</span>
               </div>
             ))}
           </div>
@@ -1399,9 +1397,9 @@ function InequalityTab({ dashboard }: { dashboard: EconomyGuardDashboard }) {
           <EmptyState emoji="📈" title="아직 저장된 스냅샷이 없습니다" description="첫 진입 시 오늘 스냅샷이 생성됩니다." />
         ) : (
           <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left text-xs">
-              <thead className="text-2xs font-black uppercase tracking-wider text-text-muted"><tr><th className="px-2 py-2">날짜</th><th className="px-2 py-2">GOLD Gini</th><th className="px-2 py-2">BV Gini</th><th className="px-2 py-2">상위20% GOLD</th></tr></thead>
-              <tbody>{inequality.history.map((row) => <tr key={row.snapshot_date} className="border-t border-line"><td className="px-2 py-2 font-black text-text-secondary">{row.snapshot_date}</td><td className="px-2 py-2 font-mono text-gold">{row.gini_gold.toFixed(3)}</td><td className="px-2 py-2 font-mono text-bv">{row.gini_bv.toFixed(3)}</td><td className="px-2 py-2 font-mono text-text-primary">{formatPercent(row.top20_gold_share, 1)}</td></tr>)}</tbody>
+            <table className="w-full min-w-[420px] text-left text-xs">
+              <thead className="text-2xs font-black uppercase tracking-wider text-text-muted"><tr><th className="px-2 py-2">날짜</th><th className="px-2 py-2">GOLD Gini</th><th className="px-2 py-2">상위20% GOLD</th></tr></thead>
+              <tbody>{inequality.history.map((row) => <tr key={row.snapshot_date} className="border-t border-line"><td className="px-2 py-2 font-black text-text-secondary">{row.snapshot_date}</td><td className="px-2 py-2 font-mono text-gold">{row.gini_gold.toFixed(3)}</td><td className="px-2 py-2 font-mono text-text-primary">{formatPercent(row.top20_gold_share, 1)}</td></tr>)}</tbody>
             </table>
           </div>
         )}
