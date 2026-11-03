@@ -219,30 +219,24 @@ const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPla
   return <div className="min-h-screen">
     <PageHeader title="아케이드" emoji="🕹️" />
     <main className="mx-auto max-w-5xl space-y-5 px-4 py-5">
-      <section className="overflow-hidden rounded-card-xl border border-brand-primary/30 bg-gradient-to-br from-brand-primary/15 via-bg-card to-gold/10 p-5">
-        <div className="text-xs font-black tracking-[0.18em] text-brand-primary">B.R.A.N.D ARCADE</div>
-        <h1 className="mt-2 font-display text-3xl text-white">집중력·반응·전략의 시험장</h1>
-        <p className="mt-2 max-w-3xl text-sm text-text-secondary">집중 반응, 순수 반응속도, 라카루카를 하나의 Arcade 기간 안에서 플레이하고 랭킹을 확인합니다.</p>
-      </section>
-
       {arcadeQuery.isLoading && <div className="py-16 text-center"><LoadingSpinner size="lg" /></div>}
       {arcadeQuery.isError && <LoadError detail={arcadeQuery.error instanceof Error ? arcadeQuery.error.message : 'Arcade 정보를 불러오지 못했습니다.'} retry={() => void arcadeQuery.refetch()} />}
       {arcadeQuery.data && <>
         {!visiblePeriods.length && <div className="glass-card border-warning/40 p-5"><div className="font-black text-warning">아직 열린 Arcade 랭킹 기간이 없어요.</div><p className="mt-2 text-sm text-text-secondary">운영국이 월간 또는 시즌 Arcade 기간을 활성화하면 랭킹이 시작됩니다.</p></div>}
 
         <section className="glass-card p-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <div className="text-xs font-black text-text-secondary">게임 선택</div>
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                {playableGames.map((entry) => { const meta = gameMeta(entry.code); return <button key={entry.id} onClick={() => selectGame(entry.code)} className={`shrink-0 rounded-pill border px-3 py-2 text-xs font-black ${selectedGameCode === entry.code ? 'border-brand-primary bg-brand-primary/15 text-brand-primary' : 'border-line bg-bg-deep text-text-secondary'}`}>{meta.emoji} {meta.title}</button>; })}
-                <button onClick={() => selectGame(RAKARUKA_CODE)} className={`shrink-0 rounded-pill border px-3 py-2 text-xs font-black ${isRakarukaSelected ? 'border-gold bg-gold/15 text-gold' : 'border-line bg-bg-deep text-text-secondary'}`}>🎲 라카루카 #03</button>
-              </div>
+          <div>
+            <div className="text-xs font-black text-text-secondary">게임 선택</div>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              {playableGames.map((entry) => { const meta = gameMeta(entry.code); return <button key={entry.id} onClick={() => selectGame(entry.code)} style={{ wordBreak: 'keep-all' }} className={`flex min-h-[44px] items-center justify-center rounded-card-md border px-2 py-2 text-center text-xs font-black leading-tight ${selectedGameCode === entry.code ? 'border-brand-primary bg-brand-primary/15 text-brand-primary' : 'border-line bg-bg-deep text-[#c9d1d9]'}`}>{meta.emoji} {meta.title}</button>; })}
+              <button onClick={() => selectGame(RAKARUKA_CODE)} style={{ wordBreak: 'keep-all' }} className={`flex min-h-[44px] items-center justify-center rounded-card-md border px-2 py-2 text-center text-xs font-black leading-tight ${isRakarukaSelected ? 'border-gold bg-gold/15 text-gold' : 'border-line bg-bg-deep text-[#c9d1d9]'}`}>🎲 라카루카 #03</button>
             </div>
-            <div>
-              <div className="text-xs font-black text-text-secondary">랭킹 기간 선택</div>
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{visiblePeriods.map((period) => <button key={period.id} onClick={() => { setSelectedPeriodId(period.id); setResult(null); }} className={`shrink-0 rounded-pill border px-3 py-2 text-xs font-black ${selectedPeriod?.id === period.id ? 'border-gold bg-gold/15 text-gold' : 'border-line bg-bg-deep text-text-secondary'}`}>{period.display_name}<span className="ml-1 opacity-70">{periodStatusLabel(period.status)}</span></button>)}</div>
-            </div>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-line/70 pt-4">
+            <label htmlFor="arcade-period-select" className="text-xs font-black text-text-secondary">랭킹 기간 선택</label>
+            <select id="arcade-period-select" className="input-field w-full sm:w-auto sm:min-w-[260px]" value={selectedPeriod?.id ?? ''} onChange={(event) => { setSelectedPeriodId(Number(event.target.value)); setResult(null); }} disabled={!visiblePeriods.length}>
+              {visiblePeriods.map((period) => <option key={period.id} value={period.id}>{period.display_name} · {periodStatusLabel(period.status)}</option>)}
+            </select>
           </div>
         </section>
 
@@ -274,8 +268,8 @@ const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPla
         {!bootstrap && isRakarukaSelected && selectedPeriod && <RakarukaCompetitionPanel periodId={selectedPeriod.id} />}
 
         {!bootstrap && game && <section className="glass-card overflow-hidden border-brand-primary/20">
-          <div className="grid gap-0 md:grid-cols-[1.1fr_.9fr]">
-            <div className="p-5">{(() => { const meta = gameMeta(game.code); return <><div className="flex items-start justify-between gap-4"><div><div className="text-4xl">{meta.emoji}</div><h2 className="mt-3 font-display text-2xl text-white">{meta.title}</h2><p className="mt-1 text-sm text-text-secondary">{meta.subtitle}</p></div><span className="rounded-pill bg-brand-primary/15 px-3 py-1 text-xs font-black text-brand-primary">{meta.number}</span></div><ul className="mt-5 space-y-2 text-sm text-text-secondary">{meta.rules.map((rule) => <li key={rule}>• {rule}</li>)}</ul></>; })()}
+          <div>
+            <div className="p-5">{(() => { const meta = gameMeta(game.code); return <><div className="flex items-start justify-between gap-4"><div><div className="text-4xl">{meta.emoji}</div><h2 className="mt-3 font-display text-2xl text-white">{meta.title}</h2><p className="mt-1 text-sm text-[#aeb9c5]">{meta.subtitle}</p></div><span className="rounded-pill bg-brand-primary/15 px-3 py-1 text-xs font-black text-brand-primary">{meta.number}</span></div><ol className="mt-5 grid gap-2 md:grid-cols-3" style={{ wordBreak: 'keep-all' }}>{meta.rules.map((rule, index) => <li key={rule} className="flex gap-3 rounded-card-md border border-line bg-bg-deep/70 p-3 text-[15px] font-medium leading-7 text-[#c9d1d9]"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-primary/20 text-xs font-black text-brand-primary">{index + 1}</span><span>{rule}</span></li>)}</ol></>; })()}
               {gameAccessQuery.isLoading && <p className="mt-4 rounded-card-md bg-bg-deep p-3 text-xs text-text-secondary">게임 시작 권한을 확인하고 있어요.</p>}
               {gameAccessQuery.isError && <p className="mt-4 rounded-card-md border border-danger/40 bg-danger/10 p-3 text-xs text-danger">게임 시작 권한을 확인하지 못했어요. 새로고침 후 다시 시도해주세요.</p>}
               {gameAccessQuery.data?.mode === 'CLOSED' && <p className="mt-4 rounded-card-md bg-warning/10 p-3 text-xs text-warning">이 게임은 한국 날짜 기준 {game.available_from}부터 열립니다.</p>}
@@ -286,18 +280,17 @@ const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPla
               {result && <ResultCard gameCode={game.code} result={result} isVerification={result.run_context === 'VERIFICATION'} summary={playSummary} myRank={leaderboardQuery.data?.my_rank ?? null} myBestScore={leaderboardQuery.data?.my_score ?? null} isRankingUpdating={isResultRankingUpdating || leaderboardQuery.isFetching} onRetry={() => { setResult(null); setPlaySummary(null); setActionError(null); }} />}
               {!result && <button className="btn-primary mt-5 w-full" disabled={!gameAccessQuery.data?.can_start || !selectedPeriod || selectedPeriod.status !== 'ACTIVE' || isCreatingRun} onClick={() => void startGame()}>{isCreatingRun ? '준비 중...' : dailyAttemptExhausted ? '오늘 50회 도전 완료' : selectedPeriod?.status === 'FINALIZED' ? '확정된 기간입니다' : isPrereleaseTest ? '사전 테스트 시작' : '게임 시작'}</button>}
             </div>
-            <div className="border-t border-line bg-bg-deep/70 p-5 md:border-l md:border-t-0"><h3 className="font-display text-lg text-gold">월간 보너스</h3><p className="mt-1 text-xs text-text-secondary">같은 기간에 한 학생은 최고 점수 하나만 랭킹에 들어갑니다.</p><div className="mt-4 grid grid-cols-2 gap-2 text-sm"><Bonus rank="1위" points="+30" /><Bonus rank="2위" points="+27" /><Bonus rank="3위" points="+24" /><Bonus rank="4~6위" points="+18" /><Bonus rank="7~10위" points="+15" /></div><p className="mt-4 text-xs text-text-muted">원본 보너스는 모두 기록되며, Guild 2 적용값은 학생별 최대 +90입니다.</p></div>
           </div>
         </section>}
 
-        {!isRakarukaSelected && selectedPeriod && leaderboardQuery.data && <GuildArcadeStandings rows={leaderboardQuery.data.guild_totals ?? []} periodStatus={selectedPeriod.status} />}
-        {!isRakarukaSelected && selectedPeriod && <section className="glass-card p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-display text-xl text-white">{selectedPeriod.display_name} Top 10</h2><p className="mt-1 text-xs text-text-secondary">동점은 현재 순위 반영 점수 → 먼저 게임 종료 → 기록 번호 순서로 결정됩니다.</p></div><span className={`rounded-pill px-3 py-1 text-xs font-black ${selectedPeriod.status === 'FINALIZED' ? 'bg-success/15 text-success' : 'bg-brand-primary/15 text-brand-primary'}`}>{selectedPeriod.status === 'FINALIZED' ? '월간 순위 확정' : selectedPeriod.status === 'VERIFICATION' ? '기록 인증 중' : selectedPeriod.status === 'READY_TO_FINALIZE' ? '최종 확정 대기' : '실시간 초안'}</span></div>{leaderboardQuery.isLoading && <div className="py-10 text-center"><LoadingSpinner /></div>}{leaderboardQuery.isError && <p className="mt-4 rounded-card-md bg-danger/10 p-3 text-sm text-danger">랭킹을 불러오지 못했어요. <button className="underline" onClick={() => void leaderboardQuery.refetch()}>다시 시도</button></p>}{leaderboardQuery.data && <Leaderboard gameCode={game?.code ?? ''} rows={leaderboardQuery.data.top10} myRank={leaderboardQuery.data.my_rank} myScore={leaderboardQuery.data.my_score} guildByStudentId={guildsByStudentId} />}</section>}
+        {!isRakarukaSelected && selectedPeriod && leaderboardQuery.data && <GuildArcadeStandings rows={leaderboardQuery.data.guild_totals ?? []} periodStatus={selectedPeriod.status} top10={leaderboardQuery.data.top10} guildByStudentId={guildsByStudentId} />}
+        {!isRakarukaSelected && selectedPeriod && <section className="glass-card p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-display text-xl text-white">{selectedPeriod.display_name} Top 10</h2><p className="mt-1 text-xs text-text-secondary">동점은 현재 순위 반영 점수 → 먼저 게임 종료 → 기록 번호 순서로 결정됩니다.</p></div><span className={`rounded-pill px-3 py-1 text-xs font-black ${selectedPeriod.status === 'FINALIZED' ? 'bg-success/15 text-success' : 'bg-brand-primary/15 text-brand-primary'}`}>{selectedPeriod.status === 'FINALIZED' ? '월간 순위 확정' : selectedPeriod.status === 'VERIFICATION' ? '기록 인증 중' : selectedPeriod.status === 'READY_TO_FINALIZE' ? '최종 확정 대기' : '실시간 초안'}</span></div><MonthlyBonusGuide />{leaderboardQuery.isLoading && <div className="py-10 text-center"><LoadingSpinner /></div>}{leaderboardQuery.isError && <p className="mt-4 rounded-card-md bg-danger/10 p-3 text-sm text-danger">랭킹을 불러오지 못했어요. <button className="underline" onClick={() => void leaderboardQuery.refetch()}>다시 시도</button></p>}{leaderboardQuery.data && <Leaderboard gameCode={game?.code ?? ''} rows={leaderboardQuery.data.top10} myRank={leaderboardQuery.data.my_rank} myScore={leaderboardQuery.data.my_score} guildByStudentId={guildsByStudentId} periodStatus={selectedPeriod.status} />}</section>}
       </>}
     </main>
   </div>;
 }
 
-function GuildArcadeStandings({ rows, periodStatus }: { rows: ArcadeGuildTotalRow[]; periodStatus: ArcadePeriodRow['status'] }) {
+function GuildArcadeStandings({ rows, periodStatus, top10, guildByStudentId }: { rows: ArcadeGuildTotalRow[]; periodStatus: ArcadePeriodRow['status']; top10: ArcadeLeaderboardRow[]; guildByStudentId: Map<number, StudentGuildIdentity> }) {
   const useCertifiedRanking = periodStatus === 'READY_TO_FINALIZE' || periodStatus === 'FINALIZED';
   const rankedRows = [...rows].map((row) => {
     const memberCount = Math.max(0, Number(row.member_count) || 0);
@@ -313,22 +306,57 @@ function GuildArcadeStandings({ rows, periodStatus }: { rows: ArcadeGuildTotalRo
     if (totalDiff !== 0) return totalDiff;
     return Number(a.guild_id) - Number(b.guild_id);
   });
-  const rankingLabel = useCertifiedRanking ? '공인 평균' : '일반 평균';
+  const rankingLabel = useCertifiedRanking ? '공인기록 평균' : '일반플레이 평균';
+  // 길드점수 보너스 합산: 공인 순위가 확정(FINALIZED)된 뒤에만 계산한다. 학생별 Guild 2 상한(+90)을 적용한다.
+  const bonusConfirmed = periodStatus === 'FINALIZED';
+  const guildBonus = new Map<number, { total: number; achievers: number }>();
+  if (bonusConfirmed) {
+    for (const entry of top10) {
+      const guild = guildByStudentId.get(Number(entry.student_id));
+      const points = arcadeRankBonus(entry.rank);
+      if (!guild || points <= 0) continue;
+      const current = guildBonus.get(guild.guildId) ?? { total: 0, achievers: 0 };
+      guildBonus.set(guild.guildId, { total: current.total + Math.min(points, GUILD2_STUDENT_BONUS_CAP), achievers: current.achievers + 1 });
+    }
+  }
   const rankLabel = (index: number) => index === 0 ? '👑 1위' : index === 1 ? '🥈 2위' : index === 2 ? '🥉 3위' : `${index + 1}위`;
   const certifiedValue = (row: (typeof rankedRows)[number], value: number) => row.certified_count > 0 || useCertifiedRanking ? Math.round(value).toLocaleString('ko-KR') : '—';
-  return <section className="glass-card p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-display text-xl text-white">⚔️ 길드별 아케이드 현황</h2><p className="mt-1 text-xs text-text-secondary">공인 기록 확정 전에는 <b className="text-gold">일반 평균</b>, 확정 후에는 <b className="text-success">공인 평균</b> 기준으로 순위를 정합니다. 평균은 길드 전체 인원 기준입니다.</p></div><span className={`rounded-pill px-3 py-1 text-xs font-black ${useCertifiedRanking ? 'bg-success/15 text-success' : 'bg-gold/10 text-gold'}`}>{rankingLabel} 기준</span></div>{!rankedRows.length ? <p className="py-8 text-center text-sm text-text-secondary">아직 길드별 집계 기록이 없습니다.</p> : <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[820px] table-fixed overflow-hidden rounded-card-md text-sm"><colgroup><col className="w-[130px]" />{rankedRows.map((row) => <col key={`col-${row.guild_id}`} />)}</colgroup><tbody>
+  return <section className="glass-card p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-display text-xl text-white">⚔️ 길드별 아케이드 현황</h2><p className="mt-1 text-xs text-text-secondary">공인 기록 확정 전에는 <b className="text-gold">일반플레이 평균</b>, 확정 후에는 <b className="text-success">공인기록 평균</b> 기준으로 순위를 정합니다. 평균은 길드 전체 인원 기준입니다.</p></div><span className={`rounded-pill px-3 py-1 text-xs font-black ${useCertifiedRanking ? 'bg-success/15 text-success' : 'bg-gold/10 text-gold'}`}>{rankingLabel} 기준</span></div>{!rankedRows.length ? <p className="py-8 text-center text-sm text-text-secondary">아직 길드별 집계 기록이 없습니다.</p> : <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[820px] table-fixed overflow-hidden rounded-card-md text-sm"><colgroup><col className="w-[130px]" />{rankedRows.map((row) => <col key={`col-${row.guild_id}`} />)}</colgroup><tbody>
     <tr className="border-b border-line bg-bg-deep/70"><th className="p-3 text-left text-xs font-black text-text-secondary">순위</th>{rankedRows.map((row,index)=><th key={row.guild_id} className="p-3 text-center"><span className={`font-display text-base ${index<3?'text-gold':'text-white'}`}>{rankLabel(index)}</span></th>)}</tr>
     <tr className="border-b border-line/70"><th className="p-3 text-left text-xs font-black text-text-secondary">길드</th>{rankedRows.map((row)=><td key={row.guild_id} className="p-3 text-center align-middle"><div className="flex min-h-[96px] flex-col items-center justify-center gap-2">{row.guild_logo_url?<img src={row.guild_logo_url} alt="" className="h-10 w-10 shrink-0 rounded-md object-contain" loading="lazy"/>:<span className="flex h-10 w-10 items-center justify-center rounded-md border border-line bg-bg-deep text-sm font-black text-text-secondary">{row.guild_name.slice(0,1)}</span>}<div><div className="whitespace-nowrap text-sm font-black text-white">{row.guild_name}</div><div className="mt-1 inline-flex rounded-pill border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-bold text-white/75">{row.memberCount}명 길드</div></div></div></td>)}</tr>
-    <tr className="border-b border-line/70"><th className="p-3 text-left text-xs font-black text-text-secondary">일반 합산</th>{rankedRows.map((row)=><td key={row.guild_id} className="p-3 text-center font-black text-white">{Math.round(row.generalTotal).toLocaleString('ko-KR')}</td>)}</tr>
-    <tr className={`border-b border-line/70 ${!useCertifiedRanking?'bg-gold/10':'bg-gold/[0.035]'}`}><th className="p-3 text-left text-xs font-black text-gold">일반 평균 {!useCertifiedRanking&&<span className="ml-1">★</span>}</th>{rankedRows.map((row)=><td key={row.guild_id} className="p-3 text-center"><span className={`font-display text-lg font-black ${!useCertifiedRanking?'text-gold':'text-gold/80'}`}>{Math.round(row.generalAverage).toLocaleString('ko-KR')}</span></td>)}</tr>
-    <tr className="border-b border-line/70"><th className="p-3 text-left text-xs font-black text-text-secondary">공인 합산</th>{rankedRows.map((row)=><td key={row.guild_id} className="p-3 text-center font-black text-white">{certifiedValue(row,row.certifiedTotal)}</td>)}</tr>
-    <tr className={useCertifiedRanking?'bg-success/10':'bg-success/[0.035]'}><th className="p-3 text-left text-xs font-black text-success">공인 평균 {useCertifiedRanking&&<span className="ml-1">★</span>}</th>{rankedRows.map((row)=><td key={row.guild_id} className="p-3 text-center"><span className={`font-display text-lg font-black ${useCertifiedRanking?'text-success':'text-success/80'}`}>{certifiedValue(row,row.certifiedAverage)}</span></td>)}</tr>
-  </tbody></table><div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-muted"><span>• 일반 평균 = 일반 플레이 최고 기록 합계 ÷ 길드 전체 인원</span><span>• 공인 평균 = 최종 공인 기록 합계 ÷ 길드 전체 인원</span>{periodStatus === 'VERIFICATION' && <span className="text-warning">• 인증 진행 중에는 순위를 일반 평균으로 유지합니다.</span>}</div></div>}</section>;
+    <tr className={`border-b border-line/70 ${!useCertifiedRanking?'bg-gold/10':'bg-gold/[0.035]'}`}><th className="p-3 text-left text-xs font-black text-gold">일반플레이 평균 {!useCertifiedRanking&&<span className="ml-1">★</span>}</th>{rankedRows.map((row)=><td key={row.guild_id} className="p-3 text-center"><span className={`font-display text-lg font-black ${!useCertifiedRanking?'text-gold':'text-gold/80'}`}>{Math.round(row.generalAverage).toLocaleString('ko-KR')}</span></td>)}</tr>
+    <tr className={`border-b border-line/70 ${useCertifiedRanking?'bg-success/10':'bg-success/[0.035]'}`}><th className="p-3 text-left text-xs font-black text-success">공인기록 평균 {useCertifiedRanking&&<span className="ml-1">★</span>}</th>{rankedRows.map((row)=><td key={row.guild_id} className="p-3 text-center"><span className={`font-display text-lg font-black ${useCertifiedRanking?'text-success':'text-success/80'}`}>{certifiedValue(row,row.certifiedAverage)}</span></td>)}</tr>
+    <tr className="border-t-2 border-gold/50 bg-gold/15"><th className="p-3 text-left"><div className="text-sm font-black text-gold">🏆 길드점수 보너스 합산</div><div className="mt-0.5 text-[11px] font-bold text-[#aeb9c5]">(공인 순위 확정시)</div></th>{rankedRows.map((row)=>{ const bonus = guildBonus.get(Number(row.guild_id)); return <td key={row.guild_id} className="p-3 text-center">{bonusConfirmed ? <><div className={`font-display text-2xl font-black ${bonus ? 'text-gold' : 'text-text-muted'}`}>+{(bonus?.total ?? 0).toLocaleString('ko-KR')}</div><div className="mt-0.5 text-[11px] font-bold text-[#aeb9c5]">{bonus?.achievers ?? 0}명 달성</div></> : <span className="font-display text-xl text-text-muted">—</span>}</td>; })}</tr>
+  </tbody></table><div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-muted"><span>• 일반플레이 평균 = 일반 플레이 최고 기록 합계 ÷ 길드 전체 인원</span><span>• 공인기록 평균 = 최종 공인 기록 합계 ÷ 길드 전체 인원</span><span>• 길드점수 보너스 합산 = 이 게임의 월간 공인 Top 10 보너스를 길드별로 더한 값(학생별 최대 +90)</span>{periodStatus === 'VERIFICATION' && <span className="text-warning">• 인증 진행 중에는 순위를 일반 평균으로 유지합니다.</span>}</div></div>}</section>;
 }
 
-function Leaderboard({ gameCode, rows, myRank, myScore, guildByStudentId }: { gameCode: string; rows: ArcadeLeaderboardRow[]; myRank: number | null; myScore: number | null; guildByStudentId: Map<number, StudentGuildIdentity> }) {
+function Leaderboard({ gameCode, rows, myRank, myScore, guildByStudentId, periodStatus }: { gameCode: string; rows: ArcadeLeaderboardRow[]; myRank: number | null; myScore: number | null; guildByStudentId: Map<number, StudentGuildIdentity>; periodStatus: ArcadePeriodRow['status'] }) {
   if (!rows.length) return <p className="py-10 text-center text-sm text-text-secondary">아직 공식 기록이 없습니다. 첫 도전의 주인공이 되어보세요.</p>;
-  return <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[760px] text-sm"><thead className="border-b border-line text-left text-xs text-text-secondary"><tr><th className="p-2">순위</th><th className="p-2">학생</th><th className="p-2">소속 길드</th><th className="p-2 text-right">일반 플레이 기록</th><th className="p-2 text-right">공인 기록</th>{gameCode === 'pure_reaction_02' && <th className="p-2 text-right">평균 반응</th>}<th className="p-2 text-right">기록 시각</th></tr></thead><tbody>{rows.map((row) => { const guild = guildByStudentId.get(Number(row.student_id)); const generalScore = Number(row.general_score ?? row.official_score); const certifiedScore = row.certified_score === null || row.certified_score === undefined ? null : Number(row.certified_score); const certificationStatus = row.certification_status ?? 'NONE'; return <tr key={`${row.rank}-${row.student_id}`} className="border-b border-line/70 last:border-0"><td className="whitespace-nowrap p-2 font-display text-lg text-gold">{studentRankLabel(row.rank)}</td><td className="p-2 font-black text-white">{row.student_name}</td><td className="p-2"><GuildIdentityCell guild={guild ?? null} /></td><td className="p-2 text-right font-black text-white">{generalScore.toLocaleString('ko-KR')}</td><td className="p-2 text-right"><CertifiedScore score={certifiedScore} status={certificationStatus} /></td>{gameCode === 'pure_reaction_02' && <td className="p-2 text-right font-black text-brand-primary">{formatReactionAverage(row.average_reaction_ms_x10)}</td>}<td className="p-2 text-right text-xs text-text-secondary">{formatKstDateTime(row.game_over_at)}</td></tr>; })}</tbody></table><div className="mt-3 rounded-card-md bg-bg-deep p-3 text-xs text-text-secondary">내 순위: <b className="text-white">{myRank ? `${myRank}위` : 'Top 10 밖'}</b>{myScore !== null && <span className="ml-3">현재 순위 반영 점수: <b className="text-gold">{Number(myScore).toLocaleString('ko-KR')}</b></span>}</div></div>;
+  // 열 너비를 고정해 '소속 길드'와 '일반 플레이 기록' 사이에 빈 공간이 생기지 않게 한다 (합계 100%).
+  const columnWidths = gameCode === 'pure_reaction_02' ? [6, 11, 18, 13, 14, 15, 12, 11] : [7, 12, 20, 14, 16, 17, 14];
+  const confirmed = periodStatus === 'FINALIZED';
+  return <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[920px] table-fixed text-sm"><colgroup>{columnWidths.map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup><thead className="border-b border-line text-left text-xs text-text-secondary"><tr><th className="p-2">순위</th><th className="p-2">학생</th><th className="p-2">소속 길드</th><th className="p-2 text-right">일반 플레이 기록</th><th className="p-2 text-right">공인 기록</th><th className="p-2 text-right leading-tight" style={{ wordBreak: 'keep-all' }}>길드 기여도 추가 점수<div className="mt-0.5 text-[10px] font-bold text-[#aeb9c5]">(공인 순위 확정시)</div></th>{gameCode === 'pure_reaction_02' && <th className="p-2 text-right">평균 반응</th>}<th className="p-2 text-right">기록 시각</th></tr></thead><tbody>{rows.map((row) => { const guild = guildByStudentId.get(Number(row.student_id)); const generalScore = Number(row.general_score ?? row.official_score); const certifiedScore = row.certified_score === null || row.certified_score === undefined ? null : Number(row.certified_score); const certificationStatus = row.certification_status ?? 'NONE'; return <tr key={`${row.rank}-${row.student_id}`} className="border-b border-line/70 last:border-0"><td className="whitespace-nowrap p-2 font-display text-lg text-gold">{studentRankLabel(row.rank)}</td><td className="p-2 font-black text-white">{row.student_name}</td><td className="p-2"><GuildIdentityCell guild={guild ?? null} /></td><td className="p-2 text-right font-black text-white">{generalScore.toLocaleString('ko-KR')}</td><td className="p-2 text-right"><CertifiedScore score={certifiedScore} status={certificationStatus} /></td><td className="p-2 text-right"><GuildContribution rank={row.rank} confirmed={confirmed} /></td>{gameCode === 'pure_reaction_02' && <td className="p-2 text-right font-black text-brand-primary">{formatReactionAverage(row.average_reaction_ms_x10)}</td>}<td className="p-2 text-right text-xs text-text-secondary">{formatKstDateTime(row.game_over_at)}</td></tr>; })}</tbody></table><div className="mt-3 rounded-card-md bg-bg-deep p-3 text-xs text-text-secondary">내 순위: <b className="text-white">{myRank ? `${myRank}위` : 'Top 10 밖'}</b>{myScore !== null && <span className="ml-3">현재 순위 반영 점수: <b className="text-gold">{Number(myScore).toLocaleString('ko-KR')}</b></span>}</div></div>;
+}
+
+const ARCADE_BONUS_TIERS = [
+  { label: '1위', from: 1, to: 1, points: 30 },
+  { label: '2위', from: 2, to: 2, points: 27 },
+  { label: '3위', from: 3, to: 3, points: 24 },
+  { label: '4~6위', from: 4, to: 6, points: 18 },
+  { label: '7~10위', from: 7, to: 10, points: 15 },
+];
+// Guild 2에 적용되는 학생별 월간 아케이드 보너스 상한
+const GUILD2_STUDENT_BONUS_CAP = 90;
+function arcadeRankBonus(rank: number) { const tier = ARCADE_BONUS_TIERS.find((entry) => rank >= entry.from && rank <= entry.to); return tier ? tier.points : 0; }
+
+function MonthlyBonusGuide() {
+  return <div className="mt-4 rounded-card-md border border-gold/25 bg-gold/[0.06] p-3"><div className="flex flex-wrap items-center gap-x-4 gap-y-2"><span className="text-sm font-black text-gold">월간 보너스</span><div className="flex flex-wrap gap-2 text-xs">{ARCADE_BONUS_TIERS.map((tier) => <span key={tier.label} className="rounded-pill border border-line bg-bg-card px-2.5 py-1 font-bold text-[#c9d1d9]">{tier.label}<b className="ml-1.5 text-gold">+{tier.points}</b></span>)}</div></div><p className="mt-2 text-[11px] leading-5 text-[#aeb9c5]" style={{ wordBreak: 'keep-all' }}>같은 기간에 한 학생은 최고 점수 하나만 랭킹에 들어갑니다. 원본 보너스는 모두 기록되며, Guild 2 적용값은 학생별 최대 +{GUILD2_STUDENT_BONUS_CAP}입니다.</p></div>;
+}
+
+function GuildContribution({ rank, confirmed }: { rank: number; confirmed: boolean }) {
+  const points = arcadeRankBonus(rank);
+  if (!confirmed || points <= 0) return <span className="text-text-muted">—</span>;
+  return <b className="font-display text-base text-gold">+{points}</b>;
 }
 
 function GuildIdentityCell({ guild }: { guild: StudentGuildIdentity | null }) {
