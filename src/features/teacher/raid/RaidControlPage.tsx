@@ -6,13 +6,15 @@ import { LoadingSpinner, useRpcCall } from '@/components/shared/components';
 
 // RAID_BETA1_REWARD_CONFIG_UI_20260918
 import { TeacherShell } from '@/components/teacher/TeacherShell';
-import { raidAdminRpc, type RaidEditorPayload, type RaidElement, type RaidStatus, type TeacherRaidDetail, type TeacherRaidLiveDashboard } from '@/lib/rpc/raid_admin_rpc';
+import { raidAdminRpc, type RaidEditorPayload, type RaidElement, type RaidStatus, type TeacherRaidDetail, type TeacherRaidLiveDashboard, type TeacherRaidPhase } from '@/lib/rpc/raid_admin_rpc';
 import { raidBalanceV15Rpc } from '@/lib/rpc/raid_balance_v15_rpc';
 import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
 import RaidV15ConfigPanel, { type RaidConfigTabKey } from '@/features/teacher/raid/RaidV15ConfigPanel';
 import RaidTargetingEditor from '@/features/teacher/raid/RaidTargetingEditor';
+// RAID_BOSS_TYPE_V2_20261104
+import type { RaidTargetingMode } from '@/features/raid/targeting/raidTargeting';
 // RAID_TARGETING_V1_20261103
 import { isValidOptionalHttpUrl, mergeRaidVisualV2Metadata, readRaidVisualV2 } from '@/features/raid/visual/raidVisualConfig';
 import type { RaidVisualFxConfig, RaidVisualFxIntensity, RaidVisualFxPreset, RaidVisualCameraConfig, RaidVisualCameraPreset } from '@/features/raid/visual/raidVisualTypes';
@@ -24,22 +26,20 @@ import { RaidCinematicFxLayer } from '@/features/raid/visual/RaidCinematicFxLaye
 import { useRaidCinematicEvents } from '@/features/raid/visual/useRaidCinematicEvents';
 import { RAID_CINEMATIC_TRIGGERS, RAID_EVENT_FX, RAID_CAMERA_REACTIONS, RAID_CINEMATIC_DEFAULTS, normalizeRaidCinematicConfig } from '@/features/raid/visual/raidCinematicPresets';
 import type { RaidCinematicConfig, RaidCinematicTrigger, RaidEventFx, RaidCameraReaction } from '@/features/raid/visual/raidCinematicPresets';
-import { raidV15AdminRpc } from '@/lib/rpc/raid_v15_admin_rpc';
-import {
-  RAID_BOSS_PRESETS,
-  cloneRaidBossPresetPatterns,
-  getRaidBossPreset,
-  type RaidBossPresetKey,
-} from '@/features/teacher/raid/raidBossPresets';
 // RAID_V15_E5_CONFIGURATION_UI
 
 // RAID_V15_E3C_TEACHER_TEST_PRESET
+
+type RaidBossType = 'A' | 'B' | 'C' | 'D' | 'E';
+
+type TargetingRect = { x: number; y: number; width: number; height: number };
 
 type RaidForm = {
   title: string;
   bossName: string;
   bossDescription: string;
   bossElement: RaidElement;
+  bossType: RaidBossType;
   maxHp: string;
   endsAt: string;
   damageCoefficient: string;
@@ -86,11 +86,84 @@ const ELEMENT_OPTIONS: Array<{ value: RaidElement; label: string }> = [
   { value: 'DARK', label: '☾ 암' },
 ];
 
+
+const BOSS_TYPE_OPTIONS: Array<{
+  value: RaidBossType;
+  title: string;
+  subtitle: string;
+  description: string;
+}> = [
+  { value: 'A', title: 'A TYPE', subtitle: '직접 공격 · BODY', description: '기존 A타입 전투 방식' },
+  { value: 'B', title: 'B TYPE', subtitle: '직접 공격 · BODY', description: '기존 B타입 전투 방식' },
+  { value: 'C', title: 'C TYPE', subtitle: '영역전 · DOMAIN', description: '환경의 넓은 지배 영역을 공격' },
+  { value: 'D', title: 'D TYPE', subtitle: '표적전 · ANCHOR', description: '원거리 거대 보스의 핵심 표적을 공격' },
+  { value: 'E', title: 'E TYPE', subtitle: '확장형 · BODY', description: '전용 규칙 확정 전까지 직접 공격 유지' },
+];
+
+const BOSS_TYPE_DEFAULT_RECTS: Record<'DOMAIN' | 'ANCHOR', TargetingRect> = {
+  DOMAIN: { x: 0.30, y: 0.12, width: 0.40, height: 0.46 },
+  ANCHOR: { x: 0.38, y: 0.18, width: 0.24, height: 0.36 },
+};
+
+function targetingModeForBossType(type: RaidBossType): RaidTargetingMode {
+  if (type === 'C') return 'DOMAIN';
+  if (type === 'D') return 'ANCHOR';
+  return 'BODY';
+}
+
+function readPhaseTargetingMode(phase: TeacherRaidPhase | null | undefined): RaidTargetingMode {
+  const raw = phase?.metadata?.targeting_v1;
+  const row = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+  const mode = String(row.mode ?? '').toUpperCase();
+  return mode === 'DOMAIN' || mode === 'ANCHOR' ? mode : 'BODY';
+}
+
+function readPrimaryTargetRect(phase: TeacherRaidPhase | null | undefined): TargetingRect | null {
+  const zone = phase?.hit_zones.find((item) => item.zone_key === 'PRIMARY_TARGET');
+  if (!zone) return null;
+  const rect = { x: Number(zone.x), y: Number(zone.y), width: Number(zone.width), height: Number(zone.height) };
+  if (!Object.values(rect).every(Number.isFinite)) return null;
+  if (rect.x < 0 || rect.y < 0 || rect.width <= 0 || rect.height <= 0 || rect.x + rect.width > 1 || rect.y + rect.height > 1) return null;
+  return rect;
+}
+
+function inferBossType(detail: TeacherRaidDetail): RaidBossType {
+  const raw = String(detail.raid.metadata?.boss_type ?? '').toUpperCase();
+  if (raw === 'A' || raw === 'B' || raw === 'C' || raw === 'D' || raw === 'E') return raw;
+  const phase = detail.phases.find((item) => item.phase_no === 1);
+  const mode = readPhaseTargetingMode(phase);
+  if (mode === 'DOMAIN') return 'C';
+  if (mode === 'ANCHOR') return 'D';
+  return 'A';
+}
+
+async function syncBossTypeTargeting(
+  raidId: number,
+  bossType: RaidBossType,
+  phase: TeacherRaidPhase | null | undefined,
+) {
+  const mode = targetingModeForBossType(bossType);
+  if (mode === 'BODY') return raidAdminRpc.saveTargeting(supabase, raidId, 1, { mode });
+
+  const existingMode = readPhaseTargetingMode(phase);
+  const existingRect = existingMode === mode ? readPrimaryTargetRect(phase) : null;
+  const rect = existingRect ?? BOSS_TYPE_DEFAULT_RECTS[mode];
+
+  return raidAdminRpc.saveTargeting(supabase, raidId, 1, {
+    mode,
+    ...rect,
+    show_initial_guide_ms: 1500,
+    show_miss_guide_ms: 900,
+    miss_repeat_threshold: 3,
+  });
+}
+
 const EMPTY_FORM: RaidForm = {
   title: '',
   bossName: '',
   bossDescription: '',
   bossElement: 'DARK',
+  bossType: 'A',
   maxHp: '1000000',
   endsAt: '',
   damageCoefficient: '0.02',
@@ -129,10 +202,7 @@ export default function RaidControlPage() {
   const [form, setForm] = useState<RaidForm>(EMPTY_FORM);
   const [formLoadedFor, setFormLoadedFor] = useState<number | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
-  const [deletingRaidId, setDeletingRaidId] = useState<number | null>(null);
-  const [pendingBossPresetKey, setPendingBossPresetKey] = useState<RaidBossPresetKey | null>(null);
-  const [raidConfigRevision, setRaidConfigRevision] = useState(0);
-  const [focusPatternRaidId, setFocusPatternRaidId] = useState<number | null>(null);
+  const [deletingRaidId, setDeletingRaidId] = useState<number | null>(null);  const [focusPatternRaidId, setFocusPatternRaidId] = useState<number | null>(null);
   // RAID_ADMIN_LAYOUT_TABS_20261023
   const [pageTab, setPageTab] = useState<RaidPageTab>('BASIC');
   const [lastConfigTab, setLastConfigTab] = useState<RaidConfigTabKey>('COMBAT');
@@ -234,9 +304,7 @@ export default function RaidControlPage() {
     setFocusPatternRaidId(null);
     setSelectedRaidId(null);
     setForm({ ...EMPTY_FORM });
-    setFormLoadedFor(null);
-    setPendingBossPresetKey(null);
-    setPageTab('BASIC');
+    setFormLoadedFor(null);    setPageTab('BASIC');
     setTabInitFor(null);
   };
 
@@ -244,37 +312,7 @@ export default function RaidControlPage() {
     setIsCreating(false);
     setFocusPatternRaidId(null);
     setSelectedRaidId(raidId);
-    setFormLoadedFor(null);
-    setPendingBossPresetKey(null);
-    setTabInitFor(null);
-  };
-
-  const selectBossPreset = (presetKey: RaidBossPresetKey | null) => {
-    setPendingBossPresetKey(presetKey);
-    const preset = getRaidBossPreset(presetKey);
-    if (!preset) return;
-    setForm((current) => ({
-      ...current,
-      title: preset.raidTitle,
-      bossName: preset.bossName,
-      bossDescription: preset.description,
-      bossElement: preset.element,
-    }));
-  };
-
-  const saveBossPresetCombat = async (raidId: number, presetKey: RaidBossPresetKey) => {
-    const preset = getRaidBossPreset(presetKey);
-    if (!preset) return false;
-    const result = await raidV15AdminRpc.saveCombat(supabase, raidId, {
-      config: { ...preset.combat, metadata: { ...(preset.combat.metadata ?? {}) } },
-      patterns: cloneRaidBossPresetPatterns(preset),
-    });
-    if (result.success === false) {
-      window.alert(`보스 프리셋의 전투 기믹/패턴 적용에 실패했습니다.\n\n${result.error}`);
-      return false;
-    }
-    setRaidConfigRevision((current) => current + 1);
-    return true;
+    setFormLoadedFor(null);    setTabInitFor(null);
   };
 
   const deleteRaidRecord = async (raid: { id: number; title: string; status: RaidStatus }) => {
@@ -402,8 +440,7 @@ export default function RaidControlPage() {
       loop_video_url: form.loopVideoUrl.trim() || null,
       reward_config: { ...(detail?.raid.reward_config ?? {}), base_gold: baseRewardGold, rewards_enabled: form.rewardsEnabled },
       metadata: {
-        ...(detail?.raid.metadata ?? {}),
-        ...(pendingBossPresetKey ? { boss_preset_key: pendingBossPresetKey, boss_preset_version: 1 } : {}),
+        ...(detail?.raid.metadata ?? {}),        boss_type: form.bossType,
         element_damage_rules_version: form.elementDamageEnabled ? 'V1' : 'OFF',
       },
     };
@@ -454,14 +491,21 @@ export default function RaidControlPage() {
             window.alert(
               '레이드 초안은 생성되었지만 Visual V2 설정 저장에 실패했습니다. 생성된 레이드를 다시 열어 미디어 설정을 저장해주세요.',
             );
-          }
-
-          if (pendingBossPresetKey) {
-            const presetApplied = await saveBossPresetCombat(newId, pendingBossPresetKey);
-            if (presetApplied) setPendingBossPresetKey(null);
+          }
+          if (phaseSaveResult !== null) {
+            const targetingResult = await syncBossTypeTargeting(newId, form.bossType, null);
+            if (targetingResult.success === false) {
+              window.alert(`레이드는 생성되었지만 ${form.bossType}타입 공격 판정 자동 설정에 실패했습니다.\n\n${targetingResult.error}\n\n전투 규칙 탭에서 공격 판정을 다시 저장해주세요.`);
+            }
           }
           setIsCreating(false);
-          setFocusPatternRaidId(newId);
+          if (form.bossType === 'C' || form.bossType === 'D') {
+            setFocusPatternRaidId(null);
+            setPageTab('RULES');
+            setTabInitFor(newId);
+          } else {
+            setFocusPatternRaidId(newId);
+          }
           await refreshAll(newId);
         }
         return;
@@ -511,10 +555,10 @@ export default function RaidControlPage() {
           successDescription: '보스·전투 규칙·1페이즈 미디어를 저장했습니다.',
         },
       );
-      if (phaseResult !== null) {
-        if (pendingBossPresetKey) {
-          const presetApplied = await saveBossPresetCombat(selectedRaidId, pendingBossPresetKey);
-          if (presetApplied) setPendingBossPresetKey(null);
+      if (phaseResult !== null) {
+        const targetingResult = await syncBossTypeTargeting(selectedRaidId, form.bossType, phase);
+        if (targetingResult.success === false) {
+          window.alert(`보스 기본 설정은 저장되었지만 ${form.bossType}타입 공격 판정 동기화에 실패했습니다.\n\n${targetingResult.error}`);
         }
         await refreshAll(selectedRaidId);
       }
@@ -788,10 +832,7 @@ export default function RaidControlPage() {
                   status="DRAFT"
                   creating
                   section={EDITOR_SECTION_TABS.includes(pageTab) ? (pageTab as RaidEditorSection) : 'BASIC'}
-                  saving={busyAction === 'SAVE' || rpcLoading}
-                  pendingBossPresetKey={pendingBossPresetKey}
-                  onBossPresetSelect={selectBossPreset}
-                  onSave={save}
+                  saving={busyAction === 'SAVE' || rpcLoading}                  onSave={save}
                 />
               ) : selectedRaidId === null ? (
                 <EmptyPanel />
@@ -824,10 +865,7 @@ export default function RaidControlPage() {
                       status={detail.raid.status}
                       creating={false}
                       section={pageTab as RaidEditorSection}
-                      saving={busyAction === 'SAVE' || rpcLoading}
-                      pendingBossPresetKey={pendingBossPresetKey}
-                      onBossPresetSelect={selectBossPreset}
-                      onSave={save}
+                      saving={busyAction === 'SAVE' || rpcLoading}                      onSave={save}
                     />
                   ) : null}
 
@@ -843,7 +881,7 @@ export default function RaidControlPage() {
                   {/* 레이드 구성 패널은 저장 전 편집 내용을 잃지 않도록 항상 켜 두고, 다른 탭에서는 숨기기만 한다. */}
                   <div className={cn(!CONFIG_PANEL_TABS.includes(pageTab) && 'hidden')}>
                     <RaidV15ConfigPanel
-                      key={`raid-config-${detail.raid.id}-${raidConfigRevision}`}
+                      key={`raid-config-${detail.raid.id}`}
                       raidId={detail.raid.id}
                       raidStatus={detail.raid.status}
                       bossName={detail.raid.boss_name}
@@ -1112,20 +1150,14 @@ function RaidEditor({
   setForm,
   status,
   creating,
-  saving,
-  pendingBossPresetKey,
-  onBossPresetSelect,
-  onSave,
+  saving,  onSave,
   section,
 }: {
   form: RaidForm;
   setForm: React.Dispatch<React.SetStateAction<RaidForm>>;
   status: RaidStatus;
   creating: boolean;
-  saving: boolean;
-  pendingBossPresetKey: RaidBossPresetKey | null;
-  onBossPresetSelect: (presetKey: RaidBossPresetKey | null) => void;
-  onSave: () => void;
+  saving: boolean;  onSave: () => void;
   /** RAID_ADMIN_LAYOUT_TABS_20261023: 지정하면 해당 탭 부분만 보여준다(접기 없음). 비우면 기존처럼 전체 표시. */
   section?: RaidEditorSection;
 }) {
@@ -1198,11 +1230,10 @@ function RaidEditor({
         <>
       {showBasic && (
         <>
-      <BossPresetPicker
-        value={pendingBossPresetKey}
-        onChange={onBossPresetSelect}
+      <BossTypePicker
+        value={form.bossType}
+        onChange={(value) => update('bossType', value)}
         disabled={!editable || saving}
-        creating={creating}
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -1560,93 +1591,63 @@ function RaidEditor({
 }
 
 
-function BossPresetPicker({
+function BossTypePicker({
   value,
   onChange,
   disabled,
-  creating,
 }: {
-  value: RaidBossPresetKey | null;
-  onChange: (presetKey: RaidBossPresetKey | null) => void;
+  value: RaidBossType;
+  onChange: (value: RaidBossType) => void;
   disabled: boolean;
-  creating: boolean;
 }) {
-  const selected = getRaidBossPreset(value);
+  const selected = BOSS_TYPE_OPTIONS.find((item) => item.value === value) ?? BOSS_TYPE_OPTIONS[0];
+  const targetingMode = targetingModeForBossType(value);
 
   return (
-    <div className="mb-5 rounded-card-lg border border-gold/35 bg-gold/5 p-4">
+    <div className="mb-5 rounded-card-lg border border-cyan-300/25 bg-cyan-500/5 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-xs font-black uppercase tracking-[0.15em] text-yellow-100">INITIAL BOSS PRESET · A-TYPE</div>
-          <h3 className="mt-1 text-lg font-black text-white">⚡ 초기 4보스 전투 프리셋</h3>
-          <p className="mt-1 max-w-4xl text-sm font-bold leading-6 text-cyan-100">
-            보스를 선택하면 이름·속성·소개가 즉시 채워지고, {creating ? '초안 생성 시' : '설정 저장 시'} 공명방벽·기본 공격·공통 기믹·특수 패턴 초안까지 함께 저장됩니다.
+          <div className="text-xs font-black uppercase tracking-[0.15em] text-cyan-200">BOSS TYPE</div>
+          <h3 className="mt-1 text-lg font-black text-white">🎯 보스 전투 타입</h3>
+          <p className="mt-1 max-w-4xl text-xs font-bold leading-5 text-amber-100">
+            타입은 보스 분류와 기본 공격 판정을 함께 결정합니다. C는 영역전, D는 표적전이며 A/B/E는 현재 직접 공격을 사용합니다.
           </p>
         </div>
-        {value ? (
-          <button
-            type="button"
-            onClick={() => onChange(null)}
-            disabled={disabled}
-            className="rounded-card-md border border-cyan-300/30 bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-100 disabled:opacity-40"
-          >
-            프리셋 해제
-          </button>
-        ) : null}
+        <span className="rounded-pill border border-yellow-300/35 bg-yellow-400/10 px-3 py-1.5 text-xs font-black text-yellow-100">
+          {selected.title} · {targetingMode}
+        </span>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {RAID_BOSS_PRESETS.map((preset) => {
-          const active = preset.key === value;
+      <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
+        {BOSS_TYPE_OPTIONS.map((item) => {
+          const active = item.value === value;
           return (
             <button
-              key={preset.key}
+              key={item.value}
               type="button"
-              onClick={() => onChange(preset.key)}
               disabled={disabled}
+              onClick={() => onChange(item.value)}
               className={cn(
                 'rounded-card-md border p-3 text-left transition disabled:opacity-40',
                 active
-                  ? 'border-gold/70 bg-gold/15 shadow-[0_0_20px_rgba(251,191,36,0.08)]'
+                  ? 'border-yellow-300/65 bg-yellow-400/10 shadow-[0_0_18px_rgba(250,204,21,0.08)]'
                   : 'border-cyan-300/20 bg-bg-deep hover:border-cyan-300/50',
               )}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-black text-yellow-100">RAID {preset.raidNo}</span>
-                <span className="text-xs font-black text-cyan-100">{elementLabel(preset.element)}</span>
-              </div>
-              <div className="mt-2 text-sm font-black leading-5 text-white">{preset.bossName}</div>
-              <div className="mt-2 text-xs font-bold leading-5 text-cyan-100">특수 {preset.specialPatterns.length}종 · 총 패턴 {preset.patterns.length}개</div>
+              <div className="text-sm font-black text-white">{item.title}</div>
+              <div className="mt-1 text-[11px] font-black text-yellow-100">{item.subtitle}</div>
+              <div className="mt-1 text-[10px] font-bold leading-4 text-cyan-100">{item.description}</div>
             </button>
           );
         })}
       </div>
 
-      {selected ? (
-        <div className="mt-4 grid gap-3 xl:grid-cols-2">
-          <div className="rounded-card-md border border-cyan-300/20 bg-black/20 p-3">
-            <div className="text-sm font-black text-yellow-100">⚔️ 전투 구성</div>
-            <div className="mt-2 text-sm font-bold leading-6 text-white">
-              공통: {selected.commonMechanics.join(' · ')}
-            </div>
-            <div className="mt-1 text-sm font-bold leading-6 text-amber-100">
-              특수: {selected.specialPatterns.join(' · ')}
-            </div>
-            <div className="mt-2 text-xs font-bold leading-5 text-cyan-100">
-              기본 공격: {selected.combat.boss_attack_name} · {selected.combat.boss_attack_interval_seconds}초 간격 · 방벽 {(selected.combat.boss_attack_barrier_ratio * 100).toFixed(1)}%
-            </div>
-          </div>
-          <div className="rounded-card-md border border-fuchsia-300/20 bg-black/20 p-3">
-            <div className="text-sm font-black text-fuchsia-100">🎬 그래픽 가이드</div>
-            <div className="mt-2 text-xs font-bold leading-5 text-white">환경 · {selected.environment}</div>
-            <div className="mt-1 text-xs font-bold leading-5 text-cyan-100">카메라 · {selected.camera}</div>
-            <div className="mt-1 text-xs font-bold leading-5 text-amber-100">Idle · {selected.idleLoop}</div>
-          </div>
-          {!creating ? (
-            <div className="xl:col-span-2 rounded-card-md border border-red-300/25 bg-red-500/5 px-3 py-2 text-xs font-black leading-5 text-red-100">
-              ⚠️ 기존 DRAFT에 이 프리셋을 저장하면 현재 V1.5 전투 기믹과 패턴 목록이 프리셋 초안으로 교체됩니다. 이미지·루프 영상·HP·보상값은 자동으로 덮어쓰지 않습니다.
-            </div>
-          ) : null}
+      {(value === 'C' || value === 'D') ? (
+        <div className="mt-3 rounded-card-md border border-cyan-300/20 bg-black/20 px-3 py-2 text-[11px] font-bold leading-5 text-cyan-100">
+          {value === 'C'
+            ? 'C타입: 초안 생성 시 DOMAIN 기본 영역을 자동 생성합니다.'
+            : 'D타입: 초안 생성 시 ANCHOR 기본 표적을 자동 생성합니다.'}
+          {' '}생성 직후 전투 규칙 탭으로 이동하므로 실제 보스 이미지 위에서 위치와 크기를 바로 조정할 수 있습니다.
         </div>
       ) : null}
     </div>
@@ -2408,6 +2409,7 @@ function formFromDetail(detail: TeacherRaidDetail): RaidForm {
     bossName: detail.raid.boss_name,
     bossDescription: detail.raid.boss_description ?? '',
     bossElement: detail.raid.boss_element,
+    bossType: inferBossType(detail),
     maxHp: String(detail.raid.max_hp),
     endsAt: toDateTimeLocal(detail.raid.ends_at),
     damageCoefficient: String(detail.raid.damage_coefficient),

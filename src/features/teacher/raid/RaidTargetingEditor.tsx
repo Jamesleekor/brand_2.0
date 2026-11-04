@@ -1,4 +1,5 @@
 // RAID_TARGETING_V1_20261103
+// RAID_BOSS_TYPE_LOCKED_TARGETING_20261104
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
 
 import {
@@ -97,12 +98,6 @@ export default function RaidTargetingEditor({
     valid: mode === 'BODY' || rect !== null,
     primary_zone: mode === 'BODY' ? null : rect,
   }), [mode, rect]);
-
-  const changeMode = (next: RaidTargetingMode) => {
-    setMode(next);
-    setMessage(null);
-    if (next !== 'BODY' && !rect) setRect(defaultRectForMode(next));
-  };
 
   const eventPoint = (event: PointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -213,7 +208,7 @@ export default function RaidTargetingEditor({
           <div className="text-xs font-black tracking-[0.14em] text-cyan-200">TARGETING V1 · C/D TYPE</div>
           <h3 className="mt-1 text-lg font-black text-white">🎯 공격 판정 방식</h3>
           <p className="mt-1 max-w-3xl text-xs font-bold leading-5 text-amber-100">
-            A/B는 기존 직접 공격을 유지하고, C는 지배 영역, D는 핵심 표적 안에서만 기본 공격이 인정됩니다.
+            보스 타입에서 공격 판정 방식이 자동으로 결정됩니다. A/B/E는 직접 공격, C는 지배 영역, D는 핵심 표적을 사용합니다.
             패턴의 약점·마력핵 등은 이 영역 밖에서도 정상 공격됩니다.
           </p>
         </div>
@@ -224,28 +219,17 @@ export default function RaidTargetingEditor({
         ) : null}
       </div>
 
-      <div className="mt-4 grid gap-2 md:grid-cols-3">
-        {([
-          ['BODY', 'A/B · 직접 공격', '기존 방식 · 화면 전체 공격'],
-          ['DOMAIN', 'C · 영역전', '환경의 넓은 지배 영역 공격'],
-          ['ANCHOR', 'D · 표적전', '원거리 거대 보스 핵심 부위 공격'],
-        ] as const).map(([value, title, description]) => (
-          <button
-            key={value}
-            type="button"
-            disabled={!editable}
-            onClick={() => changeMode(value)}
-            className={cn(
-              'rounded-card-md border p-3 text-left transition disabled:opacity-45',
-              mode === value
-                ? 'border-yellow-300/65 bg-yellow-400/10'
-                : 'border-cyan-300/20 bg-bg-deep hover:border-cyan-300/45',
-            )}
-          >
-            <div className="text-sm font-black text-white">{title}</div>
-            <div className="mt-1 text-[11px] font-bold text-cyan-100">{description}</div>
-          </button>
-        ))}
+      <div className="mt-4 rounded-card-md border border-cyan-300/20 bg-bg-deep px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <div className="text-xs font-black text-cyan-100">보스 타입 연동 판정</div>
+            <div className="mt-1 text-sm font-black text-white">{raidTargetingModeLabel(mode)}</div>
+          </div>
+          <span className="rounded-pill border border-yellow-300/35 bg-yellow-400/10 px-3 py-1 text-xs font-black text-yellow-100">{mode}</span>
+        </div>
+        <div className="mt-2 text-[11px] font-bold leading-5 text-amber-100">
+          판정 종류는 기본 정보의 A~E 보스 타입에서 변경합니다. 여기서는 C/D의 실제 공격 영역 위치와 크기만 조정합니다.
+        </div>
       </div>
 
       {mode !== 'BODY' ? (
