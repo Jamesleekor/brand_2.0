@@ -98,6 +98,9 @@ export interface RaidClashTeacherConfig {
   profiles: Record<RaidClashDifficulty, RaidClashProfile & { effects?: Record<string, unknown> }>;
   hp_ratio_warnings: Array<{ seq: number; name: string; pattern_type: string; trigger_value: number }>;
   clash: RaidClashPublicState;
+  /** RAID_CLASH_V3_20261104: 이 레이드의 격돌 대표 인원(1~12). V3 서버 적용 전에는 없음 → 3명으로 본다. */
+  player_count?: number;
+  max_player_count?: number;
 }
 
 async function callRpc<T>(supabase: SupabaseClient, fn: string, args: Record<string, unknown>): Promise<RpcResult<T>> {
@@ -135,7 +138,7 @@ export const raidV15AdminRpc = {
   clashConfig: (supabase: SupabaseClient, raidId: number) =>
     callRpc<RaidClashTeacherConfig>(supabase, 'teacher_get_raid_clash_config', { p_raid_id: raidId }),
 
-  saveClashConfig: (supabase: SupabaseClient, raidId: number, payload: { enabled: boolean; difficulty: RaidClashDifficulty }) =>
+  saveClashConfig: (supabase: SupabaseClient, raidId: number, payload: { enabled: boolean; difficulty: RaidClashDifficulty; player_count?: number }) =>
     callRpc<RaidClashTeacherConfig>(supabase, 'teacher_save_raid_clash_config', { p_raid_id: raidId, p_payload: payload }),
 
   forceFinishClash: (supabase: SupabaseClient, raidId: number, reason?: string) =>

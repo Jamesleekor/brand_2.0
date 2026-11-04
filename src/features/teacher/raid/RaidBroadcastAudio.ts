@@ -75,6 +75,8 @@ export class RaidBroadcastAudioEngine {
   private sfxPools = new Map<string, HTMLAudioElement[]>();
   /** RAID_CLASH_SFX_20261029: 이미 소리를 낸 격돌 판정("세션-슬롯-노트") */
   private clashHeard = new Set<string>();
+  /** RAID_CLASH_V3_20261104: 최근 판정음을 낸 시각(대표가 많을 때 동시에 겹치는 소리 수 제한) */
+  private clashJudgmentTimes: Array<{ at: number; perfect: boolean }> = [];
 
   setProfile(profile: TeacherRaidAudioProfile | null | undefined) {
     this.profile = profile ?? DEFAULT_PROFILE;
@@ -208,6 +210,16 @@ export class RaidBroadcastAudioEngine {
     }
     // RAID_CLASH_SFX_20261029: 판정음은 학생 화면과 같은 합성음(PERFECT = 맑고 시원한 금속음)
     if (cue === 'perfect' || cue === 'good' || cue === 'bad' || cue === 'miss') {
+      // RAID_CLASH_V3_20261104: 대표가 많으면(최대 12명) 같은 고리의 판정이 거의 동시에 들어온다.
+      // 0.1초 안에는 판정음을 3개까지만 겹쳐 내서 소리가 뭉개지거나 너무 커지지 않게 한다(3명 이하일 때는 지금과 같음).
+      // 단, 그 사이 PERFECT가 아직 한 번도 안 울렸다면 PERFECT 하나는 더 낸다(시원한 소리가 묻히지 않게).
+      const nowMs = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      this.clashJudgmentTimes = this.clashJudgmentTimes.filter((item) => nowMs - item.at < 100);
+      if (this.clashJudgmentTimes.length >= 3) {
+        const perfectHeard = this.clashJudgmentTimes.some((item) => item.perfect);
+        if (cue !== 'perfect' || perfectHeard || this.clashJudgmentTimes.length >= 4) return;
+      }
+      this.clashJudgmentTimes.push({ at: nowMs, perfect: cue === 'perfect' });
       if (this.context && this.uiGain) {
         renderClashJudgmentSfx(this.context, this.uiGain, cue === 'perfect' ? 'PERFECT' : cue === 'good' ? 'GOOD' : cue === 'bad' ? 'BAD' : 'MISS');
       }

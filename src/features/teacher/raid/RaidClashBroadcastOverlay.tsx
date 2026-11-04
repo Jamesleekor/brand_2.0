@@ -11,6 +11,8 @@ import {
   CLASH_DIFFICULTY_LABEL,
   CLASH_JUDGMENT_STYLE,
   clashBestJudgments,
+  clashCrowded,
+  clashNamesLabel,
   clashNowMs,
   clashOutcomeCopy,
   clashPlannedCount,
@@ -106,11 +108,29 @@ function BroadcastSelection({ session, names, serverNow }: { session: RaidClashS
   // RAID_CLASH_V2_20261029: 대표 최대 3명을 나란히 공개한다.
   const players = clashPlayers(session);
   const many = players.length > 1;
+  // RAID_CLASH_V3_20261104: 4명 이상은 작은 카드를 4열로(12명 = 3줄)
+  const crowded = clashCrowded(players.length);
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6">
       <div className="text-2xl font-black tracking-[0.3em] text-sky-100">{shuffling ? '대표 추첨 중…' : many ? `길드의 대표 모험가 ${players.length}인` : '길드의 대표 모험가'}</div>
       {shuffling ? (
         <div className="font-display text-7xl text-sky-50 opacity-80">{shuffleName}</div>
+      ) : crowded ? (
+        <div className="grid grid-cols-4 gap-3 px-8">
+          {players.map((player) => (
+            <div key={player.slot} className="flex min-w-0 items-center gap-3 rounded-card-lg border-2 border-yellow-200/80 bg-black/60 px-3 py-2 shadow-[0_0_40px_rgba(250,204,21,0.35)]">
+              {player.character_image_url ? (
+                <img src={player.character_image_url} alt="" className="h-14 w-14 shrink-0 rounded-card-md border-2 border-yellow-200/60 object-cover" />
+              ) : (
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-card-md border-2 border-yellow-200/60 bg-yellow-500/15 text-3xl">⚔</div>
+              )}
+              <div className="min-w-0">
+                <div className="truncate font-display text-3xl text-yellow-100">{player.student_name ?? '대표 모험가'}</div>
+                <div className={cn('text-base font-black', player.ready ? 'text-emerald-200' : 'text-sky-200')}>{player.ready ? '✅ 준비 완료' : '준비 중…'}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="flex flex-wrap items-stretch justify-center gap-6 px-6">
           {players.map((player) => (
@@ -152,10 +172,32 @@ function BroadcastPlay({ session, serverOffsetMs }: { session: RaidClashSession;
   }
   const players = clashPlayers(session);
   const rule = clashTeamRule(session);
+  // RAID_CLASH_V3_20261104: 4명 이상은 작은 줄을 2열로(12명 = 6줄) 그려 고리 무대 자리를 남긴다.
+  const crowded = clashCrowded(players.length);
   return (
     <div className="flex h-full flex-col items-center pt-14">
       <div className="flex flex-col items-center gap-2">
-        {players.map((player) => {
+        {crowded ? (
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+            {players.map((player) => {
+              const judged = clashSlotJudgments(session, player.slot);
+              return (
+                <div key={player.slot} className="flex items-center gap-2">
+                  <div className="w-32 truncate text-right font-display text-xl text-yellow-100">{player.student_name ?? '대표'}</div>
+                  <div className="flex items-center gap-1 rounded-full border border-white/20 bg-black/60 px-2 py-1">
+                    {judged.map((item, index) => (
+                      <span key={index} className="flex h-6 w-6 items-center justify-center rounded-full border-2 text-[10px] font-black"
+                        style={item ? { borderColor: CLASH_JUDGMENT_STYLE[item].color, background: CLASH_JUDGMENT_STYLE[item].glow, color: CLASH_JUDGMENT_STYLE[item].text } : { borderColor: 'rgba(186,230,253,0.5)', color: '#e0f2fe' }}>
+                        {item ? item[0] : index + 1}
+                      </span>
+                    ))}
+                    <span className="ml-1 w-12 text-right font-mono text-base font-black text-yellow-100">{player.score}점</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : players.map((player) => {
           const judged = clashSlotJudgments(session, player.slot);
           return (
             <div key={player.slot} className="flex items-center gap-4">
@@ -204,7 +246,7 @@ function BroadcastResult({ session }: { session: RaidClashSession }) {
         <div className="mt-2 font-display text-8xl leading-none">{copy.title}</div>
         {session.outcome_reason === 'NO_VOLUNTEER'
           ? <div className="mt-3 text-2xl font-black">지원자가 없어 보스의 반격을 막지 못했어요</div>
-          : <div className="mt-3 font-mono text-3xl font-black">{session.score} / {clashTeamRule(session).max}점 · {clashPlayers(session).map((player) => player.student_name ?? '대표').join(' · ')}</div>}
+          : <div className="mt-3 font-mono text-3xl font-black">{session.score} / {clashTeamRule(session).max}점 · {clashCrowded(clashPlayers(session).length) ? clashNamesLabel(clashPlayers(session)) : clashPlayers(session).map((player) => player.student_name ?? '대표').join(' · ')}</div>}
         <div className="mt-3 text-2xl font-black">{copy.detail}</div>
         {session.outcome === 'FAILED' && Number(session.barrier_penalty_amount ?? 0) > 0 && (
           <div className="mt-2 font-mono text-2xl font-black">공명방벽 -{Number(session.barrier_penalty_amount).toLocaleString('ko-KR')}</div>

@@ -903,3 +903,21 @@ Claude는 실제 개발 후 아래 항목을 파일·테스트 결과와 함께 
 - 공개 상태에 추가된 값: `players[]`(slot·이름·준비·판정 수·점수), `my_slot`, `player_count`, `planned_player_count`, `score_success`, `score_great`, `score_max`, `inputs[].slot`
 - 화면: 학생(대표 3인 공개·팀 보드·내 판정만 복원), 중계(대표 3줄 + 팀 합계), 교사 설정 탭(기준 점수 표시), 리허설(가상 서버 3인 대응)
 - 서버 롤백 테스트: `supabase/tests/raid_clash_v2_rollback_test.sql` — **22/22 통과**(운영 DB에서 실행 후 전부 롤백 확인)
+
+## 21. V3 변경 — 레이드마다 대표 인원 1~12명 (2026-11-04)
+- 결정: 대표 인원을 보스(레이드)마다 정한다. 최대 12명, 레이드당 한 번(난이도와 같이 DRAFT·LOBBY_OPEN에서만 저장).
+- 서버: `supabase/migrations/20261104_01_raid_clash_v3_player_count.sql` (운영 적용용 사본 `supabase/APPLY_RAID_CLASH_V3_20261104.sql`)
+  - `raid_clash_configs.player_count smallint NOT NULL DEFAULT 3` (CHECK 1~12). 기존 설정은 모두 3명 유지
+  - 슬롯 범위 0~2 → 0~11 (`raid_clash_players`, `raid_clash_inputs`)
+  - `raid_clash_planned_players`: 상한 3 → 12 (player_count 없는 V1 세션은 여전히 1)
+  - `raid_clash_begin`: 세션 config에 그 레이드의 player_count를 넣음 → 추첨·준비·NOT_READY MISS·팀 기준(1인 기준 × 뽑힌 인원)·종료 판정은 V2 코드 그대로 따라감
+  - `teacher_get_raid_clash_config`: `player_count`, `max_player_count(12)` 추가
+  - `teacher_save_raid_clash_config`: `player_count`(1~12) 저장. **보내지 않으면 저장된 값 유지**(옛 화면도 안전)
+  - 진행 중인 격돌이 있으면 적용 거부, 백업 라벨 `PRE_CLASH_V3_20261104`, `replace_once` 패치(CR 무시)
+- 화면
+  - 교사 격돌 설정 탭: 「대표 인원」 1~12 선택. 서버가 `max_player_count`를 안 주면(V3 적용 전) 3명 고정 안내
+  - 리허설: 설정 탭에서 고른 인원으로 진행, 가상 지원자 최대 15명
+  - 학생·중계: 대표 4명 이상이면 카드·점수 줄을 작게(학생 팀 보드 2~3줄, 중계 공개 4열·도전 2열). 3명 이하는 기존과 같음
+  - 중계 판정음: 0.1초 안에 3개까지만 겹쳐 재생(그 사이 PERFECT가 없었으면 PERFECT 1개 추가 허용)
+- 서버 롤백 테스트: `supabase/tests/raid_clash_v3_rollback_test.sql` — **19/19 통과**(12명·5명·1명, 지원자 부족, 준비 안 함, 저장 검증, 옛 화면 호환, 권한; 운영 DB에서 실행 후 전부 롤백 확인)
+- 적용 순서: 화면 배포 → SQL 적용(격돌이 진행 중이 아닐 때)

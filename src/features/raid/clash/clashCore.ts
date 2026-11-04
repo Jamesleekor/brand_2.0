@@ -67,6 +67,19 @@ export function localClashProfile(difficulty: RaidClashDifficulty): RaidClashPro
 // ── RAID_CLASH_V2_20261029: 대표 3인 동시 도전 ──────────────────────────────
 /** 한 번에 뽑는 대표 인원(서버 raid_clash_profile의 player_count와 같음) */
 export const CLASH_TEAM_SIZE = 3;
+// RAID_CLASH_V3_20261104: 위 값은 기본값(3명). 실제 인원은 레이드마다 격돌 설정에서 1~12명으로 정한다.
+
+/** 대표가 4명 이상이면 학생·중계 화면의 대표 카드와 점수 줄을 작게 그린다(12명도 한 화면에 들어가게). */
+export function clashCrowded(count: number): boolean {
+  return count >= 4;
+}
+
+/** 대표 이름 안내: 3명까지는 이름을 나열하고, 4명 이상이면 "대표 N명"으로 줄인다. */
+export function clashNamesLabel(players: RaidClashPlayer[]): string {
+  if (players.length === 0) return '대표';
+  if (clashCrowded(players.length)) return `대표 ${players.length}명`;
+  return players.map((player) => player.student_name ?? '대표').join(', ');
+}
 
 const JUDGMENT_RANK: Record<RaidClashJudgment, number> = { PERFECT: 3, GOOD: 2, BAD: 1, MISS: 0 };
 

@@ -18,6 +18,7 @@ import ClashStage, { type ClashStageJudgment } from './ClashStage';
 import {
   CLASH_JUDGMENT_STYLE,
   clashBestJudgments,
+  clashCrowded,
   clashNowMs,
   clashOutcomeCopy,
   clashPlannedCount,
@@ -214,27 +215,30 @@ function SelectedPanel({
   // RAID_CLASH_V2_20261029: 대표 최대 3명을 나란히 보여 준다.
   const players = clashPlayers(session);
   const names = players.map((player) => player.student_name ?? '대표').join(', ');
+  // RAID_CLASH_V3_20261104: 대표가 4명 이상이면 카드를 작게 그려 12명도 한 화면에 들어가게 한다.
+  const crowded = clashCrowded(players.length);
   return (
-    <div className="flex flex-col items-center gap-5 px-4">
+    <div className={cn('flex flex-col items-center px-4', crowded ? 'gap-3' : 'gap-5')}>
       <ClashTitle eyebrow="CHAMPIONS" title={players.length > 1 ? `길드의 대표 모험가 ${players.length}인` : '길드의 대표 모험가'} />
-      <div className="flex flex-wrap justify-center gap-3">
+      <div className={cn('flex flex-wrap justify-center', crowded ? 'max-w-5xl gap-2' : 'gap-3')}>
         {players.map((player) => {
           const mine = session.my_slot != null && player.slot === session.my_slot;
           return (
             <div key={player.slot}
               className={cn(
-                'flex items-center gap-3 rounded-card-lg border-2 bg-black/60 px-4 py-3',
+                'flex items-center rounded-card-lg border-2 bg-black/60',
+                crowded ? 'gap-2 px-2.5 py-1.5' : 'gap-3 px-4 py-3',
                 mine ? 'border-yellow-200 shadow-[0_0_40px_rgba(250,204,21,0.45)]' : 'border-yellow-200/50 shadow-[0_0_24px_rgba(250,204,21,0.2)]',
               )}>
               {player.character_image_url ? (
-                <img src={player.character_image_url} alt="" className="h-16 w-16 rounded-card-md border border-yellow-200/50 object-cover" />
+                <img src={player.character_image_url} alt="" className={cn('rounded-card-md border border-yellow-200/50 object-cover', crowded ? 'h-9 w-9' : 'h-16 w-16')} />
               ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-card-md border border-yellow-200/50 bg-yellow-500/15 text-3xl">⚔</div>
+                <div className={cn('flex items-center justify-center rounded-card-md border border-yellow-200/50 bg-yellow-500/15', crowded ? 'h-9 w-9 text-lg' : 'h-16 w-16 text-3xl')}>⚔</div>
               )}
               <div>
-                <div className="font-display text-2xl text-yellow-100">{player.student_name ?? '대표 모험가'}{mine ? ' (나)' : ''}</div>
-                <div className="mt-0.5 text-xs font-black text-sky-100">{[player.guild_name, player.character_name].filter(Boolean).join(' · ')}</div>
-                <div className={cn('mt-1 text-xs font-black', player.ready ? 'text-emerald-200' : 'text-sky-200')}>{player.ready ? '✅ 준비 완료' : '준비 중…'}</div>
+                <div className={cn('font-display text-yellow-100', crowded ? 'text-base' : 'text-2xl')}>{player.student_name ?? '대표 모험가'}{mine ? ' (나)' : ''}</div>
+                {!crowded && <div className="mt-0.5 text-xs font-black text-sky-100">{[player.guild_name, player.character_name].filter(Boolean).join(' · ')}</div>}
+                <div className={cn('font-black', crowded ? 'text-[11px]' : 'mt-1 text-xs', player.ready ? 'text-emerald-200' : 'text-sky-200')}>{player.ready ? '✅ 준비 완료' : '준비 중…'}</div>
               </div>
             </div>
           );
@@ -245,11 +249,11 @@ function SelectedPanel({
           <div className="text-2xl font-black text-yellow-100">당신이 선택되었습니다!</div>
           <div className="mt-2 text-base font-black text-sky-100">키보드의 <b className="text-white">Q · W · E · R</b> 위에 손가락을 올려 두세요. 줄어드는 고리가 파란 고리와 겹칠 때 누르면 됩니다.</div>
           {players.length > 1 && (
-            <div className="mt-1 text-sm font-black text-sky-100">대표 {players.length}명이 같은 고리를 동시에 칩니다. 세 사람의 점수를 합쳐 결과가 정해져요.</div>
+            <div className="mt-1 text-sm font-black text-sky-100">대표 {players.length}명이 같은 고리를 동시에 칩니다. {players.length === 2 ? '두' : players.length === 3 ? '세' : '모든'} 사람의 점수를 합쳐 결과가 정해져요.</div>
           )}
         </div>
       ) : (
-        <div className="text-xl font-black text-sky-100">{names} 님을 함께 응원해요! 📣</div>
+        <div className="text-xl font-black text-sky-100">{crowded ? `대표 ${players.length}명을` : `${names} 님을`} 함께 응원해요! 📣</div>
       )}
     </div>
   );
@@ -260,18 +264,20 @@ function TeamBoard({ session, highlightSlot }: { session: RaidClashSession; high
   const players = clashPlayers(session);
   const rule = clashTeamRule(session);
   if (players.length <= 1) return null;
+  // RAID_CLASH_V3_20261104: 4명 이상이면 더 작게(12명이면 2~3줄)
+  const crowded = clashCrowded(players.length);
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <div className="flex flex-wrap justify-center gap-2">
+      <div className={cn('flex flex-wrap justify-center', crowded ? 'max-w-5xl gap-1' : 'gap-2')}>
         {players.map((player) => {
           const judged = clashSlotJudgments(session, player.slot);
           return (
             <div key={player.slot}
-              className={cn('flex items-center gap-2 rounded-full border bg-black/65 px-3 py-1', player.slot === highlightSlot ? 'border-yellow-200/80' : 'border-white/20')}>
-              <span className="max-w-[7rem] truncate text-xs font-black text-white">{player.student_name ?? '대표'}</span>
+              className={cn('flex items-center rounded-full border bg-black/65', crowded ? 'gap-1.5 px-2 py-0.5' : 'gap-2 px-3 py-1', player.slot === highlightSlot ? 'border-yellow-200/80' : 'border-white/20')}>
+              <span className={cn('truncate font-black text-white', crowded ? 'max-w-[4.5rem] text-[11px]' : 'max-w-[7rem] text-xs')}>{player.student_name ?? '대표'}</span>
               <span className="flex gap-0.5">
                 {judged.map((item, index) => (
-                  <span key={index} className="h-2.5 w-2.5 rounded-full border"
+                  <span key={index} className={cn('rounded-full border', crowded ? 'h-2 w-2' : 'h-2.5 w-2.5')}
                     style={item ? { borderColor: CLASH_JUDGMENT_STYLE[item].color, background: CLASH_JUDGMENT_STYLE[item].color } : { borderColor: 'rgba(186,230,253,0.5)' }} />
                 ))}
               </span>
@@ -398,11 +404,13 @@ function SpectatorPanel({ session, serverOffsetMs }: { session: RaidClashSession
     ? clashSlotJudgments(session, players[0]?.slot ?? 0)
     : Array.from({ length: 8 }, (_, index) => judgments[index]?.judgment ?? null);
   const names = players.map((player) => player.student_name ?? '대표').join(', ') || '대표';
+  // RAID_CLASH_V3_20261104: 대표가 많으면 이름을 다 나열하지 않는다(아래 팀 보드에 이름이 있음).
+  const cheer = clashCrowded(players.length) ? `대표 ${players.length}명이` : `${names} 님이`;
 
   return (
     <div className="flex h-full w-full flex-col items-center pt-6">
       <div className="z-10 flex flex-col items-center gap-2">
-        <div className="text-lg font-black text-yellow-100">⚔ {names} 님이 격돌 중! 응원해요 📣</div>
+        <div className="text-lg font-black text-yellow-100">⚔ {cheer} 격돌 중! 응원해요 📣</div>
         {single ? <ScoreStrip judged={judgedList} score={session.score} /> : <TeamBoard session={session} highlightSlot={null} />}
       </div>
       <div className="relative min-h-0 w-full flex-1 opacity-90">

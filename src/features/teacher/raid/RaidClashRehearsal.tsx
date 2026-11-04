@@ -39,7 +39,9 @@ const SIM_EFFECTS: RaidClashEffects = {
   SUCCESS: { buff_seconds: 10, block_seconds: 10, clash_component: 1.5 },
   FAILED: { barrier_penalty_ratio_of_current: 0.2 },
 };
-const BOT_NAMES = ['가상학생 하늘', '가상학생 도윤', '가상학생 서연', '가상학생 지호', '가상학생 예린', '가상학생 민준', '가상학생 하은', '가상학생 시우', '가상학생 서아', '가상학생 준서'];
+const BOT_NAMES = ['가상학생 하늘', '가상학생 도윤', '가상학생 서연', '가상학생 지호', '가상학생 예린', '가상학생 민준', '가상학생 하은', '가상학생 시우', '가상학생 서아', '가상학생 준서',
+  // RAID_CLASH_V3_20261104: 대표 최대 12명까지 리허설할 수 있게 가상 학생을 늘림
+  '가상학생 지우', '가상학생 은우', '가상학생 수아', '가상학생 이안', '가상학생 채원', '가상학생 로운'];
 const ME_NAME = '선생님(나)';
 const SIM_BARRIER = 100_000;
 const SIM_LATENCY_MS = 60;
@@ -52,8 +54,11 @@ type Who = 'me' | number; // number = 가상 학생 번호
 type SimInput = { judgment: RaidClashJudgment; points: number };
 
 // RAID_CLASH_V2_20261029: 대표 최대 3명. 슬롯(0~2)마다 준비 여부·판정·가상 오차를 따로 둔다.
+// RAID_CLASH_V3_20261104: 대표 인원은 격돌 설정 탭에서 고른 값(1~12, planned)을 따른다.
 interface SimModel {
   id: number;
+  /** 이번 격돌에서 뽑을 대표 인원(설정값) */
+  planned: number;
   version: number;
   phase: RaidClashPhase;
   profile: RaidClashProfile;
@@ -114,12 +119,13 @@ function makeBotOffsets(plan: BotPlan, p: RaidClashProfile): Array<number | null
   return grades.map(pick);
 }
 
-function createModel(difficulty: RaidClashDifficulty, botCount: number, plan: BotPlan, forceMe: boolean): SimModel {
+function createModel(difficulty: RaidClashDifficulty, botCount: number, plan: BotPlan, forceMe: boolean, planned: number): SimModel {
   const profile = localClashProfile(difficulty);
   const now = clashNowMs();
   const closes = now + profile.volunteer_ms;
   return {
     id: Date.now(),
+    planned: Math.max(1, planned),
     version: 1,
     phase: 'VOLUNTEERING',
     profile,
@@ -182,7 +188,7 @@ function simInputCount(m: SimModel) {
 
 /** 서버와 같은 팀 기준: 1인 기준(성공 8·대성공 13) × 뽑힌 인원 */
 function simRule(m: SimModel) {
-  const count = Math.max(1, m.selected.length || CLASH_TEAM_SIZE);
+  const count = Math.max(1, m.selected.length || m.planned);
   return { count, success: m.profile.success_score * count, great: m.profile.great_score * count, max: 16 * count };
 }
 
@@ -223,10 +229,10 @@ function advance(m: SimModel, now: number) {
       }
     });
     if (now >= m.acceptUntil) {
-      // 지원자 중 최대 3명을 무작위로 뽑는다. 「내가 지원하면 반드시 대표로」가 켜져 있으면 나를 먼저 넣는다.
+      // 지원자 중 최대 planned명(설정값)을 무작위로 뽑는다. 「내가 지원하면 반드시 대표로」가 켜져 있으면 나를 먼저 넣는다.
       const pool = [...m.volunteers].sort(() => Math.random() - 0.5);
       const picks: Who[] = m.forceMe && pool.includes('me') ? ['me', ...pool.filter((who) => who !== 'me')] : pool;
-      const selected = picks.slice(0, CLASH_TEAM_SIZE);
+      const selected = picks.slice(0, m.planned);
       if (selected.length === 0) {
         resolve(m, now, 'FAILED', 'NO_VOLUNTEER');
         return;
@@ -313,7 +319,7 @@ function toPublicState(m: SimModel | null, asStudent: boolean): RaidClashPublicS
       i_volunteered: asStudent && m.volunteers.includes('me'),
       i_am_selected: mySlot != null,
       my_slot: mySlot,
-      planned_player_count: CLASH_TEAM_SIZE,
+      planned_player_count: m.planned,
       player_count: rule.count,
       players,
       score_success: rule.success,
@@ -348,7 +354,7 @@ function toPublicState(m: SimModel | null, asStudent: boolean): RaidClashPublicS
   };
 }
 
-export default function RaidClashRehearsal({ raidId, defaultDifficulty }: { raidId: number; defaultDifficulty: RaidClashDifficulty }) {
+export default function RaidClashRehearsal({ raidId, defaultDifficulty, teamSize = CLASH_TEAM_SIZE }: { raidId: number; defaultDifficulty: RaidClashDifficulty; teamSize?: number }) {
   const [difficulty, setDifficulty] = useState<RaidClashDifficulty>(defaultDifficulty);
   const [view, setView] = useState<View>('STUDENT');
   const [botCount, setBotCount] = useState(5);
@@ -452,7 +458,7 @@ export default function RaidClashRehearsal({ raidId, defaultDifficulty }: { raid
         // 소리가 안 나도 리허설은 계속한다.
       }
     }
-    modelRef.current = createModel(difficulty, botCount, botPlan, forceMe);
+    modelRef.current = createModel(difficulty, botCount, botPlan, forceMe, teamSize);
     rerender();
   };
 
@@ -525,7 +531,7 @@ export default function RaidClashRehearsal({ raidId, defaultDifficulty }: { raid
           ))}
         </Field>
         <Field label="가상 지원자 수">
-          {[0, 2, 5, 10].map((count) => (
+          {[0, 2, 5, 10, 15].map((count) => (
             <Chip key={count} active={botCount === count} onClick={() => setBotCount(count)}>{count}명</Chip>
           ))}
         </Field>
@@ -547,7 +553,7 @@ export default function RaidClashRehearsal({ raidId, defaultDifficulty }: { raid
         <button type="button" onClick={() => void toggleFullscreen()} className="rounded-full border border-white/25 px-3 py-1 text-xs font-black text-white">⛶ 전체 화면</button>
       </div>
       <div className="mt-2 text-xs font-bold text-emerald-100">
-        내가 직접 해 보려면 「학생 화면」에서 모집 1초 뒤 「⚔ 격돌 지원」을 누르고 키보드 Q·W·E·R를 사용하세요. 지원자 중 최대 {CLASH_TEAM_SIZE}명이 대표가 되어 같은 고리를 함께 치고, 점수를 합쳐 결과가 정해집니다(3명: 성공 24·대성공 39점).
+        내가 직접 해 보려면 「학생 화면」에서 모집 1초 뒤 「⚔ 격돌 지원」을 누르고 키보드 Q·W·E·R를 사용하세요. 지원자 중 최대 {teamSize}명(위 격돌 설정의 대표 인원)이 대표가 되어 같은 고리를 함께 치고, 점수를 합쳐 결과가 정해집니다({teamSize}명: 성공 {8 * teamSize}·대성공 {13 * teamSize}점).
         지원하지 않으면 가상 학생들이 대표가 되고, 아무도 지원하지 않으면 실패 페널티가 나옵니다.
       </div>
 

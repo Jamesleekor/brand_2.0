@@ -27,6 +27,8 @@ import { playClashJudgmentSfx, unlockClashSfx } from '@/features/raid/clash/clas
 import RaidClashRehearsal from './RaidClashRehearsal';
 
 const DIFFICULTIES: RaidClashDifficulty[] = ['EASY', 'NORMAL', 'HARD'];
+// RAID_CLASH_V3_20261104: 레이드마다 정하는 대표 인원(서버 V3 적용 전에는 3명 고정)
+const CLASH_DEFAULT_PLAYERS = 3;
 
 export default function RaidClashConfigTab({ raidId, raidStatus }: { raidId: number; raidStatus: RaidStatus }) {
   const queryClient = useQueryClient();
@@ -43,6 +45,7 @@ export default function RaidClashConfigTab({ raidId, raidStatus }: { raidId: num
   });
   const [enabled, setEnabled] = useState(false);
   const [difficulty, setDifficulty] = useState<RaidClashDifficulty>('EASY');
+  const [playerCount, setPlayerCount] = useState(CLASH_DEFAULT_PLAYERS);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [practiceDifficulty, setPracticeDifficulty] = useState<RaidClashDifficulty>('EASY');
@@ -51,6 +54,7 @@ export default function RaidClashConfigTab({ raidId, raidStatus }: { raidId: num
     if (!query.data) return;
     setEnabled(query.data.enabled);
     setDifficulty(query.data.difficulty);
+    setPlayerCount(Math.max(1, Number(query.data.player_count ?? CLASH_DEFAULT_PLAYERS)));
     setPracticeDifficulty(query.data.difficulty);
   }, [query.data]);
 
@@ -73,24 +77,28 @@ export default function RaidClashConfigTab({ raidId, raidStatus }: { raidId: num
 
   const data = query.data;
   const editable = data.editable && (raidStatus === 'DRAFT' || raidStatus === 'LOBBY_OPEN');
-  const dirty = enabled !== data.enabled || difficulty !== data.difficulty;
+  // RAID_CLASH_V3_20261104: 서버가 max_player_count를 주면 인원을 고를 수 있다(V3 적용 전에는 3명 고정).
+  const maxPlayers = Math.max(1, Number(data.max_player_count ?? 0));
+  const canPickPlayers = data.max_player_count != null;
+  const savedPlayers = Math.max(1, Number(data.player_count ?? CLASH_DEFAULT_PLAYERS));
+  const dirty = enabled !== data.enabled || difficulty !== data.difficulty || (canPickPlayers && playerCount !== savedPlayers);
   const profile = data.profiles?.[difficulty] ?? localClashProfile(difficulty);
   // RAID_CLASH_V2_20261029: 대표 인원과 팀 기준 점수(1인 기준 × 인원)
-  const teamSize = Math.max(1, Number(profile.player_count ?? 1));
+  const teamSize = canPickPlayers ? playerCount : Math.max(1, Number(profile.player_count ?? 1));
   const perSuccess = profile.success_score;
   const perGreat = profile.great_score;
 
   const save = async () => {
     setSaving(true);
     setMessage(null);
-    const result = await raidV15AdminRpc.saveClashConfig(supabase, raidId, { enabled, difficulty });
+    const result = await raidV15AdminRpc.saveClashConfig(supabase, raidId, canPickPlayers ? { enabled, difficulty, player_count: playerCount } : { enabled, difficulty });
     setSaving(false);
     if (result.success === false) {
       setMessage({ tone: 'error', text: result.error });
       return;
     }
     queryClient.setQueryData(['teacher-raid-clash-config', raidId], result.data);
-    setMessage({ tone: 'ok', text: enabled ? `격돌을 켰습니다 (${CLASH_DIFFICULTY_LABEL[difficulty]}).` : '격돌을 껐습니다.' });
+    setMessage({ tone: 'ok', text: enabled ? `격돌을 켰습니다 (${CLASH_DIFFICULTY_LABEL[difficulty]} · 대표 ${teamSize}명).` : '격돌을 껐습니다.' });
   };
 
   return (
@@ -145,6 +153,37 @@ export default function RaidClashConfigTab({ raidId, raidStatus }: { raidId: num
         </div>
         <div className="mt-2 text-xs font-bold text-amber-100">🧪 판정 폭은 플레이 테스트용 초기값입니다. 점수·성공 기준·효과는 난이도와 관계없이 같습니다.</div>
 
+        {/* RAID_CLASH_V3_20261104: 대표 인원(레이드마다 한 번, 전투 시작 전에만) */}
+        <div className="mt-4">
+          <div className="text-sm font-black text-sky-100">
+            대표 인원 <span className="ml-1 rounded-full border border-sky-200/50 bg-sky-500/20 px-2 py-0.5 text-white">{teamSize}명</span>
+          </div>
+          {canPickPlayers ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {Array.from({ length: maxPlayers }, (_, index) => index + 1).map((count) => (
+                <button
+                  key={count}
+                  type="button"
+                  disabled={!editable}
+                  onClick={() => setPlayerCount(count)}
+                  aria-pressed={playerCount === count}
+                  className={cn(
+                    'h-9 min-w-9 rounded-card-md border px-2 text-sm font-black transition',
+                    playerCount === count ? 'border-sky-300 bg-sky-500/30 text-white' : 'border-white/15 bg-black/30 text-sky-100 hover:bg-white/5',
+                    !editable && 'cursor-not-allowed opacity-70',
+                  )}
+                >
+                  {count}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-2 rounded-card-md border border-amber-300/40 bg-amber-950/50 px-3 py-2 text-xs font-black text-amber-100">
+              서버 업데이트(격돌 V3) 적용 전이라 대표는 3명으로 고정입니다. SQL을 적용하면 1~12명 중에서 고를 수 있습니다.
+            </div>
+          )}
+        </div>
+
         {data.hp_ratio_warnings.length > 0 && (
           <div className="mt-3 rounded-card-md border border-amber-300/50 bg-amber-950/55 px-3 py-2 text-sm font-black text-amber-100">
             ⚠ 보스 HP 45~55%에 발동하는 패턴이 있습니다. 격돌과 겹치지 않게 조정하는 것을 권장합니다:
@@ -175,7 +214,7 @@ export default function RaidClashConfigTab({ raidId, raidStatus }: { raidId: num
       {teamSize > 1 && (
         <div className="text-xs font-bold text-sky-100">
           점수 기준은 {teamSize}명 기준입니다(1명당 성공 {perSuccess}점·대성공 {perGreat}점 × 인원). 지원자가 {teamSize}명보다 적으면 뽑힌 인원만큼 기준이 줄어듭니다
-          {' '}(2명: 성공 {perSuccess * 2}·대성공 {perGreat * 2} / 1명: 성공 {perSuccess}·대성공 {perGreat}). 준비 시간 안에 연결되지 않은 대표는 8개 모두 MISS로 처리되고 나머지는 그대로 진행합니다.
+          {' '}({teamSize > 2 ? `예: ${teamSize - 1}명이면 성공 ${perSuccess * (teamSize - 1)}·대성공 ${perGreat * (teamSize - 1)} / ` : ''}1명이면 성공 {perSuccess}·대성공 {perGreat}). 준비 시간 안에 연결되지 않은 대표는 8개 모두 MISS로 처리되고 나머지는 그대로 진행합니다.
         </div>
       )}
       <div className="text-xs font-bold text-sky-100">그로기와 겹치면 「약점 배율 × 그로기」와 「약점 배율 + 격돌」 중 큰 값 하나만 적용됩니다. 격돌 중에는 교사 일시정지가 막힙니다.</div>
@@ -183,7 +222,7 @@ export default function RaidClashConfigTab({ raidId, raidStatus }: { raidId: num
       <ClashLiveTrigger raidId={raidId} raidStatus={raidStatus} enabled={data.enabled} session={data.clash?.session ?? null}
         onChanged={() => void queryClient.invalidateQueries({ queryKey: ['teacher-raid-clash-config', raidId] })} />
 
-      <RaidClashRehearsal raidId={raidId} defaultDifficulty={data.difficulty} />
+      <RaidClashRehearsal raidId={raidId} defaultDifficulty={data.difficulty} teamSize={teamSize} />
 
       <ClashPractice difficulty={practiceDifficulty} onDifficultyChange={setPracticeDifficulty} />
     </div>
