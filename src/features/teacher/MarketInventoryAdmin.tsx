@@ -16,6 +16,7 @@ import { formatNumber } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { randomBoxRpc, type TeacherRandomBoxManualReward } from '@/lib/rpc/random_box_rpc';
 import { StudentInventoryAdminModal } from '@/features/teacher/StudentInventoryAdminModal';
+import TeacherInventoryOverview from '@/features/teacher/TeacherInventoryOverview';
 import { RandomBoxProbabilityAdmin } from '@/features/teacher/RandomBoxProbabilityAdmin';
 
 const TYPE_META: Record<MarketItemType, { label: string; emoji: string }> = {
@@ -41,6 +42,7 @@ type GrantStudent = {
   id: number;
   name: string;
   brandName: string | null;
+  isTestAccount: boolean;
 };
 
 type ItemForm = {
@@ -70,6 +72,7 @@ export default function MarketInventoryAdmin() {
   const [editing, setEditing] = useState<TeacherMarketItem | 'NEW' | null>(null);
   const [granting, setGranting] = useState<TeacherMarketItem | null>(null);
   const [inventoryManaging, setInventoryManaging] = useState(false);
+  const [overviewOpen, setOverviewOpen] = useState(false);
   const [manualReward, setManualReward] = useState<TeacherRandomBoxManualReward | null>(null);
 
   const query = useQuery<TeacherMarketBoard>({
@@ -103,7 +106,7 @@ export default function MarketInventoryAdmin() {
       if (!classroomId) return [];
       const { data, error } = await supabase
         .from('students')
-        .select('id,name,brand_name,role')
+        .select('id,name,brand_name,role,is_test_account')
         .eq('classroom_id', classroomId)
         .in('role', ['STUDENT', 'STUDENT_LEADER', 'GUARD'])
         .is('transferred_at', null)
@@ -113,6 +116,7 @@ export default function MarketInventoryAdmin() {
         id: Number(student.id),
         name: student.name,
         brandName: student.brand_name,
+        isTestAccount: Boolean(student.is_test_account),
       }));
     },
     staleTime: 30_000,
@@ -132,7 +136,12 @@ export default function MarketInventoryAdmin() {
     });
   }, [filter, query.data?.items, search]);
 
-  const refresh = () => queryClient.invalidateQueries({ queryKey: ['inventory-market-teacher-board'] });
+  const refresh = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['inventory-market-teacher-board'] }),
+      queryClient.invalidateQueries({ queryKey: ['teacher-inventory-overview', classroomId] }),
+    ]);
+  };
 
   if (!classroomId) return <TeacherShell><EmptyState emoji="🏪" title="학급 정보를 찾을 수 없습니다" /></TeacherShell>;
   if (query.isError) return <TeacherShell><div className="rounded-card-lg border border-danger/40 bg-danger-bg p-6"><h1 className="font-display text-xl text-white">시장 운영 데이터를 불러오지 못했습니다</h1><p className="mt-2 break-all text-sm text-text-primary">{query.error instanceof Error ? query.error.message : '알 수 없는 오류'}</p><button type="button" onClick={() => void query.refetch()} className="btn-secondary mt-4">다시 불러오기</button></div></TeacherShell>;
@@ -154,11 +163,22 @@ export default function MarketInventoryAdmin() {
             <p className="mt-1 max-w-3xl text-sm font-bold leading-relaxed text-text-secondary">상품 이미지·종류·가격·재고·사용 방식과 시즌2 비선형 시세를 관리합니다. 화면의 삭제는 기록 보호를 위해 실제 DELETE가 아니라 보관(archive) 처리됩니다.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setInventoryManaging(true)} className="btn-secondary whitespace-nowrap">🎒 학생 인벤토리</button>
+            <button type="button" onClick={() => { setOverviewOpen(false); setInventoryManaging(true); }} className="btn-secondary whitespace-nowrap">🎒 학생 인벤토리</button>
+            <button type="button" onClick={() => setOverviewOpen((opened) => !opened)} className={cn('whitespace-nowrap', overviewOpen ? 'btn-primary' : 'btn-secondary')}>{overviewOpen ? '🏪 시장 상품 보기' : '📊 전체 인벤토리 현황'}</button>
             <button type="button" onClick={() => setEditing('NEW')} className="btn-primary whitespace-nowrap">＋ 새 상품 추가</button>
           </div>
         </div>
 
+        {overviewOpen ? (
+          <TeacherInventoryOverview
+            classroomId={classroomId}
+            students={studentsQuery.data ?? []}
+            studentsLoading={studentsQuery.isLoading}
+            studentsError={studentsQuery.isError ? (studentsQuery.error instanceof Error ? studentsQuery.error.message : '학생 목록을 불러오지 못했습니다.') : null}
+            items={query.data.items}
+          />
+        ) : (
+          <>
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <StatCard emoji="🟢" label="판매 중" value={active} color="success" />
           <StatCard emoji="📦" label="현재 시장 재고" value={currentStock} color="gold" />
@@ -203,6 +223,8 @@ export default function MarketInventoryAdmin() {
         {manualReward && <RandomBoxManualRewardModal reward={manualReward} onClose={() => setManualReward(null)} onSaved={async () => { setManualReward(null); await queryClient.invalidateQueries({ queryKey: ['teacher-random-box-manual-rewards'] }); }} />}
         {granting && <InventoryGrantModal classroomId={classroomId} item={granting} students={studentsQuery.data ?? []} studentsLoading={studentsQuery.isLoading} studentsError={studentsQuery.isError ? (studentsQuery.error instanceof Error ? studentsQuery.error.message : '학생 목록을 불러오지 못했습니다.') : null} onClose={() => setGranting(null)} onSaved={async () => { setGranting(null); await refresh(); }} />}
         {inventoryManaging && <StudentInventoryAdminModal classroomId={classroomId} students={studentsQuery.data ?? []} studentsLoading={studentsQuery.isLoading} studentsError={studentsQuery.isError ? (studentsQuery.error instanceof Error ? studentsQuery.error.message : '학생 목록을 불러오지 못했습니다.') : null} onClose={() => setInventoryManaging(false)} />}
+          </>
+        )}
       </div>
     </TeacherShell>
   );

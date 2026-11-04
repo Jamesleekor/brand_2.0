@@ -220,6 +220,7 @@ function TeacherInventoryRevokeModal({
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['inventory-market-teacher-board'] }),
       queryClient.invalidateQueries({ queryKey: ['teacher-student-inventory'] }),
+      queryClient.invalidateQueries({ queryKey: ['teacher-inventory-overview'] }),
       queryClient.invalidateQueries({ queryKey: ['inventory-my-bag'] }),
       queryClient.invalidateQueries({ queryKey: ['inventory-item-history'] }),
       queryClient.invalidateQueries({ queryKey: ['economy-history'] }),
