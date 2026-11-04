@@ -5,6 +5,7 @@ import type { OwnedPrestigeBorder } from '@/hooks/usePrestigeBorders';
 import { cn } from '@/lib/utils/cn';
 import './prestigeFrameCarcosa.css';
 import './prestigeFrameNatureDragon.css';
+import './prestigeFrameSignature.css';
 
 export type PrestigeFrameVariant =
   | 'friend' | 'guild' | 'rankingChampion' | 'rankingPodium'
@@ -21,6 +22,7 @@ type PrestigeFrameProps = {
 
 const LOCAL_CARCOSA_ASSETS = `${import.meta.env.BASE_URL}prestige-borders/carcosa-v2/`;
 const LOCAL_COMPOSABLE_ASSETS = `${import.meta.env.BASE_URL}prestige-borders/composable-v7/`;
+const LOCAL_SIGNATURE_ASSETS = `${import.meta.env.BASE_URL}prestige-borders/composable-v8/`;
 const MOON_ORNAMENT_URL = 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/expedition/prestige/prestige_border_carcosa_moon_ornament_v2.webp';
 
 function accentFor(border: OwnedPrestigeBorder) {
@@ -39,6 +41,22 @@ function composableAssetStyles(kind: 'tree' | 'dragon'): CSSProperties {
     '--prestige-corner-ornament': kind === 'dragon'
       ? `url("${LOCAL_COMPOSABLE_ASSETS}prestige_border_golden_dragon_ruby_corner_v7.webp")`
       : 'none',
+  } as CSSProperties;
+}
+
+/** November 2026 additions: item_uid -> asset file prefix (composable-v8). Rails + one ornament, no corner piece. */
+type SignatureKind = 'pearl' | 'darkflame' | 'frost';
+const SIGNATURE_PRESTIGE_KINDS: Record<string, SignatureKind> = {
+  PRESTIGE_PEARL_2026: 'pearl',
+  PRESTIGE_DARKFLAME_2026: 'darkflame',
+  PRESTIGE_FROST_2026: 'frost',
+};
+
+function signatureAssetStyles(kind: SignatureKind): CSSProperties {
+  return {
+    '--prestige-rail-horizontal': `url("${LOCAL_SIGNATURE_ASSETS}prestige_border_${kind}_rail_horizontal_v8.webp")`,
+    '--prestige-rail-vertical': `url("${LOCAL_SIGNATURE_ASSETS}prestige_border_${kind}_rail_vertical_v8.webp")`,
+    '--prestige-main-ornament': `url("${LOCAL_SIGNATURE_ASSETS}prestige_border_${kind}_ornament_v8.webp")`,
   } as CSSProperties;
 }
 
@@ -87,6 +105,26 @@ export function PrestigeFrame({ border, children, className, compact = false, va
         <span className="prestige-composite-frame__rail prestige-composite-frame__rail--right" aria-hidden="true" />
         <span className="prestige-composite-frame__ornament" aria-hidden="true" />
         {kind === 'dragon' && <span className="prestige-composite-frame__corner" aria-hidden="true" />}
+      </div>
+    );
+  }
+
+  if (Object.prototype.hasOwnProperty.call(SIGNATURE_PRESTIGE_KINDS, border.itemUid)) {
+    const kind = SIGNATURE_PRESTIGE_KINDS[border.itemUid];
+    return (
+      <div
+        className={cn('prestige-composite-frame relative isolate min-w-0', className)}
+        data-prestige-border={border.itemUid}
+        data-prestige-kind={kind}
+        data-prestige-variant={frameVariant}
+        style={signatureAssetStyles(kind)}
+      >
+        <div className="prestige-composite-frame__content relative z-10 h-full min-w-0">{children}</div>
+        <span className="prestige-composite-frame__rail prestige-composite-frame__rail--top" aria-hidden="true" />
+        <span className="prestige-composite-frame__rail prestige-composite-frame__rail--bottom" aria-hidden="true" />
+        <span className="prestige-composite-frame__rail prestige-composite-frame__rail--left" aria-hidden="true" />
+        <span className="prestige-composite-frame__rail prestige-composite-frame__rail--right" aria-hidden="true" />
+        <span className="prestige-composite-frame__ornament" aria-hidden="true" />
       </div>
     );
   }

@@ -13,7 +13,7 @@ import { LuxuryNameplateEffects, isNameplateLuxuryItem } from './LuxuryNameplate
 import { LuxuryHiddenShardGallery } from './LuxuryHiddenShardGallery';
 
 type LuxuryClass = 'A' | 'B' | 'C';
-type FrameTheme = 'MOON' | 'TREE' | 'DRAGON';
+type FrameTheme = 'MOON' | 'TREE' | 'DRAGON' | 'PEARL' | 'DARKFLAME' | 'FROST';
 type PreviewPlace = 'FRIENDS' | 'GUILD' | 'RANKING';
 type LuxuryPricing = ExpeditionLuxuryItem['pricing'][number];
 type PendingLuxuryPurchase = {
@@ -31,12 +31,18 @@ const PRESTIGE_CONCEPT_UID: Record<FrameTheme, string> = {
   MOON: 'PRESTIGE_MOON_2026',
   TREE: 'PRESTIGE_TREE_2026',
   DRAGON: 'PRESTIGE_DRAGON_2026',
+  PEARL: 'PRESTIGE_PEARL_2026',
+  DARKFLAME: 'PRESTIGE_DARKFLAME_2026',
+  FROST: 'PRESTIGE_FROST_2026',
 };
 
 const CONCEPTS: Array<{ theme: FrameTheme; name: string; subtitle: string; symbol: string }> = [
   { theme: 'MOON', name: '카르코사의 달유리', subtitle: '은빛 달과 푸른 수정', symbol: '☾' },
   { theme: 'TREE', name: '세계수의 서약', subtitle: '잎맥과 에메랄드 빛', symbol: '✧' },
   { theme: 'DRAGON', name: '황금룡의 맹세', subtitle: '황금 비늘과 붉은 불꽃', symbol: '♛' },
+  { theme: 'PEARL', name: '진주의 서약', subtitle: '청록 물결과 산호빛 진주', symbol: '◉' },
+  { theme: 'DARKFLAME', name: '흑염의 맹세', subtitle: '잿빛 사슬과 보랏빛 불꽃', symbol: '✹' },
+  { theme: 'FROST', name: '서릿결의 맹세', subtitle: '새하얀 서리와 얼음 결정', symbol: '❅' },
 ];
 
 const PLACES: Array<{ key: PreviewPlace; label: string }> = [
@@ -58,10 +64,25 @@ const FRAME_PALETTE: Record<FrameTheme, { edge: string; pale: string; glow: stri
     edge: '#FFD18A', pale: '#FFF1D0', glow: 'rgba(255,188,88,.4)',
     shade: 'linear-gradient(115deg,#332019,#493026 62%,#261B23)', ornament: '✦',
   },
+  PEARL: {
+    edge: '#7FE0D6', pale: '#FFF1EC', glow: 'rgba(94,214,205,.34)',
+    shade: 'linear-gradient(115deg,#0C2A33,#14404A 62%,#12303A)', ornament: '◉',
+  },
+  DARKFLAME: {
+    edge: '#B07EFF', pale: '#EDE4FF', glow: 'rgba(150,90,255,.38)',
+    shade: 'linear-gradient(115deg,#14102A,#2A1B4A 62%,#18122B)', ornament: '✹',
+  },
+  FROST: {
+    edge: '#CFEFFF', pale: '#F4FBFF', glow: 'rgba(180,225,255,.38)',
+    shade: 'linear-gradient(115deg,#12233A,#243C5E 62%,#162338)', ornament: '❅',
+  },
 };
 
 function themeFor(item: { item_uid: string; name: string }): FrameTheme {
   const code = `${item.item_uid} ${item.name}`.toLowerCase();
+  if (/pearl|진주/.test(code)) return 'PEARL';
+  if (/darkflame|흑염/.test(code)) return 'DARKFLAME';
+  if (/frost|서릿결/.test(code)) return 'FROST';
   if (/dragon|용|황금/.test(code)) return 'DRAGON';
   if (/tree|forest|world|세계수|숲/.test(code)) return 'TREE';
   return 'MOON';
