@@ -35,16 +35,20 @@ const GUILD_HEGEMONY_STYLE = `
 }
 `;
 
+const GUILD_LOGO_BASE = 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2026_guild_logo/';
 const GUILD_LOGOS: Record<string, string> = {
-  Ruby: 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/1-Ruby.webp',
-  '빛나는 은하수': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/1-Milkyway.webp',
-  '암흑장미': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/1-Darkrose.webp',
-  '에메랄드': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/1-EMERALD.webp',
-  '아블루션': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2-Ablution.webp',
-  '루나 네이비': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2-LunaNavy.webp',
-  '피닉스': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2-Phoenix.webp',
-  '슈퍼노바': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2-Supernova.webp',
-  '와사비': 'https://cdn.jsdelivr.net/gh/Jamesleekor/brand-assets@main/guild/2-Wasabi.webp',
+  Ruby: `${GUILD_LOGO_BASE}1-Ruby.webp`,
+  '빛나는 은하수': `${GUILD_LOGO_BASE}1-Milkyway.webp`,
+  '암흑장미': `${GUILD_LOGO_BASE}1-Darkrose.webp`,
+  '에메랄드': `${GUILD_LOGO_BASE}1-EMERALD.webp`,
+  RISING: `${GUILD_LOGO_BASE}1-RISING.webp`,
+  '라이징': `${GUILD_LOGO_BASE}1-RISING.webp`,
+  '아블루션': `${GUILD_LOGO_BASE}2-Ablution.webp`,
+  '루나 네이비': `${GUILD_LOGO_BASE}2-LunaNavy.webp`,
+  '피닉스': `${GUILD_LOGO_BASE}2-Phoenix.webp`,
+  Phoenix: `${GUILD_LOGO_BASE}2-Phoenix.webp`,
+  '슈퍼노바': `${GUILD_LOGO_BASE}2-Supernova.webp`,
+  '와사비': `${GUILD_LOGO_BASE}2-Wasabi.webp`,
 };
 
 const FINAL_BATTLE_ROSTERS: Record<string, string[]> = {
