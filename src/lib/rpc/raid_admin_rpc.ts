@@ -326,6 +326,19 @@ export const raidAdminRpc = {
       p_payload: payload,
     }),
 
+  // RAID_HUD_V3_20261106: 보스 얼굴 영역 + HUD 배치 저장 (화면 표시 전용)
+  saveHudLayout: (
+    supabase: SupabaseClient,
+    raidId: number,
+    phaseNo: number,
+    payload: { face_zone: { x: number; y: number; width: number; height: number } | null; preset: 'AUTO' | 'A' | 'B' | 'C' | 'D' },
+  ) =>
+    callRpc<RaidTargetingPublicConfig>(supabase, 'teacher_save_raid_hud_layout', {
+      p_raid_id: raidId,
+      p_phase_no: phaseNo,
+      p_payload: payload,
+    }),
+
 
   audioProfile: (supabase: SupabaseClient, raidId: number) =>
     callRpc<TeacherRaidAudioProfile>(supabase, 'teacher_get_raid_audio_profile', {

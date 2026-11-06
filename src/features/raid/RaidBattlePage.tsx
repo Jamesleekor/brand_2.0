@@ -36,6 +36,9 @@ import {
 import RaidClashOverlay, { ClashBuffOverlay } from '@/features/raid/clash/RaidClashOverlay';
 import { clashAttackContext, clashHitFactor, insideClashWeakZone } from '@/features/raid/clash/clashCore';
 import type { RaidClashPublicState } from '@/lib/rpc/raid_student_rpc';
+// RAID_HUD_V3_20261106: MMORPG식 HUD v3 (?hud=v3 일 때만)
+import { buildHudV3Layout } from '@/features/raid/hud/hudLayout';
+import { HudV3Overlay, useHudRaidWarning, useHudV3Enabled } from '@/features/raid/hud/HudV3';
 
 // RAID_V15_E15_BOSS_ATTACK_RUNTIME
 // RAID_V15_E2_WEAK_BREAK_GROGGY_ENRAGE
@@ -90,6 +93,215 @@ interface TargetingGuideState {
   showZone: boolean;
 }
 
+// RAID_TARGET_AWARE_HUD_V2_20261105
+// C/D(DOMAIN·ANCHOR) 보스: 보호영역을 피해서 HUD 위치를 고른다. A/B/E(BODY)는 기존 위치 그대로.
+type NormalizedRect = { x: number; y: number; width: number; height: number };
+type RaidHudSlotKey =
+  | 'TOP_LEFT'
+  | 'TOP_RIGHT'
+  | 'BOTTOM_LEFT'
+  | 'BOTTOM_RIGHT'
+  | 'TOP_CENTER'
+  | 'BOTTOM_CENTER'
+  | 'CENTER_LEFT'
+  | 'CENTER_RIGHT'
+  | 'UPPER_CENTER'
+  | 'LOWER_CENTER'
+  | 'EDGE_TOP_RIGHT'
+  | 'EDGE_TOP_LEFT_NEXT'
+  | 'EDGE_TOP_CENTER'
+  | 'EDGE_BOTTOM_LEFT'
+  | 'EDGE_BOTTOM_RIGHT'
+  | 'EDGE_BOTTOM_CENTER';
+
+interface RaidHudStageSize {
+  width: number;
+  height: number;
+  // 브라우저 창에 실제로 보이는 높이(전체화면이 아니면 전투 화면 아래쪽이 잘릴 수 있음)
+  visibleHeight: number;
+}
+
+interface RaidTargetAwareHudLayout {
+  boss: CSSProperties;
+  barrier: CSSProperties;
+  player: CSSProperties;
+  pattern: CSSProperties;
+  bossAttack: CSSProperties;
+  groggy: CSSProperties;
+  guide: CSSProperties;
+  badge: CSSProperties;
+  tapHint: CSSProperties;
+}
+
+interface RaidHudSlot {
+  x: 'left' | 'right' | 'center';
+  y: 'top' | 'bottom' | 'middle';
+  xPct: number;
+  xPx: number;
+  yPct: number;
+  yPx: number;
+}
+
+const RAID_HUD_DEFAULT_STAGE: RaidHudStageSize = { width: 1366, height: 768, visibleHeight: 768 };
+
+// x/y 비율은 전투 화면 너비 / 보이는 높이 기준. EDGE_* 는 화면 가장자리에서 20px(1.25rem).
+const RAID_HUD_SLOTS: Record<RaidHudSlotKey, RaidHudSlot> = {
+  TOP_LEFT: { x: 'left', y: 'top', xPct: 0.02, xPx: 0, yPct: 0.10, yPx: 0 },
+  TOP_RIGHT: { x: 'right', y: 'top', xPct: 0.02, xPx: 0, yPct: 0.10, yPx: 0 },
+  BOTTOM_LEFT: { x: 'left', y: 'bottom', xPct: 0.02, xPx: 0, yPct: 0.04, yPx: 0 },
+  BOTTOM_RIGHT: { x: 'right', y: 'bottom', xPct: 0.02, xPx: 0, yPct: 0.04, yPx: 0 },
+  TOP_CENTER: { x: 'center', y: 'top', xPct: 0, xPx: 0, yPct: 0.06, yPx: 0 },
+  BOTTOM_CENTER: { x: 'center', y: 'bottom', xPct: 0, xPx: 0, yPct: 0.05, yPx: 0 },
+  CENTER_LEFT: { x: 'left', y: 'middle', xPct: 0.02, xPx: 0, yPct: 0.49, yPx: 0 },
+  CENTER_RIGHT: { x: 'right', y: 'middle', xPct: 0.02, xPx: 0, yPct: 0.49, yPx: 0 },
+  UPPER_CENTER: { x: 'center', y: 'middle', xPct: 0, xPx: 0, yPct: 0.34, yPx: 0 },
+  LOWER_CENTER: { x: 'center', y: 'middle', xPct: 0, xPx: 0, yPct: 0.68, yPx: 0 },
+  EDGE_TOP_RIGHT: { x: 'right', y: 'top', xPct: 0, xPx: 20, yPct: 0, yPx: 20 },
+  // 「← 관문 / 레이드」 버튼 바로 오른쪽
+  EDGE_TOP_LEFT_NEXT: { x: 'left', y: 'top', xPct: 0, xPx: 184, yPct: 0, yPx: 20 },
+  EDGE_TOP_CENTER: { x: 'center', y: 'top', xPct: 0, xPx: 0, yPct: 0, yPx: 20 },
+  EDGE_BOTTOM_LEFT: { x: 'left', y: 'bottom', xPct: 0, xPx: 20, yPct: 0, yPx: 20 },
+  EDGE_BOTTOM_RIGHT: { x: 'right', y: 'bottom', xPct: 0, xPx: 20, yPct: 0, yPx: 20 },
+  EDGE_BOTTOM_CENTER: { x: 'center', y: 'bottom', xPct: 0, xPx: 0, yPct: 0, yPx: 20 },
+};
+
+function rectOverlapArea(a: NormalizedRect, b: NormalizedRect): number {
+  const left = Math.max(a.x, b.x);
+  const top = Math.max(a.y, b.y);
+  const right = Math.min(a.x + a.width, b.x + b.width);
+  const bottom = Math.min(a.y + a.height, b.y + b.height);
+  return Math.max(0, right - left) * Math.max(0, bottom - top);
+}
+
+function expandNormalizedRect(rect: NormalizedRect, padding = 0.025): NormalizedRect {
+  const x = Math.max(0, rect.x - padding);
+  const y = Math.max(0, rect.y - padding);
+  const right = Math.min(1, rect.x + rect.width + padding);
+  const bottom = Math.min(1, rect.y + rect.height + padding);
+  return { x, y, width: right - x, height: bottom - y };
+}
+
+// 자리(slot)와 HUD 실제 크기(px)로 화면 위 사각형과 CSS 위치를 함께 계산한다.
+function placeHudSlot(
+  key: RaidHudSlotKey,
+  size: { width: number; height: number },
+  stage: RaidHudStageSize,
+): { rect: NormalizedRect; style: CSSProperties } {
+  const slot = RAID_HUD_SLOTS[key];
+  const stageW = Math.max(1, stage.width);
+  const stageH = Math.max(1, stage.height);
+  const visibleH = Math.max(1, Math.min(stageH, stage.visibleHeight));
+  const w = Math.min(size.width, stageW);
+  const h = Math.min(size.height, visibleH);
+  const xOff = slot.xPct * stageW + slot.xPx;
+  const yOff = slot.yPct * visibleH + slot.yPx;
+  const left = slot.x === 'left' ? xOff : slot.x === 'right' ? stageW - xOff - w : (stageW - w) / 2;
+  const top = slot.y === 'top' ? yOff : slot.y === 'bottom' ? visibleH - yOff - h : Math.max(0, yOff - h / 2);
+
+  const style: CSSProperties = {};
+  if (slot.x === 'left') style.left = Math.round(xOff) + 'px';
+  else if (slot.x === 'right') style.right = Math.round(xOff) + 'px';
+  else style.left = '50%';
+  if (slot.y === 'bottom') style.bottom = Math.round(stageH - visibleH + yOff) + 'px';
+  else style.top = Math.round(slot.y === 'middle' ? Math.max(h / 2, yOff) : yOff) + 'px';
+  const tx = slot.x === 'center' ? '-50%' : '0';
+  const ty = slot.y === 'middle' ? '-50%' : '0';
+  if (tx !== '0' || ty !== '0') style.transform = 'translate(' + tx + ', ' + ty + ')';
+
+  return {
+    rect: { x: left / stageW, y: top / stageH, width: w / stageW, height: h / stageH },
+    style,
+  };
+}
+
+function chooseHudSlot(
+  candidates: RaidHudSlotKey[],
+  size: { width: number; height: number },
+  stage: RaidHudStageSize,
+  protectedRect: NormalizedRect,
+  occupied: NormalizedRect[],
+) {
+  let best = placeHudSlot(candidates[0], size, stage);
+  let bestScore = Number.POSITIVE_INFINITY;
+  candidates.forEach((key, index) => {
+    const candidate = placeHudSlot(key, size, stage);
+    const targetOverlap = rectOverlapArea(candidate.rect, protectedRect);
+    const hudOverlap = occupied.reduce((sum, item) => sum + rectOverlapArea(candidate.rect, item), 0);
+    // 1순위: 보호영역 침범 최소, 2순위: 다른 HUD와 겹침 최소, 3순위: 후보 순서
+    const score = targetOverlap * 1000 + hudOverlap * 240 + index * 0.01;
+    if (score < bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+  });
+  return best;
+}
+
+function buildTargetAwareHudLayout(
+  targeting: RaidTargetingPublicConfig,
+  stage: RaidHudStageSize = RAID_HUD_DEFAULT_STAGE,
+): RaidTargetAwareHudLayout {
+  // BODY(A/B/E) 보스: 기존 Tailwind 위치와 같은 값
+  const bodyLayout: RaidTargetAwareHudLayout = {
+    boss: { left: '1.25rem', top: '5rem' },
+    barrier: { right: '1.25rem', top: '5rem' },
+    player: { right: '1.25rem', bottom: '1.25rem' },
+    pattern: { left: '50%', top: '5rem', transform: 'translateX(-50%)' },
+    bossAttack: { left: '50%', top: '42%', transform: 'translate(-50%, -50%)' },
+    groggy: { left: '50%', top: '31%', transform: 'translateX(-50%)' },
+    guide: { left: '50%', top: '46%', transform: 'translateX(-50%)' },
+    badge: { right: '1.25rem', top: '1.25rem' },
+    tapHint: { left: '1.25rem', bottom: '1.25rem' },
+  };
+  if (targeting.mode === 'BODY' || !targeting.valid || !targeting.primary_zone) return bodyLayout;
+
+  const stageW = Math.max(1, stage.width);
+  const stageH = Math.max(1, stage.height);
+  // 실제 HUD 크기(px, 1366×768 화면에서 잰 값 + 여유)
+  const size = {
+    boss: { width: Math.min(430, stageW * 0.44), height: 150 },
+    barrier: { width: Math.min(420, stageW * 0.43), height: 200 },
+    player: { width: 260, height: 152 },
+    pattern: { width: Math.min(560, stageW * 0.54), height: 150 },
+    groggy: { width: 220, height: 100 },
+    bossAttack: { width: 210, height: 150 },
+    guide: { width: 360, height: 56 },
+    badge: { width: 190, height: 44 },
+    tapHint: { width: 260, height: 40 },
+  };
+
+  const protectedRect = expandNormalizedRect({
+    x: targeting.primary_zone.x,
+    y: targeting.primary_zone.y,
+    width: targeting.primary_zone.width,
+    height: targeting.primary_zone.height,
+  });
+  // 왼쪽 위 「← 관문 / 레이드」 버튼 자리는 항상 비워 둔다.
+  const occupied: NormalizedRect[] = [
+    { x: 20 / stageW, y: 20 / stageH, width: 150 / stageW, height: 40 / stageH },
+  ];
+  const pick = (candidates: RaidHudSlotKey[], hudSize: { width: number; height: number }) => {
+    const chosen = chooseHudSlot(candidates, hudSize, stage, protectedRect, occupied);
+    occupied.push(chosen.rect);
+    return chosen.style;
+  };
+
+  const boss = pick(['TOP_LEFT', 'BOTTOM_LEFT', 'TOP_RIGHT', 'BOTTOM_RIGHT', 'CENTER_LEFT', 'CENTER_RIGHT'], size.boss);
+  const barrier = pick(['TOP_RIGHT', 'BOTTOM_RIGHT', 'TOP_LEFT', 'BOTTOM_LEFT', 'CENTER_RIGHT', 'CENTER_LEFT'], size.barrier);
+  const player = pick(['BOTTOM_RIGHT', 'BOTTOM_LEFT', 'TOP_RIGHT', 'TOP_LEFT', 'CENTER_RIGHT', 'CENTER_LEFT'], size.player);
+  const pattern = pick(['TOP_CENTER', 'BOTTOM_CENTER', 'CENTER_LEFT', 'CENTER_RIGHT', 'UPPER_CENTER', 'LOWER_CENTER'], size.pattern);
+  // 그로기는 패턴 카드와 동시에 뜰 수 있으므로 패턴 카드와 다른 자리를 받는다.
+  const groggy = pick(['UPPER_CENTER', 'TOP_CENTER', 'BOTTOM_CENTER', 'LOWER_CENTER', 'CENTER_LEFT', 'CENTER_RIGHT'], size.groggy);
+  const bossAttack = pick(['BOTTOM_CENTER', 'TOP_CENTER', 'CENTER_RIGHT', 'CENTER_LEFT', 'LOWER_CENTER', 'UPPER_CENTER'], size.bossAttack);
+  // 왼쪽 아래 타격 안내 칩도 배치 계산에 포함한다.
+  const tapHint = pick(['EDGE_BOTTOM_LEFT', 'EDGE_TOP_LEFT_NEXT', 'EDGE_BOTTOM_RIGHT', 'EDGE_BOTTOM_CENTER', 'EDGE_TOP_CENTER'], size.tapHint);
+  const guide = pick(['BOTTOM_CENTER', 'TOP_CENTER', 'LOWER_CENTER', 'UPPER_CENTER', 'CENTER_LEFT', 'CENTER_RIGHT'], size.guide);
+  // 광폭 배지는 작은 알약이므로 화면 가장자리 자리에서만 고른다(기본: 기존 오른쪽 맨 위).
+  const badge = pick(['EDGE_TOP_RIGHT', 'EDGE_TOP_CENTER', 'EDGE_BOTTOM_RIGHT', 'EDGE_BOTTOM_CENTER'], size.badge);
+
+  return { boss, barrier, player, pattern, bossAttack, groggy, guide, badge, tapHint };
+}
+
 export default function RaidBattlePage() {
   const params = useParams<{ raidId: string }>();
   const raidId = Number(params.raidId);
@@ -140,6 +352,69 @@ export default function RaidBattlePage() {
   const state = battleQuery.data;
 
   const targeting = normalizeRaidTargeting(state?.raid.phase?.targeting);
+  // RAID_TARGET_AWARE_HUD_V2_20261105: 전투 화면 크기와 실제로 보이는 높이를 재서 C/D HUD 위치 계산에 쓴다.
+  const [hudStageEl, setHudStageEl] = useState<HTMLDivElement | null>(null);
+  const [hudStage, setHudStage] = useState<RaidHudStageSize>(RAID_HUD_DEFAULT_STAGE);
+  useEffect(() => {
+    if (!hudStageEl || typeof window === 'undefined') return;
+    const measure = () => {
+      const rect = hudStageEl.getBoundingClientRect();
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+      const pageTop = rect.top + window.scrollY;
+      const visibleHeight = Math.max(
+        Math.min(height, 320),
+        Math.min(height, Math.round(window.innerHeight - pageTop)),
+      );
+      setHudStage((prev) =>
+        prev.width === width && prev.height === height && prev.visibleHeight === visibleHeight
+          ? prev
+          : { width, height, visibleHeight },
+      );
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(hudStageEl);
+    return () => {
+      window.removeEventListener('resize', measure);
+      observer?.disconnect();
+    };
+  }, [hudStageEl]);
+  const targetAwareHudLayout = useMemo(
+    () => buildTargetAwareHudLayout(targeting, hudStage),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      targeting.mode,
+      targeting.valid,
+      targeting.primary_zone?.x,
+      targeting.primary_zone?.y,
+      targeting.primary_zone?.width,
+      targeting.primary_zone?.height,
+      hudStage,
+    ],
+  );
+  // RAID_HUD_V3_20261106: v3 배치는 얼굴 영역 + C/D 영역을 함께 피한다. v3가 꺼져 있으면 계산만 하고 쓰지 않는다.
+  const hudV3Enabled = useHudV3Enabled();
+  const hudV3Layout = useMemo(
+    () => buildHudV3Layout(targeting, hudStage),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      targeting.mode,
+      targeting.valid,
+      targeting.primary_zone?.x,
+      targeting.primary_zone?.y,
+      targeting.primary_zone?.width,
+      targeting.primary_zone?.height,
+      targeting.face_zone?.x,
+      targeting.face_zone?.y,
+      targeting.face_zone?.width,
+      targeting.face_zone?.height,
+      targeting.hud_preset,
+      hudStage,
+    ],
+  );
+  const hudV3Warning = useHudRaidWarning(state, hudV3Enabled);
 
   const showTargetingGuide = useCallback((text: string, showZone: boolean, durationMs: number) => {
     if (targetingGuideTimerRef.current) clearTimeout(targetingGuideTimerRef.current);
@@ -672,7 +947,7 @@ export default function RaidBattlePage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-black text-white">
-      <div className="relative mx-auto aspect-video min-h-screen w-full max-w-[1920px] overflow-hidden bg-[#02050a]">
+      <div ref={setHudStageEl} className="relative mx-auto aspect-video min-h-screen w-full max-w-[1920px] overflow-hidden bg-[#02050a]">
         <BossViewport
           state={state}
           enabled={battleEnabled}
@@ -684,16 +959,22 @@ export default function RaidBattlePage() {
         <TargetingGuideOverlay
           targeting={targeting}
           guide={targetingGuide}
+          placement={hudV3Enabled ? hudV3Layout.guide : targetAwareHudLayout.guide}
         />
 
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.34),transparent_23%,transparent_70%,rgba(0,0,0,0.52))]" />
 
-        <BossHud state={state} hp={hp} hpRatio={hpRatio} />
+        {!hudV3Enabled && (
+          <BossHud state={state} hp={hp} hpRatio={hpRatio} placement={targetAwareHudLayout.boss} />
+        )}
 
-        <BossBarrierHud
-          combat={combat}
-          secondsToBossAttack={secondsToBossAttack}
-        />
+        {!hudV3Enabled && (
+          <BossBarrierHud
+            combat={combat}
+            secondsToBossAttack={secondsToBossAttack}
+            placement={targetAwareHudLayout.barrier}
+          />
+        )}
 
         {activePattern?.pattern_type === 'WEAK_POINT' && (
           <WeakPointOverlay
@@ -702,37 +983,47 @@ export default function RaidBattlePage() {
           />
         )}
 
-        {activePattern?.pattern_type === 'BREAK' && (
+        {!hudV3Enabled && activePattern?.pattern_type === 'BREAK' && (
           <BreakMissionHud
             pattern={activePattern}
             secondsRemaining={secondsToPatternEnd ?? 0}
+            placement={targetAwareHudLayout.pattern}
           />
         )}
 
-        {groggyActive && (
+        {!hudV3Enabled && groggyActive && (
           <GroggyBanner
             multiplier={Number(combat.groggy_damage_multiplier ?? 1)}
             secondsRemaining={secondsToGroggyEnd}
+            placement={targetAwareHudLayout.groggy}
           />
         )}
 
-        {combat?.enrage_active && (
+        {!hudV3Enabled && combat?.enrage_active && (
           <EnrageBadge
             bossMultiplier={Number(combat.enrage_boss_damage_multiplier ?? 1)}
+            placement={targetAwareHudLayout.badge}
           />
         )}
 
-        {activePattern && !['WEAK_POINT', 'BREAK', 'ENRAGE'].includes(activePattern.pattern_type) && (
+        {/* RAID_HUD_V3_20261106: v3에서는 안내 카드 대신 기믹 트래커를 쓰고, 보스 위 표적 표시만 그린다. */}
+        {hudV3Enabled && activePattern && (
+          <PatternTargetMarkersOnly pattern={activePattern} />
+        )}
+
+        {!hudV3Enabled && activePattern && !['WEAK_POINT', 'BREAK', 'ENRAGE'].includes(activePattern.pattern_type) && (
           <SpecialPatternOverlay
             pattern={activePattern}
             secondsRemaining={secondsToPatternEnd ?? 0}
+            placement={targetAwareHudLayout.pattern}
           />
         )}
 
-        {bossAttackTelegraph && bossAttack && (
+        {!hudV3Enabled && bossAttackTelegraph && bossAttack && (
           <BossAttackTelegraph
             name={bossAttack.name}
             seconds={secondsToBossAttack ?? 0}
+            placement={targetAwareHudLayout.bossAttack}
           />
         )}
 
@@ -747,13 +1038,47 @@ export default function RaidBattlePage() {
           Number(combat.barrier_ratio) <= 0.25 &&
           state.raid.status === 'ACTIVE' && <CriticalBarrierPulse />}
 
-        <PlayerHud
-          resonance={Number(state.me.raid_power)}
-          elementBp={Number(state.me.element_multiplier_bp ?? 10000)}
-          critBp={Number(state.me.final_crit_bp)}
-          totalDamage={totalDamage}
-        />
+        {!hudV3Enabled && (
+          <PlayerHud
+            resonance={Number(state.me.raid_power)}
+            elementBp={Number(state.me.element_multiplier_bp ?? 10000)}
+            critBp={Number(state.me.final_crit_bp)}
+            totalDamage={totalDamage}
+            placement={targetAwareHudLayout.player}
+          />
+        )}
 
+        {hudV3Enabled && (
+          <HudV3Overlay
+            layout={hudV3Layout}
+            state={state}
+            hp={hp}
+            hpRatio={hpRatio}
+            totalDamage={totalDamage}
+            secondsToBossAttack={secondsToBossAttack}
+            bossAttackTelegraph={bossAttackTelegraph}
+            secondsToPatternEnd={secondsToPatternEnd}
+            groggyActive={groggyActive}
+            secondsToGroggyEnd={secondsToGroggyEnd}
+            warning={hudV3Warning}
+            battleEnabled={battleEnabled}
+            guideActive={targetingGuide != null}
+            tapHintText={
+              activePattern?.pattern_type === 'ABSORB'
+                ? '마력 흡수 중 — 공격을 멈추세요!'
+                : activePattern?.pattern_type === 'MULTI_CORE'
+                  ? '표시된 핵의 순서를 확인하고 공격'
+                  : activePattern?.pattern_type === 'SPLIT_TARGET'
+                    ? '양쪽 목표를 균형 있게 공격'
+                    : raidTargetingInstruction(targeting)
+            }
+            nowMs={clockNowMs}
+            onBack={() => navigate(`/raid/${raidId}/lobby`)}
+            onHub={() => navigate('/raid')}
+          />
+        )}
+
+        {!hudV3Enabled && (
         <div className="absolute left-4 top-4 z-40 flex gap-2 md:left-5 md:top-5">
           <button
             type="button"
@@ -770,6 +1095,7 @@ export default function RaidBattlePage() {
             레이드 허브
           </button>
         </div>
+        )}
 
         {state.raid.status === 'ACTIVE' && (
           <ClashBuffOverlay session={clashSession} serverNow={clockNowMs + serverClockOffsetMs} />
@@ -843,8 +1169,8 @@ export default function RaidBattlePage() {
           </div>
         )}
 
-        {battleEnabled && (
-          <div className="pointer-events-none absolute bottom-5 left-5 z-30 rounded-card-md border border-white/15 bg-black/55 px-3 py-2 text-[11px] font-black text-white backdrop-blur">
+        {!hudV3Enabled && battleEnabled && (
+          <div className="pointer-events-none absolute z-30 rounded-card-md border border-white/15 bg-black/55 px-3 py-2 text-[11px] font-black text-white backdrop-blur" style={targetAwareHudLayout.tapHint}>
             {activePattern?.pattern_type === 'ABSORB'
               ? '⚠ 마력 흡수 중 — 공격을 멈추세요!'
               : activePattern?.pattern_type === 'MULTI_CORE'
@@ -975,9 +1301,11 @@ function BossViewport({
 function TargetingGuideOverlay({
   targeting,
   guide,
+  placement,
 }: {
   targeting: RaidTargetingPublicConfig;
   guide: TargetingGuideState | null;
+  placement: CSSProperties;
 }) {
   if (!guide || targeting.mode === 'BODY') return null;
   const zone = targeting.primary_zone;
@@ -999,12 +1327,12 @@ function TargetingGuideOverlay({
             animationDuration: '0.9s',
           }}
         >
-          <span className="rounded-pill border border-white/35 bg-black/75 px-3 py-1.5 text-xs font-black text-white">
+          <span className="absolute left-2 top-2 rounded-pill border border-white/35 bg-black/60 px-2.5 py-1 text-[10px] font-black text-white backdrop-blur-sm">
             {targeting.mode === 'DOMAIN' ? '🎯 지배 영역' : '🎯 핵심 표적'}
           </span>
         </div>
       ) : null}
-      <div className="absolute left-1/2 top-[46%] -translate-x-1/2 rounded-card-lg border-2 border-cyan-200/65 bg-black/82 px-5 py-3 text-center text-sm font-black text-white shadow-xl backdrop-blur">
+      <div className="absolute rounded-card-lg border-2 border-cyan-200/65 bg-black/68 px-5 py-3 text-center text-sm font-black text-white shadow-xl backdrop-blur-sm" style={placement}>
         {guide.text}
       </div>
     </div>
@@ -1016,14 +1344,16 @@ function BossHud({
   state,
   hp,
   hpRatio,
+  placement,
 }: {
   state: RaidBattleState;
   hp: number;
   hpRatio: number;
+  placement: CSSProperties;
 }) {
   const percent = Math.max(0, Math.min(100, hpRatio * 100));
   return (
-    <div className="pointer-events-none absolute left-4 top-20 z-30 w-[min(430px,44vw)] rounded-card-lg border border-white/20 bg-black/58 p-4 backdrop-blur md:left-5 md:top-20">
+    <div className="pointer-events-none absolute z-30 w-[min(430px,44vw)] rounded-card-lg border border-white/20 bg-black/48 p-4 backdrop-blur-sm" style={placement}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[10px] font-black tracking-[0.18em] text-cyan-100">
@@ -1058,9 +1388,11 @@ function BossHud({
 function BossBarrierHud({
   combat,
   secondsToBossAttack,
+  placement,
 }: {
   combat: RaidBattleState['combat'];
   secondsToBossAttack: number | null;
+  placement: CSSProperties;
 }) {
   if (!combat?.barrier_enabled) return null;
 
@@ -1085,7 +1417,7 @@ function BossBarrierHud({
           : 'from-blue-700 via-cyan-400 to-white';
 
   return (
-    <div className="pointer-events-none absolute right-4 top-20 z-30 w-[min(420px,43vw)] rounded-card-lg border border-cyan-200/30 bg-[#04111d]/82 p-4 backdrop-blur md:right-5 md:top-20">
+    <div className="pointer-events-none absolute z-30 w-[min(420px,43vw)] rounded-card-lg border border-cyan-200/30 bg-[#04111d]/68 p-4 backdrop-blur-sm" style={placement}>
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-[10px] font-black tracking-[0.18em] text-cyan-100">
@@ -1143,13 +1475,15 @@ function BossBarrierHud({
 function BossAttackTelegraph({
   name,
   seconds,
+  placement,
 }: {
   name: string;
   seconds: number;
+  placement: CSSProperties;
 }) {
   return (
-    <div className="pointer-events-none absolute left-1/2 top-[42%] z-40 -translate-x-1/2 -translate-y-1/2 text-center">
-      <div className="rounded-card-lg border-2 border-red-300/70 bg-red-950/75 px-7 py-5 shadow-[0_0_45px_rgba(239,68,68,0.32)] backdrop-blur-sm animate-pulse">
+    <div className="pointer-events-none absolute z-40 text-center" style={placement}>
+      <div className="rounded-card-lg border-2 border-red-300/70 bg-red-950/68 px-7 py-5 shadow-[0_0_45px_rgba(239,68,68,0.32)] backdrop-blur-sm animate-pulse">
         <div className="text-xs font-black tracking-[0.22em] text-red-200">
           BOSS ATTACK
         </div>
@@ -1232,9 +1566,11 @@ function WeakPointOverlay({
 function BreakMissionHud({
   pattern,
   secondsRemaining,
+  placement,
 }: {
   pattern: NonNullable<RaidBattleState['combat']['active_pattern']>;
   secondsRemaining: number;
+  placement: CSSProperties;
 }) {
   const maxHp = Math.max(1, numberFromPattern(pattern.state, 'objective_max_hp', 1));
   const currentHp = Math.max(
@@ -1244,7 +1580,7 @@ function BreakMissionHud({
   const ratio = currentHp / maxHp;
 
   return (
-    <div className="pointer-events-none absolute left-1/2 top-20 z-[39] w-[min(560px,54vw)] -translate-x-1/2 rounded-card-lg border-2 border-fuchsia-300/65 bg-[#170820]/[0.92] p-4 shadow-[0_0_38px_rgba(217,70,239,0.28)] backdrop-blur-md">
+    <div className="pointer-events-none absolute z-[39] w-[min(560px,54vw)] rounded-card-lg border-2 border-fuchsia-300/65 bg-[#170820]/[0.74] p-4 shadow-[0_0_38px_rgba(217,70,239,0.28)] backdrop-blur-sm" style={placement}>
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="text-[10px] font-black tracking-[0.2em] text-fuchsia-200">
@@ -1275,12 +1611,14 @@ function BreakMissionHud({
 function GroggyBanner({
   multiplier,
   secondsRemaining,
+  placement,
 }: {
   multiplier: number;
   secondsRemaining: number;
+  placement: CSSProperties;
 }) {
   return (
-    <div className="pointer-events-none absolute left-1/2 top-[31%] z-[38] -translate-x-1/2 rounded-card-lg border border-cyan-200/60 bg-cyan-950/80 px-6 py-3 text-center shadow-[0_0_34px_rgba(34,211,238,0.28)] backdrop-blur-sm">
+    <div className="pointer-events-none absolute z-[38] rounded-card-lg border border-cyan-200/60 bg-cyan-950/68 px-6 py-3 text-center shadow-[0_0_34px_rgba(34,211,238,0.28)] backdrop-blur-sm" style={placement}>
       <div className="text-[10px] font-black tracking-[0.2em] text-cyan-100">GROGGY</div>
       <div className="mt-1 font-display text-2xl text-white">
         받는 피해 ×{multiplier.toFixed(1)}
@@ -1292,9 +1630,9 @@ function GroggyBanner({
   );
 }
 
-function EnrageBadge({ bossMultiplier }: { bossMultiplier: number }) {
+function EnrageBadge({ bossMultiplier, placement }: { bossMultiplier: number; placement: CSSProperties }) {
   return (
-    <div className="pointer-events-none absolute right-5 top-5 z-[39] rounded-pill border border-red-300/65 bg-red-950/[0.88] px-4 py-2 shadow-[0_0_28px_rgba(239,68,68,0.30)] backdrop-blur-sm">
+    <div className="pointer-events-none absolute z-[39] rounded-pill border border-red-300/65 bg-red-950/[0.70] px-4 py-2 shadow-[0_0_28px_rgba(239,68,68,0.30)] backdrop-blur-sm" style={placement}>
       <span className="mr-2 text-sm">🔥</span>
       <span className="text-xs font-black tracking-[0.12em] text-red-100">광폭화</span>
       <span className="ml-2 font-mono text-xs font-black text-yellow-100">
@@ -1364,9 +1702,11 @@ function runtimeTargets(value: unknown): RuntimeTarget[] {
 function SpecialPatternOverlay({
   pattern,
   secondsRemaining,
+  placement,
 }: {
   pattern: NonNullable<RaidBattleState['combat']['active_pattern']>;
   secondsRemaining: number;
+  placement: CSSProperties;
 }) {
   const type = pattern.pattern_type;
   const state = pattern.state;
@@ -1380,6 +1720,7 @@ function SpecialPatternOverlay({
         description={`지금 공격하면 Boss가 피해의 ${(healRatio * 100).toFixed(0)}%를 회복합니다.`}
         secondsRemaining={secondsRemaining}
         tone="violet"
+        placement={placement}
       />
     );
   }
@@ -1393,6 +1734,7 @@ function SpecialPatternOverlay({
         description={`공격 피해의 ${(reflectRatio * 100).toFixed(0)}%가 공명방벽에 반사됩니다.`}
         secondsRemaining={secondsRemaining}
         tone="danger"
+        placement={placement}
       />
     );
   }
@@ -1407,6 +1749,7 @@ function SpecialPatternOverlay({
         max={patternNumber(state, 'objective_max_hp', 1)}
         secondsRemaining={secondsRemaining}
         tone="danger"
+        placement={placement}
       />
     );
   }
@@ -1423,6 +1766,7 @@ function SpecialPatternOverlay({
           secondsRemaining={secondsRemaining}
           tone="danger"
           compact
+        placement={placement}
         />
         {target && target.current_hp > 0 && <PatternTargetMarker target={target} tone="danger" />}
       </>
@@ -1439,6 +1783,7 @@ function SpecialPatternOverlay({
         max={patternNumber(state, 'shield_max_hp', 1)}
         secondsRemaining={secondsRemaining}
         tone="cyan"
+        placement={placement}
       />
     );
   }
@@ -1456,6 +1801,7 @@ function SpecialPatternOverlay({
           secondsRemaining={secondsRemaining}
           tone="warning"
           compact
+        placement={placement}
         />
         {targets.map((target, index) => (
           <PatternTargetMarker
@@ -1483,6 +1829,7 @@ function SpecialPatternOverlay({
           secondsRemaining={secondsRemaining}
           tone={spread > maxDiff ? 'danger' : 'cyan'}
           compact
+        placement={placement}
         />
         {targets.map((target) => <PatternTargetMarker key={target.key} target={target} tone={target.current_hp <= 0 ? 'done' : 'cyan'} />)}
       </>
@@ -1501,6 +1848,7 @@ function SpecialPatternOverlay({
           secondsRemaining={secondsRemaining}
           tone="green"
           compact
+        placement={placement}
         />
         {target && target.current_hp > 0 && <PatternTargetMarker target={target} tone="green" />}
       </>
@@ -1519,6 +1867,7 @@ function SpecialPatternOverlay({
           secondsRemaining={secondsRemaining}
           tone="violet"
           compact
+        placement={placement}
         />
         {targets.map((target) => <PatternTargetMarker key={target.key} target={target} tone={target.current_hp <= 0 ? 'done' : 'violet'} />)}
       </>
@@ -1538,10 +1887,55 @@ function SpecialPatternOverlay({
         secondsRemaining={secondsRemaining}
         tone="warning"
         remainingMode
+        placement={placement}
       />
     );
   }
 
+  return null;
+}
+
+// RAID_HUD_V3_20261106: HUD v3에서 안내 카드 없이 보스 위 표적 표시만 그린다(표시 규칙은 SpecialPatternOverlay와 같음).
+function PatternTargetMarkersOnly({
+  pattern,
+}: {
+  pattern: NonNullable<RaidBattleState['combat']['active_pattern']>;
+}) {
+  const type = pattern.pattern_type;
+  const state = pattern.state;
+  if (type === 'DOT') {
+    const target = runtimeTarget(state.interrupt_target);
+    return target && target.current_hp > 0 ? <PatternTargetMarker target={target} tone="danger" /> : null;
+  }
+  if (type === 'REGEN') {
+    const target = runtimeTarget(state.core);
+    return target && target.current_hp > 0 ? <PatternTargetMarker target={target} tone="green" /> : null;
+  }
+  if (type === 'MULTI_CORE') {
+    const targets = runtimeTargets(state.cores);
+    const mode = String(state.mode ?? 'FIXED_ORDER');
+    const expected = Math.max(0, Math.floor(patternNumber(state, 'expected_index', 0)));
+    return (
+      <>
+        {targets.map((target, index) => (
+          <PatternTargetMarker
+            key={target.key}
+            target={target}
+            tone={target.current_hp <= 0 ? 'done' : index === expected || mode === 'ANY_ORDER' ? 'warning' : 'muted'}
+            badge={target.current_hp > 0 && (mode === 'FIXED_ORDER' || mode === 'RANDOM_ORDER') ? `${index + 1}` : undefined}
+          />
+        ))}
+      </>
+    );
+  }
+  if (type === 'SPLIT_TARGET') {
+    const targets = runtimeTargets(state.targets);
+    return <>{targets.map((target) => <PatternTargetMarker key={target.key} target={target} tone={target.current_hp <= 0 ? 'done' : 'cyan'} />)}</>;
+  }
+  if (type === 'SEAL') {
+    const targets = runtimeTargets(state.seals);
+    return <>{targets.map((target) => <PatternTargetMarker key={target.key} target={target} tone={target.current_hp <= 0 ? 'done' : 'violet'} />)}</>;
+  }
   return null;
 }
 
@@ -1552,6 +1946,7 @@ function PatternWarningBanner({
   secondsRemaining,
   tone,
   compact = false,
+  placement,
 }: {
   eyebrow: string;
   title: string;
@@ -1559,16 +1954,17 @@ function PatternWarningBanner({
   secondsRemaining: number;
   tone: 'danger' | 'warning' | 'cyan' | 'violet' | 'green';
   compact?: boolean;
+  placement: CSSProperties;
 }) {
   const toneClass = {
-    danger: 'border-red-300/70 bg-red-950/[0.90] shadow-[0_0_38px_rgba(239,68,68,0.30)]',
-    warning: 'border-yellow-200/65 bg-amber-950/[0.90] shadow-[0_0_38px_rgba(245,158,11,0.25)]',
-    cyan: 'border-cyan-200/65 bg-cyan-950/[0.90] shadow-[0_0_38px_rgba(34,211,238,0.23)]',
-    violet: 'border-fuchsia-300/65 bg-[#21072d]/[0.92] shadow-[0_0_38px_rgba(217,70,239,0.27)]',
-    green: 'border-emerald-300/65 bg-emerald-950/[0.90] shadow-[0_0_38px_rgba(16,185,129,0.24)]',
+    danger: 'border-red-300/70 bg-red-950/[0.74] shadow-[0_0_38px_rgba(239,68,68,0.30)]',
+    warning: 'border-yellow-200/65 bg-amber-950/[0.74] shadow-[0_0_38px_rgba(245,158,11,0.25)]',
+    cyan: 'border-cyan-200/65 bg-cyan-950/[0.72] shadow-[0_0_38px_rgba(34,211,238,0.23)]',
+    violet: 'border-fuchsia-300/65 bg-[#21072d]/[0.74] shadow-[0_0_38px_rgba(217,70,239,0.27)]',
+    green: 'border-emerald-300/65 bg-emerald-950/[0.72] shadow-[0_0_38px_rgba(16,185,129,0.24)]',
   }[tone];
   return (
-    <div className={cn('pointer-events-none absolute left-1/2 z-[39] -translate-x-1/2 rounded-card-lg border-2 px-5 py-3 text-center backdrop-blur-md', 'top-20 w-[min(500px,52vw)]', toneClass)}>
+    <div className={cn('pointer-events-none absolute z-[39] rounded-card-lg border-2 px-5 py-3 text-center backdrop-blur-sm', 'w-[min(500px,52vw)]', toneClass)} style={placement}>
       <div className="text-[10px] font-black tracking-[0.22em] text-white/80">{eyebrow}</div>
       <div className={cn('mt-1 font-display text-white', compact ? 'text-xl' : 'text-2xl')}>{title}</div>
       <div className="mt-1 text-xs font-black text-yellow-100">{description}</div>
@@ -1586,6 +1982,7 @@ function ObjectiveMissionHud({
   secondsRemaining,
   tone,
   remainingMode = false,
+  placement,
 }: {
   eyebrow: string;
   title: string;
@@ -1595,6 +1992,7 @@ function ObjectiveMissionHud({
   secondsRemaining: number;
   tone: 'danger' | 'warning' | 'cyan';
   remainingMode?: boolean;
+  placement: CSSProperties;
 }) {
   const safeMax = Math.max(1, max);
   const safeCurrent = Math.max(0, Math.min(safeMax, current));
@@ -1602,12 +2000,12 @@ function ObjectiveMissionHud({
   const completedRatio = 1 - remainingRatio;
   const width = remainingMode ? completedRatio * 100 : remainingRatio * 100;
   const toneClass = {
-    danger: 'border-red-300/65 bg-red-950/[0.90]',
-    warning: 'border-yellow-200/65 bg-amber-950/[0.90]',
-    cyan: 'border-cyan-200/65 bg-cyan-950/[0.90]',
+    danger: 'border-red-300/65 bg-red-950/[0.74]',
+    warning: 'border-yellow-200/65 bg-amber-950/[0.74]',
+    cyan: 'border-cyan-200/65 bg-cyan-950/[0.72]',
   }[tone];
   return (
-    <div className={cn('pointer-events-none absolute left-1/2 top-20 z-[39] w-[min(500px,52vw)] -translate-x-1/2 rounded-card-lg border-2 p-4 shadow-[0_0_38px_rgba(0,0,0,0.34)] backdrop-blur-md', toneClass)}>
+    <div className={cn('pointer-events-none absolute z-[39] w-[min(500px,52vw)] rounded-card-lg border-2 p-4 shadow-[0_0_38px_rgba(0,0,0,0.34)] backdrop-blur-sm', toneClass)} style={placement}>
       <div className="flex items-center justify-between gap-4">
         <div>
           <div className="text-[10px] font-black tracking-[0.2em] text-white/75">{eyebrow}</div>
@@ -1655,7 +2053,7 @@ function PatternTargetMarker({
         height: `${Math.max(0.04, Math.min(1 - target.y, target.height)) * 100}%`,
       }}
     >
-      <div className="relative min-w-[90px] rounded-card-md border border-white/25 bg-black/75 px-2.5 py-1.5 text-center backdrop-blur-sm">
+      <div className="relative min-w-[90px] rounded-card-md border border-white/25 bg-black/62 px-2.5 py-1.5 text-center backdrop-blur-sm">
         {badge && <div className="absolute -left-3 -top-3 flex h-7 w-7 items-center justify-center rounded-full border-2 border-yellow-100 bg-black text-sm font-black text-yellow-100">{badge}</div>}
         <div className="text-[10px] font-black text-white">{target.current_hp <= 0 ? '✓ ' : ''}{target.label}</div>
         <div className="mt-0.5 font-mono text-[10px] font-black text-cyan-100">{formatNumber(target.current_hp)} / {formatNumber(target.max_hp)}</div>
@@ -1687,14 +2085,16 @@ function PlayerHud({
   elementBp,
   critBp,
   totalDamage,
+  placement,
 }: {
   resonance: number;
   elementBp: number;
   critBp: number;
   totalDamage: number;
+  placement: CSSProperties;
 }) {
   return (
-    <div className="pointer-events-none absolute bottom-5 right-5 z-30 min-w-[250px] rounded-card-lg border border-cyan-300/30 bg-[#07111f]/82 p-4 backdrop-blur">
+    <div className="pointer-events-none absolute z-30 min-w-[250px] rounded-card-lg border border-cyan-300/30 bg-[#07111f]/68 p-4 backdrop-blur-sm" style={placement}>
       <div className="text-[10px] font-black tracking-[0.16em] text-cyan-100">
         나의 전투 정보
       </div>

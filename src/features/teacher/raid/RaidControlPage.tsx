@@ -13,6 +13,8 @@ import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
 import RaidV15ConfigPanel, { type RaidConfigTabKey } from '@/features/teacher/raid/RaidV15ConfigPanel';
 import RaidTargetingEditor from '@/features/teacher/raid/RaidTargetingEditor';
+// RAID_HUD_V3_20261106
+import RaidHudLayoutEditor from '@/features/teacher/raid/RaidHudLayoutEditor';
 // RAID_BOSS_TYPE_V2_20261104
 import type { RaidTargetingMode } from '@/features/raid/targeting/raidTargeting';
 // RAID_TARGETING_V1_20261103
@@ -912,6 +914,15 @@ export default function RaidControlPage() {
 
                   {pageTab === 'RULES' ? (
                     <RaidTargetingEditor
+                      raidId={detail.raid.id}
+                      raidStatus={detail.raid.status}
+                      phase={detail.phases.find((phase) => phase.phase_no === 1) ?? null}
+                      onSaved={() => void detailQuery.refetch()}
+                    />
+                  ) : null}
+
+                  {pageTab === 'RULES' ? (
+                    <RaidHudLayoutEditor
                       raidId={detail.raid.id}
                       raidStatus={detail.raid.status}
                       phase={detail.phases.find((phase) => phase.phase_no === 1) ?? null}

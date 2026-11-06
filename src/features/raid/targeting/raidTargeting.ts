@@ -10,6 +10,16 @@ export interface RaidTargetingZone {
   name?: string | null;
 }
 
+// RAID_HUD_V3_20261106: 보스 얼굴 영역 + HUD 배치 (화면 표시 전용, 타격 판정과 무관)
+export type RaidHudPreset = 'AUTO' | 'A' | 'B' | 'C' | 'D';
+
+export interface RaidHudFaceZone {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface RaidTargetingPublicConfig {
   version: number;
   mode: RaidTargetingMode;
@@ -20,6 +30,9 @@ export interface RaidTargetingPublicConfig {
   miss_repeat_threshold: number;
   primary_zone: RaidTargetingZone | null;
   valid: boolean;
+  // RAID_HUD_V3_20261106: 서버 HUD v3 SQL 적용 전에는 오지 않음 → null / AUTO로 취급
+  face_zone?: RaidHudFaceZone | null;
+  hud_preset?: RaidHudPreset;
 }
 
 export interface RaidTargetingSavePayload {
@@ -86,10 +99,32 @@ function normalizeZone(value: unknown): RaidTargetingZone | null {
   };
 }
 
+// RAID_HUD_V3_20261106
+export function normalizeRaidHudFaceZone(value: unknown): RaidHudFaceZone | null {
+  const row = asRecord(value);
+  const x = finiteNumber(row.x, Number.NaN);
+  const y = finiteNumber(row.y, Number.NaN);
+  const width = finiteNumber(row.width, Number.NaN);
+  const height = finiteNumber(row.height, Number.NaN);
+  if (![x, y, width, height].every(Number.isFinite)) return null;
+  if (x < 0 || y < 0 || width < 0.02 || height < 0.02) return null;
+  if (x + width > 1.000001 || y + height > 1.000001) return null;
+  return { x, y, width: Math.min(width, 1 - x), height: Math.min(height, 1 - y) };
+}
+
+export function normalizeRaidHudPreset(value: unknown): RaidHudPreset {
+  const preset = String(value ?? '').toUpperCase();
+  return preset === 'A' || preset === 'B' || preset === 'C' || preset === 'D' ? preset : 'AUTO';
+}
+
 export function normalizeRaidTargeting(value: unknown): RaidTargetingPublicConfig {
   const row = asRecord(value);
   const mode = modeFromUnknown(row.mode);
-  if (mode === 'BODY') return { ...BODY_DEFAULT };
+  const hud = {
+    face_zone: normalizeRaidHudFaceZone(row.face_zone),
+    hud_preset: normalizeRaidHudPreset(row.hud_preset),
+  };
+  if (mode === 'BODY') return { ...BODY_DEFAULT, ...hud };
 
   const primaryZone = normalizeZone(row.primary_zone);
   return {
@@ -112,6 +147,7 @@ export function normalizeRaidTargeting(value: unknown): RaidTargetingPublicConfi
     miss_repeat_threshold: Math.max(2, Math.min(8, Math.round(finiteNumber(row.miss_repeat_threshold, 3)))),
     primary_zone: primaryZone,
     valid: typeof row.valid === 'boolean' ? row.valid : primaryZone !== null,
+    ...hud,
   };
 }
 
