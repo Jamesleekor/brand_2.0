@@ -41,15 +41,25 @@ const ELEMENT: Record<string, { label: string; color: string }> = {
 };
 
 // ── 켜고 끄기: ?hud=v3 → 이 기기에 기억, ?hud=legacy → 끔 ──
+// 앱이 HashRouter라서 주소가 .../brand_2.0/#/raid/12/battle?hud=v3 모양이 된다.
+// 이때 ?hud=v3 는 location.search가 아니라 # 뒤(location.hash)에 들어 있으므로 두 곳을 모두 본다.
+function readHudParam(): string | null {
+  const fromSearch = new URLSearchParams(window.location.search).get('hud');
+  if (fromSearch) return fromSearch;
+  const hash = window.location.hash ?? '';
+  const queryIndex = hash.indexOf('?');
+  return queryIndex >= 0 ? new URLSearchParams(hash.slice(queryIndex + 1)).get('hud') : null;
+}
+
 export function readHudV3Enabled(): boolean {
   if (typeof window === 'undefined') return false;
+  const param = readHudParam();
   try {
-    const param = new URLSearchParams(window.location.search).get('hud');
     if (param === 'v3') window.localStorage.setItem(HUD_STORAGE_KEY, 'v3');
     if (param === 'legacy') window.localStorage.removeItem(HUD_STORAGE_KEY);
     return window.localStorage.getItem(HUD_STORAGE_KEY) === 'v3';
   } catch {
-    return new URLSearchParams(window.location.search).get('hud') === 'v3';
+    return param === 'v3';
   }
 }
 
