@@ -62,6 +62,15 @@ export function RecordsThroneHall({ entries }: { entries: HallOfGloryEntry[] }) 
             description="한때 실제로 보유했던 GOLD의 최고점을 기록합니다. 1위의 왕좌와 그 뒤를 잇는 네 개의 금고를 함께 보존합니다."
           />
           <GoldVault rows={goldRows} />
+          <div role="note" className="mx-auto max-w-3xl rounded-[18px] border border-amber-200/35 bg-amber-100/[0.08] px-4 py-3 text-center shadow-[0_0_20px_rgba(255,190,70,0.045)] sm:px-5 sm:py-4">
+            <div className="flex items-center justify-center gap-2 text-amber-100">
+              <ShieldCheck aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+              <span className="text-xs font-black tracking-wide sm:text-sm">GOLD 기록 공개 안내</span>
+            </div>
+            <p className="mt-2 text-sm font-extrabold leading-6 text-amber-50 sm:text-base [word-break:keep-all]">
+              현재 진행 중인 자산 기록은 일정 기간이 지나면 공개됩니다. 각 월의 마지막에만 갱신됩니다.
+            </p>
+          </div>
 
           <Divider />
 
@@ -202,7 +211,16 @@ function GoldVaultFirst({ entry }: { entry: HallOfGloryEntry }) {
         <div className="mt-1 font-display text-3xl text-amber-50 sm:text-4xl [text-shadow:0_0_16px_rgba(255,221,145,0.16)]">{entry.subject_display_name}</div>
         <div className="mt-3 whitespace-nowrap font-display text-3xl text-amber-100 sm:text-4xl">{formatNumber(entry.value_primary ?? 0)} <span className="text-lg">GOLD</span></div>
         {entry.period_label && <div className="mt-2 text-sm font-bold text-amber-50/62">{entry.period_label}</div>}
-        <div className="mt-3"><RecordStatusBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} /></div>
+        <div className="mt-3">
+          {entry.source_kind === 'PRODUCTION_SNAPSHOT' ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200/30 bg-amber-100/[0.075] px-3 py-1.5 text-xs font-black text-amber-100">
+              <ShieldCheck className="h-4 w-4" strokeWidth={1.6} />
+              월말 기준 공개 기록
+            </span>
+          ) : (
+            <RecordStatusBadge live={entry.source_kind === 'PRODUCTION_DERIVED'} />
+          )}
+        </div>
 
         <div aria-hidden="true" className="mx-auto mt-5 flex max-w-[280px] flex-col items-center gap-1 opacity-72">
           {[64, 76, 88, 100].map((width, index) => (
