@@ -1,44 +1,202 @@
-.arcade-rulers{--arc-cream:#fff3dc;--arc-cyan:#8defff;--arc-pink:#ff9ed5;--arc-gold:#ffe08a;color:var(--arc-cream);overflow:hidden;border:1px solid rgba(141,239,255,.36);border-radius:24px;background:radial-gradient(ellipse at 8% 0,rgba(25,174,213,.14),transparent 42%),radial-gradient(ellipse at 95% 20%,rgba(205,58,175,.12),transparent 40%),#100d20;box-shadow:0 16px 50px rgba(0,0,0,.24)}
-.arcade-rulers *{box-sizing:border-box}
-.arcade-rulers-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;padding:26px 28px;border-bottom:1px solid rgba(141,239,255,.2);background:linear-gradient(115deg,rgba(37,209,237,.06),rgba(232,86,188,.07))}
-.arcade-rulers-heading{display:flex;align-items:center;gap:16px;min-width:0}
-.arcade-rulers-emblem{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:60px;height:60px;border:1px solid rgba(141,239,255,.5);border-radius:16px;background:#142337;color:var(--arc-cyan);box-shadow:0 0 24px rgba(38,199,233,.13)}
-.arcade-rulers-kicker{color:var(--arc-cyan);font-size:11px;font-weight:800;letter-spacing:.13em}
-.arcade-rulers h3{margin:5px 0;font-size:28px;line-height:1.3;font-weight:900;color:var(--arc-cream);word-break:keep-all}
-.arcade-rulers-header p{margin:6px 0 0;font-size:13px;color:var(--arc-cream)}
-.arcade-rulers-seal{display:flex;align-items:center;gap:7px;color:var(--arc-cyan);font-size:12px;font-weight:700}
-.arcade-rulers-content{display:grid;gap:24px;padding:22px 24px 26px}
-.arcade-rulers-section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-.arcade-rulers-section-title h4{display:flex;align-items:center;gap:7px;margin:0;font-size:15px;font-weight:800;color:var(--arc-cream)}
-.arcade-rulers-section-title>span{font-size:11px;color:var(--arc-cream)}
-.arcade-rulers-score-grid,.arcade-rulers-honor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.arcade-score-cabinet{min-width:0;border:1px solid rgba(141,239,255,.5);border-radius:16px;overflow:hidden;background:#131428;box-shadow:0 0 18px rgba(57,195,233,.07)}
-.arcade-score-cabinet:nth-child(even){border-color:rgba(255,158,213,.5)}
-.arcade-cabinet-marquee{display:flex;align-items:center;gap:9px;padding:12px 16px;border-bottom:1px solid rgba(141,239,255,.24);color:var(--arc-cyan);background:linear-gradient(110deg,rgba(52,204,240,.13),transparent)}
-.arcade-score-cabinet:nth-child(even) .arcade-cabinet-marquee{color:var(--arc-pink);background:linear-gradient(110deg,rgba(221,87,181,.12),transparent)}
-.arcade-cabinet-marquee h5{flex:1;min-width:0;margin:0;font-size:17px;font-weight:900;overflow-wrap:anywhere}
-.arcade-cabinet-lights{display:flex;gap:4px;flex-shrink:0}.arcade-cabinet-lights i{height:4px;width:4px;background:currentColor;border-radius:50%}
-.arcade-cabinet-screen{position:relative;margin:12px;padding:12px 14px;border:1px solid rgba(141,239,255,.18);border-radius:8px;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(141,239,255,.018) 3px,rgba(141,239,255,.018) 4px),#090c18}
-.arcade-score-label{display:flex;align-items:center;gap:6px;color:var(--arc-gold);font-size:11px;font-weight:800}
-.arcade-score-holder,.arcade-honor-holder{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:14px 0}
-.arcade-score-holder+.arcade-score-holder,.arcade-honor-holder+.arcade-honor-holder{border-top:1px solid rgba(255,243,220,.12)}
-.arcade-score-holder:last-child{padding-bottom:4px}
-.arcade-holder-name{display:flex;flex-direction:column;gap:4px;min-width:0;overflow-wrap:anywhere}
-.arcade-holder-name strong{font-size:17px;font-weight:800;color:var(--arc-cream)}
-.arcade-holder-name span{font-size:11px;color:var(--arc-cream)}
-.arcade-record-value{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:flex-end;gap:4px 7px;max-width:100%;min-width:0;text-align:right;color:var(--arc-cyan)}
-.arcade-record-value b{font-family:ui-monospace,monospace;font-size:clamp(22px,2.8vw,32px);font-weight:900;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.arcade-record-value span{font-size:12px;font-weight:800}
-.arcade-score-cabinet:nth-child(even) .arcade-record-value{color:var(--arc-pink)}
-.arcade-cabinet-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px 12px;font-size:11px;color:var(--arc-cream)}
-.arcade-cabinet-controls{display:flex;gap:5px;align-items:center}.arcade-cabinet-controls i{width:7px;height:7px;border-radius:50%;background:var(--arc-cyan)}.arcade-cabinet-controls i:nth-child(2){background:var(--arc-pink)}.arcade-cabinet-controls i:nth-child(3){background:var(--arc-gold)}
-.arcade-honor-card{min-width:0;border:1px solid rgba(255,224,138,.22);border-radius:14px;padding:16px;background:linear-gradient(130deg,rgba(255,224,138,.055),transparent),#161124}
-.arcade-honor-heading{display:flex;align-items:start;justify-content:space-between;gap:12px;color:var(--arc-gold)}
-.arcade-honor-heading h5{margin:0;font-size:14px;font-weight:800}.arcade-honor-heading svg{flex-shrink:0}
-.arcade-honor-description{margin:8px 0 0;font-size:12px;color:var(--arc-cream);overflow-wrap:anywhere}
-.arcade-record-value-small{color:var(--arc-gold)}.arcade-record-value-small b{font-size:23px}
-.arcade-honor-footer{font-size:11px;border-top:1px solid rgba(255,243,220,.1);padding-top:9px;color:var(--arc-cream)}
-.arcade-holder-name .arcade-ongoing{color:var(--arc-cyan)}
-.arcade-rulers-empty{padding:24px 12px;text-align:center}.arcade-rulers-empty svg{margin:auto;color:var(--arc-cyan)}.arcade-rulers-empty h4{font-size:18px;margin:14px 0 8px}.arcade-rulers-empty p{font-size:13px;margin:0;color:var(--arc-cream)}
-@media(max-width:719px){.arcade-rulers-score-grid,.arcade-rulers-honor-grid{grid-template-columns:minmax(0,1fr)}.arcade-rulers-header{padding:20px}.arcade-rulers-content{padding:18px 16px}.arcade-rulers h3{font-size:24px}}
-@media(max-width:399px){.arcade-rulers-heading{gap:10px}.arcade-rulers-emblem{height:44px;width:44px;border-radius:12px}.arcade-rulers h3{font-size:21px}.arcade-score-holder,.arcade-honor-holder{grid-template-columns:minmax(0,1fr)}.arcade-record-value{justify-content:flex-start;text-align:left}.arcade-cabinet-marquee{padding:12px}.arcade-cabinet-screen{padding:12px}}
+/* HALL 07 / ARCADE HALL OF FAME — a sequence of individual honors, not dashboard cards. */
+.arcade-hall07{--arc07-night:#090d19;--arc07-ivory:#fff5dc;--arc07-quiet:#bfc4d1;--arc07-gold:#ffe3a0;--arc07-cyan:#84edff;--arc07-pink:#ff9cda;isolation:isolate;position:relative;overflow:hidden;border:1px solid rgba(242,205,147,.36);border-radius:26px;color:var(--arc07-ivory);background:linear-gradient(180deg,#0b1023 0%,#0a0d1c 32%,#0d0a19 72%,#080914 100%);box-shadow:0 24px 80px rgba(0,0,0,.38)}
+.arcade-hall07 *{box-sizing:border-box}
+.arcade07-entrance{position:relative;overflow:hidden;min-height:270px;border-bottom:1px solid rgba(255,228,154,.21);background:radial-gradient(ellipse at 18% 30%,rgba(42,210,255,.17),transparent 43%),radial-gradient(ellipse at 89% 0,rgba(246,103,216,.13),transparent 49%),linear-gradient(125deg,#10263c,#16172f 58%,#24132b)}
+.arcade07-entrance::before{position:absolute;inset:0;content:"";opacity:.29;background-image:linear-gradient(rgba(141,239,255,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(141,239,255,.09) 1px,transparent 1px);background-size:38px 38px;mask-image:linear-gradient(90deg,transparent 28%,black 100%);pointer-events:none}
+.arcade07-entrance::after{position:absolute;bottom:0;left:7%;width:86%;height:2px;content:"";background:linear-gradient(90deg,transparent,var(--arc07-cyan),var(--arc07-gold),var(--arc07-pink),transparent);opacity:.8}
+.arcade07-entrance-glow{position:absolute;right:7%;top:-70px;width:400px;height:300px;border-radius:50%;background:radial-gradient(ellipse,rgba(229,134,238,.15),transparent 67%);filter:blur(16px);pointer-events:none}
+.arcade07-entrance-number{position:absolute;right:5%;top:50%;transform:translateY(-51%);font-family:ui-monospace,monospace;font-size:clamp(165px,21vw,310px);line-height:1;letter-spacing:-.10em;font-weight:900;color:transparent;-webkit-text-stroke:1px rgba(248,210,255,.18);opacity:.85;pointer-events:none}
+.arcade07-entrance-inner{position:relative;z-index:1;padding:34px 42px 32px;max-width:1050px}
+.arcade07-overline{display:flex;align-items:center;gap:10px;margin:0 0 24px;color:var(--arc07-cyan);font-size:11px;font-weight:900;letter-spacing:.18em}
+.arcade07-overline-rule{color:rgba(255,255,255,.32)}
+.arcade07-live-light{width:7px;height:7px;border-radius:50%;background:var(--arc07-cyan);box-shadow:0 0 12px rgba(132,237,255,.7)}
+.arcade07-entrance-mark{display:inline-flex;align-items:center;justify-content:center;width:53px;height:53px;border:1px solid rgba(150,239,255,.52);border-radius:15px;color:var(--arc07-cyan);background:rgba(5,14,29,.57);box-shadow:0 0 24px rgba(30,209,255,.14)}
+.arcade-hall07 h3{margin:11px 0 3px;font-size:clamp(28px,4.3vw,48px);line-height:1.22;letter-spacing:-.04em;font-weight:900;color:var(--arc07-ivory);word-break:keep-all;text-shadow:0 3px 24px rgba(0,0,0,.4)}
+.arcade-hall07 h3 em{font-style:normal;color:var(--arc07-gold);text-shadow:0 0 28px rgba(246,204,132,.19)}
+.arcade07-entrance-lead{margin:9px 0 22px;color:#e5e3e9;font-size:clamp(13px,1.5vw,16px);font-weight:650;letter-spacing:.015em;word-break:keep-all}
+.arcade07-entrance-bottom{display:flex;gap:10px 24px;flex-wrap:wrap;font-size:12px;font-weight:700;color:#dcd5d0}
+.arcade07-entrance-bottom span{display:inline-flex;gap:7px;align-items:center}.arcade07-entrance-bottom svg{color:var(--arc07-gold)}
+.arcade07-interior{padding:36px clamp(16px,4vw,44px) 52px}
+.arcade07-chapter+.arcade07-chapter{margin-top:56px}
+.arcade07-chapter-heading{display:flex;align-items:center;gap:15px;margin:0 0 25px}
+.arcade07-chapter-index{flex:none;display:grid;place-items:center;width:55px;height:64px;border:1px solid rgba(252,224,152,.30);color:var(--arc07-gold);background:linear-gradient(150deg,rgba(250,215,138,.10),rgba(250,215,138,.015));font:800 32px/1 Georgia,serif;clip-path:polygon(50% 0,100% 13%,100% 79%,50% 100%,0 79%,0 13%)}
+.arcade07-chapter-heading-text{min-width:0}.arcade07-chapter-eyebrow{margin-bottom:4px;font-size:10px;letter-spacing:.22em;font-weight:900;color:var(--arc07-cyan)}
+.arcade07-chapter-honors .arcade07-chapter-eyebrow{color:var(--arc07-gold)}
+.arcade07-chapter-heading h4{margin:0 0 5px;font-size:clamp(22px,3.1vw,31px);font-weight:900;letter-spacing:-.035em;color:var(--arc07-ivory)}
+.arcade07-chapter-heading p{max-width:750px;margin:0;color:var(--arc07-quiet);font-size:12px;line-height:1.8;word-break:keep-all}
+.arcade07-chapter-line{height:1px;flex:1;min-width:18px;background:linear-gradient(90deg,rgba(141,239,255,.34),transparent)}
+.arcade07-chapter-honors .arcade07-chapter-line{background:linear-gradient(90deg,rgba(255,223,150,.34),transparent)}
+.arcade07-score-stages{display:grid;gap:18px}
+.arcade07-champion-stage{--arc07-accent:var(--arc07-cyan);--arc07-accent-rgb:132,237,255;position:relative;isolation:isolate;overflow:hidden;display:grid;grid-template-columns:125px minmax(0,1.05fr) minmax(220px,.95fr);align-items:center;gap:12px;min-height:236px;padding:25px 29px 25px 18px;border:1px solid rgba(var(--arc07-accent-rgb),.46);border-radius:12px;background:radial-gradient(ellipse at 75% 50%,rgba(var(--arc07-accent-rgb),.10),transparent 45%),linear-gradient(113deg,rgba(29,50,72,.77),rgba(8,14,29,.97) 47%,rgba(16,20,39,.97));box-shadow:inset 0 0 43px rgba(var(--arc07-accent-rgb),.035),0 10px 30px rgba(0,0,0,.24)}
+.arcade07-champion-magenta{--arc07-accent:var(--arc07-pink);--arc07-accent-rgb:255,156,218;background:radial-gradient(ellipse at 75% 50%,rgba(var(--arc07-accent-rgb),.10),transparent 48%),linear-gradient(113deg,rgba(55,28,55,.71),rgba(13,12,31,.98) 48%,rgba(22,18,39,.96))}
+.arcade07-champion-stage::before{content:"";position:absolute;inset:0;border-left:5px solid var(--arc07-accent);pointer-events:none}
+.arcade07-champion-stage::after{content:"";position:absolute;right:-25px;bottom:-70px;width:245px;height:245px;border:1px solid rgba(var(--arc07-accent-rgb),.13);border-radius:50%;box-shadow:0 0 0 24px rgba(var(--arc07-accent-rgb),.035),0 0 0 56px rgba(var(--arc07-accent-rgb),.025);pointer-events:none}
+.arcade07-stage-lines{position:absolute;inset:0;opacity:.19;background:repeating-linear-gradient(0deg,transparent 0,transparent 6px,rgba(255,255,255,.14) 7px);pointer-events:none}
+.arcade07-stage-emblem{z-index:1;display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--arc07-accent)}
+.arcade07-stage-ring{position:relative;display:grid;place-items:center;width:96px;height:96px;border:1px solid rgba(var(--arc07-accent-rgb),.56);border-radius:50%;box-shadow:0 0 0 8px rgba(var(--arc07-accent-rgb),.052),inset 0 0 25px rgba(var(--arc07-accent-rgb),.085)}
+.arcade07-stage-ring::after{content:"";position:absolute;inset:10px;border:1px dashed rgba(var(--arc07-accent-rgb),.31);border-radius:50%}
+.arcade07-stage-index{font-size:11px;letter-spacing:.3em;font-weight:900;color:rgba(var(--arc07-accent-rgb),.75)}
+.arcade07-stage-honoree{z-index:1;min-width:0}
+.arcade07-stage-game{font-size:13px;letter-spacing:.08em;color:var(--arc07-accent);font-weight:850;line-height:1.6;overflow-wrap:anywhere}
+.arcade07-glyph{font-size:9px;vertical-align:2px}.arcade07-stage-game-line{opacity:.35;padding:0 4px}
+.arcade07-stage-status{display:flex;gap:6px;align-items:center;margin-top:18px;font-size:10px;font-weight:900;letter-spacing:.12em;color:var(--arc07-gold)}
+.arcade07-stage-names{display:flex;flex-wrap:wrap;gap:13px 28px;margin-top:7px}
+.arcade07-stage-person{display:flex;flex-direction:column;min-width:0;gap:2px}
+.arcade07-stage-person strong{color:#fff7ee;font-size:clamp(28px,4.2vw,46px);line-height:1.25;font-weight:900;letter-spacing:-.045em;text-shadow:0 0 21px rgba(255,235,193,.18);overflow-wrap:anywhere}
+.arcade07-stage-person span{font-size:13px;color:#d7d4e1;font-weight:650}
+.arcade07-stage-record{z-index:1;min-width:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;border-left:1px solid rgba(var(--arc07-accent-rgb),.24);padding:14px 0 12px clamp(18px,3vw,38px)}
+.arcade07-stage-record-caption{font-size:10px;letter-spacing:.22em;font-weight:950;color:var(--arc07-accent)}
+.arcade07-stage-big-score{display:flex;align-items:baseline;flex-wrap:wrap;gap:7px;margin:7px 0 3px;color:var(--arc07-accent)}
+.arcade07-stage-big-score strong{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:clamp(31px,5vw,57px);line-height:1.13;letter-spacing:-.065em;font-weight:900;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;text-shadow:0 0 25px rgba(var(--arc07-accent-rgb),.16)}
+.arcade07-stage-big-score small{font-size:12px;font-weight:900;white-space:nowrap}
+.arcade07-stage-score-tail{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:750;color:var(--arc07-ivory)}
+.arcade07-stage-score-tail svg{color:var(--arc07-gold)}
+.arcade07-stage-date{margin-top:18px;font-size:11px;line-height:1.6;color:#b5b9c8}.arcade07-stage-date span{padding:0 3px;opacity:.7}
+.arcade07-honor-exhibits{display:grid;gap:22px}
+.arcade07-exhibit{min-width:0;position:relative;overflow:hidden;border:1px solid rgba(255,219,146,.28);border-radius:14px;background:linear-gradient(135deg,rgba(248,213,142,.055),rgba(12,13,27,.98) 52%,rgba(36,24,37,.92));box-shadow:0 10px 35px rgba(0,0,0,.20)}
+.arcade07-exhibit-title{display:flex;align-items:flex-start;gap:14px;margin-bottom:22px}
+.arcade07-exhibit-order{display:grid;place-items:center;flex:none;width:38px;height:38px;border:1px solid rgba(252,220,149,.38);border-radius:50%;color:var(--arc07-gold);font:800 13px ui-monospace,monospace;background:rgba(255,220,142,.06)}
+.arcade07-exhibit-title p{margin:2px 0 5px;font-size:10px;font-weight:900;letter-spacing:.2em;color:#efc982}
+.arcade07-exhibit-title h5{margin:0 0 5px;color:var(--arc07-ivory);font-size:clamp(22px,2.9vw,29px);line-height:1.3;letter-spacing:-.035em;font-weight:900}
+.arcade07-exhibit-title span:not(.arcade07-exhibit-order){display:block;color:#bfc0c9;font-size:12px;line-height:1.65;word-break:keep-all}
+.arcade07-footnote{display:flex;align-items:center;gap:6px;margin-top:17px;padding-top:12px;border-top:1px solid rgba(248,229,189,.12);color:#c1b7a7;font-size:10px;line-height:1.6;font-weight:700}
+.arcade07-footnote svg{flex-shrink:0;color:var(--arc07-gold)}
+/* Exhibit 01: a singular gold monument with person and achievement occupying the right wing. */
+.arcade07-dominion{display:grid;grid-template-columns:250px minmax(0,1fr);align-items:stretch;min-height:282px;background:radial-gradient(ellipse at 13% 50%,rgba(237,189,80,.14),transparent 40%),linear-gradient(110deg,#282018 0%,#1b1721 44%,#100f1d 100%)}
+.arcade07-dominion-crest{position:relative;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;overflow:hidden;color:var(--arc07-gold);border-right:1px solid rgba(255,219,146,.14)}
+.arcade07-dominion-crest::before{content:"";position:absolute;width:190px;height:190px;border:1px solid rgba(255,219,146,.28);border-radius:50%;box-shadow:0 0 0 16px rgba(255,219,146,.035),0 0 0 45px rgba(255,219,146,.018),inset 0 0 35px rgba(255,219,146,.05)}
+.arcade07-dominion-crown{position:relative;z-index:1;display:grid;place-items:center;width:112px;height:112px;filter:drop-shadow(0 0 18px rgba(255,202,88,.30))}
+.arcade07-dominion-crest span,.arcade07-dominion-crest strong{position:relative;z-index:1;letter-spacing:.18em}.arcade07-dominion-crest span{font-size:10px}.arcade07-dominion-crest strong{font-size:19px;font-family:Georgia,serif}
+.arcade07-dominion-content{padding:25px 32px 20px;min-width:0}
+.arcade07-dominion-winners{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px}
+.arcade07-dominion-winner{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding:6px 0 16px;border-bottom:1px solid rgba(255,222,154,.18)}
+.arcade07-dominion-identity{display:flex;flex-direction:column;min-width:0;gap:5px}.arcade07-dominion-identity strong{font-size:clamp(25px,3vw,35px);font-weight:900;line-height:1.2;letter-spacing:-.035em;color:#fff7e4}.arcade07-dominion-identity span{font-size:12px;color:#ded2bd}.arcade07-dominion-identity span:empty{display:none}.arcade07-dominion-identity small{font-size:11px;color:#d3af77;word-break:keep-all}
+.arcade07-dominion-count{display:flex;flex-direction:column;align-items:flex-end;flex-shrink:0;gap:0;color:var(--arc07-gold)}.arcade07-dominion-count strong{font:800 clamp(42px,5.5vw,66px)/1 ui-monospace,monospace;letter-spacing:-.06em}.arcade07-dominion-count span{font-size:11px;font-weight:800}
+/* Exhibit 02: a gallery with one individually lit pedestal per equal record holder. */
+.arcade07-gallery{padding:27px 30px 23px;background:radial-gradient(ellipse at 50% -20%,rgba(188,130,255,.14),transparent 60%),linear-gradient(110deg,#1d1726,#100f1d 57%,#211a28)}
+.arcade07-gallery-plinths{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:12px}
+.arcade07-gallery-plinth{position:relative;overflow:hidden;min-width:0;display:flex;align-items:center;flex-direction:column;padding:22px 11px 19px;border:1px solid rgba(252,224,169,.29);border-radius:12px;background:linear-gradient(180deg,rgba(237,206,143,.09),rgba(35,27,45,.66) 60%,rgba(25,20,35,.93));box-shadow:inset 0 0 25px rgba(255,227,164,.025);text-align:center}
+.arcade07-gallery-plinth::before{content:"";position:absolute;top:0;left:13%;right:13%;height:2px;background:linear-gradient(90deg,transparent,var(--arc07-gold),transparent)}
+.arcade07-gallery-crest{width:68px;height:68px;display:grid;place-items:center;border:1px solid rgba(251,219,150,.40);border-radius:50%;color:var(--arc07-gold);background:radial-gradient(circle,rgba(255,208,116,.13),rgba(255,208,116,.015) 68%);box-shadow:0 0 20px rgba(255,190,90,.065)}
+.arcade07-gallery-name{margin-top:15px;color:#fff9e8;font-size:clamp(23px,2.9vw,31px);font-weight:900;letter-spacing:-.04em;overflow-wrap:anywhere}
+.arcade07-gallery-alias{min-height:16px;margin-top:2px;color:#c8becb;font-size:11px}
+.arcade07-gallery-divider{display:flex;align-items:center;justify-content:center;margin:15px 0 9px;width:80%;height:1px;background:linear-gradient(90deg,transparent,rgba(252,224,169,.42),transparent)}
+.arcade07-gallery-divider span{width:5px;height:5px;transform:rotate(45deg);background:var(--arc07-gold)}
+.arcade07-gallery-count{display:flex;align-items:baseline;gap:7px;color:var(--arc07-gold)}.arcade07-gallery-count strong{font:850 38px/1.2 ui-monospace,monospace}.arcade07-gallery-count span{font-size:14px;font-weight:850}
+.arcade07-gallery-caption{margin-top:8px;color:#c6a982;font-size:9px;font-weight:900;letter-spacing:.14em}
+/* Exhibit 03: a dedicated chamber for the timespan of a record. */
+.arcade07-reign{padding:26px 30px 22px;background:radial-gradient(ellipse at 12% 54%,rgba(94,147,228,.10),transparent 42%),linear-gradient(115deg,#171b29,#121220 55%,#251a29)}
+.arcade07-reign-archive{display:grid;grid-template-columns:210px minmax(0,1fr);gap:24px;align-items:center}
+.arcade07-reign-clock{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;height:185px;border:1px solid rgba(255,222,152,.27);border-radius:90px 90px 14px 14px;color:var(--arc07-gold);background:radial-gradient(circle at 50% 45%,rgba(255,218,136,.12),rgba(15,18,35,.6) 68%);box-shadow:inset 0 0 29px rgba(255,198,114,.045)}
+.arcade07-reign-clock svg{filter:drop-shadow(0 0 12px rgba(255,211,138,.19))}
+.arcade07-reign-clock span{font-size:10px;letter-spacing:.16em}.arcade07-reign-clock strong{font:800 19px Georgia,serif;letter-spacing:.12em}
+.arcade07-reign-list{display:grid;gap:14px}
+.arcade07-reign-line{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:7px 17px;padding:4px 0 13px;border-bottom:1px solid rgba(255,229,167,.13);min-width:0}
+.arcade07-reign-person{display:flex;align-items:center;gap:12px;min-width:0}.arcade07-reign-person>svg{flex-shrink:0;color:var(--arc07-gold)}.arcade07-reign-person div{display:flex;flex-direction:column;gap:5px;min-width:0}.arcade07-reign-person strong{font-size:clamp(22px,3vw,31px);font-weight:900;line-height:1.2;color:#fff7e6;overflow-wrap:anywhere}.arcade07-reign-person span{font-size:11px;color:#b8bcd1;overflow-wrap:anywhere}
+.arcade07-reign-duration{display:flex;align-items:baseline;gap:6px;color:var(--arc07-gold)}.arcade07-reign-duration strong{font:850 clamp(25px,3.8vw,40px)/1.2 ui-monospace,monospace;letter-spacing:-.055em}.arcade07-reign-duration span{font-size:12px;font-weight:850}
+.arcade07-reign-track{position:relative;grid-column:1/-1;height:5px;border-radius:5px;background:rgba(255,223,161,.12);overflow:hidden}.arcade07-reign-track span{display:block;width:100%;height:100%;border-radius:5px;background:linear-gradient(90deg,rgba(255,230,174,.28),rgba(255,215,132,.93));box-shadow:0 0 10px rgba(255,226,142,.20)}
+.arcade07-ongoing{grid-column:1/-1;display:flex;align-items:center;gap:5px;color:var(--arc07-cyan);font-size:11px;font-weight:850}
+/* Unexpected future record categories are still treated as honors. */
+.arcade07-special{padding:26px 30px;background:radial-gradient(ellipse at 82% -10%,rgba(141,219,255,.12),transparent 48%),#151527}
+.arcade07-special-winners{display:grid;gap:10px}
+.arcade07-special-winner{display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid rgba(252,224,169,.14)}
+.arcade07-special-medal{display:grid;place-items:center;flex-shrink:0;width:46px;height:46px;border:1px solid rgba(255,220,158,.30);border-radius:50%;color:var(--arc07-gold)}
+.arcade07-special-winner>div:nth-child(2){flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}.arcade07-special-winner>div:nth-child(2) strong{font-size:clamp(22px,2.7vw,29px);color:#fff9e7}.arcade07-special-winner>div:nth-child(2) span{font-size:11px;color:#c8c0c3;overflow-wrap:anywhere}
+.arcade07-special-score{display:flex;gap:5px;align-items:baseline;color:var(--arc07-gold)}.arcade07-special-score strong{font:850 26px ui-monospace,monospace}.arcade07-special-score span{font-size:12px}
+.arcade07-exit{display:flex;justify-content:center;gap:13px;padding:17px 12px 19px;border-top:1px solid rgba(255,219,146,.13);background:rgba(0,0,0,.25);color:#a99775;font-size:10px;font-weight:850;letter-spacing:.15em;text-align:center}.arcade07-exit span{color:var(--arc07-gold)}
+.arcade07-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:60px 15px;text-align:center}.arcade07-empty svg{color:var(--arc07-cyan)}.arcade07-empty h4{margin:6px 0 0;font-size:22px}.arcade07-empty p{margin:0;color:var(--arc07-quiet);font-size:13px}
+@media(max-width:900px){.arcade07-champion-stage{grid-template-columns:83px minmax(0,1fr) minmax(200px,.95fr);padding:22px 23px 22px 14px}.arcade07-stage-ring{width:70px;height:70px}.arcade07-stage-ring svg{width:28px}.arcade07-stage-record{padding-left:19px}.arcade07-dominion{grid-template-columns:188px minmax(0,1fr)}.arcade07-dominion-crest::before{width:147px;height:147px}.arcade07-dominion-content{padding:23px 22px}}
+@media(max-width:720px){.arcade07-entrance{min-height:245px}.arcade07-entrance-inner{padding:26px 23px}.arcade07-entrance-number{right:6%;font-size:170px;opacity:.35}.arcade07-interior{padding:25px 16px 32px}.arcade07-chapter+.arcade07-chapter{margin-top:37px}.arcade07-champion-stage{grid-template-columns:74px minmax(0,1fr);gap:10px;min-height:0;padding:19px 19px 20px 10px}.arcade07-stage-emblem{grid-row:1;grid-column:1;align-self:start;gap:6px}.arcade07-stage-ring{width:58px;height:58px}.arcade07-stage-ring svg{width:25px}.arcade07-stage-honoree{grid-column:2;grid-row:1}.arcade07-stage-status{margin-top:9px}.arcade07-stage-person strong{font-size:clamp(27px,7vw,38px)}.arcade07-stage-record{grid-column:2;grid-row:2;padding:12px 0 0;border-left:none;border-top:1px solid rgba(var(--arc07-accent-rgb),.23)}.arcade07-stage-big-score strong{font-size:clamp(33px,9vw,50px)}.arcade07-stage-date{margin-top:8px}.arcade07-dominion{grid-template-columns:1fr}.arcade07-dominion-crest{min-height:110px;flex-direction:row;border-right:0;border-bottom:1px solid rgba(255,219,146,.14)}.arcade07-dominion-crown{height:80px;width:80px}.arcade07-dominion-crown svg{width:51px}.arcade07-dominion-crest::before{width:110px;height:110px}.arcade07-dominion-crest strong{font-size:16px}.arcade07-gallery,.arcade07-reign,.arcade07-special{padding:22px 18px}.arcade07-reign-archive{grid-template-columns:1fr;gap:18px}.arcade07-reign-clock{height:96px;flex-direction:row;border-radius:60px 60px 12px 12px}.arcade07-reign-clock svg{width:40px}.arcade07-reign-clock strong{font-size:17px}}
+@media(max-width:450px){.arcade07-overline{font-size:9px;letter-spacing:.1em}.arcade07-entrance-inner{padding:23px 17px}.arcade07-entrance-bottom{font-size:10px}.arcade07-chapter-index{width:40px;height:50px;font-size:23px}.arcade07-chapter-heading{gap:10px}.arcade07-chapter-heading p{font-size:11px}.arcade07-chapter-eyebrow{font-size:9px}.arcade07-champion-stage{grid-template-columns:56px minmax(0,1fr);padding:17px 13px 17px 7px}.arcade07-stage-ring{width:47px;height:47px}.arcade07-stage-ring::after{inset:6px}.arcade07-stage-ring svg{width:22px}.arcade07-stage-game{font-size:11px}.arcade07-stage-status{font-size:9px}.arcade07-stage-record{grid-column:1/-1;margin-left:9px}.arcade07-gallery-plinths{grid-template-columns:1fr 1fr;gap:8px}.arcade07-gallery-plinth{padding:17px 6px}.arcade07-gallery-name{font-size:22px}.arcade07-gallery-crest{width:55px;height:55px}.arcade07-gallery-crest svg{width:24px}.arcade07-gallery-count strong{font-size:30px}.arcade07-reign-person strong{font-size:21px}.arcade07-reign-duration strong{font-size:23px}.arcade07-special-winner{gap:8px}.arcade07-special-score strong{font-size:21px}}
+@media(prefers-reduced-motion:reduce){.arcade-hall07 *{animation:none!important;transition:none!important}}
+/* On narrow screens, give every co-holder a complete horizontal plaque; never leave an orphaned half-row. */
+@media(max-width:720px){
+.arcade07-gallery-plinths{grid-template-columns:1fr}
+.arcade07-gallery-plinth{display:grid;grid-template-columns:54px minmax(0,1fr) auto;grid-template-rows:auto auto;align-items:center;column-gap:13px;row-gap:2px;min-height:94px;padding:14px 15px;text-align:left}
+.arcade07-gallery-crest{grid-column:1;grid-row:1/3;width:52px;height:52px}
+.arcade07-gallery-name{grid-column:2;grid-row:1;margin-top:0;font-size:25px;line-height:1.2}
+.arcade07-gallery-alias{grid-column:2;grid-row:2;margin:0;min-height:0;overflow-wrap:anywhere}
+.arcade07-gallery-divider{display:none}
+.arcade07-gallery-count{grid-column:3;grid-row:1/3}
+.arcade07-gallery-caption{display:none}
+}
+
+/* HALL 07 refinement v2: center champions; date alongside score; emphasize actual game titles. */
+.arcade07-champion-stage{
+  grid-template-columns:135px minmax(0,1fr);
+  grid-template-rows:auto auto;
+  gap:0 12px;
+  padding:24px 32px 24px 19px;
+  min-height:245px;
+}
+.arcade07-stage-emblem{grid-column:1;grid-row:1/3;align-self:center;justify-self:center}
+.arcade07-stage-honoree{grid-column:2;grid-row:1;text-align:center}
+.arcade07-stage-game{font-size:clamp(14px,1.7vw,19px);letter-spacing:.045em}
+.arcade07-stage-status{justify-content:center;margin-top:13px}
+.arcade07-stage-names{justify-content:center;margin-top:5px}
+.arcade07-stage-person{align-items:center;text-align:center}
+.arcade07-stage-person strong{font-size:clamp(31px,4.5vw,51px)}
+.arcade07-stage-person span{font-size:clamp(13px,1.6vw,17px)}
+.arcade07-stage-record{
+  grid-column:2;grid-row:2;
+  display:flex;justify-content:center;align-items:center;
+  margin-top:13px;padding:13px 8px 0;
+  border-left:0;border-top:1px solid rgba(var(--arc07-accent-rgb),.28);
+  text-align:center;
+}
+.arcade07-stage-score-line{display:flex;align-items:center;justify-content:center;gap:clamp(9px,2vw,24px);max-width:100%;flex-wrap:wrap}
+.arcade07-stage-big-score{margin:0;align-items:baseline;justify-content:center;flex-wrap:nowrap}
+.arcade07-stage-big-score strong{font-size:clamp(34px,5.3vw,62px)}
+.arcade07-stage-big-score small{font-size:14px}
+.arcade07-stage-score-period{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;border:1px solid rgba(var(--arc07-accent-rgb),.30);border-radius:999px;padding:6px 12px;background:rgba(var(--arc07-accent-rgb),.065);color:#dfe2ed;font-size:clamp(10px,1.2vw,13px);font-weight:800;font-variant-numeric:tabular-nums}
+.arcade07-dominion-winner{gap:18px}
+.arcade07-dominion-game{display:inline-flex;align-items:center;gap:9px;width:fit-content;max-width:100%;margin-top:7px;padding:8px 14px;border:1px solid rgba(255,224,157,.37);border-radius:8px;background:linear-gradient(100deg,rgba(247,205,111,.14),rgba(245,204,130,.025));color:#ffe6a6;box-shadow:inset 0 0 18px rgba(255,216,128,.035)}
+.arcade07-dominion-game svg{flex-shrink:0}
+.arcade07-dominion-game b{font-size:clamp(19px,2.9vw,30px);line-height:1.2;font-weight:900;letter-spacing:-.03em;word-break:keep-all}
+.arcade07-dominion-count{flex-direction:row;align-items:baseline;justify-content:flex-end;gap:5px;white-space:nowrap}
+.arcade07-dominion-count strong{font-size:clamp(39px,5.4vw,64px)}
+.arcade07-dominion-count span{font-size:clamp(14px,2vw,21px);font-weight:900;white-space:nowrap}
+.arcade07-reign-person>div{align-items:flex-start}
+.arcade07-reign-game{display:inline-flex;align-items:center;gap:8px;min-width:0;max-width:100%;margin-top:3px;padding:6px 11px;border:1px solid rgba(154,215,252,.32);border-radius:7px;background:rgba(83,157,219,.075);color:#bde9ff}
+.arcade07-reign-game svg{flex-shrink:0}
+.arcade07-reign-game b{font-size:clamp(16px,2.1vw,22px);font-weight:900;line-height:1.25;letter-spacing:-.02em;word-break:keep-all}
+.arcade07-reign-alias{font-size:12px!important;color:#d4d0e4!important}
+@media(max-width:900px){
+ .arcade07-champion-stage{grid-template-columns:95px minmax(0,1fr);min-height:0;padding:23px 20px 23px 14px}
+ .arcade07-stage-ring{width:72px;height:72px}
+ .arcade07-stage-record{padding:11px 0 0}
+}
+@media(max-width:600px){
+ .arcade07-champion-stage{display:flex;flex-direction:column;gap:0;padding:20px 16px 22px}
+ .arcade07-stage-emblem{display:none}
+ .arcade07-stage-honoree,.arcade07-stage-record{width:100%}
+ .arcade07-stage-game{font-size:13px}
+ .arcade07-stage-status{margin-top:12px}
+ .arcade07-stage-person strong{font-size:clamp(30px,8vw,41px)}
+ .arcade07-stage-record{margin:15px 0 0;padding:12px 0 0;border-top:1px solid rgba(var(--arc07-accent-rgb),.28)}
+ .arcade07-stage-score-line{flex-wrap:nowrap;gap:8px}
+ .arcade07-stage-big-score strong{font-size:clamp(29px,8vw,43px);letter-spacing:-.065em}
+ .arcade07-stage-big-score small{font-size:11px}
+ .arcade07-stage-score-period{font-size:10px;padding:5px 7px}
+ .arcade07-dominion-winner{align-items:center;gap:10px}
+ .arcade07-dominion-game{padding:6px 9px}
+ .arcade07-dominion-game b{font-size:clamp(18px,5vw,25px)}
+ .arcade07-dominion-count strong{font-size:clamp(37px,10vw,51px)}
+ .arcade07-dominion-count span{font-size:15px}
+ .arcade07-reign-game b{font-size:17px}
+}
+@media(max-width:375px){
+ .arcade07-stage-big-score strong{font-size:28px}
+ .arcade07-stage-score-period{font-size:9px;padding:4px 6px}
+ .arcade07-dominion-winner{flex-wrap:wrap}
+ .arcade07-dominion-count{margin-left:auto}
+}
+/* Correct descendant flex rule inheritance in the reign exhibit; icon + game title stay horizontal. */
+.arcade07-reign-person .arcade07-reign-game{display:inline-flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px}
+.arcade07-reign-person .arcade07-reign-game b{white-space:nowrap}
+@media(max-width:375px){
+ .arcade07-reign-line{grid-template-columns:minmax(0,1fr)}
+ .arcade07-reign-person{width:100%}
+ .arcade07-reign-duration{justify-self:end}
+ .arcade07-reign-game{max-width:100%}
+}
