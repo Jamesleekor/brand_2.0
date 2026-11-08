@@ -3,7 +3,8 @@
 // ---------------------------------------------------------------------
 // 교사 PC 확장 화면에 새 창으로 띄운다. 서버(teacher_quiz_screen_state)가
 // 공개된 것만 보내므로, 이 화면에는 정답·미공개 답안·실제 점수가 아예 오지 않는다.
-//   문제 표시 → 제출 현황(잠긴 카드) → 다섯 답 일제 공개 → 정답·정오 → 다음
+//   문제 표시 → 제출 현황(잠긴 카드) → 다섯 답 일제 공개(답안이 화면의 주인공) → 정답·정오(카드 색) → 다음
+//   최종 발표: 낮은 순위부터 한 길드씩, 마지막 1·2위는 동시에(1위는 축포·불꽃놀이)
 // 작은 순위판은 '마지막으로 공개한 점수'만 보여 준다.
 // =====================================================================
 
@@ -45,7 +46,9 @@ export function QuizScreenPage() {
       else if (s.q_phase === 'LOCKED') prefs.play('lock');
       else if (s.q_phase === 'GRADED') prefs.play('reveal');
       else if ((s.phase === 'IND_CEREMONY' || s.phase === 'FINAL_CEREMONY') && (s.result?.step ?? 0) > 0) {
-        if ((s.result?.step ?? 0) > (s.result?.total ?? 0)) prefs.play('win'); else prefs.play('reveal');
+        const tot = s.result?.total ?? 0;
+        const finale = s.phase === 'FINAL_CEREMONY' && tot >= 2 && (s.result?.step ?? 0) === tot;   // 1·2위 동시 공개
+        if (finale || (s.result?.step ?? 0) > tot) prefs.play('win'); else prefs.play('reveal');
       }
     }
     prevKey.current = key;
@@ -99,7 +102,7 @@ export function QuizScreenPage() {
             <section className="qz-screen__stage">
               {(s.phase === 'SETUP' || s.phase === 'LOBBY') && <LobbyView s={s} />}
               {playing && <PlayView s={s} mediaCmd={mediaCmd} />}
-              {(s.phase === 'IND_CEREMONY' || s.phase === 'FINAL_CEREMONY') && <CeremonyView s={s} />}
+              {(s.phase === 'IND_CEREMONY' || s.phase === 'FINAL_CEREMONY') && <CeremonyView s={s} reduce={prefs.reduceMotion} />}
               {s.phase === 'COMPLETED' && <FinalView s={s} />}
             </section>
             {boardOn && <MiniBoard s={s} />}
@@ -171,6 +174,22 @@ function PlayView({ s, mediaCmd }: { s: ScreenState; mediaCmd: { cmd: string; re
 
   const paused = s.q_phase === 'PAUSED';
   const submitted = s.guilds.filter((g) => g.submitted).length;
+
+  // 답안이 공개된 뒤: 문제는 위로 올리고, 가운데를 길드 수만큼 나눠 답안을 크게 보여 준다
+  if (s.q_phase === 'REVEALED' || s.q_phase === 'GRADED') {
+    return (
+      <div className="qz-play qz-play--reveal">
+        <p className="qz-reveal__q">{q.prompt}</p>
+        {s.q_phase === 'GRADED' && q.answer_key && (
+          <div className="qz-play__key qz-play__key--top">정답 <b>{q.answer_key}</b>{q.explanation ? <span>{q.explanation}</span> : null}</div>
+        )}
+        <div className="qz-cards qz-cards--reveal" style={{ gridTemplateColumns: `repeat(${Math.min(s.guilds.length, 5)}, minmax(0, 1fr))` }}>
+          {s.guilds.map((g, i) => <AnswerCard key={g.guild_id} g={g} i={i} s={s} />)}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="qz-play">
       <div className={paused ? 'qz-play__question qz-play__question--hidden' : 'qz-play__question'}>
@@ -182,9 +201,6 @@ function PlayView({ s, mediaCmd }: { s: ScreenState; mediaCmd: { cmd: string; re
         )}
         {paused && <p className="qz-screen__huge">⏸ 경기가 일시정지되었습니다</p>}
       </div>
-      {s.q_phase === 'GRADED' && q.answer_key && (
-        <div className="qz-play__key">정답 <b>{q.answer_key}</b>{q.explanation ? <span>{q.explanation}</span> : null}</div>
-      )}
       {s.q_phase === 'LOCKED' && <div className="qz-play__state">답안 마감 · {submitted}/{s.guilds.length} 제출</div>}
       {s.q_phase === 'SHOWN' && <div className="qz-play__state">문제를 읽어 보세요 — 곧 답을 받아요</div>}
       <div className="qz-cards" style={{ gridTemplateColumns: `repeat(${Math.min(s.guilds.length, 5)}, minmax(0, 1fr))` }}>
@@ -210,7 +226,8 @@ function AnswerCard({ g, i, s }: { g: ScreenGuild; i: number; s: ScreenState }) 
       <div className="qz-card__body">
         {revealed ? (
           <span className={!g.answer ? 'qz-card__answer qz-card__answer--none'
-            : g.answer.length > 14 ? 'qz-card__answer qz-card__answer--s' : g.answer.length > 6 ? 'qz-card__answer qz-card__answer--m' : 'qz-card__answer'}>{g.answer ?? '미제출'}</span>
+            : g.answer.length > 14 ? 'qz-card__answer qz-card__answer--s' : g.answer.length > 8 ? 'qz-card__answer qz-card__answer--m'
+            : g.answer.length > 4 ? 'qz-card__answer qz-card__answer--l' : 'qz-card__answer'}>{g.answer ?? '미제출'}</span>
         ) : g.submitted ? (
           <span className="qz-card__lock">🔒 제출 완료</span>
         ) : s.q_phase === 'LOCKED' ? (
@@ -219,7 +236,8 @@ function AnswerCard({ g, i, s }: { g: ScreenGuild; i: number; s: ScreenState }) 
           <span className="qz-card__typing">작성 중…</span>
         )}
       </div>
-      {graded && <div className="qz-card__verdict">{g.verdict === 'CORRECT' ? `⭕ +${g.points ?? 0}` : '❌'}</div>}
+      {graded && g.verdict === 'CORRECT' && <div className="qz-card__points">+{g.points ?? 0}</div>}
+      {graded && <span className="qz-sr">{g.verdict === 'CORRECT' ? '정답' : '오답'}</span>}
     </div>
   );
 }
@@ -244,7 +262,7 @@ function MiniBoard({ s }: { s: ScreenState }) {
   );
 }
 
-function CeremonyView({ s }: { s: ScreenState }) {
+function CeremonyView({ s, reduce }: { s: ScreenState; reduce: boolean }) {
   const r = s.result;
   const isInd = s.phase === 'IND_CEREMONY';
   const total = r?.total ?? 0;
@@ -259,7 +277,9 @@ function CeremonyView({ s }: { s: ScreenState }) {
       </div>
     );
   }
-  if (step > total) return <Podium guilds={shown} isInd={isInd} />;
+  if (step > total) return <Podium guilds={shown} isInd={isInd} celebrate={!isInd} reduce={reduce} />;
+  // 최종 발표의 마지막 단계: 1위·2위를 동시에 공개(1위는 축포와 불꽃놀이)
+  if (!isInd && total >= 2 && step === total) return <Finale shown={shown} reduce={reduce} />;
   const latest = shown[shown.length - 1];
   return (
     <div className="qz-ceremony">
@@ -283,10 +303,11 @@ function CeremonyView({ s }: { s: ScreenState }) {
   );
 }
 
-function Podium({ guilds, isInd }: { guilds: ResultGuild[]; isInd: boolean }) {
+function Podium({ guilds, isInd, celebrate, reduce }: { guilds: ResultGuild[]; isInd: boolean; celebrate?: boolean; reduce?: boolean }) {
   const sorted = [...guilds].sort((a, b) => a.rank - b.rank);
   return (
     <div className="qz-podium">
+      {celebrate && !reduce && <Celebration level="low" />}
       <h1 className="qz-screen__title">{isInd ? '개인전 순위' : '최종 순위'}</h1>
       <div className="qz-podium__rows">
         {sorted.map((g) => (
@@ -300,6 +321,108 @@ function Podium({ guilds, isInd }: { guilds: ResultGuild[]; isInd: boolean }) {
       </div>
     </div>
   );
+}
+
+/** 마지막 두 길드(1·2위)를 한꺼번에 보여 주는 화면 */
+function Finale({ shown, reduce }: { shown: ResultGuild[]; reduce: boolean }) {
+  const top = shown.slice(-2);                 // 공개 순서상 마지막 둘 = [2위, 1위]
+  const rest = shown.slice(0, -2).reverse();   // 이미 공개된 3위 이하(높은 순위부터)
+  const total = shown.length;
+  return (
+    <div className="qz-finale">
+      {!reduce && <Celebration level="high" />}
+      {rest.length > 0 && (
+        <div className="qz-finale__rest">
+          {rest.map((g) => (
+            <div key={g.guild_id} className="qz-ceremony__row"><span>{g.rank}위</span><span>{g.name}</span><b>{g.score}</b></div>
+          ))}
+        </div>
+      )}
+      <div className="qz-finale__top" style={{ gridTemplateColumns: top.length === 2 ? '1fr 1.25fr' : '1fr' }}>
+        {top.map((g) => {
+          const gold = g.rank === 1;
+          return (
+            <div key={g.guild_id} className={gold ? 'qz-finale__card qz-finale__card--gold' : 'qz-finale__card qz-finale__card--silver'}>
+              {gold && <span className="qz-finale__crown" aria-hidden="true">👑</span>}
+              <span className="qz-finale__rank">{g.rank}위</span>
+              <span className="qz-finale__name">{g.name}</span>
+              <span className="qz-finale__score">{g.score}<small>점</small></span>
+              <span className="qz-ceremony__split">개인전 {g.ind} + 단체전 {g.team}</span>
+              {gold && total >= 2 && <span className="qz-finale__cheer">🎉 우승 축하합니다! 🎉</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 축포(색종이)와 불꽃놀이. 화면 전체를 덮는 캔버스이며 클릭을 막지 않는다.
+ * level high = 1위 발표(대포 + 불꽃놀이 계속), low = 순위표 화면(가벼운 색종이)
+ */
+function Celebration({ level }: { level: 'high' | 'low' }) {
+  const ref = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    const c = ref.current;
+    const ctx = c?.getContext('2d');
+    if (!c || !ctx) return undefined;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let W = 0; let H = 0; let raf = 0;
+    const resize = () => { W = window.innerWidth; H = window.innerHeight; c.width = W * dpr; c.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
+    resize();
+    window.addEventListener('resize', resize);
+    const COLORS = ['#ffd45e', '#ff7b6b', '#63d9c9', '#8fd98a', '#b79bff', '#ffffff', '#ffb35e'];
+    type Part = { x: number; y: number; vx: number; vy: number; g: number; life: number; max: number; size: number; color: string; kind: 0 | 1; rot: number; vr: number };
+    const parts: Part[] = [];
+    const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+    const pick = () => COLORS[Math.floor(Math.random() * COLORS.length)];
+    const confetti = (x: number, y: number, n: number, angle: number, spread: number, power: number) => {
+      for (let i = 0; i < n && parts.length < 900; i += 1) {
+        const a = angle + rnd(-spread, spread); const v = rnd(power * 0.45, power);
+        parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 0.22, life: 0, max: rnd(150, 260), size: rnd(8, 15), color: pick(), kind: 0, rot: rnd(0, 6.28), vr: rnd(-0.3, 0.3) });
+      }
+    };
+    const firework = (x: number, y: number) => {
+      const color = pick(); const n = 70;
+      for (let i = 0; i < n && parts.length < 900; i += 1) {
+        const a = (i / n) * 6.283 + rnd(-0.05, 0.05); const v = rnd(2.5, 7.5);
+        parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 0.07, life: 0, max: rnd(55, 90), size: rnd(2.4, 4.2), color: Math.random() < 0.25 ? '#ffffff' : color, kind: 1, rot: 0, vr: 0 });
+      }
+    };
+    let t0 = performance.now(); let lastFw = 0; let lastRain = 0;
+    const high = level === 'high';
+    if (high) {
+      // 양쪽 아래 대포 두 번 + 가운데 불꽃
+      confetti(W * 0.04, H * 0.95, 140, -1.05, 0.35, 24); confetti(W * 0.96, H * 0.95, 140, -2.09, 0.35, 24);
+      window.setTimeout(() => { confetti(W * 0.04, H * 0.95, 110, -1.1, 0.4, 22); confetti(W * 0.96, H * 0.95, 110, -2.04, 0.4, 22); }, 900);
+      firework(W * 0.5, H * 0.3);
+    }
+    const loop = (now: number) => {
+      const el = now - t0;
+      ctx.clearRect(0, 0, W, H);
+      if (high && el - lastFw > (el < 9000 ? 380 : 1100)) { lastFw = el; firework(rnd(W * 0.12, W * 0.88), rnd(H * 0.12, H * 0.5)); }
+      if (el - lastRain > (high ? 160 : 420)) { lastRain = el; confetti(rnd(0, W), -20, high ? 5 : 3, 1.57, 0.5, 4.5); }
+      for (let i = parts.length - 1; i >= 0; i -= 1) {
+        const p = parts[i];
+        p.life += 1; p.vy += p.g; p.vx *= p.kind === 0 ? 0.985 : 0.97; p.vy *= p.kind === 0 ? 0.985 : 0.97; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+        if (p.life > p.max || p.y > H + 40) { parts.splice(i, 1); continue; }
+        const fade = Math.max(0, 1 - Math.max(0, p.life - p.max * 0.6) / (p.max * 0.4));
+        ctx.globalAlpha = fade; ctx.fillStyle = p.color;
+        if (p.kind === 0) {
+          ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(1, Math.abs(Math.cos(p.rot * 1.7)) * 0.8 + 0.2);
+          ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2); ctx.restore();
+        } else {
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 6.283); ctx.fill();
+        }
+      }
+      ctx.globalAlpha = 1;
+      raf = window.requestAnimationFrame(loop);
+    };
+    raf = window.requestAnimationFrame(loop);
+    return () => { window.cancelAnimationFrame(raf); window.removeEventListener('resize', resize); };
+  }, [level]);
+  return <canvas ref={ref} className="qz-celebrate" aria-hidden="true" />;
 }
 
 function FinalView({ s }: { s: ScreenState }) {

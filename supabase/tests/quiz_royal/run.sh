@@ -9,3 +9,4 @@ $P -d quiz_royal_test -f supabase/tests/quiz_royal/00_scaffold.sql 2>&1 | grep -
 $P -d quiz_royal_test -f supabase/migrations/20261107_01_quiz_royal.sql 2>&1 | grep -v NOTICE || true
 $P -d quiz_royal_test -f supabase/migrations/20261107_01_quiz_royal.sql >/dev/null 2>&1   # 두 번 적용해도 안전한지
 $P -d quiz_royal_test -f supabase/tests/quiz_royal/10_scenarios.sql
+$P -d quiz_royal_test -f supabase/tests/quiz_royal/30_single_guild_rehearsal.sql

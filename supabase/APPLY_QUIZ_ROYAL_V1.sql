@@ -542,13 +542,17 @@ $fn$;
 create or replace function brand_quiz.ready_errors(p_event bigint)
 returns jsonb language plpgsql stable security definer set search_path = public, pg_temp
 as $fn$
-declare e public.quiz_events; v_err jsonb := '[]'; v_ng integer; v_nodev integer; v_ind integer; v_team integer;
+declare e public.quiz_events; v_err jsonb := '[]'; v_ng integer; v_nodev integer; v_ind integer; v_team integer; v_min_g integer;
   v_pos text[]; v_empty text[];
 begin
   select * into e from public.quiz_events where id = p_event;
   select count(*), count(*) filter (where device_student_id is null) into v_ng, v_nodev
     from public.quiz_event_guilds where event_id = p_event;
-  if v_ng < 2 then v_err := v_err || to_jsonb('참가 길드가 2개 이상이어야 해요'::text); end if;
+  -- 리허설 대회는 테스트 계정 하나로도 돌려 볼 수 있게 길드 1개부터 허용(실전 대회는 2개 이상)
+  v_min_g := case when e.is_rehearsal then 1 else 2 end;
+  if v_ng < v_min_g then
+    v_err := v_err || to_jsonb(('참가 길드가 ' || v_min_g || '개 이상이어야 해요')::text);
+  end if;
   if v_nodev > 0 then v_err := v_err || to_jsonb(('제출 대표 계정을 정하지 않은 길드가 ' || v_nodev || '개 있어요')::text); end if;
   select count(*) filter (where stage = 'INDIVIDUAL' and status = 'ACTIVE'), count(*) filter (where stage = 'TEAM' and status = 'ACTIVE')
     into v_ind, v_team from public.quiz_questions where event_id = p_event;
@@ -1248,18 +1252,24 @@ create or replace function public.teacher_quiz_ceremony(p_id bigint, p_action te
 returns jsonb language plpgsql security definer set search_path = public, pg_temp
 as $fn$
 declare e public.quiz_events := brand_quiz.teacher_event(p_id, true); v_act text := upper(coalesce(p_action, ''));
-  v_res jsonb; v_max integer; v_kind text;
+  v_res jsonb; v_max integer; v_kind text; v_n integer;
 begin
   if e.phase not in ('IND_CEREMONY','FINAL_CEREMONY') then raise exception '발표 단계가 아니에요' using errcode = 'P7T03'; end if;
   v_kind := case when e.phase = 'IND_CEREMONY' then 'IND' else 'FINAL' end;
   v_res := case when v_kind = 'IND' then e.ind_result else e.final_result end;
-  v_max := jsonb_array_length(coalesce(v_res->'guilds', '[]'::jsonb)) + 1;  -- 길드별 공개 + 마지막 전체 화면
+  v_n := jsonb_array_length(coalesce(v_res->'guilds', '[]'::jsonb));
+  v_max := v_n + 1;  -- 길드별 공개 + 마지막 전체 화면
+  -- 최종 발표는 마지막 두 길드(1·2위)를 한 번에 공개한다: 단계가 (길드 수 − 2) → (길드 수)로 두 칸 넘어간다
   if v_act = 'STEP' then
     if e.ceremony_step >= v_max then raise exception '모두 공개했어요' using errcode = 'P7T05'; end if;
-    update public.quiz_events set ceremony_step = ceremony_step + 1 where id = p_id;
+    update public.quiz_events
+      set ceremony_step = ceremony_step + case when v_kind = 'FINAL' and v_n >= 2 and e.ceremony_step = v_n - 2 then 2 else 1 end
+      where id = p_id;
   elsif v_act = 'BACK' then
     if e.ceremony_step <= 0 then raise exception '처음 화면이에요' using errcode = 'P7T05'; end if;
-    update public.quiz_events set ceremony_step = ceremony_step - 1 where id = p_id;
+    update public.quiz_events
+      set ceremony_step = ceremony_step - case when v_kind = 'FINAL' and v_n >= 2 and e.ceremony_step = v_n then 2 else 1 end
+      where id = p_id;
   elsif v_act = 'RESNAP' then
     if e.ceremony_step > 0 then raise exception '공개를 시작한 뒤에는 다시 집계할 수 없어요. 처음 화면으로 돌아간 뒤 해 주세요' using errcode = 'P7T03'; end if;
     if v_kind = 'IND' then

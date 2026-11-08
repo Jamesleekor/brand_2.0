@@ -407,6 +407,8 @@ function CeremonyControl({ st, onChanged }: { st: TeacherQuizState; onChanged: (
   const shownSet = new Set((res?.guilds ?? []).slice(0, Math.min(step, n)).map((g) => g.guild_id));
   const scoreMap = Object.fromEntries((res?.guilds ?? []).map((g) => [String(g.guild_id), g.score]));
   const ranks = rankMap(scoreMap);
+  // 최종 발표는 마지막 두 길드(1·2위)를 한 번에 공개한다 (서버도 같은 규칙으로 두 칸을 넘는다)
+  const doubleNext = !isInd && n >= 2 && step === n - 2;
   const hasTeam = ev.config.use_team && st.questions.some((q) => q.stage === 'TEAM' && q.status === 'ACTIVE');
   const stale = useMemo(() => (res?.guilds ?? []).some((g) => (isInd ? st.scores[g.guild_id]?.ind : st.scores[g.guild_id]?.total) !== g.score), [res, st.scores, isInd]);
 
@@ -420,11 +422,11 @@ function CeremonyControl({ st, onChanged }: { st: TeacherQuizState; onChanged: (
     <div className="tbx-stack">
       <div className="tbx-panel tbx-stack">
         <h2 className="tbx-h2">{isInd ? '개인전 결과 발표' : '최종 결과 발표'}</h2>
-        <p className="tbx-small">버튼을 누를 때마다 교실 화면에 낮은 순위부터 한 길드씩 공개돼요. 마지막 한 번은 전체 순위 화면이에요. 누르기 전에는 화면이 저절로 바뀌지 않아요.</p>
+        <p className="tbx-small">버튼을 누를 때마다 교실 화면에 낮은 순위부터 한 길드씩 공개돼요.{!isInd ? ' 마지막 1·2위는 한꺼번에 공개하고(1위는 축포!), 이어서 전체 순위 화면이 나와요.' : ' 마지막 한 번은 전체 순위 화면이에요.'} 누르기 전에는 화면이 저절로 바뀌지 않아요.</p>
         <div className="tbx-row tbx-row--wrap" style={{ gap: 8 }}>
           <button type="button" className="tbx-btn" disabled={step <= 0 || !!busy} onClick={() => void doAct('BACK')}>← 한 단계 전</button>
           <button type="button" className="tbx-btn tbx-btn--brass tbx-btn--lg" disabled={step >= n + 1 || !!busy} onClick={() => void doAct('STEP')}>
-            {step === 0 ? '🎺 발표 시작(첫 길드 공개)' : step < n ? `다음 길드 공개 (${step}/${n})` : step === n ? '🏆 전체 순위 화면' : '모두 공개됨'}
+            {doubleNext ? '🥇 1·2위 동시 공개' : step === 0 ? '🎺 발표 시작(첫 길드 공개)' : step < n ? `다음 길드 공개 (${step}/${n})` : step === n ? '🏆 전체 순위 화면' : '모두 공개됨'}
           </button>
           <button type="button" className="tbx-btn tbx-btn--signal tbx-btn--lg" disabled={step < n + 1 || !!busy} onClick={() => void doAct('ADVANCE')}>
             {isInd ? (hasTeam ? '단체전 입장 →' : '최종 발표로 →') : '대회 마치기(기록 저장)'}

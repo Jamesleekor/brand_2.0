@@ -396,15 +396,23 @@ end $$;
 select _ok(public.teacher_quiz_state(:eid)->'event'->>'phase' = 'FINAL_CEREMONY', '단체전 끝 → 최종 발표 단계');
 select _ok(public.teacher_quiz_state(:eid)->'scores'->'16'->>'team' = '150', '단체전 점수 별도 집계(아블루션 150)');
 select _ok((public.teacher_quiz_state(:eid)->'event'->'final_result'->'guilds'->4->>'guild_id')::int = 16, '최종 1위(마지막 공개) = 아블루션');
-reset role;
-do $$ declare v_e bigint; i int;
-begin
-  select id into v_e from public.quiz_events order by id desc limit 1;
-  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000a1', false);
-  execute 'set local role authenticated';
-  for i in 1..6 loop perform public.teacher_quiz_ceremony(v_e, 'STEP'); end loop;
-  perform public.teacher_quiz_ceremony(v_e, 'ADVANCE');
-end $$;
+-- 최종 발표: 5위·4위·3위는 한 길드씩, 마지막 1·2위는 한 번에, 그다음 전체 순위 화면
+reset role; select _who('00000000-0000-0000-0000-0000000000a1'); set role authenticated;
+select public.teacher_quiz_ceremony(:eid, 'STEP') \g /dev/null
+select public.teacher_quiz_ceremony(:eid, 'STEP') \g /dev/null
+select public.teacher_quiz_ceremony(:eid, 'STEP') \g /dev/null
+select _ok((public.teacher_quiz_state(:eid)->'event'->>'ceremony_step')::int = 3
+  and jsonb_array_length(public.teacher_quiz_screen_state(:eid)->'result'->'guilds') = 3, '최종 발표: 3단계까지 하위 3개 길드만 공개');
+select public.teacher_quiz_ceremony(:eid, 'STEP') \g /dev/null
+select _ok((public.teacher_quiz_state(:eid)->'event'->>'ceremony_step')::int = 5
+  and jsonb_array_length(public.teacher_quiz_screen_state(:eid)->'result'->'guilds') = 5, '최종 발표: 4번째 누름 → 1·2위 동시 공개(단계 3→5)');
+select public.teacher_quiz_ceremony(:eid, 'BACK') \g /dev/null
+select _ok((public.teacher_quiz_state(:eid)->'event'->>'ceremony_step')::int = 3, '최종 발표: 한 단계 전 → 1·2위가 함께 다시 가려짐(5→3)');
+select public.teacher_quiz_ceremony(:eid, 'STEP') \g /dev/null
+select public.teacher_quiz_ceremony(:eid, 'STEP') \g /dev/null
+select _ok((public.teacher_quiz_state(:eid)->'event'->>'ceremony_step')::int = 6, '최종 발표: 마지막 전체 순위 화면(단계 6)');
+select _expect(format($$select public.teacher_quiz_ceremony(%s, 'STEP')$$, :eid), 'P7T05', '최종 발표: 모두 공개 뒤 더 누르면 무해');
+select public.teacher_quiz_ceremony(:eid, 'ADVANCE') \g /dev/null
 select _ok(public.teacher_quiz_state(:eid)->'event'->>'phase' = 'COMPLETED', '대회 종료');
 reset role; select _who('00000000-0000-0000-0000-000000000001'); set role authenticated;
 select _ok(jsonb_array_length(public.student_quiz_feed()->'events') = 0, '끝난 대회는 학생 입구에서 사라짐');
