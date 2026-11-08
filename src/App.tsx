@@ -84,6 +84,8 @@ import {
   StudentToolboxHome, StudentPersonalToolPage, StudentActivityPage, TeacherToolboxHub,
   TeacherPersonalToolPage, CreateActivityPage, ActivityConsolePage, ToolboxBroadcastPage,
 } from '@/features/toolbox';
+// QUIZ_ROYAL_V1: 모험가 도구함 · 길드 대항 퀴즈 로얄
+import { QuizSetupPage, QuizConsolePage, QuizScreenPage, StudentQuizPage } from '@/features/toolbox/quiz';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 
 // =====================================================================
@@ -229,6 +231,8 @@ export default function App() {
         <Route path="/toolbox" element={<AppShell hideBottomNav><Suspense fallback={null}><StudentToolboxHome /></Suspense></AppShell>} />
         <Route path="/toolbox/tool/:tool" element={<AppShell hideBottomNav><Suspense fallback={null}><StudentPersonalToolPage /></Suspense></AppShell>} />
         <Route path="/toolbox/live/:id" element={<AppShell hideBottomNav><Suspense fallback={null}><StudentActivityPage /></Suspense></AppShell>} />
+        {/* QUIZ_ROYAL_V1: 길드 제출 태블릿 */}
+        <Route path="/toolbox/quiz/:id" element={<AppShell hideBottomNav><Suspense fallback={null}><StudentQuizPage /></Suspense></AppShell>} />
         <Route path="/guard" element={<AppShell hideBottomNav><EconomyGuardPage /></AppShell>} />
         <Route 
           path="/settings" 
@@ -301,6 +305,10 @@ export default function App() {
         <Route path="/teacher/toolbox/new/:kind" element={<Suspense fallback={null}><CreateActivityPage /></Suspense>} />
         <Route path="/teacher/toolbox/activity/:id" element={<Suspense fallback={null}><ActivityConsolePage /></Suspense>} />
         <Route path="/teacher/toolbox/screen/:id" element={<Suspense fallback={null}><ToolboxBroadcastPage /></Suspense>} />
+        {/* QUIZ_ROYAL_V1: 준비 · 진행 · 교실 중계 화면 */}
+        <Route path="/teacher/toolbox/quiz/:id/setup" element={<Suspense fallback={null}><QuizSetupPage /></Suspense>} />
+        <Route path="/teacher/toolbox/quiz/:id/screen" element={<Suspense fallback={null}><QuizScreenPage /></Suspense>} />
+        <Route path="/teacher/toolbox/quiz/:id" element={<Suspense fallback={null}><QuizConsolePage /></Suspense>} />
       </Route>
       
       {/* 404 */}

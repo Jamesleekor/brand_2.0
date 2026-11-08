@@ -12,6 +12,7 @@ import { Glyph, KIND_GLYPH, KIND_LABEL, Notice, relTime, useAction, useConfirm }
 import { PERSONAL_TOOLS } from '../personal/common';
 import { PersonalToolSwitch } from '../personal/PersonalToolSwitch';
 import type { ActivitySummary, ClassActivityKind, PersonalToolId, RosterItem } from '../toolbox_types';
+import { QuizHubSection } from '../quiz/QuizHubSection'; // QUIZ_ROYAL_V1
 import '../toolbox.css';
 
 export const CLASS_KINDS: { kind: ClassActivityKind; desc: string }[] = [
@@ -91,6 +92,9 @@ export function TeacherToolboxHub() {
             ))}
           </div>
         </section>
+
+        {/* QUIZ_ROYAL_V1: 길드 대항 퀴즈 로얄 입구 */}
+        <QuizHubSection />
 
         <section className="tbx-stack">
           <div className="tbx-section-head"><h2 className="tbx-h2">수업 도구</h2><span className="tbx-small">기록을 남기지 않는 도구예요. 학생 홈에도 똑같이 있어요</span></div>

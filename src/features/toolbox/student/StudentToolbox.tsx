@@ -12,6 +12,7 @@ import { Glyph, KIND_GLYPH, KIND_LABEL } from '../ui';
 import { PERSONAL_TOOLS } from '../personal/common';
 import { PersonalToolSwitch } from '../personal/PersonalToolSwitch';
 import type { PersonalToolId, StudentFeedItem } from '../toolbox_types';
+import { StudentQuizEntry } from '../quiz/StudentQuizEntry'; // QUIZ_ROYAL_V1
 import '../toolbox.css';
 
 export function useStudentFeed() {
@@ -50,6 +51,8 @@ export function StudentToolboxHome() {
     <div className="tbx">
       <PageHeader title="모험가 도구함" />
       <div className="tbx-page">
+        {/* QUIZ_ROYAL_V1: 길드 제출 대표 계정에만 보이는 퀴즈 로얄 입구 */}
+        <StudentQuizEntry />
         {live.length > 0 && (
           <section className="tbx-live" aria-label="지금 열린 학급 활동">
             <div className="tbx-live__head">

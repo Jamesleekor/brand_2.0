@@ -1,0 +1,49 @@
+node_modules
+dist
+.tikatuka-test-build
+.starlink-test-build
+.env.local
+*.log
+
+/BRAND_2.0_FONT_RECOVERY_INSTALLER_*/
+/BRAND_2.0_FONT_BUILD_HOTFIX_*/
+/BRAND_2.0_FONT_SAFE_PATCH_*/
+# B.R.A.N.D local/generated cleanup rules
+*.tsbuildinfo
+*.bak
+*.bak_*
+*.before-*
+*.before_*
+.brand_patch_backups/
+.patch_backups/
+.raid_patch_backups/
+_patch_backup/
+_raid_v15_hotfix_backups/
+.raid_e6_backup_*/
+backup_raid_v15_e5_*/
+
+# Generated config outputs
+/vite.config.js
+/vite.config.d.ts
+
+# Patch installer / rollback artifacts (never commit)
+.brand_patch_backup/
+.brand_patch_backups/
+_patch_backup/
+_patch_backups/
+_patch_backup_*/
+_patch_backups_*/
+.brand_patch_backup_*/
+.brand_patch_backups_*/
+/src.zip
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+
+# Adventurer toolbox load tester (credentials/results never commit)
+tools/toolbox-load-tester/TOOLBOX_LOAD_TEST_CREDENTIALS.csv
+tools/toolbox-load-tester/results/
+tools/starlink-browser-harness/bundle.js
+tools/starlink-browser-harness/out/
+supabase/tests/starlink_04_replica_e2e_last_run.json

@@ -47,3 +47,7 @@ tools/toolbox-load-tester/results/
 tools/starlink-browser-harness/bundle.js
 tools/starlink-browser-harness/out/
 supabase/tests/starlink_04_replica_e2e_last_run.json
+
+# Quiz Royal load tester (credentials/results never commit)
+tools/quiz-royal-load-tester/QUIZ_LOAD_TEST_CREDENTIALS.csv
+tools/quiz-royal-load-tester/results/
