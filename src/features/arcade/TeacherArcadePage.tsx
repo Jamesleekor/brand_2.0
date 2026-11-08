@@ -22,12 +22,13 @@ export default function TeacherArcadePage() {
     return <TeacherArcadeLegacyPage key="periods" selectedGameCode="focus_reaction_01" activePanel="periods" />;
   }
 
+  const isStarlink = requestedGame === 'starlink';
   const isPure = requestedGame === 'pure';
   const activePanel = REACTION_PANELS.find((panel) => panel === requestedPanel) ?? 'overview';
   return (
     <TeacherArcadeLegacyPage
-      key={isPure ? 'pure' : 'focus'}
-      selectedGameCode={isPure ? 'pure_reaction_02' : 'focus_reaction_01'}
+      key={isStarlink ? 'starlink' : isPure ? 'pure' : 'focus'}
+      selectedGameCode={isStarlink ? 'starlink_04' : isPure ? 'pure_reaction_02' : 'focus_reaction_01'}
       activePanel={activePanel}
     />
   );

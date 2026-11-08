@@ -8,6 +8,7 @@ const GAMES = [
   { code: 'focus_reaction_01', name: '집중 반응' },
   { code: 'pure_reaction_02', name: '순수 반응 속도' },
   { code: 'rakaruka_03', name: '라카루카' },
+  { code: 'starlink_04', name: '스타링크' },
 ] as const;
 type PeriodRow = { id: number; display_name: string; period_kind: string; status: string; starts_at: string; ends_at_exclusive: string };
 const STATUS: Record<string, string> = { ACTIVE: '기록 접수 중', VERIFICATION: '인증 중', READY_TO_FINALIZE: '확정 대기', FINALIZED: '확정 완료' };

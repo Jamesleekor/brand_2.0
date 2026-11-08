@@ -16,7 +16,7 @@ export const ArcadePeriodRecordsResultSchema = z.object({
     student_id: PositiveId,
     student_name: z.string(),
     brand_name: z.string().nullable(),
-    game_code: z.enum(['focus_reaction_01', 'pure_reaction_02', 'rakaruka_03']),
+    game_code: z.enum(['focus_reaction_01', 'pure_reaction_02', 'rakaruka_03', 'starlink_04']),
     play_count: z.number().int().nonnegative(),
     completed_count: z.number().int().nonnegative(),
     rejected_count: z.number().int().nonnegative(),
