@@ -28,7 +28,7 @@ interface PeriodRow {
 interface SeasonRow { id: number; display_name: string; starts_on: string; ends_on: string; }
 interface AuditRow { run_id: number; student_name: string; status: string; is_prerelease_test: boolean; official_score: number | null; official_duration_ms: number | null; game_over_at: string | null; submitted_at: string | null; event_at: string; rejection_code: string | null; rejection_reason: string | null; invalidated: boolean; invalidation_reason: string | null; }
 
-export default function TeacherArcadeLegacyPage({ selectedGameCode, activePanel }: { selectedGameCode: 'focus_reaction_01' | 'pure_reaction_02'; activePanel: 'overview' | 'verification' | 'records' | 'audit' | 'periods' }) {
+export default function TeacherArcadeLegacyPage({ selectedGameCode, activePanel }: { selectedGameCode: 'focus_reaction_01' | 'pure_reaction_02' | 'starlink_04'; activePanel: 'overview' | 'verification' | 'records' | 'audit' | 'periods' }) {
   const classroomId = useClassroomId();
   const client = useQueryClient();
   const show = useToastStore((state) => state.show);
@@ -155,7 +155,7 @@ export default function TeacherArcadeLegacyPage({ selectedGameCode, activePanel 
     const alreadyEnded = new Date(period.ends_at_exclusive).getTime() <= Date.now();
     const warning = alreadyEnded
       ? `「${period.display_name}」의 기록을 동결하고 공인 기록 인증을 시작할까요?\n동결 뒤에는 이 기간의 일반 Arcade 기록이 더 이상 바뀌지 않습니다.`
-      : `「${period.display_name}」의 공인 기록 인증을 지금 시작할까요?\n\n이 작업은 월간 랭킹 기간을 지금 즉시 종료한 뒤, 집중 반응과 순수 반응 속도를 포함한 이 기간의 일반 기록을 모두 동결합니다.\n이후 새 일반 기록은 이 기간 순위에 반영되지 않습니다.`;
+      : `「${period.display_name}」의 공인 기록 인증을 지금 시작할까요?\n\n이 작업은 월간 랭킹 기간을 지금 즉시 종료한 뒤, 집중 반응·순수 반응 속도·스타링크를 포함한 이 기간의 일반 기록을 모두 동결합니다.\n이후 새 일반 기록은 이 기간 순위에 반영되지 않습니다.`;
     if (!window.confirm(warning)) return;
 
     setActionError(null);
@@ -272,8 +272,10 @@ export default function TeacherArcadeLegacyPage({ selectedGameCode, activePanel 
     refresh();
   };
 
+  const gameTab = selectedGameCode === 'starlink_04' ? 'starlink' : selectedGameCode === 'pure_reaction_02' ? 'pure' : 'focus';
+
   return <TeacherShell><div className="space-y-6">
-    <ArcadeAdminNavigation activeGame={activePanel === "periods" ? "periods" : selectedGameCode === "pure_reaction_02" ? "pure" : "focus"} activeSection={activePanel} />
+    <ArcadeAdminNavigation activeGame={activePanel === "periods" ? "periods" : gameTab} activeSection={activePanel} />
     {activePanel === "records" && <TeacherArcadePeriodRecordsPanel classroomId={classroomId} gameCode={selectedGameCode} />}
     {actionError && <div className="glass-card border-danger/40 p-4 text-sm font-bold text-danger">{actionError}</div>}
     {query.isLoading && <div className="py-16 text-center"><LoadingSpinner size="lg" /></div>}
@@ -294,22 +296,22 @@ export default function TeacherArcadeLegacyPage({ selectedGameCode, activePanel 
           <div className="mt-1 text-xs font-semibold text-[#f2e9d8]">기간 생성 · 종료 · 최종 확정은 ‘공통 기간 관리’에서 처리합니다.</div>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <Link to={`/teacher/arcade?game=${selectedGameCode === 'pure_reaction_02' ? 'pure' : 'focus'}&panel=verification`} className="rounded-card-md border border-gold/40 bg-gold/10 p-4 hover:border-gold/70">
+          <Link to={`/teacher/arcade?game=${gameTab}&panel=verification`} className="rounded-card-md border border-gold/40 bg-gold/10 p-4 hover:border-gold/70">
             <b className="text-base text-white">🏅 공인 도전</b>
             <p className="mt-2 text-xs font-semibold leading-5 text-[#f2e9d8]">인증 현황, 학생별 시도, 종료 및 보정 처리</p>
           </Link>
-          <Link to={`/teacher/arcade?game=${selectedGameCode === 'pure_reaction_02' ? 'pure' : 'focus'}&panel=records`} className="rounded-card-md border border-line bg-bg-deep p-4 hover:border-gold/60">
+          <Link to={`/teacher/arcade?game=${gameTab}&panel=records`} className="rounded-card-md border border-line bg-bg-deep p-4 hover:border-gold/60">
             <b className="text-base text-white">📊 기록 · 순위</b>
             <p className="mt-2 text-xs font-semibold leading-5 text-[#f2e9d8]">기간 내 일반 기록, 공인 기록과 순위 조회</p>
           </Link>
-          <Link to={`/teacher/arcade?game=${selectedGameCode === 'pure_reaction_02' ? 'pure' : 'focus'}&panel=audit`} className="rounded-card-md border border-line bg-bg-deep p-4 hover:border-gold/60">
+          <Link to={`/teacher/arcade?game=${gameTab}&panel=audit`} className="rounded-card-md border border-line bg-bg-deep p-4 hover:border-gold/60">
             <b className="text-base text-white">🔎 감사 기록</b>
             <p className="mt-2 text-xs font-semibold leading-5 text-[#f2e9d8]">인정·거절 내역과 필요한 경우 무효 처리</p>
           </Link>
         </div>
       </section>}
 
-      {activePanel === 'verification' && <section id="arcade-verification-management" className="glass-card border-gold/40 p-5"><div className="mb-4"><div className="text-xs font-black tracking-[0.16em] text-gold">OFFICIAL RECORD VERIFICATION</div><h2 className="mt-1 font-display text-lg text-white">🏅 {arcadeGameLabel(selectedGameCode)} 공인 도전</h2><p className="mt-1 text-xs text-white/80">집중 반응과 순수 반응 속도는 월간 기록을 동결한 뒤 공식 참여 학생 전원에게 동일하게 3회의 공인 인증 기회를 엽니다. 일반 기록 순위는 인증 자격을 제한하지 않으며, 최종 인증 결과로 Top 10과 보상을 결정합니다.</p></div>{verificationPeriods.length > 0 ? <><div className="flex flex-col gap-2 sm:flex-row"><select className="input-field min-w-0 flex-1" value={verificationPeriod?.id ?? ''} onChange={(event) => { const id = Number(event.target.value); setVerificationPeriodId(id); setVerificationOverview(null); }}><option value="">인증 기간 선택</option>{verificationPeriods.map((period) => <option key={period.id} value={period.id}>{period.display_name} · {period.status === 'READY_TO_FINALIZE' ? '최종 확정 대기' : '인증 중'}</option>)}</select><button className="btn-primary" disabled={!verificationPeriod || isLoadingVerification} onClick={() => void loadVerificationOverview()}>{isLoadingVerification ? '불러오는 중...' : '🏅 인증 현황 열기'}</button></div>{verificationOverview && <VerificationOverviewTable overview={verificationOverview} busyKey={verificationActionId} runAction={runVerificationAction} onForceClose={forceCloseVerificationGame} />}</> : activeMonthlyPeriod ? <div className="rounded-card-md border border-warning/30 bg-warning/10 p-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><b className="text-sm text-white">현재 월간 랭킹: {activeMonthlyPeriod.display_name}</b><p className="mt-1 text-xs text-warning">아직 일반 기록 접수 중입니다. 공인 도전을 열면 이 월간 기간을 즉시 종료하고 기록을 동결한 뒤 학생별 인증 단계로 전환합니다.</p></div><button className="btn-primary shrink-0" disabled={isSaving} onClick={() => void openVerificationNow(activeMonthlyPeriod)}>{isSaving ? '전환 중...' : '🏅 공인 도전 열기'}</button></div></div> : <p className="rounded-card-md border border-line bg-bg-deep p-4 text-sm text-text-secondary">공인 도전을 열 수 있는 월간 기간이 없습니다. 먼저 아래에서 월간 랭킹 기간을 만들고 활성화하세요.</p>}</section>}
+      {activePanel === 'verification' && <section id="arcade-verification-management" className="glass-card border-gold/40 p-5"><div className="mb-4"><div className="text-xs font-black tracking-[0.16em] text-gold">OFFICIAL RECORD VERIFICATION</div><h2 className="mt-1 font-display text-lg text-white">🏅 {arcadeGameLabel(selectedGameCode)} 공인 도전</h2><p className="mt-1 text-xs text-white/80">집중 반응·순수 반응 속도·스타링크는 월간 기록을 동결한 뒤 공식 참여 학생 전원에게 동일하게 3회의 공인 인증 기회를 엽니다. 일반 기록 순위는 인증 자격을 제한하지 않으며, 최종 인증 결과로 Top 10과 보상을 결정합니다.</p></div>{verificationPeriods.length > 0 ? <><div className="flex flex-col gap-2 sm:flex-row"><select className="input-field min-w-0 flex-1" value={verificationPeriod?.id ?? ''} onChange={(event) => { const id = Number(event.target.value); setVerificationPeriodId(id); setVerificationOverview(null); }}><option value="">인증 기간 선택</option>{verificationPeriods.map((period) => <option key={period.id} value={period.id}>{period.display_name} · {period.status === 'READY_TO_FINALIZE' ? '최종 확정 대기' : '인증 중'}</option>)}</select><button className="btn-primary" disabled={!verificationPeriod || isLoadingVerification} onClick={() => void loadVerificationOverview()}>{isLoadingVerification ? '불러오는 중...' : '🏅 인증 현황 열기'}</button></div>{verificationOverview && <VerificationOverviewTable overview={verificationOverview} busyKey={verificationActionId} runAction={runVerificationAction} onForceClose={forceCloseVerificationGame} />}</> : activeMonthlyPeriod ? <div className="rounded-card-md border border-warning/30 bg-warning/10 p-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><b className="text-sm text-white">현재 월간 랭킹: {activeMonthlyPeriod.display_name}</b><p className="mt-1 text-xs text-warning">아직 일반 기록 접수 중입니다. 공인 도전을 열면 이 월간 기간을 즉시 종료하고 기록을 동결한 뒤 학생별 인증 단계로 전환합니다.</p></div><button className="btn-primary shrink-0" disabled={isSaving} onClick={() => void openVerificationNow(activeMonthlyPeriod)}>{isSaving ? '전환 중...' : '🏅 공인 도전 열기'}</button></div></div> : <p className="rounded-card-md border border-line bg-bg-deep p-4 text-sm text-text-secondary">공인 도전을 열 수 있는 월간 기간이 없습니다. 먼저 아래에서 월간 랭킹 기간을 만들고 활성화하세요.</p>}</section>}
       <TeacherArcadeForceFinalizePanel periods={query.data.periods} onDone={refresh} />
       {activePanel === 'periods' && <>
       <section className="glass-card p-5"><div className="mb-4"><h2 className="font-display text-lg text-white">새 랭킹 기간 만들기</h2><p className="mt-1 text-xs text-text-secondary">월간 기간은 Guild 2 반영 월을 가집니다. 날짜·시각은 한국(Asia/Seoul) 기준으로 입력하세요. 종료 시각은 포함하지 않는 경계입니다.</p></div>
