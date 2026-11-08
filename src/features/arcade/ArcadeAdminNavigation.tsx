@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 
-export type ArcadeAdminGame = 'focus' | 'pure' | 'rakaruka' | 'periods';
+export type ArcadeAdminGame = 'focus' | 'pure' | 'rakaruka' | 'starlink' | 'periods';
 export type ArcadeAdminSection = 'overview' | 'verification' | 'official' | 'records' | 'audit' | 'progress' | 'periods';
 
 type Props = {
@@ -12,6 +12,7 @@ const GAME_TABS = [
   { key: 'focus', icon: '⚡', eyebrow: 'GAME 01', title: '집중 반응', subtitle: '집중력 · 기록 인증' },
   { key: 'pure', icon: '⏱️', eyebrow: 'GAME 02', title: '순수 반응 속도', subtitle: '반응속도 · 기록 인증' },
   { key: 'rakaruka', icon: '🛡️', eyebrow: 'GAME 03', title: '라카루카', subtitle: '대전 · 난이도 관리' },
+  { key: 'starlink', icon: '✨', eyebrow: 'GAME 04', title: '스타링크', subtitle: '별 잇기 · 기록 인증' },
 ] as const;
 
 const COMMON_TAB = { key: 'periods', icon: '🗓️', eyebrow: 'SHARED', title: '공통 기간 관리', subtitle: '랭킹 기간 · 월간 확정' } as const;
@@ -43,7 +44,7 @@ export function ArcadeAdminNavigation({ activeGame, activeSection }: Props) {
         </div>
         <Link to="/teacher/guild/scores" className="btn-secondary self-start text-xs">📊 Guild 2 점수 보기</Link>
       </div>
-      <nav aria-label="아케이드 게임 선택" className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+      <nav aria-label="아케이드 게임 선택" className="grid grid-cols-2 gap-2 lg:grid-cols-5">
         {tabs.map((tab) => {
           const active = tab.key === activeGame;
           const target = tab.key === 'periods' ? '/teacher/arcade?game=periods' : `/teacher/arcade?game=${tab.key}&panel=overview`;
