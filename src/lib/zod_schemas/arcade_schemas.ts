@@ -200,6 +200,62 @@ export const TeacherArcadeVerificationOverviewSchema = z.object({
   p_game_code: ArcadeGameCodeSchema,
 });
 export type TeacherArcadeVerificationOverviewInput = z.infer<typeof TeacherArcadeVerificationOverviewSchema>;
+// 공인 인증 1·2·3차 기록 조회 (업적 ARC-003 / ARC-010 / ARC-018 확인용, 읽기 전용)
+export const TeacherArcadeVerificationHistorySchema = z.object({
+  p_period_id: PositiveId,
+  p_game_code: ArcadeGameCodeSchema,
+});
+export type TeacherArcadeVerificationHistoryInput = z.infer<typeof TeacherArcadeVerificationHistorySchema>;
+const VerificationHistoryAttemptSchema = z.object({
+  attempt_id: PositiveId,
+  issue_number: z.number().int(),
+  opportunity_number: z.number().int(),
+  run_id: z.number().int().nullable(),
+  status: z.string(),
+  consumed: z.boolean(),
+  valid_run: z.boolean(),
+  terminal_outcome: z.string().nullable(),
+  official_score: z.number().nullable(),
+  issued_at: z.string().nullable(),
+  terminal_at: z.string().nullable(),
+  meets_threshold: z.boolean(),
+  beats_provisional: z.boolean(),
+});
+const VerificationHistorySessionSchema = z.object({
+  session_id: PositiveId,
+  status: z.string(),
+  result_status: z.string().nullable(),
+  is_decisive: z.boolean(),
+  provisional_score: z.number().nullable(),
+  verification_threshold: z.number().nullable(),
+  threshold_percent: z.number().int(),
+  max_attempts: z.number().int(),
+  success_achieved: z.boolean(),
+  activated_at: z.string().nullable(),
+  ended_at: z.string().nullable(),
+  best_verification_score: z.number().nullable(),
+  first_success_opportunity: z.number().int().nullable(),
+  arc003_first_try_success: z.boolean(),
+  arc010_beat_provisional: z.boolean(),
+  arc018_third_try_success: z.boolean(),
+  attempts: z.array(VerificationHistoryAttemptSchema),
+});
+export const ArcadeVerificationHistoryResultSchema = z.object({
+  period_id: PositiveId,
+  period_name: z.string(),
+  period_status: z.string(),
+  game_code: z.string(),
+  students: z.array(z.object({
+    student_id: PositiveId,
+    student_name: z.string(),
+    brand_name: z.string().nullable(),
+    decision_kind: z.string().nullable(),
+    official_score: z.number().nullable(),
+    ranking_eligible: z.boolean().nullable(),
+    sessions: z.array(VerificationHistorySessionSchema),
+  })),
+});
+export type ArcadeVerificationHistoryResult = z.infer<typeof ArcadeVerificationHistoryResultSchema>;
 
 export const TeacherForceCloseArcadeGameVerificationSchema = z.object({
   p_period_id: PositiveId,

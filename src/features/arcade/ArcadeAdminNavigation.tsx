@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 
 export type ArcadeAdminGame = 'focus' | 'pure' | 'rakaruka' | 'starlink' | 'periods';
-export type ArcadeAdminSection = 'overview' | 'verification' | 'official' | 'records' | 'audit' | 'progress' | 'periods';
+export type ArcadeAdminSection = 'overview' | 'verification' | 'history' | 'official' | 'records' | 'audit' | 'progress' | 'periods';
 
 type Props = {
   activeGame: ArcadeAdminGame;
@@ -20,6 +20,7 @@ const COMMON_TAB = { key: 'periods', icon: '🗓️', eyebrow: 'SHARED', title: 
 const GAME_PANELS = [
   { key: 'overview', title: '운영 개요' },
   { key: 'verification', title: '공인 도전' },
+  { key: 'history', title: '인증 기록 조회' },
   { key: 'records', title: '기록 · 순위' },
   { key: 'audit', title: '감사 기록' },
 ] as const;

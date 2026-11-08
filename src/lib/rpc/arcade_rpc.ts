@@ -336,6 +336,15 @@ export const arcadeTeacherRpc = {
     safeArcadeRpc<ArcadeSchemas.TeacherArcadePrereleaseTestLeaderboardInput, ArcadePrereleaseTestLeaderboardResult>(client, 'teacher_get_arcade_prerelease_test_leaderboard', ArcadeSchemas.TeacherArcadePrereleaseTestLeaderboardSchema, input),
   freezeMonthlyPeriod: (client: SupabaseClient, input: ArcadeSchemas.TeacherFreezeArcadeMonthlyPeriodInput) =>
     safeArcadeRpc<ArcadeSchemas.TeacherFreezeArcadeMonthlyPeriodInput, Record<string, unknown>>(client, 'teacher_freeze_arcade_monthly_period', ArcadeSchemas.TeacherFreezeArcadeMonthlyPeriodSchema, input),
+  getVerificationHistory: async (client: SupabaseClient, input: ArcadeSchemas.TeacherArcadeVerificationHistoryInput): Promise<RpcResult<ArcadeSchemas.ArcadeVerificationHistoryResult>> => {
+    const result = await safeArcadeRpc<ArcadeSchemas.TeacherArcadeVerificationHistoryInput, unknown>(
+      client, 'teacher_get_arcade_verification_attempt_history', ArcadeSchemas.TeacherArcadeVerificationHistorySchema, input,
+    );
+    if (result.success === false) return result;
+    const parsed = ArcadeSchemas.ArcadeVerificationHistoryResultSchema.safeParse(result.data);
+    if (!parsed.success) return { success: false, type: 'SERVER', error: '인증 기록 응답 형식이 올바르지 않습니다. 새로고침 후 다시 확인해주세요.' };
+    return { success: true, data: parsed.data };
+  },
   getVerificationOverview: (client: SupabaseClient, input: ArcadeSchemas.TeacherArcadeVerificationOverviewInput) =>
     safeArcadeRpc<ArcadeSchemas.TeacherArcadeVerificationOverviewInput, ArcadeVerificationOverview>(client, 'teacher_get_arcade_verification_overview', ArcadeSchemas.TeacherArcadeVerificationOverviewSchema, input),
   forceCloseGameVerification: (client: SupabaseClient, input: ArcadeSchemas.TeacherForceCloseArcadeGameVerificationInput) =>

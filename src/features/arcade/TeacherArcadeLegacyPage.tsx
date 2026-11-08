@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { LoadingSpinner } from '@/components/shared/components';
 import { TeacherShell } from '@/components/teacher/TeacherShell';
 import { TeacherArcadePeriodRecordsPanel } from './TeacherArcadePeriodRecordsPanel';
+import { TeacherArcadeVerificationHistoryPanel } from './TeacherArcadeVerificationHistoryPanel';
 import { ArcadeAdminNavigation } from './ArcadeAdminNavigation';
 import { TeacherArcadeForceFinalizePanel } from './TeacherArcadeForceFinalizePanel';
 import { arcadeErrorMessage, arcadeTeacherRpc, type ArcadeVerificationOverview, type ArcadeVerificationOverviewRow } from '@/lib/rpc/arcade_rpc';
@@ -28,7 +29,7 @@ interface PeriodRow {
 interface SeasonRow { id: number; display_name: string; starts_on: string; ends_on: string; }
 interface AuditRow { run_id: number; student_name: string; status: string; is_prerelease_test: boolean; official_score: number | null; official_duration_ms: number | null; game_over_at: string | null; submitted_at: string | null; event_at: string; rejection_code: string | null; rejection_reason: string | null; invalidated: boolean; invalidation_reason: string | null; }
 
-export default function TeacherArcadeLegacyPage({ selectedGameCode, activePanel }: { selectedGameCode: 'focus_reaction_01' | 'pure_reaction_02' | 'starlink_04'; activePanel: 'overview' | 'verification' | 'records' | 'audit' | 'periods' }) {
+export default function TeacherArcadeLegacyPage({ selectedGameCode, activePanel }: { selectedGameCode: 'focus_reaction_01' | 'pure_reaction_02' | 'starlink_04'; activePanel: 'overview' | 'verification' | 'history' | 'records' | 'audit' | 'periods' }) {
   const classroomId = useClassroomId();
   const client = useQueryClient();
   const show = useToastStore((state) => state.show);
@@ -277,6 +278,7 @@ export default function TeacherArcadeLegacyPage({ selectedGameCode, activePanel 
   return <TeacherShell><div className="space-y-6">
     <ArcadeAdminNavigation activeGame={activePanel === "periods" ? "periods" : gameTab} activeSection={activePanel} />
     {activePanel === "records" && <TeacherArcadePeriodRecordsPanel classroomId={classroomId} gameCode={selectedGameCode} />}
+    {activePanel === "history" && <TeacherArcadeVerificationHistoryPanel classroomId={classroomId} gameCode={selectedGameCode} gameLabel={arcadeGameLabel(selectedGameCode)} />}
     {actionError && <div className="glass-card border-danger/40 p-4 text-sm font-bold text-danger">{actionError}</div>}
     {query.isLoading && <div className="py-16 text-center"><LoadingSpinner size="lg" /></div>}
     {query.isError && <div className="glass-card border-danger/40 p-4"><div className="font-black text-danger">Arcade 운영 정보를 불러오지 못했습니다.</div><p className="mt-2 text-xs text-text-secondary">{query.error instanceof Error ? query.error.message : '알 수 없는 오류'}</p><button className="btn-secondary mt-3" onClick={() => void query.refetch()}>다시 시도</button></div>}
@@ -295,10 +297,14 @@ export default function TeacherArcadeLegacyPage({ selectedGameCode, activePanel 
           <div className="mt-1 text-sm font-black text-white">{activeMonthlyPeriod?.display_name ?? verificationPeriod?.display_name ?? '현재 열려 있거나 인증 중인 월간 기간 없음'}</div>
           <div className="mt-1 text-xs font-semibold text-[#f2e9d8]">기간 생성 · 종료 · 최종 확정은 ‘공통 기간 관리’에서 처리합니다.</div>
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Link to={`/teacher/arcade?game=${gameTab}&panel=verification`} className="rounded-card-md border border-gold/40 bg-gold/10 p-4 hover:border-gold/70">
             <b className="text-base text-white">🏅 공인 도전</b>
             <p className="mt-2 text-xs font-semibold leading-5 text-[#f2e9d8]">인증 현황, 학생별 시도, 종료 및 보정 처리</p>
+          </Link>
+          <Link to={`/teacher/arcade?game=${gameTab}&panel=history`} className="rounded-card-md border border-line bg-bg-deep p-4 hover:border-gold/60">
+            <b className="text-base text-white">📜 인증 기록 조회</b>
+            <p className="mt-2 text-xs font-semibold leading-5 text-[#f2e9d8]">1·2·3차 인증 점수, 성공 차수, 잠정 최고 돌파 여부 확인</p>
           </Link>
           <Link to={`/teacher/arcade?game=${gameTab}&panel=records`} className="rounded-card-md border border-line bg-bg-deep p-4 hover:border-gold/60">
             <b className="text-base text-white">📊 기록 · 순위</b>
