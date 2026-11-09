@@ -94,7 +94,12 @@ function BroadcastVolunteer({ session, serverNow }: { session: RaidClashSession;
       <div className="text-3xl font-black text-sky-100">
         길드의 대표 모험가 {clashPlannedCount(session) > 1 ? `${clashPlannedCount(session)}명을` : '를'} 모집합니다 — 학생 화면에서 「격돌 지원」!
       </div>
-      <div className="font-mono text-[6rem] font-black tabular-nums leading-none text-yellow-100">{secondsLeft > 0 ? secondsLeft.toFixed(1) : '추첨 중'}</div>
+      {/* CLASH_V4_20261109: 마감 뒤에는 어느 선택 방식이든 똑같이 '격돌잡이 추첨 중' */}
+      {secondsLeft > 0 ? (
+        <div className="font-mono text-[6rem] font-black tabular-nums leading-none text-yellow-100">{secondsLeft.toFixed(1)}</div>
+      ) : (
+        <div className="font-display text-[5rem] leading-none text-yellow-100 drop-shadow-[0_0_28px_rgba(250,204,21,0.6)] animate-pulse">격돌잡이 추첨 중</div>
+      )}
       <div className="rounded-full border border-yellow-200/50 bg-yellow-500/15 px-6 py-2 text-2xl font-black text-yellow-50">지원자 {session.volunteer_count}명</div>
     </div>
   );

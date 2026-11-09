@@ -25,6 +25,7 @@ import {
 import { useClashPlayer } from '@/features/raid/clash/useClashPlayer';
 import { playClashJudgmentSfx, unlockClashSfx } from '@/features/raid/clash/clashSfx';
 import RaidClashRehearsal from './RaidClashRehearsal';
+import RaidClashPickPanel from './RaidClashPickPanel'; // CLASH_V4_20261109
 
 const DIFFICULTIES: RaidClashDifficulty[] = ['EASY', 'NORMAL', 'HARD'];
 // RAID_CLASH_V3_20261104: 레이드마다 정하는 대표 인원(서버 V3 적용 전에는 3명 고정)
@@ -218,6 +219,8 @@ export default function RaidClashConfigTab({ raidId, raidStatus }: { raidId: num
         </div>
       )}
       <div className="text-xs font-bold text-sky-100">그로기와 겹치면 「약점 배율 × 그로기」와 「약점 배율 + 격돌」 중 큰 값 하나만 적용됩니다. 격돌 중에는 교사 일시정지가 막힙니다.</div>
+
+      <RaidClashPickPanel raidId={raidId} raidStatus={raidStatus} />
 
       <ClashLiveTrigger raidId={raidId} raidStatus={raidStatus} enabled={data.enabled} session={data.clash?.session ?? null}
         onChanged={() => void queryClient.invalidateQueries({ queryKey: ['teacher-raid-clash-config', raidId] })} />

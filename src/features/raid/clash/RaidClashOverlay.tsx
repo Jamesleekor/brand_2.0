@@ -169,7 +169,7 @@ function VolunteerPanel({
           ✅ 지원 완료! 추첨을 기다려 주세요
         </div>
       ) : closed ? (
-        <div className="rounded-card-md border border-sky-300/40 bg-sky-950/70 px-5 py-3 text-lg font-black text-sky-100">추첨 중…</div>
+        <div className="rounded-card-md border border-sky-300/40 bg-sky-950/70 px-5 py-3 text-lg font-black text-sky-100">격돌잡이 추첨 중…</div>
       ) : (
         <button
           type="button"

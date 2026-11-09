@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase/client';
 import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
 import RaidV15ConfigPanel, { type RaidConfigTabKey } from '@/features/teacher/raid/RaidV15ConfigPanel';
+import RaidClashPickPanel from '@/features/teacher/raid/RaidClashPickPanel'; // CLASH_V4_20261109
 import RaidTargetingEditor from '@/features/teacher/raid/RaidTargetingEditor';
 // RAID_HUD_V3_20261106
 import RaidHudLayoutEditor from '@/features/teacher/raid/RaidHudLayoutEditor';
@@ -892,6 +893,10 @@ export default function RaidControlPage() {
                 )
               ) : (
                 <>
+                  {pageTab === 'LIVE' ? (
+                    <RaidClashPickPanel raidId={detail.raid.id} raidStatus={detail.raid.status} />
+                  ) : null}
+
                   {pageTab === 'LIVE' ? (
                     <LivePanel
                       data={liveQuery.data}

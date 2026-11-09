@@ -101,6 +101,45 @@ export interface RaidClashTeacherConfig {
   /** RAID_CLASH_V3_20261104: 이 레이드의 격돌 대표 인원(1~12). V3 서버 적용 전에는 없음 → 3명으로 본다. */
   player_count?: number;
   max_player_count?: number;
+  /** CLASH_V4_20261109: 격돌잡이 선택 방식(교사 전용). V4 서버 적용 전에는 없음 → RANDOM */
+  selection_mode?: RaidClashSelectionMode;
+}
+
+// CLASH_V4_20261109 — 선생님이 격돌잡이 선택
+export type RaidClashSelectionMode = 'RANDOM' | 'TEACHER';
+
+export interface RaidClashPickVolunteer {
+  participant_id: number;
+  student_id: number;
+  student_name: string;
+  guild_name: string | null;
+  guild_logo_url: string | null;
+  character_image_url: string | null;
+  attack_blocked: boolean;
+  volunteered_at: string;
+  /** 전체 레이드에서 격돌잡이를 한 횟수(이번 격돌 제외) */
+  clash_count_total: number;
+}
+
+export interface RaidClashPickState {
+  raid_id: number;
+  raid_status: string;
+  enabled: boolean;
+  configured: boolean;
+  selection_mode: RaidClashSelectionMode;
+  planned_player_count: number;
+  server_now: string;
+  session: null | {
+    id: number;
+    phase: string;
+    volunteer_closes_at: string;
+    volunteer_accept_until: string;
+    pick_deadline_at: string;
+    teacher_pick: number[] | null;
+    picked: boolean;
+    volunteers: RaidClashPickVolunteer[];
+    players: number[];
+  };
 }
 
 async function callRpc<T>(supabase: SupabaseClient, fn: string, args: Record<string, unknown>): Promise<RpcResult<T>> {
@@ -150,6 +189,16 @@ export const raidV15AdminRpc = {
   // RAID_CLASH_V1_20261028 — 교사 테스트용: HP와 관계없이 지금 격돌을 발동(레이드당 1회, 전투 중에만)
   triggerClash: (supabase: SupabaseClient, raidId: number) =>
     callRpc<{ triggered: boolean; clash: RaidClashPublicState }>(supabase, 'teacher_trigger_raid_clash', { p_raid_id: raidId }),
+
+  // CLASH_V4_20261109 — 선생님이 격돌잡이 선택(교사 전용)
+  clashPickState: (supabase: SupabaseClient, raidId: number) =>
+    callRpc<RaidClashPickState>(supabase, 'teacher_get_raid_clash_pick_state', { p_raid_id: raidId }),
+
+  pickClashPlayers: (supabase: SupabaseClient, raidId: number, participantIds: number[]) =>
+    callRpc<RaidClashPickState>(supabase, 'teacher_pick_raid_clash_players', { p_raid_id: raidId, p_participant_ids: participantIds }),
+
+  setClashSelectionMode: (supabase: SupabaseClient, raidId: number, mode: RaidClashSelectionMode) =>
+    callRpc<RaidClashPickState>(supabase, 'teacher_set_raid_clash_selection_mode', { p_raid_id: raidId, p_mode: mode }),
 
   triggerPattern: (supabase: SupabaseClient, raidId: number, patternId: number) =>
     callRpc<{ event?: string; pattern_run_id?: number; pattern_type?: string; pattern_name?: string }>(
