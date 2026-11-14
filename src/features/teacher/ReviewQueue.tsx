@@ -293,7 +293,7 @@ function AchievementReviewCard({ application: app }: { application: TeacherAchie
           </div>
           <h4 className="font-display text-lg tracking-tight text-white">{app.achievement_name || '업적'}</h4>
           <p className="mt-1 text-xs font-bold text-text-secondary">신청자 · <span className="text-text-primary">{app.student_name}</span></p>
-          <ApplicationSubmittedAt createdAt={app.created_at} />
+      <ApplicationSubmittedAt createdAt={app.created_at} />
         </div>
         <div className="flex flex-shrink-0 flex-col items-end gap-1">
           {app.reward_bv > 0 && <span className="text-xs font-bold text-bv">⭐ BV +{app.reward_bv}</span>}
