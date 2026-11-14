@@ -5,6 +5,7 @@ import { EmptyState, LoadingSpinner } from '@/components/shared/components';
 import {
   inventoryMarketRpc,
   type EconomyHistoryKind,
+  type EconomyHistoryFilter,
   type TeacherEconomyHistoryRow,
   type TeacherHistoryVisibilityRow,
 } from '@/lib/rpc/inventory_market_rpc';
@@ -26,6 +27,15 @@ const KIND_FILTERS: { value: EconomyHistoryKind; label: string; emoji: string }[
   { value: 'INVENTORY', label: '기타 아이템', emoji: '📦' },
 ];
 
+const ASSET_FILTERS = [
+  { value: 'ALL', label: '모든 자산', emoji: '🔎' },
+  { value: 'BV', label: '브랜드가치 (BV)', emoji: '⭐' },
+  { value: 'GOLD', label: 'GOLD', emoji: '🪙' },
+  { value: 'CRYSTAL', label: 'CRYSTAL', emoji: '💎' },
+] as const;
+
+type AssetFilter = (typeof ASSET_FILTERS)[number]['value'];
+
 const KIND_META: Record<Exclude<EconomyHistoryKind, 'ALL'>, { label: string; emoji: string; cls: string }> = {
   ASSET: { label: '자산', emoji: '💰', cls: 'border-bv/30 bg-bv/10 text-bv' },
   PURCHASE: { label: '구매', emoji: '🛒', cls: 'border-danger/30 bg-danger-bg text-danger' },
@@ -44,6 +54,7 @@ export default function EconomyHistoryPanel({ classroomId }: { classroomId: numb
   const queryClient = useQueryClient();
   const showToast = useToastStore((state) => state.show);
   const [kind, setKind] = useState<EconomyHistoryKind>('ALL');
+  const [assetToken, setAssetToken] = useState<AssetFilter>('ALL');
   const [studentId, setStudentId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -54,11 +65,11 @@ export default function EconomyHistoryPanel({ classroomId }: { classroomId: numb
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(() => new Set());
   const [historyBusy, setHistoryBusy] = useState<string | null>(null);
 
-  useEffect(() => setPage(0), [kind, studentId, search, dateFrom, dateTo]);
-  useEffect(() => setSelectedKeys(new Set()), [page, kind, studentId, search, dateFrom, dateTo, showHidden, showTestRecords]);
+  useEffect(() => setPage(0), [kind, assetToken, studentId, search, dateFrom, dateTo]);
+  useEffect(() => setSelectedKeys(new Set()), [page, kind, assetToken, studentId, search, dateFrom, dateTo, showHidden, showTestRecords]);
 
   const query = useQuery({
-    queryKey: ['teacher-economy-history', classroomId, kind, studentId, search, dateFrom, dateTo, page],
+    queryKey: ['teacher-economy-history', classroomId, kind, assetToken, studentId, search, dateFrom, dateTo, page],
     queryFn: async () => {
       if (!classroomId) return null;
       const result = await inventoryMarketRpc.teacherEconomyHistory(supabase, {
@@ -66,7 +77,7 @@ export default function EconomyHistoryPanel({ classroomId }: { classroomId: numb
         p_limit: PAGE_SIZE,
         p_offset: page * PAGE_SIZE,
         p_student_id: studentId,
-        p_kind: kind,
+        p_kind: (assetToken === 'ALL' ? kind : `${kind}:${assetToken}`) as EconomyHistoryFilter,
         p_search: search.trim() || null,
         p_date_from: dateFrom || null,
         p_date_to: dateTo || null,
@@ -308,7 +319,10 @@ export default function EconomyHistoryPanel({ classroomId }: { classroomId: numb
             <button
               key={filter.value}
               type="button"
-              onClick={() => setKind(filter.value)}
+              onClick={() => {
+                setKind(filter.value);
+                if (filter.value === 'USE' || filter.value === 'INVENTORY') setAssetToken('ALL');
+              }}
               className={cn(
                 'flex-shrink-0 rounded-pill border px-3 py-2 text-xs font-black',
                 kind === filter.value
@@ -320,6 +334,29 @@ export default function EconomyHistoryPanel({ classroomId }: { classroomId: numb
             </button>
           ))}
         </div>
+
+        {kind !== 'USE' && kind !== 'INVENTORY' && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line/60 pt-3">
+            <span className="mr-1 text-[11px] font-black text-text-secondary">자산별 보기</span>
+            {ASSET_FILTERS.map((filter) => (
+              <button
+                key={filter.value}
+                type="button"
+                onClick={() => setAssetToken(filter.value)}
+                aria-pressed={assetToken === filter.value}
+                className={cn(
+                  'rounded-pill border px-3 py-2 text-xs font-black',
+                  assetToken === filter.value
+                    ? 'border-brand-primary/50 bg-brand-primary/20 text-white'
+                    : 'border-line bg-bg-deep text-text-secondary',
+                )}
+              >
+                {filter.emoji} {filter.label}
+              </button>
+            ))}
+            <span className="text-[10px] font-semibold text-text-muted">선택한 자산의 기록만 서버에서 조회합니다.</span>
+          </div>
+        )}
 
         <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-[180px_1fr_150px_150px]">
           <select
@@ -390,11 +427,11 @@ export default function EconomyHistoryPanel({ classroomId }: { classroomId: numb
             {hiddenOnRawPage > 0 ? ` · 숨김 ${hiddenOnRawPage}` : ''}
             {testOnRawPage > 0 ? ` · 테스트 ${testOnRawPage}` : ''}
           </span>
-          {(search || studentId || dateFrom || dateTo || kind !== 'ALL') && (
+          {(search || studentId || dateFrom || dateTo || kind !== 'ALL' || assetToken !== 'ALL') && (
             <button
               type="button"
               className="text-text-secondary hover:text-white"
-              onClick={() => { setKind('ALL'); setStudentId(null); setSearch(''); setDateFrom(''); setDateTo(''); }}
+              onClick={() => { setKind('ALL'); setAssetToken('ALL'); setStudentId(null); setSearch(''); setDateFrom(''); setDateTo(''); }}
             >
               필터 초기화
             </button>

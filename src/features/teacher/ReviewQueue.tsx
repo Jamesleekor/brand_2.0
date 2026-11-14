@@ -31,6 +31,28 @@ import { cn } from '@/lib/utils/cn';
 
 type Tab = 'achievement' | 'secondary_job';
 
+// 신청 시각은 브라우저의 시간대 설정과 관계없이 한국 표준시로 고정합니다.
+const applicationTimeKst = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+
+function ApplicationSubmittedAt({ createdAt }: { createdAt: string }) {
+  const submitted = new Date(createdAt);
+  const formatted = Number.isNaN(submitted.getTime()) ? '시각 확인 불가' : applicationTimeKst.format(submitted);
+  return (
+    <p className="mt-1 text-[11px] font-bold text-text-secondary">
+      🕒 신청 시각 (KST) · <time dateTime={createdAt} className="font-mono font-extrabold text-text-primary">{formatted}</time>
+    </p>
+  );
+}
+
 interface SecondaryJobApplication {
   id: number;
   studentId: number;
@@ -271,6 +293,7 @@ function AchievementReviewCard({ application: app }: { application: TeacherAchie
           </div>
           <h4 className="font-display text-lg tracking-tight text-white">{app.achievement_name || '업적'}</h4>
           <p className="mt-1 text-xs font-bold text-text-secondary">신청자 · <span className="text-text-primary">{app.student_name}</span></p>
+      <ApplicationSubmittedAt createdAt={app.created_at} />
         </div>
         <div className="flex flex-shrink-0 flex-col items-end gap-1">
           {app.reward_bv > 0 && <span className="text-xs font-bold text-bv">⭐ BV +{app.reward_bv}</span>}
@@ -443,6 +466,7 @@ function SpecialReportReviewCard({ application: app, candidates }: { application
       </div>
       <h4 className="mt-2 font-display text-lg text-amber-100">히든 업적 특별보고</h4>
       <p className="mt-1 text-xs font-bold text-text-secondary">신청자 · <span className="text-text-primary">{app.student_name}</span></p>
+          <ApplicationSubmittedAt createdAt={app.created_at} />
 
       <div className="mt-3 rounded-card-sm border border-amber-200/15 bg-bg-deep p-3">
         <div className="text-2xs font-black uppercase tracking-widest text-text-muted">학생이 보고한 특별 성과</div>
