@@ -226,6 +226,8 @@ export interface SnackTicketExchangeResult {
 }
 
 export type EconomyHistoryKind = 'ALL' | 'ASSET' | 'PURCHASE' | 'SALE' | 'USE' | 'INVENTORY';
+// 기존 분류와 자산 통화(BV/GOLD/CRYSTAL)를 서버에서 조합 필터링합니다.
+export type EconomyHistoryFilter = EconomyHistoryKind | `${EconomyHistoryKind}:${'BV' | 'GOLD' | 'CRYSTAL'}`;
 export type ItemHistoryFilter = 'ALL' | 'PURCHASE' | 'SALE' | 'USE';
 
 export interface EconomyHistoryStudent {
@@ -431,7 +433,7 @@ export const inventoryMarketRpc = {
     p_limit?: number;
     p_offset?: number;
     p_student_id?: number | null;
-    p_kind?: EconomyHistoryKind;
+    p_kind?: EconomyHistoryFilter;
     p_search?: string | null;
     p_date_from?: string | null;
     p_date_to?: string | null;
