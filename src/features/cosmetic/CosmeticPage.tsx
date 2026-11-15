@@ -32,6 +32,8 @@ interface CosmeticPricingOption {
   id: number;
   valueToken: string;
   price: number;
+  originalPrice: number;
+  worldDiscountPercent: number;
   conditionDescription: string | null;
 }
 
@@ -374,6 +376,12 @@ function CosmeticDetailModal({ item, onClose }: { item: CosmeticItem; onClose: (
                         <span className="text-sm font-black">{formatPricingOption(option)}</span>
                         {selectedPricingId === option.id && <span className="text-2xs font-black text-brand-glow">선택</span>}
                       </div>
+                      {option.originalPrice > option.price && (
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-2xs">
+                          <span className="text-text-muted line-through">{formatNumber(option.originalPrice)} {option.valueToken}</span>
+                          <span className="font-black text-success">원정 월드효과 {option.worldDiscountPercent}% 할인</span>
+                        </div>
+                      )}
                       {option.conditionDescription && (
                         <div className="mt-1 text-2xs font-bold text-text-secondary">조건: {option.conditionDescription}</div>
                       )}
@@ -417,8 +425,14 @@ function PricingSummary({ options }: { options: CosmeticPricingOption[] }) {
   return (
     <div className="flex flex-wrap gap-1.5 text-2xs font-bold">
       {options.slice(0, 2).map((option) => (
-        <span key={option.id} className={pricingTokenClass(option.valueToken)}>
-          {formatPricingOption(option)}
+        <span key={option.id} className="inline-flex flex-col gap-0.5">
+          <span className={pricingTokenClass(option.valueToken)}>{formatPricingOption(option)}</span>
+          {option.originalPrice > option.price && (
+            <span className="text-[10px] font-black text-success">
+              <span className="mr-1 text-text-muted line-through">{formatNumber(option.originalPrice)}</span>
+              원정 -{option.worldDiscountPercent}%
+            </span>
+          )}
         </span>
       ))}
       {options.length > 2 && <span className="text-text-muted">+{options.length - 2}</span>}
@@ -473,6 +487,8 @@ function useCosmeticItems() {
             id: Number(price.id),
             valueToken: String(price.value_token ?? ''),
             price: Number(price.price ?? 0),
+            originalPrice: Number(price.original_price ?? price.price ?? 0),
+            worldDiscountPercent: Number(price.world_discount_percent ?? 0),
             conditionDescription: price.condition_description ? String(price.condition_description) : null,
           }));
 
