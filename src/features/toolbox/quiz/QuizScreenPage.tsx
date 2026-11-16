@@ -8,7 +8,7 @@
 // 작은 순위판은 '마지막으로 공개한 점수'만 보여 준다.
 // =====================================================================
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase/client';
 import { colorAt, useFullscreen, useToolboxPrefs } from '../ui';
@@ -176,14 +176,18 @@ function PlayView({ s, mediaCmd }: { s: ScreenState; mediaCmd: { cmd: string; re
   const submitted = s.guilds.filter((g) => g.submitted).length;
 
   // 답안이 공개된 뒤: 문제는 위로 올리고, 가운데를 길드 수만큼 나눠 답안을 크게 보여 준다
+  // 답이 하나라도 길면 그 문제만 '길드마다 가로 한 줄' 배치로 바꿔, 긴 답도 한 줄로 읽히게 한다
   if (s.q_phase === 'REVEALED' || s.q_phase === 'GRADED') {
+    const rows = needsRowLayout(s.guilds);
     return (
       <div className="qz-play qz-play--reveal">
         <p className="qz-reveal__q">{q.prompt}</p>
         {s.q_phase === 'GRADED' && q.answer_key && (
           <div className="qz-play__key qz-play__key--top">정답 <b>{q.answer_key}</b>{q.explanation ? <span>{q.explanation}</span> : null}</div>
         )}
-        <div className="qz-cards qz-cards--reveal" style={{ gridTemplateColumns: `repeat(${Math.min(s.guilds.length, 5)}, minmax(0, 1fr))` }}>
+        <div className={rows ? 'qz-cards qz-cards--reveal qz-cards--rows' : 'qz-cards qz-cards--reveal'}
+          style={rows ? { gridTemplateRows: `repeat(${s.guilds.length}, minmax(0, 1fr))` }
+            : { gridTemplateColumns: `repeat(${Math.min(s.guilds.length, 5)}, minmax(0, 1fr))` }}>
           {s.guilds.map((g, i) => <AnswerCard key={g.guild_id} g={g} i={i} s={s} />)}
         </div>
       </div>
@@ -225,9 +229,9 @@ function AnswerCard({ g, i, s }: { g: ScreenGuild; i: number; s: ScreenState }) 
       </div>
       <div className="qz-card__body">
         {revealed ? (
-          <span className={!g.answer ? 'qz-card__answer qz-card__answer--none'
-            : g.answer.length > 14 ? 'qz-card__answer qz-card__answer--s' : g.answer.length > 8 ? 'qz-card__answer qz-card__answer--m'
-            : g.answer.length > 4 ? 'qz-card__answer qz-card__answer--l' : 'qz-card__answer'}>{g.answer ?? '미제출'}</span>
+          !g.answer ? <span className="qz-card__answer qz-card__answer--none">미제출</span>
+          : <FitAnswer text={g.answer} className={g.answer.length > 14 ? 'qz-card__answer qz-card__answer--s' : g.answer.length > 8 ? 'qz-card__answer qz-card__answer--m'
+            : g.answer.length > 4 ? 'qz-card__answer qz-card__answer--l' : 'qz-card__answer'} />
         ) : g.submitted ? (
           <span className="qz-card__lock">🔒 제출 완료</span>
         ) : s.q_phase === 'LOCKED' ? (
@@ -240,6 +244,44 @@ function AnswerCard({ g, i, s }: { g: ScreenGuild; i: number; s: ScreenState }) 
       {graded && <span className="qz-sr">{g.verdict === 'CORRECT' ? '정답' : '오답'}</span>}
     </div>
   );
+}
+
+// 공개된 답 중 하나라도 길면 가로 줄 배치로 바꾼다
+// (길드 4곳 이상이면 6자 초과, 그보다 적으면 칸이 넓으니 12자 초과일 때)
+function needsRowLayout(guilds: ScreenGuild[]) {
+  const limit = guilds.length >= 4 ? 6 : 12;
+  return guilds.some((g) => (g.answer ?? '').trim().length > limit);
+}
+
+// 답안 글씨를 칸(.qz-card__body) 안에 꼭 맞는 가장 큰 크기로 맞춘다.
+// 글자 수로 대충 정한 크기(--l/--m/--s)는 처음 한 순간만 쓰이고, 실제 칸 크기를 재서 다시 정한다.
+// 칸 크기가 바뀌면(정답·해설 줄이 나타날 때, 창 크기 변경) 다시 맞춘다.
+function FitAnswer({ text, className }: { text: string; className: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const box = el?.parentElement;
+    if (!el || !box) return;
+    const fit = () => {
+      const maxW = box.clientWidth;
+      const maxH = box.clientHeight;
+      if (maxW <= 0 || maxH <= 0) return;
+      const base = parseFloat(getComputedStyle(box).fontSize) || 20;   // 화면 기본 글씨 크기
+      const fits = (px: number) => { el.style.fontSize = `${px}px`; return el.scrollWidth <= maxW + 1 && el.offsetHeight <= maxH + 1; };
+      el.style.overflowWrap = 'normal';                                // 이름 중간에서 끊기지 않게 먼저 시도
+      let lo = Math.max(14, Math.round(base * 0.8));
+      let hi = Math.round(base * 6);                                   // 아무리 짧아도 이보다 크게는 키우지 않음
+      if (!fits(lo)) { el.style.overflowWrap = 'anywhere'; fits(lo); return; }  // 가장 작게 해도 넘치면 줄바꿈 허용
+      while (hi - lo > 1) { const mid = Math.floor((lo + hi) / 2); if (fits(mid)) lo = mid; else hi = mid; }
+      fits(lo);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(box);
+    void document.fonts?.ready.then(fit);
+    return () => ro.disconnect();
+  }, [text]);
+  return <span ref={ref} className={className}>{text}</span>;
 }
 
 function MiniBoard({ s }: { s: ScreenState }) {

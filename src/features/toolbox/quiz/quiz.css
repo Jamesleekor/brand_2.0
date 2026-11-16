@@ -189,6 +189,18 @@
 .qz-cards--reveal .qz-card__answer--m { font-size: 2.6em; }
 .qz-cards--reveal .qz-card__answer--s { font-size: 1.9em; }
 .qz-cards--reveal .qz-card__answer--none { font-size: 2.2em; }
+.qz-cards--reveal .qz-card__answer { display: block; max-width: none; }   /* 글씨 자동 맞춤에서 실제 폭을 재기 위해 블록으로 */
+
+/* 답이 긴 문제: 길드마다 가로 한 줄 — 왼쪽 길드·선수, 가운데 답안(한 줄로 크게), 오른쪽 득점 */
+.qz-cards--rows { grid-template-columns: minmax(0, 1fr); gap: 1.1vh; }
+.qz-cards--rows .qz-card { display: grid; grid-template-columns: minmax(8em, 15%) minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); align-items: center; column-gap: 1.6vw;
+  padding: 0.6vh 1.6vw; border-top-width: 2px; border-left: 0.9vw solid var(--qz-c); overflow: hidden; }
+.qz-cards--rows .qz-card__head { align-items: flex-start; text-align: left; }
+.qz-cards--rows .qz-card__guild { font-size: 1.45em; line-height: 1.15; }
+.qz-cards--rows .qz-card__player { font-size: 1.05em; line-height: 1.15; }
+.qz-cards--rows .qz-card__body { align-self: stretch; min-height: 0; justify-content: flex-start; text-align: left; }
+.qz-cards--rows .qz-card__points { padding-right: 0.4em; }
+.qz-cards--rows .qz-card--correct { transform: scale(1.008); }
 
 .qz-board { align-self: start; padding: 1em; border-radius: 18px; background: rgba(0,0,0,0.28); border: 1px solid var(--tbx-line); }
 .qz-board__title { font-size: 1.1em; font-weight: 900; color: var(--tbx-brass-hi); margin-bottom: 0.6em; display: flex; justify-content: space-between; align-items: baseline; gap: 0.5em; }
