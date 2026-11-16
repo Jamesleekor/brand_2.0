@@ -851,7 +851,11 @@ export default function RaidBattlePage() {
     const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
     const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
 
-    if (!isRaidTapAllowedLocally(targeting, state?.combat.active_pattern ?? null, x, y)) {
+    // CLASH_WZ_TARGET_20261109: 격돌 버프 중 약점 칸은 C/D 영역 밖이어도 공격 가능 (서버와 같은 규칙)
+    const clashTapCtx = clashAttackContext(state?.clash?.session, Date.now() + serverClockOffsetRef.current);
+    const clashWeakTap = clashTapCtx.buffActive && insideClashWeakZone(clashTapCtx.weakZone, x, y);
+
+    if (!clashWeakTap && !isRaidTapAllowedLocally(targeting, state?.combat.active_pattern ?? null, x, y)) {
       const now = Date.now();
       const recentMisses = targetingMissTimesRef.current.filter((value) => now - value <= 2000);
       recentMisses.push(now);
