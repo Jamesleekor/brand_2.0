@@ -19,6 +19,23 @@ import { cn } from '@/lib/utils/cn';
 const GRADES: AchievementGrade[] = ['희귀', '유니크', '에픽', '히든', '유일', '초월'];
 const PREFIXES = ['ACH', 'ART', 'CHAL', 'CONS', 'ECO', 'GUILD', 'HID', 'LIFE', 'MVP', 'RANK', 'START', 'STORY', 'STU', 'TEAM', 'VAC', 'EVENT', 'ETC'];
 
+/** Format the recorded grant timestamp (UTC) in Korea Standard Time. */
+const achievementGrantedAtKstFormatter = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+function formatAchievementGrantedAt(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '--';
+  return `${achievementGrantedAtKstFormatter.format(date)} (KST)`;
+}
+
 type FormState = {
   achievementUid: string;
   prefix: string;
@@ -586,7 +603,7 @@ function AchievementGrantManager({
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="font-black text-white">{holder.student_name} {holder.is_equipped && <span className="text-2xs text-gold">· 칭호 장착 중</span>}</div>
-                        <div className="mt-1 text-2xs font-bold text-text-muted">획득 {formatRelativeTime(holder.achieved_at)}</div>
+                        <div className="mt-1 text-xs font-bold text-text-primary tabular-nums">획득 {formatAchievementGrantedAt(holder.achieved_at)}</div>
                       </div>
                       <button className="rounded-pill border border-danger/40 px-3 py-1.5 text-xs font-black text-danger" onClick={() => { setRevokeTarget(holder); setRevokeReason(''); }}>회수</button>
                     </div>
