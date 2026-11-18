@@ -108,6 +108,22 @@ export default function RaidPortalPage() {
           )}
         </section>
 
+        {/* RAID_INSCRIPTION_V1_20261118: 주문 각인 연습장 바로가기 */}
+        <section className="mt-6">
+          <button
+            type="button"
+            onClick={() => navigate('/raid/practice/inscription')}
+            className="flex w-full flex-wrap items-center justify-between gap-3 rounded-card-lg border border-violet-300/30 bg-[#120e1e]/80 p-4 text-left backdrop-blur transition hover:border-yellow-200/50"
+          >
+            <div>
+              <div className="text-xs font-black tracking-[0.16em] text-violet-200">PRACTICE</div>
+              <div className="mt-1 text-lg font-black text-white">✒ 주문 각인 연습장</div>
+              <div className="mt-1 text-xs font-bold text-violet-100/80">보스의 주문을 키보드로 받아 적는 패턴을 미리 연습해 보세요.</div>
+            </div>
+            <span className="rounded-pill border border-yellow-200/40 bg-yellow-400/10 px-3 py-1.5 text-xs font-black text-yellow-100">연습하러 가기 →</span>
+          </button>
+        </section>
+
         <section className="mt-6 rounded-card-lg border border-white/15 bg-[#07111f]/78 p-5 backdrop-blur">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
