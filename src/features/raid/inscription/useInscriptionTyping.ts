@@ -5,7 +5,7 @@
 // * 문자열 하나를 끝까지 맞게 치면 onComplete를 한 번 부른다. 성공 판정은 서버(또는 연습 모드)가 한다.
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { INSCRIPTION_DEFAULTS, inscriptionLetterFromEvent } from './inscriptionCore';
+import { INSCRIPTION_DEFAULTS, inscriptionLetterFromEvent, isTypingIntoField } from './inscriptionCore';
 
 export interface InscriptionWrongKey {
   /** 틀린 칸 위치(0부터) */
@@ -101,6 +101,7 @@ export function useInscriptionTyping({
     if (!active) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (isTypingIntoField(event)) return;
       const letter = inscriptionLetterFromEvent(event);
       if (!letter) return;
       event.preventDefault();

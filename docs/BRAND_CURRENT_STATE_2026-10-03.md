@@ -107,3 +107,12 @@ Repo authoritative source:
 ## 1인1역 기록실 학생 화면 (2026-10-31, 소스 구현·배포 대기)
 
 홈의 ‘나의 1인1역’ 카드를 `/primary-jobs`에 연결하고 월별 담당표·역할별 이력·학생별 이력을 추가했다. 현재 운영 RPC의 187행을 읽으며, 6월 기록 분실·일급 미등록·11월 배정 대기를 구분한다. 학생별 표는 내용 폭으로 역할과 일급을 가까이 정렬한다. 기존 메뉴·운영 배정·급여는 바꾸지 않는다. 정적 검증 후 전달하며 사용자 로컬 build·commit/push·배포 후 로그인 E2E는 후속 확인이다. 상세: `docs/PRIMARY_JOB_ARCHIVE_STUDENT_UI_20261031.md`.
+
+
+## 길드 현황 카드 구성원 표시 (2026-11-18, 소스 전달)
+
+교사 길드 현황에 학생 실명과 담당 속성 배지를 표시한다. 기존 조회와 캐시 갱신을 재사용하며 DB 변경은 없다. 부분 패치 전달 상태이며 사용자 로컬 build와 로그인 화면 확인은 미완료. 상세: docs/GUILD_CARD_MEMBERS_20261118.md.
+
+## 출석·일일퀘스트 기록 창 V1 (2026-11-19, 운영 DB 적용 완료 · 소스 전달)
+
+홈 출석현황 창을 날짜별 일일퀘스트 기록 창으로 확장했다(학생 읽기 전용). 운영 DB migration `attendance_quest_record_calendar_20261119` 적용: 휴업일 표 `classroom_closures`(운영일 판단 `_is_school_day` 공통 사용), 2학기 첫 주 보관 표 `legacy_daily_quest_results`(672행), 조회 RPC `student_get_my_attendance_quest_calendar`(보정 migration `attendance_quest_not_participant_20261119`: 본인 체크 0행인 날은 `—`). 기존 원장·출결·보상에는 쓰기 없음. 재학생 23명×4개월 실데이터 검증 통과. 사용자 로컬 build·학생 로그인 화면 확인은 미완료. 상세: `docs/ATTENDANCE_QUEST_RECORD_V1_20261119.md`, 명세: `docs/BRAND_ATTENDANCE_DAILY_QUEST_SPEC_v1.3_20261118.md`.

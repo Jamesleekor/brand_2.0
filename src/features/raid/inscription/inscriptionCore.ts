@@ -77,6 +77,14 @@ export function inscriptionLetterFromEvent(event: KeyboardEvent): string | null 
   return null;
 }
 
+/** 글자를 쓰는 칸(입력창·선택상자 등)에서 누른 키인지 — 그런 키는 각인 입력으로 가로채지 않는다 */
+export function isTypingIntoField(event: KeyboardEvent): boolean {
+  const target = event.target as HTMLElement | null;
+  if (!target || typeof target.tagName !== 'string') return false;
+  const tag = target.tagName.toUpperCase();
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable === true;
+}
+
 export function parseServerMs(value: string | null | undefined): number | null {
   if (!value) return null;
   const parsed = Date.parse(value);

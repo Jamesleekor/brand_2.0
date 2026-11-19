@@ -11,6 +11,7 @@ import {
   INSCRIPTION_PRESETS,
   formatSeconds,
   inscriptionKeys,
+  isTypingIntoField,
   makeInscriptionPool,
   type InscriptionPreset,
 } from './inscriptionCore';
@@ -127,7 +128,9 @@ export default function InscriptionPractice({ presets = INSCRIPTION_PRESETS }: {
   useEffect(() => {
     if (phase !== 'ready' && phase !== 'result') return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.repeat) return;
+      if (event.repeat || isTypingIntoField(event)) return;
+      // 버튼에 포커스가 있을 때 Enter/스페이스는 그 버튼을 누르는 것이므로 여기서 또 시작하지 않는다
+      if ((event.target as HTMLElement | null)?.tagName === 'BUTTON') return;
       if (event.code === 'Enter' || event.code === 'NumpadEnter' || event.code === 'Space') {
         event.preventDefault();
         start();
@@ -155,7 +158,8 @@ export default function InscriptionPractice({ presets = INSCRIPTION_PRESETS }: {
               key={item.key}
               type="button"
               disabled={locked}
-              onClick={() => {
+              onClick={(event) => {
+                event.currentTarget.blur(); // 바로 Enter로 시작할 수 있게 버튼 포커스를 놓는다
                 setPresetKey(item.key);
                 setPhase('ready');
                 setResult(null);

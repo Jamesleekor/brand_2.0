@@ -3,7 +3,7 @@
 // Stage 6-C · 생성일 2026-05-20
 // =====================================================================
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAppBackRoute } from '@/lib/navigation/back_route';
@@ -22,11 +22,15 @@ interface ModalProps {
   title: string;
   emoji?: string;
   children: ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'wide' | 'full';
+  size?: 'sm' | 'md' | 'lg' | 'wide' | 'full' | 'record';
+  /** opt-in: 본문 padding을 바꿀 때만 지정. 기본값(p-4)은 그대로. */
+  bodyClassName?: string;
+  /** opt-in: ESC 닫기·배경 스크롤 고정·포커스 가두기·닫은 뒤 포커스 복귀. 기본 꺼짐. */
+  accessibleDialog?: boolean;
 }
 
 export function Modal({ 
-  isOpen, onClose, title, emoji, children, size = 'md' 
+  isOpen, onClose, title, emoji, children, size = 'md', bodyClassName, accessibleDialog = false,
 }: ModalProps) {
   const sizeClass = {
     sm: 'max-w-sm',
@@ -35,7 +39,11 @@ export function Modal({
     wide: 'max-w-[1180px] !max-h-[86dvh]',
 
     full: 'max-w-[calc(100%-32px)] h-[calc(100dvh-32px)]',
+    // 출석·일일퀘스트 기록 창 전용: 데스크톱 960px / 중간 640px / 모바일(≤700px) 화면 전체
+    record: 'max-w-[960px] min-[701px]:max-[1023px]:max-w-[640px] max-[700px]:max-w-none max-[700px]:h-full max-[700px]:!max-h-full max-[700px]:rounded-none',
   }[size];
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  useAccessibleDialog(isOpen && accessibleDialog, panelRef, onClose);
   
   if (typeof document === 'undefined') return null;
 
@@ -47,10 +55,18 @@ export function Modal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4 py-4"
+          className={cn(
+            'fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center px-4 py-4',
+            size === 'record' && 'max-[700px]:p-0 max-[700px]:pt-[env(safe-area-inset-top)] max-[700px]:pb-[env(safe-area-inset-bottom)]',
+          )}
           onClick={onClose}
         >
           <motion.div
+            ref={panelRef}
+            role={accessibleDialog ? 'dialog' : undefined}
+            aria-modal={accessibleDialog ? true : undefined}
+            aria-label={accessibleDialog ? title : undefined}
+            tabIndex={accessibleDialog ? -1 : undefined}
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
@@ -68,13 +84,66 @@ export function Modal({
               </div>
               <button onClick={onClose} className="w-8 h-8 rounded-full bg-bg-deep hover:bg-bg-soft flex items-center justify-center text-text-secondary hover:text-text-primary transition-all" aria-label="닫기">✕</button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">{children}</div>
+            <div className={cn('flex-1 overflow-y-auto p-4', bodyClassName)}>{children}</div>
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>,
     document.body,
   );
+}
+
+// opt-in 접근성 동작 (accessibleDialog=true 일 때만). 다른 모달의 기본 동작은 바꾸지 않는다.
+function useAccessibleDialog(active: boolean, panelRef: { current: HTMLDivElement | null }, onClose: () => void) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    if (!active || typeof document === 'undefined') return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const focusTimer = window.setTimeout(() => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      const closeButton = panel.querySelector<HTMLElement>('button[aria-label="닫기"]');
+      (closeButton ?? panel).focus();
+    }, 0);
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusables = Array.from(
+        panel.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+      ).filter((el) => el.offsetParent !== null);
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const current = document.activeElement;
+      if (event.shiftKey && (current === first || !panel.contains(current))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (current === last || !panel.contains(current))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') previouslyFocused.focus();
+    };
+  }, [active, panelRef]);
 }
 
 // =====================================================================

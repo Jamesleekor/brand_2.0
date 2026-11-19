@@ -22,8 +22,9 @@ import { cn } from '@/lib/utils/cn';
 import RaidPatternGenerator from './RaidPatternGenerator';
 import RaidLootConfigPanel from './RaidLootConfigPanel';
 import RaidClashConfigTab from './RaidClashConfigTab'; // RAID_CLASH_V1_20261028
+import RaidInscriptionConfigTab from './RaidInscriptionConfigTab'; // RAID_INSCRIPTION_V1_20261118
 
-type TabKey = 'COMBAT' | 'PATTERNS' | 'AUDIO' | 'LOOT' | 'CLASH';
+type TabKey = 'COMBAT' | 'PATTERNS' | 'AUDIO' | 'LOOT' | 'CLASH' | 'INSCRIPTION'; // RAID_INSCRIPTION_V1_20261118: INSCRIPTION 추가
 // RAID_ADMIN_LAYOUT_TABS_20261023: 레이드 통제실 페이지 탭이 이 패널의 탭을 직접 고를 때 사용
 export type RaidConfigTabKey = TabKey;
 
@@ -378,6 +379,7 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
         <TabButton active={tab === 'AUDIO'} onClick={() => setTab('AUDIO')}>🔊 오디오 프로필</TabButton>
         <TabButton active={tab === 'LOOT'} onClick={() => setTab('LOOT')}>🎁 전리품 설정</TabButton>
         <TabButton active={tab === 'CLASH'} onClick={() => setTab('CLASH')}>⚔ 격돌 설정</TabButton>
+        <TabButton active={tab === 'INSCRIPTION'} onClick={() => setTab('INSCRIPTION')}>✒ 주문 각인</TabButton>
       </div>
       )}
 
@@ -434,6 +436,7 @@ export default function RaidV15ConfigPanel({ raidId, raidStatus, bossImageUrl, b
       {activeTab === 'AUDIO' ? <AudioEditor value={audio} defaultValue={defaultAudio} effectiveValue={audioQuery.data.effective_profile} scope={audioScope} onScopeChange={setAudioScope} onChange={setAudio} onDefaultChange={setDefaultAudio} disabled={!editableAudio} saving={saving} onSave={saveAudio} onSaveDefault={saveDefaultAudio} /> : null}
       {activeTab === 'LOOT' ? <RaidLootConfigPanel raidId={raidId} raidStatus={raidStatus} /> : null}
       {activeTab === 'CLASH' ? <RaidClashConfigTab raidId={raidId} raidStatus={raidStatus} /> : null}
+      {activeTab === 'INSCRIPTION' ? <RaidInscriptionConfigTab raidId={raidId} raidStatus={raidStatus} /> : null}
         </>
       ) : null}
     </section>

@@ -1,0 +1,114 @@
+# B.R.A.N.D 2.0 — CURRENT STATE
+
+> 2026-10-14 추가 작업: A클래스 아스텔·루미 특별 이미지 구매/전시 기능은 로컬 코드와 SQL 준비 상태.
+> 운영 DB 적용 요청은 승인 단계에서 거절되어 미적용. 상세 상태는 `docs/A_CLASS_HIDDEN_VISUALS_2026-10-14.md` 참고.
+
+> 기준일: 2026-10-03 KST
+> 성격: 운영 기준선. 과거 문서보다 우선한다.
+
+## 1. 운영 상태
+
+- B.R.A.N.D 2.0은 현재 production Supabase + GitHub Pages에서 실제 학급 운영 중이다.
+- Guild 1~5는 모두 구현·운영 중이다.
+- production DB는 로컬 migration 폴더보다 앞선다. 함수/ACL/RLS 변경 전 live introspection을 우선한다.
+
+## 2. Live Auction
+
+- 표준 조회 RPC: `public.get_live_auction_state`.
+- 2026-10-03부터 모든 학생/교사/중계 조회는 `public.auction_live_runtime` 기반 단일 read path를 사용한다.
+- `p_light_mode` 인자는 구버전 클라이언트 호환용으로만 남아 있으며 동작 분기에 사용하지 않는다.
+- `brand_runtime_internal.get_live_auction_state_legacy_v1`과 `auction_state_cache`는 현재 normal read path에서 사용하지 않는다. rollback 자산으로만 유지한다.
+- 학생/중계 payload는 비현재 상품을 compact하게 반환하고, 교사 운영 패널은 편집에 필요한 상세 필드를 반환한다.
+- 현재 상품 recent bids는 현재 item/attempt만 조회한다.
+- 프론트는 아직 polling 기반이다. Realtime 전환은 별도 설계 없이 섞지 않는다.
+
+## 3. RAID
+
+- `submit_raid_tap_batch`와 `raid_combat_tick`은 브라우저의 일반 background REST 2-slot queue를 우회하는 critical fast path다.
+- tap batcher 자체의 1-in-flight, jitter, BUSY/backoff와 서버측 backpressure가 authoritative하다.
+- 일반 상태 조회는 기존 background queue/polling 정책을 유지한다.
+- 2026-10-28: 전투 엔진 v1.5 함수(`raid_combat_tick`, `raid_advance_patterns`, `raid_apply_barrier_damage` 등)의 원본은 저장소에 없고 운영 DB에만 있다. 운영 원본 98개는 `brand_backup.function_snapshots`(label `PRE_ELEMENT_V1_20261028`)에 보관했다. 레이드 함수를 고칠 때는 이 백업과 `pg_get_functiondef`를 기준으로 삼는다.
+- 격돌 RPC 3개(`student_volunteer_raid_clash`, `student_ready_raid_clash`, `student_submit_raid_clash_input`)도 fast path에 포함한다.
+
+## 4. Dimensional Gate AI
+
+Production Edge Function:
+- `dimensional-gate-ai-chat`
+- `dimensional-gate-ai-qa`
+
+현재 provider는 OpenAI Responses API이며 runtime config 기본 모델은 GPT-5.6 Luna 계열이다.
+
+Repo authoritative source:
+- `supabase/functions/dimensional-gate-ai-chat/index.ts`
+- `supabase/functions/dimensional-gate-ai-qa/index.ts`
+
+`supabase/functions/dimensional-gate-chat/index.ts`는 Anthropic 시대의 historical source이며 production 배포용이 아니다.
+
+2026-10-03 정리:
+- chat transport-level fetch failure도 1회 재시도한다.
+- chat/QA 모두 모델에 전달하는 dynamic context를 whitelist 방식으로 구성한다.
+- QA가 Context Packet 신규 필드를 자동으로 모델에 노출하지 않도록 한다.
+
+## 5. 예금 만기
+
+- `brand_deposit_maturity` cron이 5분 간격으로 실행된다.
+- 만기일은 Asia/Seoul 날짜 기준이며 만기일 00:00 KST 이후 자동 정산 대상이다.
+- 자동 cron은 전용 wrapper를 사용하며 교사 JWT를 요구하지 않는다.
+- 교사 은행의 수동 정산은 복구용이다.
+
+## 6. Guild5 월 마감
+
+- `guild5_build_close_preview` 자체는 STABLE read function이다.
+- 교사용 wrapper `teacher_get_guild5_close_preview`가 `guild2_refresh_monthly_scores` 후 preview를 반환한다.
+- 세션 readiness는 학생별 attendance 상태가 아니라 해당 월 session lifecycle(CLOSED 여부) 기준이다.
+- mission readiness는 유효한 mission 중 FINALIZED가 아닌 것이 없으면 READY다.
+- Arcade는 실제 monthly finalization snapshot 완료가 Guild5 READY 조건이다.
+- 공식 Mission GS는 readiness gate가 아니라 실제 길드 점수 구성요소다.
+
+## 7. 아직 남은 감사/개선 영역
+
+- 다학급 확대 전 classroom scope audit.
+- `wallets_select_own`의 teacher/admin 범위 정책 결정.
+- internal financial helpers의 classroom caller contract 문서화.
+- legacy auction rollback 자산은 신규 경매 E2E 확인 후 별도 migration에서 제거 검토.
+- auth initialize 자동 backoff, presence OFF polling 완화 등은 UX/성능 후순위 개선.
+
+## 8. 편린 영입 조건 확장 (2026-10-09)
+
+- 기존 업적 수/등급별 업적 수/티어 조건에 특정 편린 모두 보유, 전체 보유 수, 기본가 기준 보유 가치, 완성 공개 콜렉션 수를 추가했다.
+- 운영 DB migration `20261008154249_character_recruitment_collection_requirements` 적용 완료. 기존 판정 2,005건 동일, 새 판정/권한 테스트 392건 통과.
+- 교사 UI 소스 수정 완료. GitHub 반영 및 사용자 로컬 build/로그인 E2E는 미완료.
+- 네빌 조건은 예시 단계여서 지정하지 않았다. 세부 기준: `docs/CHARACTER_RECRUITMENT_REQUIREMENTS_2026-10-09.md`.
+
+## 9. 편린 능력치 관리 확장 (2026-10-09)
+
+공명력·치명타율에 주/부 속성 배분과 원정 특기 설정을 추가했다. 신규 편린의 누락 프로필도 생성 가능하다. 기존 RPC는 유지하고 교사 전용 combat profile RPC 2개를 추가했다. 운영 DB migration `20261008155719_character_combat_profile_admin.sql` 적용, 기존 값과 원정 스냅샷 보존. 실제 교사 로그인 E2E와 사용자 로컬 build/배포는 후속 확인. 상세: `docs/CHARACTER_COMBAT_PROFILE_ADMIN_2026-10-09.md`.
+
+## 10. Arcade 기간 기록 조회 (2026-10-09)
+
+운영 패널에 ACTIVE 기간부터 일반 기록을 확인하는 3게임 통합 조회를 추가했다. 운영 DB migration `20261009121639_arcade_teacher_period_records` 적용, 실제 10월/9월 각각 72행과 교사/학생/학급 경계 검증 완료. 기존 사전 테스트 순위·공인 인증과 별도로 조회하며 기록/보상/기간 상태를 바꾸지 않는다. 라카루카의 일반 경기와 공인 도전 기록은 구분한다. 전체 TypeScript 정적 검사/실제 응답 Zod/3게임 학생표 서버 렌더 확인 완료. 사용자 승인에 따라 main에 반영하며 실제 교사 로그인 E2E는 배포 후 확인 대상이다. 상세: `docs/ARCADE_PERIOD_RECORDS_FIX_2026-10-09.md`.
+
+## 11. 편린 원정 명품관 명예 테두리 (2026-10-09, 소스 작업 중)
+
+원정 연대기 하단 명품관에 시안 미리보기, 보유 테두리 장착/해제, 판매 상품 구매 UI를 연결했다. 친구·길드·랭킹·레이드 로비·교사용 레이드 중계 카드에는 공통 명예 테두리 표시 컴포넌트를 연결했다. 장착은 기존 `student_set_cosmetic_selection` RPC, 조회는 학급 범위 RLS가 적용된 기존 cosmetic 테이블을 사용한다. **운영 카탈로그는 비어 있고 실제 투명 테두리 자산도 아직 등록되지 않았다. GitHub 반영, 사용자 로컬 build, 로그인 E2E는 미완료.** 등록 규칙과 화면 검증은 `docs/PRESTIGE_BORDER_INTEGRATION_2026-10-09.md`를 따른다.
+
+## 12. 모험가 도구함 v1 (2026-10-17, 소스·SQL 준비)
+
+학생 개인 도구 6종(제비뽑기·사다리·룰렛·순서·타이머·팀 만들기)과 학급 활동 5종(버저·점수판·대진표·투표·카드 구름)을 추가했다. 새 표 8개와 `brand_toolbox` 내부 스키마, 공개 RPC 19개는 `supabase/migrations/20261017_03_adventurer_toolbox.sql`에 있다. 실시간은 `toolbox_pulse` 한 표만 Realtime에 넣는 신호 방식이며 경매·레이드 경로와 섞지 않는다. 기존 표는 읽기만 한다. **운영 DB 미적용, 사용자 로컬 build·로그인 E2E·LOADTEST 실측 미완료.** 적용 순서와 확인표: `docs/ADVENTURER_TOOLBOX_2026-10-17.md`.
+
+## 13. 레이드 속성 대미지 V1 (2026-10-28, 운영 DB 적용 완료)
+
+`supabase/BRAND_RAID_ELEMENT_V1_SERVER_20261017.sql`을 운영에 적용했다(migration `brand_raid_element_v1_server_20261017`). 공격식에 `snapshot_element_multiplier_bp` 배율 1곳만 추가됐고(함수 길이 +64자 확인), 기존 레이드 10개는 OFF, 기존 참가 기록 195건은 1.0배 그대로다. 교사 화면에서 "속성 대미지 사용"을 켜고 **저장한** 레이드만 V1이 된다. 주의: 메타데이터만 V1이고 칸이 OFF인 채로 시작된 레이드는 일시정지·종료 시 메타데이터 갱신 트리거가 "시작 후 규칙 변경"으로 막을 수 있으니, 시작 전에 한 번 저장해 칸을 맞춘다.
+
+## 14. 레이드 격돌(CLASH) V1 (2026-10-28, 소스·SQL 준비, 운영 DB 미적용)
+
+보스 HP가 처음 50% 이하가 되면 전투 전체를 멈추고 5초 지원 → 지원자 중 무작위 1명 → Q/W/E/R 고리 8회 → 결과(대성공 13~16 / 성공 8~12 / 실패 0~7·지원자 없음). 기본 OFF, 레이드별로 교사가 켠다(공명방벽 ON 레이드만). 서버: `supabase/migrations/20261028_01_raid_clash_v1.sql`(새 표 4개, 학생 RPC 3개, 교사 RPC 3개, 기존 함수 문자열 1곳 치환 16곳·불일치 시 전체 중단). 검증: `supabase/tests/raid_clash_v1_rollback_test.sql`(항상 롤백되는 트랜잭션에서 운영 함수 그대로 시험). 화면: `src/features/raid/clash/*`, `RaidClashBroadcastOverlay.tsx`, `RaidClashConfigTab.tsx`. 상세 규칙: `docs/BRAND_RAID_CLASH_HANDOFF_20261028.md`.
+
+## 1인1역 기록실 학생 화면 (2026-10-31, 소스 구현·배포 대기)
+
+홈의 ‘나의 1인1역’ 카드를 `/primary-jobs`에 연결하고 월별 담당표·역할별 이력·학생별 이력을 추가했다. 현재 운영 RPC의 187행을 읽으며, 6월 기록 분실·일급 미등록·11월 배정 대기를 구분한다. 학생별 표는 내용 폭으로 역할과 일급을 가까이 정렬한다. 기존 메뉴·운영 배정·급여는 바꾸지 않는다. 정적 검증 후 전달하며 사용자 로컬 build·commit/push·배포 후 로그인 E2E는 후속 확인이다. 상세: `docs/PRIMARY_JOB_ARCHIVE_STUDENT_UI_20261031.md`.
+
+
+## 길드 현황 카드 구성원 표시 (2026-11-18, 소스 전달)
+
+교사 길드 현황에 학생 실명과 담당 속성 배지를 표시한다. 기존 조회와 캐시 갱신을 재사용하며 DB 변경은 없다. 부분 패치 전달 상태이며 사용자 로컬 build와 로그인 화면 확인은 미완료. 상세: docs/GUILD_CARD_MEMBERS_20261118.md.

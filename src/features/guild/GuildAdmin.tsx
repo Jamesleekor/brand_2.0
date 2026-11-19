@@ -135,8 +135,20 @@ function MembersPanel({data}:{data:AdminData}) {
                 <button type="button" className={g.is_active===false?'btn-primary':'btn-secondary'} onClick={()=>setStatusChanging({guild:g,members})}>{g.is_active===false?'활성화':'비활성화'}</button>
               </div>
             </div>
-            <div className="mt-3 text-xs text-text-secondary">길드원 <b className="text-gold">{members.length}명</b> · {g.is_active===false?'비활성':'활성'}</div>
-            {members.length>0&&<div className="flex flex-wrap gap-1.5 mt-2">{members.map((m:any)=>{const meta=elementMeta(m.element);return <span key={m.id} className="text-[10px] font-black px-2 py-1 rounded-pill bg-bg-card border border-line text-text-secondary">{meta?.emoji||'⚠️'} {meta?.label||'미설정'}</span>})}</div>}
+            <div className="mt-3 text-xs text-[#fff4de]">길드원 <b className="text-gold">{members.length}명</b> · {g.is_active===false?'비활성':'활성'}</div>
+            {members.length>0?(
+              <ul className="flex flex-wrap gap-1.5 mt-2" aria-label={`${g.name} 소속 길드원`}>
+                {members.map((m:any)=>{
+                  const student=studentById.get(Number(m.student_id));
+                  const name=student?.name||student?.brand_name||`학생 #${m.student_id}`;
+                  const meta=elementMeta(m.element);
+                  return <li key={m.id} className="flex max-w-full items-center gap-1.5 px-2.5 py-1.5 rounded-card-md bg-bg-card border border-line" title={student?.brand_name||undefined}>
+                    <span className="min-w-0 break-words text-xs font-bold text-[#fff4de]">{name}</span>
+                    <span className="shrink-0 text-[10px] font-black text-gold">{meta?.emoji||'⚠️'} {meta?.label||'미설정'}</span>
+                  </li>;
+                })}
+              </ul>
+            ):<p className="mt-2 text-xs text-[#fff4de]">소속 길드원 없음</p>}
           </div>;
         })}
       </div>

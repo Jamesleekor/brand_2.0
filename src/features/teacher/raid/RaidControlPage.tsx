@@ -13,6 +13,7 @@ import { useClassroomId } from '@/stores/auth_store';
 import { cn } from '@/lib/utils/cn';
 import RaidV15ConfigPanel, { type RaidConfigTabKey } from '@/features/teacher/raid/RaidV15ConfigPanel';
 import RaidClashPickPanel from '@/features/teacher/raid/RaidClashPickPanel'; // CLASH_V4_20261109
+import RaidInscriptionLivePanel from '@/features/teacher/raid/RaidInscriptionLivePanel'; // RAID_INSCRIPTION_V1_20261118
 import RaidTargetingEditor from '@/features/teacher/raid/RaidTargetingEditor';
 // RAID_HUD_V3_20261106
 import RaidHudLayoutEditor from '@/features/teacher/raid/RaidHudLayoutEditor';
@@ -111,11 +112,11 @@ type RaidForm = {
 
 // RAID_ADMIN_LAYOUT_TABS_20261023: 레이드 통제실을 탭으로 나눠 스크롤 이동을 줄인다.
 // BASIC/VISUAL/RULES = 보스 설정 폼(설정 저장 1개), COMBAT/PATTERNS/AUDIO/LOOT = 레이드 구성 패널, LIVE = 실시간 현황.
-type RaidPageTab = 'BASIC' | 'VISUAL' | 'RULES' | 'COMBAT' | 'PATTERNS' | 'AUDIO' | 'LOOT' | 'CLASH' | 'LIVE';
+type RaidPageTab = 'BASIC' | 'VISUAL' | 'RULES' | 'COMBAT' | 'PATTERNS' | 'AUDIO' | 'LOOT' | 'CLASH' | 'INSCRIPTION' | 'LIVE'; // RAID_INSCRIPTION_V1_20261118: INSCRIPTION 추가
 type RaidEditorSection = 'BASIC' | 'VISUAL' | 'RULES';
 
 const EDITOR_SECTION_TABS: readonly RaidPageTab[] = ['BASIC', 'VISUAL', 'RULES'];
-const CONFIG_PANEL_TABS: readonly RaidPageTab[] = ['COMBAT', 'PATTERNS', 'AUDIO', 'LOOT', 'CLASH']; // RAID_CLASH_V1_20261028: CLASH 추가
+const CONFIG_PANEL_TABS: readonly RaidPageTab[] = ['COMBAT', 'PATTERNS', 'AUDIO', 'LOOT', 'CLASH', 'INSCRIPTION']; // RAID_CLASH_V1_20261028: CLASH 추가 · RAID_INSCRIPTION_V1_20261118: INSCRIPTION 추가
 
 const ELEMENT_OPTIONS: Array<{ value: RaidElement; label: string }> = [
   { value: 'FIRE', label: '🔥 화' },
@@ -895,6 +896,11 @@ export default function RaidControlPage() {
                 <>
                   {pageTab === 'LIVE' ? (
                     <RaidClashPickPanel raidId={detail.raid.id} raidStatus={detail.raid.status} />
+                  ) : null}
+
+                  {/* RAID_INSCRIPTION_V1_20261118: 주문 각인 진행(발동·지목·취소) */}
+                  {pageTab === 'LIVE' ? (
+                    <RaidInscriptionLivePanel raidId={detail.raid.id} raidStatus={detail.raid.status} />
                   ) : null}
 
                   {pageTab === 'LIVE' ? (
@@ -2142,6 +2148,7 @@ function RaidPageTabs({
     { key: 'AUDIO', label: '🔊 오디오', group: 'config' },
     { key: 'LOOT', label: '🎁 전리품', group: 'config' },
     { key: 'CLASH', label: '⚔ 격돌', group: 'config' },
+    { key: 'INSCRIPTION', label: '✒ 주문 각인', group: 'config' }, // RAID_INSCRIPTION_V1_20261118
     { key: 'LIVE', label: '📡 실시간 운영', group: 'live' },
   ];
   const visible = creating ? tabs.filter((tab) => tab.group === 'editor') : tabs;
