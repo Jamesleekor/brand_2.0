@@ -50,3 +50,13 @@
   환급 69건 12,721G(지갑 합계 +12,721) → 3영토 점령 → 선언/수정 → 이의 제기(부결·통과) → 확정 징수
   → 분배(4인 길드 5등분, 회수 1,977G) → ops/history/dashboard 조회까지 모두 성공. 실제 데이터는 변경되지 않음.
 - 미검증: 실제 교사 로그인 화면 클릭 E2E, 로컬 `npm run build` (사용자 실행)
+
+---
+
+## 2026-11-19 변경: 영토세 과세 기준에 SUPER PASS 포함
+
+- 운영 결정: 슈퍼패스는 GOLD와 같게 본다. 환산가 — 1인1역 2,500G · 자리 2,000G · 급식순서 1,500G (`guild5_super_pass_unit_value`).
+- 낙찰 1건의 과세 대상 = 낙찰가(GOLD) + 그 낙찰에 소모된 슈퍼패스 장수 × 환산가. 세금 = 버림(과세 대상 × 실효세율). 이의 제기 부결 가산(+10%p)·세율 감면 버프는 그대로 적용된다.
+- 반영 파일: `supabase/migrations/20261119_01_guild5_tax_base_includes_super_pass.sql` (APPLY·POSTCHECK 파일 동봉), `GuildConquestOpsPanel.tsx` (자금표·확정 안내 문구).
+- `guild5_territory_tax_assessments` 에 `super_pass_count`, `super_pass_equivalent_value`, `includes_super_pass` 추가. 기존 2026-10 정산분은 `includes_super_pass=false`(GOLD만 과세)로 남는다. 과거 기록은 수정하지 않았다.
+- 2026-10 정산분(11/3 징수·분배 완료)은 GOLD만 과세되었다. 슈퍼패스분 추가 징수 여부는 운영 판단 사항이며 이 변경에 포함되지 않는다.

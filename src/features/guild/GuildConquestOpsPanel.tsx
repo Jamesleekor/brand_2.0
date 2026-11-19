@@ -326,7 +326,7 @@ function TerritoryOpsCard({ turn, econ, candidates, threshold, studentCount, bus
             <div className="text-sm text-amber-100">
               확정 세율 <b className="text-gold">{pct(finalRatePreview)}</b>
               {o?.status === 'REJECTED' && <> · {o.objector_guild_name_snapshot} 길드원 <b className="text-bv-200">{pct(finalRatePreview + 10)}</b></>}
-              {econ?.auction_gold_spend != null && <> · 과세 대상 GOLD {num(econ.auction_gold_spend)}G</>}
+              {econ?.auction_gold_spend != null && <> · 과세 대상 {num(econ.gross_spend ?? econ.auction_gold_spend)}G <span className="text-[11px]">(GOLD {num(econ.auction_gold_spend)} + SUPER PASS 환산 {num(econ.super_pass_equivalent_value ?? 0)})</span></>}
             </div>
             <button className="btn-primary w-full" disabled={busy || o?.status === 'FILED'} onClick={finalize}>세율 최종 확정 · 세금 징수</button>
             {o?.status === 'FILED' && <div className="text-[11px] text-warning">투표 결과를 먼저 입력해주세요.</div>}
@@ -404,7 +404,7 @@ function GuildFundTable({ data }: { data: Guild5ConquestOps }) {
     <div className="rounded-card-md border border-line bg-bg-deep p-3">
       <h3 className="font-black text-white">🏦 거점별 길드 자금 · {round ?? '-'}회차 경매</h3>
       <p className="mt-1 text-[11px] text-amber-100">
-        각 길드원이 이번 달 과세 경매에서 쓴 GOLD(영토세 과세 대상)와 실제 소모한 SUPER PASS입니다. 「10%p당 순이익」은 그 거점을 점령해 세율 10%를 매겼을 때 길드 전체가 얻는 값 = (경매 전체 GOLD × 길드원 수 ÷ 나누는 수) × 10% − 우리 길드원이 내는 세금 × 10%.
+        각 길드원이 이번 달 과세 경매에서 쓴 경매대금입니다. SUPER PASS는 GOLD와 같게 보고 환산해 영토세 과세 대상에 포함합니다(1인1역 2,500G · 자리 2,000G · 급식순서 1,500G). 「10%p당 순이익」은 그 거점을 점령해 세율 10%를 매겼을 때 길드 전체가 얻는 값 = (경매 전체 경매대금 × 길드원 수 ÷ 나누는 수) × 10% − 우리 길드원이 내는 경매대금 × 10%.
       </p>
       <div className="overflow-x-auto mt-2">
         <table className="w-full text-xs">
@@ -426,13 +426,16 @@ function GuildFundTable({ data }: { data: Guild5ConquestOps }) {
                   {CATEGORIES.map((c) => {
                     const row = data.guild_spend.find((r) => r.guild_id === g.guild_id && r.auction_category === c);
                     const gold = Number(row?.gold_spend ?? 0);
-                    const total = totals[c].gold;
-                    const share = total > 0 ? (gold / total) * 100 : 0;
-                    const netPer10 = Math.floor(0.1 * (total * Number(g.roster_count) / divisor - gold));
+                    // SUPER PASS는 GOLD와 같게 보고 과세 대상에 넣는다(환산가 × 소모 장수).
+                    const spValue = Number(row?.super_pass_count ?? 0) * Number(row?.super_pass_unit_value ?? 0);
+                    const base = gold + spValue;
+                    const total = totals[c].gold + totals[c].spValue;
+                    const share = total > 0 ? (base / total) * 100 : 0;
+                    const netPer10 = Math.floor(0.1 * (total * Number(g.roster_count) / divisor - base));
                     return (
                       <td key={c} className="px-2 py-1.5 whitespace-nowrap align-top">
-                        <div className="font-black text-white">{num(gold)}G <span className="text-amber-100 font-normal">({share.toFixed(1)}%)</span></div>
-                        <div className="text-[10px] text-amber-100">낙찰 {row?.item_count ?? 0}건 · SUPER PASS {row?.super_pass_count ?? 0}장</div>
+                        <div className="font-black text-white">{num(base)}G <span className="text-amber-100 font-normal">({share.toFixed(1)}%)</span></div>
+                        <div className="text-[10px] text-amber-100">GOLD {num(gold)} + SUPER PASS {row?.super_pass_count ?? 0}장({num(spValue)}G) · 낙찰 {row?.item_count ?? 0}건</div>
                         <div className={`text-[10px] font-black ${netPer10 >= 0 ? 'text-success' : 'text-danger'}`}>10%p당 순이익 {netPer10 >= 0 ? '+' : ''}{num(netPer10)}G</div>
                       </td>
                     );
