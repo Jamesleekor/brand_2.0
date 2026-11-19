@@ -352,9 +352,107 @@ export interface RaidClashActionResult {
   clash: RaidClashPublicState;
 }
 
+// RAID_INSCRIPTION_V1_20261118 — 주문 각인(실패 시 타락) 학생 화면용 타입
+export type RaidInscriptionPhase = 'PENDING' | 'VOLUNTEERING' | 'SELECTED' | 'PLAYING' | 'RESOLVED' | 'CANCELLED';
+export type RaidInscriptionDifficulty = 'EASY' | 'NORMAL' | 'HARD' | 'CUSTOM';
+
+export interface RaidInscriptionPlayer {
+  participant_id: number;
+  slot: number;
+  student_name: string | null;
+  guild_name: string | null;
+  typed_count: number;
+  mistakes: number;
+  completed: boolean;
+  completed_ms: number | null;
+  corrupted: boolean;
+}
+
+export interface RaidInscriptionMe {
+  volunteered: boolean;
+  selected: boolean;
+  slot?: number | null;
+  attempt_index?: number;
+  typed_count?: number;
+  mistakes?: number;
+  completed?: boolean;
+  completed_ms?: number | null;
+  corrupted?: boolean;
+  /** 내 문자열 40개. 선발됐고 입력 중(PLAYING·미완료)일 때만 서버가 보낸다. */
+  sequences?: string[] | null;
+}
+
+export interface RaidInscriptionPublicState {
+  id: number;
+  seq_no: number;
+  phase: RaidInscriptionPhase;
+  server_now: string;
+  frozen: boolean;
+  resume_at?: string | null;
+  triggered_at?: string | null;
+  volunteer_closes_at?: string | null;
+  volunteer_accept_until?: string | null;
+  volunteer_button_delay_ms?: number | null;
+  selected_at?: string | null;
+  play_starts_at?: string | null;
+  play_deadline_at?: string | null;
+  reveal_ms?: number | null;
+  countdown_ms?: number | null;
+  miss_lock_ms?: number | null;
+  resolved_at?: string | null;
+  difficulty?: RaidInscriptionDifficulty | null;
+  letter_count?: number | null;
+  use_gh?: boolean | null;
+  time_limit_ms?: number | null;
+  planned_player_count?: number | null;
+  corruption_label?: string | null;
+  corruption_seconds?: number | null;
+  volunteer_count?: number;
+  first_sequence?: string | null;
+  players?: RaidInscriptionPlayer[];
+  me?: RaidInscriptionMe | null;
+  outcome?: 'SUCCESS' | 'FAILED' | null;
+  outcome_reason?: string | null;
+  boss_damage?: number | null;
+  barrier_heal?: number | null;
+  corrupted?: Array<{ participant_id: number; student_name: string | null; guild_name: string | null }>;
+}
+
+export interface RaidInscriptionActionResult {
+  accepted: boolean;
+  reason?: string | null;
+  inscription: RaidInscriptionPublicState | null;
+}
+
+export interface RaidInscriptionProgressResult {
+  ok: boolean;
+  reason?: string | null;
+}
+
+export interface RaidCorruptionEntry {
+  participant_id: number;
+  student_name: string | null;
+  guild_name: string | null;
+  starts_at: string;
+  until: string;
+  started: boolean;
+  seconds_remaining: number;
+}
+
+export interface RaidCorruptionPublicState {
+  label: string;
+  count: number;
+  server_now: string;
+  active: RaidCorruptionEntry[];
+  me: { active: boolean; starts_at: string; until: string; seconds_remaining: number } | null;
+}
+
 export interface RaidBattleState {
   // RAID_CLASH_V1_20261028: 격돌 마이그레이션 전 서버에는 없을 수 있으므로 선택 필드로 둔다.
   clash?: RaidClashPublicState | null;
+  // RAID_INSCRIPTION_V1_20261118: 주문 각인 진행 상태 / 지금 타락 중인 모험가
+  inscription?: RaidInscriptionPublicState | null;
+  corruption?: RaidCorruptionPublicState | null;
   raid: {
     id: number;
     title: string;
@@ -485,6 +583,8 @@ export interface RaidTapBatchResult {
   // RAID_CLASH_V1_20261028: 이번 묶음에서 격돌이 시작됐는지 / 격돌 중이라 모두 거절됐는지
   clash_triggered?: boolean;
   clash_active?: boolean;
+  // RAID_INSCRIPTION_V1_20261118: 주문 각인 중이라 모두 거절됐는지
+  inscription_active?: boolean;
   pattern?: RaidTapBatchPatternResult | null;
 }
 
@@ -646,5 +746,26 @@ export const raidStudentRpc = {
       p_note_index: noteIndex,
       p_key_code: keyCode,
       p_offset_ms: offsetMs,
+    }),
+
+  // RAID_INSCRIPTION_V1_20261118 — 주문 각인: 지원 / 진행 상황 보고 / 완성한 문자열 제출
+  volunteerInscription: (supabase: SupabaseClient, raidId: number) =>
+    callRpc<RaidInscriptionActionResult>(supabase, 'student_volunteer_raid_inscription', {
+      p_raid_id: raidId,
+    }),
+
+  reportInscriptionProgress: (supabase: SupabaseClient, raidId: number, attemptIndex: number, typedCount: number) =>
+    callRpc<RaidInscriptionProgressResult>(supabase, 'student_report_raid_inscription_progress', {
+      p_raid_id: raidId,
+      p_attempt_index: attemptIndex,
+      p_typed_count: typedCount,
+    }),
+
+  submitInscription: (supabase: SupabaseClient, raidId: number, attemptIndex: number, typed: string, elapsedMs: number) =>
+    callRpc<RaidInscriptionActionResult>(supabase, 'student_submit_raid_inscription', {
+      p_raid_id: raidId,
+      p_attempt_index: attemptIndex,
+      p_typed: typed,
+      p_elapsed_ms: Math.max(0, Math.round(elapsedMs)),
     }),
 };

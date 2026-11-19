@@ -39,6 +39,10 @@ import type { RaidClashPublicState } from '@/lib/rpc/raid_student_rpc';
 // RAID_HUD_V3_20261106: MMORPG식 HUD v3 (?hud=v3 일 때만)
 import { buildHudV3Layout } from '@/features/raid/hud/hudLayout';
 import { HudV3Overlay, useHudRaidWarning, useHudV3Enabled } from '@/features/raid/hud/HudV3';
+// RAID_INSCRIPTION_V1_20261118: 주문 각인 오버레이 · 타락 표시
+import RaidInscriptionOverlay from '@/features/raid/inscription/RaidInscriptionOverlay';
+import CorruptionBadge, { isMyCorruptionActive } from '@/features/raid/inscription/CorruptionBadge';
+import type { RaidInscriptionPublicState } from '@/lib/rpc/raid_student_rpc';
 
 // RAID_V15_E15_BOSS_ATTACK_RUNTIME
 // RAID_V15_E2_WEAK_BREAK_GROGGY_ENRAGE
@@ -345,7 +349,8 @@ export default function RaidBattlePage() {
     // Local hit feedback is immediate; authoritative state polling is reconciliation only.
     staleTime: 1200,
     // RAID_CLASH_V1_20261028: 격돌 진행 중에만 상태를 더 자주 확인한다(지원 마감·대표 공개·판정 반영).
-    refetchInterval: (query) => (query.state.data?.clash?.session?.frozen ? 700 : 1900),
+    // RAID_INSCRIPTION_V1_20261118: 주문 각인 진행 중에도 같은 간격으로 자주 확인한다.
+    refetchInterval: (query) => (query.state.data?.clash?.session?.frozen || query.state.data?.inscription?.frozen ? 700 : 1900),
     refetchOnWindowFocus: true,
   });
 
@@ -706,7 +711,11 @@ export default function RaidBattlePage() {
       const bossHeal = Number(item.boss_heal ?? 0);
       const label = item.target_label || item.target_key || '';
 
-      if (bossHeal > 0) {
+      // RAID_INSCRIPTION_V1_20261118: 타락 중인 공격은 보스를 회복시킨다
+      if (item.pattern_effect === 'CORRUPTED') {
+        text = bossHeal > 0 ? `타락! 보스 +${formatNumber(bossHeal)}` : '타락!';
+        tone = 'violet';
+      } else if (bossHeal > 0) {
         text = `흡수! Boss +${formatNumber(bossHeal)}`;
         tone = 'violet';
       } else if (reflected > 0) {
@@ -748,7 +757,7 @@ export default function RaidBattlePage() {
       }
       showPatternFeedback(batch);
 
-      if (batch.pattern || batch.clash_triggered || batch.clash_active) {
+      if (batch.pattern || batch.clash_triggered || batch.clash_active || batch.inscription_active /* RAID_INSCRIPTION_V1_20261118 */) {
         void queryClient.invalidateQueries({ queryKey: ['raid-battle-state', raidId] });
       }
 
@@ -805,9 +814,11 @@ export default function RaidBattlePage() {
   // RAID_CLASH_V1_20261028: 격돌(모집·대표 공개·QTE) 중에는 전투 전체가 멈춘다.
   const clashSession = state?.clash?.session ?? null;
   const clashFrozen = state?.raid.status === 'ACTIVE' && Boolean(clashSession?.frozen);
+  // RAID_INSCRIPTION_V1_20261118: 주문 각인(모집·공개·입력·결과 3초) 중에도 전투 전체가 멈춘다.
+  const inscriptionFrozen = state?.raid.status === 'ACTIVE' && Boolean(state?.inscription?.frozen);
 
   const battleEnabled =
-    state?.raid.status === 'ACTIVE' && !state.me.attack_blocked && !clashFrozen;
+    state?.raid.status === 'ACTIVE' && !state.me.attack_blocked && !clashFrozen && !inscriptionFrozen;
 
   const { queueTap, clearPending } = useRaidTapBatcher({
     raidId,
@@ -821,6 +832,29 @@ export default function RaidBattlePage() {
   useEffect(() => {
     if (clashFrozen) clearPending();
   }, [clashFrozen, clearPending]);
+
+  // RAID_INSCRIPTION_V1_20261118
+  useEffect(() => {
+    if (inscriptionFrozen) clearPending();
+  }, [inscriptionFrozen, clearPending]);
+
+  const handleInscriptionUpdate = useCallback(
+    (next: RaidInscriptionPublicState | null) => {
+      queryClient.setQueryData<RaidBattleState>(['raid-battle-state', raidId], (current) =>
+        current ? { ...current, inscription: next } : current,
+      );
+    },
+    [queryClient, raidId],
+  );
+
+  // 각인 단계가 넘어가야 하는 순간: 서버 시계를 한 번 밀고(전투 틱) 새 상태를 받는다.
+  const handleInscriptionRefresh = useCallback(() => {
+    void raidStudentRpc
+      .combatTick(supabase, raidId)
+      .finally(() => {
+        void queryClient.invalidateQueries({ queryKey: ['raid-battle-state', raidId] });
+      });
+  }, [queryClient, raidId]);
 
   const handleClashUpdate = useCallback(
     (next: RaidClashPublicState) => {
@@ -876,6 +910,9 @@ export default function RaidBattlePage() {
     // Only QUEUED taps receive an immediate predicted damage popup.
     if (queueResult !== 'QUEUED') return;
 
+    // RAID_INSCRIPTION_V1_20261118: 타락 중에는 대미지 대신 보스 회복이므로 예상 대미지 숫자를 띄우지 않는다(서버 결과로 "타락!" 표시).
+    if (isMyCorruptionActive(state?.corruption, Date.now() + serverClockOffsetRef.current)) return;
+
     showPredictedDamage(x, y);
   };
 
@@ -930,6 +967,7 @@ export default function RaidBattlePage() {
   const bossAttackTelegraph =
     state.raid.status === 'ACTIVE' &&
     !clashFrozen &&
+    !inscriptionFrozen &&
     bossAttack != null &&
     secondsToBossAttack != null &&
     secondsToBossAttack <= Number(bossAttack.telegraph_seconds ?? 0);
@@ -1118,6 +1156,26 @@ export default function RaidBattlePage() {
           />
         )}
 
+        {/* RAID_INSCRIPTION_V1_20261118: 타락 표시 + 주문 각인 오버레이 */}
+        {state.raid.status === 'ACTIVE' && (
+          <CorruptionBadge
+            corruption={state.corruption}
+            myParticipantId={state.me.participant_id ?? null}
+            serverNow={clockNowMs + serverClockOffsetMs}
+          />
+        )}
+        {state.raid.status === 'ACTIVE' && (
+          <RaidInscriptionOverlay
+            raidId={raidId}
+            inscription={state.inscription}
+            serverOffsetMs={serverClockOffsetMs}
+            attackBlocked={state.me.attack_blocked}
+            myParticipantId={state.me.participant_id ?? null}
+            onInscriptionUpdate={handleInscriptionUpdate}
+            onRefresh={handleInscriptionRefresh}
+          />
+        )}
+
         {raidDebugEnabled && batcherDiagnostics && (
           <RaidPerformanceDebugPanel diagnostics={batcherDiagnostics} />
         )}
@@ -1289,7 +1347,7 @@ function BossViewport({
         idleVideoUrl={phase?.loop_video_url}
         visual={phase?.visual ?? null}
         playbackState={playbackState}
-        cameraActive={state.raid.status === 'ACTIVE' && !state.clash?.session?.frozen /* RAID_CLASH_V1_20261028: 격돌 중 화면 흔들림 정지 */}
+        cameraActive={state.raid.status === 'ACTIVE' && !state.clash?.session?.frozen /* RAID_CLASH_V1_20261028: 격돌 중 화면 흔들림 정지 */ && !state.inscription?.frozen /* RAID_INSCRIPTION_V1_20261118 */}
         cameraEvents={{
           patternRunId: state.combat?.active_pattern?.run_id ?? null,
           bossAttackSeq: state.combat?.boss_attack?.seq ?? null,

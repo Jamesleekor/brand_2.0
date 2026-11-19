@@ -38,6 +38,8 @@ import ArcadePage from '@/features/arcade/ArcadePage';
 import RaidLobbyPage from '@/features/raid/RaidLobbyPage';
 import RaidPortalPage from '@/features/raid/RaidPortalPage';
 import RaidBattlePage from '@/features/raid/RaidBattlePage';
+// RAID_INSCRIPTION_V1_20261118: 주문 각인 연습장
+import RaidInscriptionPracticePage from '@/features/raid/inscription/RaidInscriptionPracticePage';
 import TeacherArcadePage from '@/features/arcade/TeacherArcadePage';
 import RaidControlPage from '@/features/teacher/raid/RaidControlPage';
 import RaidBalanceLabPage from '@/features/teacher/raid/RaidBalanceLabPage';
@@ -214,6 +216,7 @@ export default function App() {
         <Route path="/raid/:raidId/lobby" element={<RaidLobbyPage />} />
         <Route path="/raid" element={<RaidPortalPage />} />
         <Route path="/raid/:raidId/battle" element={<RaidBattlePage />} />
+        <Route path="/raid/practice/inscription" element={<RaidInscriptionPracticePage />} />
         <Route 
           path="/friends" 
           element={<AppShell><FriendsPage /></AppShell>} 
