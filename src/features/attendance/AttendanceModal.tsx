@@ -230,7 +230,7 @@ export function AttendanceModal({ isOpen, onClose }: AttendanceModalProps) {
             />
 
             <div className="grid gap-[18px] min-[1024px]:grid-cols-[380px_minmax(0,1fr)] min-w-0">
-              <div ref={calendarRef} className="min-w-0 scroll-mt-4">
+              <div ref={calendarRef} className="min-w-0 scroll-mt-4 space-y-3">
                 {viewMonth && selectedDate ? (
                   <QuestCalendarView
                     viewMonth={viewMonth}
@@ -248,6 +248,14 @@ export function AttendanceModal({ isOpen, onClose }: AttendanceModalProps) {
                 ) : (
                   <div className={cn('rounded-card-lg h-[360px] animate-pulse', AQ.panel)} aria-hidden="true" />
                 )}
+                {/* 넓은 화면: 선택일 상세를 달력 아래에 둬서 왼쪽 빈 공간을 채운다 */}
+                <AttendanceQuestDayDetail
+                  className="hidden min-[1024px]:block"
+                  day={selectedDay}
+                  today={today}
+                  rangeStart={bounds?.rangeStart ?? ''}
+                  rangeEnd={bounds?.rangeEnd ?? ''}
+                />
               </div>
 
               <div className="min-w-0 space-y-3">
@@ -270,7 +278,9 @@ export function AttendanceModal({ isOpen, onClose }: AttendanceModalProps) {
                   <div className={cn('rounded-card-lg h-[260px] animate-pulse', AQ.panel)} aria-hidden="true" />
                 )}
 
+                {/* 모바일·중간 화면: 표 바로 아래 (달력 → 주간표 → 선택일 → 업적 순서 유지) */}
                 <AttendanceQuestDayDetail
+                  className="min-[1024px]:hidden"
                   day={selectedDay}
                   today={today}
                   rangeStart={bounds?.rangeStart ?? ''}

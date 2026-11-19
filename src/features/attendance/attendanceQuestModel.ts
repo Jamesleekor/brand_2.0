@@ -34,6 +34,11 @@ export function isOutOfRange(day: AttendanceQuestDay): boolean {
   return day.reason_codes.includes('OUT_OF_RANGE') || day.reason_codes.includes('NOT_ENROLLED');
 }
 
+/** 정산된 원장에 본인 체크가 없는 날(전입 전·테스트 계정 등) */
+export function isNotParticipant(day: AttendanceQuestDay): boolean {
+  return day.reason_codes.includes('NOT_PARTICIPANT');
+}
+
 /** 달력 칸 토큰(4글자 이내) */
 export function calendarToken(day: AttendanceQuestDay, today: string): { text: string; className: string } {
   switch (day.day_state) {
@@ -82,9 +87,9 @@ function stateCell(day: AttendanceQuestDay, today: string): { text: string; clas
       return { text: '확인', className: AQ.check, srLabel: '기록 확인 필요' };
     case 'CLOSED':
     default:
-      return isOutOfRange(day)
-        ? { text: '—', className: AQ.cream, srLabel: '기록 범위 밖' }
-        : { text: '휴업', className: AQ.cream, srLabel: day.closure_label ? `휴업일(${day.closure_label})` : '휴업일' };
+      if (isOutOfRange(day)) return { text: '—', className: AQ.cream, srLabel: '기록 범위 밖' };
+      if (isNotParticipant(day)) return { text: '—', className: AQ.cream, srLabel: '일일퀘스트 대상 아님' };
+      return { text: '휴업', className: AQ.cream, srLabel: day.closure_label ? `휴업일(${day.closure_label})` : '휴업일' };
   }
 }
 
@@ -134,25 +139,29 @@ export interface WeekStatusView {
   className: string;
 }
 
-/** LIFE-002 카드의 선택 주 기록 설명 (명세 10.2) */
+/** LIFE-002 카드의 선택 주 기록 설명 (명세 10.2). 카드가 작아지도록 짧은 문구만 쓴다. */
 export function weekRecordView(week: AttendanceQuestWeek): WeekStatusView {
   switch (week.record_status) {
     case 'HAS_FAIL':
-      return { badge: '미달 기록 있음', text: '선택한 주에는 미달 기록이 있어요.', className: AQ.apricot };
+      return { badge: '미달 기록 있음', text: '', className: AQ.apricot };
     case 'ALL_FIVE_CLEAR':
-      return { badge: '5일 전체 완료 기록', text: '선택한 주 월~금 5일 모두 전체 완료 기록이 있어요.', className: AQ.mint };
+      return { badge: '5일 전체 완료 기록', text: '월~금 5일 모두 전체 완료', className: AQ.mint };
     case 'CHECK_NEEDED':
-      return { badge: '확인 필요', text: '선택한 주에 확인이 필요한 기록이 있어요. 운영국에 문의해 주세요.', className: AQ.check };
+      return { badge: '확인 필요', text: '운영국 확인이 필요한 날이 있어요', className: AQ.check };
     case 'CLOSED_DAY_IN_WEEK':
-      return week.warning_codes.includes('OUT_OF_RANGE_DAYS')
-        ? { badge: '목표 5일 기록 미충족', text: '2학기 기록 범위 밖 날짜가 있는 주예요.', className: AQ.cream }
-        : { badge: '목표 5일 기록 미충족', text: '휴업일이 있는 주예요.', className: AQ.cream };
+      if (week.warning_codes.includes('OUT_OF_RANGE_DAYS')) {
+        return { badge: '목표 5일 미충족', text: '기록 범위 밖 날짜가 있는 주예요', className: AQ.cream };
+      }
+      if (week.warning_codes.includes('NOT_PARTICIPANT_DAYS')) {
+        return { badge: '목표 5일 미충족', text: '일일퀘스트 대상이 아닌 날이 있는 주예요', className: AQ.cream };
+      }
+      return { badge: '목표 5일 미충족', text: '휴업일이 있는 주예요', className: AQ.cream };
     case 'UNCONFIRMED':
-      return { badge: '미확정 기록 있음', text: '운영국 확정 전인 날이 있어요. 확정된 뒤 다시 확인해 주세요.', className: AQ.lavender };
+      return { badge: '미확정 기록 있음', text: '확정 후 다시 확인해 주세요', className: AQ.lavender };
     case 'IN_PROGRESS':
-      return { badge: '진행 중', text: '아직 남은 날이 있어요. 확정된 뒤 확인해 주세요.', className: AQ.lavender };
+      return { badge: '진행 중', text: '확정 후 확인해 주세요', className: AQ.lavender };
     case 'GOAL_NOT_MET':
     default:
-      return { badge: '목표 5일 기록 미충족', text: '선택한 주에서 5일 전체 완료를 확인하지 못했어요.', className: AQ.cream };
+      return { badge: '목표 5일 미충족', text: '', className: AQ.cream };
   }
 }

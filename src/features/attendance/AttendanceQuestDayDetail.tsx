@@ -2,7 +2,7 @@
 import type { AttendanceQuestDay } from '@/lib/rpc/attendance_quest_rpc';
 import { QUEST_CODES } from '@/lib/rpc/attendance_quest_rpc';
 import { cn } from '@/lib/utils/cn';
-import { AQ, QUEST_LABEL, attendanceText, dayTitle, failureText, isOutOfRange } from './attendanceQuestModel';
+import { AQ, QUEST_LABEL, attendanceText, dayTitle, failureText, isNotParticipant, isOutOfRange } from './attendanceQuestModel';
 import { parseYmd } from './attendanceQuestDates';
 
 interface Props {
@@ -10,11 +10,12 @@ interface Props {
   today: string;
   rangeStart: string;
   rangeEnd: string;
+  className?: string;
 }
 
-export function AttendanceQuestDayDetail({ day, today, rangeStart, rangeEnd }: Props) {
+export function AttendanceQuestDayDetail({ day, today, rangeStart, rangeEnd, className }: Props) {
   if (!day) {
-    return <div className={cn('rounded-card-lg h-[52px] animate-pulse', AQ.panel)} aria-hidden="true" />;
+    return <div className={cn('rounded-card-lg h-[52px] animate-pulse', AQ.panel, className)} aria-hidden="true" />;
   }
 
   const att = attendanceText(day);
@@ -22,7 +23,7 @@ export function AttendanceQuestDayDetail({ day, today, rangeStart, rangeEnd }: P
 
   return (
     <section
-      className={cn('rounded-card-lg px-3.5 py-3 min-w-0', view.tone)}
+      className={cn('rounded-card-lg px-3.5 py-3 min-w-0', view.tone, className)}
       aria-live="polite"
       aria-label="선택한 날짜의 기록"
     >
@@ -118,6 +119,9 @@ function describe(day: AttendanceQuestDay, today: string, rangeStart: string, ra
               ? `2학기 기록은 ${koMonthDay(rangeEnd)}까지예요.`
               : '재학 기간 밖의 날짜예요.',
         };
+      }
+      if (isNotParticipant(day)) {
+        return { tone: AQ.panel, titleClass: AQ.ivory, titleSuffix: '대상 아님', message: '이 날짜는 일일퀘스트 대상이 아니었어요.' };
       }
       if (day.closure_kind === 'WEEKEND') {
         return { tone: AQ.panel, titleClass: AQ.ivory, titleSuffix: '주말', message: '주말이에요.' };

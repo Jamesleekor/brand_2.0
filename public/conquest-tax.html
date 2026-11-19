@@ -55,13 +55,6 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,2.6vw,52px);l
 .tool:hover,.tab:hover{border-color:rgba(242,193,78,.6)}
 .tool.danger-armed{border-color:var(--bad);color:var(--bad)}
 
-.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:22px}
-.kpi{background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line);border-radius:16px;padding:14px 18px}
-.kpi .k{font-size:.82rem;color:var(--text-2);font-weight:600}
-.kpi .v{font-family:var(--latin);font-weight:800;font-size:clamp(22px,1.9vw,36px);margin-top:2px}
-.kpi .v small{font-family:var(--body);font-size:.5em;color:var(--text-2);margin-left:4px;font-weight:600}
-.kpi.hi .v{color:var(--gold)}
-
 .view{display:none;margin-top:22px}
 .view.on{display:block}
 
@@ -136,14 +129,34 @@ input[type=range]{width:100%;accent-color:var(--tc);height:28px}
 .ledger-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
 .ledger-head h2{font-family:var(--display);font-weight:800;margin:0;font-size:clamp(20px,1.5vw,28px)}
 .ledger-head p{margin:0;color:var(--text-2);font-size:.82rem}
-.ledger-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
-.gtile{border-radius:16px;padding:12px 14px;background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--gc)}
-.gtile .nm{font-weight:700;font-size:1.05rem}
+.ledger-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:12px}
+.gtile{border-radius:16px;padding:12px 14px 10px;background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--gc);display:flex;flex-direction:column}
+.gtile .gh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.gtile .nm{font-weight:700;font-size:1.1rem}
 .gtile .meta{font-size:.76rem;color:var(--text-2)}
-.gline{display:flex;justify-content:space-between;font-size:.84rem;margin-top:6px}
-.gline span:first-child{color:var(--text-2)}
-.gnet{margin-top:8px;padding-top:8px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline}
-.gnet .v{font-family:var(--latin);font-weight:800;font-size:1.35rem}
+.gtile .gsum{text-align:right}
+.gtile .gsum .v{font-family:var(--latin);font-weight:800;font-size:1.25rem;line-height:1.1}
+.gtile .gsum .k{font-size:.72rem;color:var(--text-2)}
+.tally{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 4px}
+.tally span{font-size:.78rem;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid var(--line)}
+.tally .w{border-color:var(--good);color:var(--good)}
+.tally .l{border-color:var(--bad);color:var(--bad)}
+.tally .z{color:var(--text-2)}
+.people{display:grid;gap:2px;margin-top:2px}
+.person{padding:7px 0 6px;border-top:1px solid var(--line)}
+.person:first-child{border-top:0}
+.p-top{display:grid;grid-template-columns:4.6em minmax(0,1fr) 5.4em;gap:8px;align-items:center}
+.p-nm{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-net{font-family:var(--latin);font-weight:800;font-size:1.15rem;text-align:right}
+.nbar{display:grid;grid-template-columns:1fr 1fr;height:14px;border-radius:999px;background:rgba(243,236,220,.07);position:relative;overflow:hidden}
+.nbar:after{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;background:rgba(243,236,220,.45)}
+.nbar .l{display:flex;justify-content:flex-end}
+.nbar i{display:block;height:100%;transition:width .35s ease}
+.nbar .l i{background:var(--bad);border-radius:999px 0 0 999px}
+.nbar .r i{background:var(--good);border-radius:0 999px 999px 0}
+.p-sub{font-size:.8rem;color:var(--text-2);margin-top:3px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.p-sub b{color:var(--text);font-weight:600}
+.p-brk{font-size:.72rem;color:var(--text-2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pos{color:var(--good)} .neg{color:var(--bad)} .zero{color:var(--text)}
 .footnote{margin-top:14px;font-size:.78rem;color:var(--text-2)}
 
@@ -230,7 +243,6 @@ textarea{width:100%;min-height:140px;border-radius:12px;border:1px solid var(--l
   .terr-grid{grid-template-columns:1fr}
   .ballot{grid-template-columns:1fr}
   .rules{grid-template-columns:1fr 1fr}
-  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:560px){
   .rules,.compare{grid-template-columns:1fr}
@@ -266,19 +278,12 @@ textarea{width:100%;min-height:140px;border-radius:12px;border:1px solid var(--l
     </nav>
   </header>
 
-  <section class="kpis" aria-label="이번 달 요약">
-    <div class="kpi"><div class="k">세 거점 경매대금</div><div class="v num"><span id="kFund">0</span><small>G</small></div></div>
-    <div class="kpi"><div class="k">확정 세수 합계</div><div class="v num"><span id="kTax">0</span><small>G</small></div></div>
-    <div class="kpi hi"><div class="k">점령 길드원에게 분배</div><div class="v num"><span id="kPaid">0</span><small>G</small></div></div>
-    <div class="kpi"><div class="k">운영국 회수</div><div class="v num"><span id="kKept">0</span><small>G</small></div></div>
-  </section>
-
   <section class="view" id="view-settle" aria-label="영토 정산">
     <div class="terr-grid" id="terrGrid"></div>
-    <section class="ledger" aria-label="길드별 손익">
+    <section class="ledger" aria-label="길드원 개인별 손익">
       <div class="ledger-head">
-        <h2>길드별 손익 장부</h2>
-        <p>낸 세금은 세 거점 합계, 받는 분배는 점령한 거점에서 길드원 모두가 받는 몫의 합계입니다.</p>
+        <h2>길드원 개인별 손익</h2>
+        <p>개인 순손익 = (점령한 영토에서 받는 분배) − (세 거점에 내는 세금). 막대는 가운데 선에서 오른쪽이 이익, 왼쪽이 손해입니다.</p>
       </div>
       <div class="ledger-grid" id="ledgerGrid"></div>
       <p class="footnote" id="footnote"></p>
@@ -308,7 +313,7 @@ textarea{width:100%;min-height:140px;border-radius:12px;border:1px solid var(--l
     <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap">
       <div>
         <h2 id="edTitle">이번 달 데이터 편집</h2>
-        <p class="lead">교사 패널 「거점별 길드 자금」 표의 GOLD 낙찰금과 슈퍼패스 장수를 그대로 옮겨 적으면 됩니다. 저장하면 이 브라우저에 기억됩니다.</p>
+        <p class="lead">길드원 한 사람마다 거점별 GOLD 낙찰금과 슈퍼패스 장수를 적습니다. 저장하면 이 브라우저에만 기억되므로, 실명은 여기서 입력해도 인터넷에 공개되지 않습니다.</p>
       </div>
       <button class="btn" id="edClose" type="button">닫기</button>
     </div>
@@ -316,10 +321,15 @@ textarea{width:100%;min-height:140px;border-radius:12px;border:1px solid var(--l
     <div class="grid-form" id="edBasic"></div>
     <h3>거점</h3>
     <div class="grid-form" id="edTerr"></div>
-    <h3>길드와 거점별 자금</h3>
-    <div class="table-wrap"><table class="ed" id="edGuilds"></table></div>
+    <h3>길드</h3>
+    <div class="table-wrap"><table class="ed" id="edGuilds" style="min-width:0"></table></div>
     <div class="actions" style="margin-top:10px">
       <button class="btn" id="edAddGuild" type="button">길드 추가</button>
+    </div>
+    <h3>길드원과 거점별 경매 지출</h3>
+    <div class="table-wrap"><table class="ed" id="edMembers"></table></div>
+    <div class="actions" style="margin-top:10px">
+      <button class="btn" id="edAddMember" type="button">길드원 추가</button>
     </div>
     <div class="actions">
       <button class="btn primary" id="edSave" type="button">저장하고 적용</button>
@@ -340,7 +350,8 @@ textarea{width:100%;min-height:140px;border-radius:12px;border:1px solid var(--l
 /* =====================================================================
    매달 바꾸는 곳 — DEFAULT_CONFIG
    · monthLabel / auctionLabel : 화면 제목에 쓰이는 달과 경매 회차
-   · guilds : 길드 이름, 순위, 마감 당시 인원, 색, 거점별 GOLD 낙찰금(gold)과 슈퍼패스 장수(pass)
+   · guilds : 길드 이름, 순위, 색, roster(길드원 명단). 길드원마다 거점별 GOLD 낙찰금(gold)과 슈퍼패스 장수(pass)
+   · 길드 인원 = roster에 적힌 사람 수. 이름은 공개 페이지에 올라가므로 '길드원 A'처럼 가명을 권장한다.
    · 화면의 「데이터 편집」에서 바꾼 뒤 「JSON 복사」로 이 자리에 붙여 넣어도 된다.
    ===================================================================== */
 const DEFAULT_CONFIG = {
@@ -358,20 +369,49 @@ const DEFAULT_CONFIG = {
   objectorRanks: [4, 5],
   territories: [
     { id: "mountain", name: "산악 요새", category: "1인1역", passUnit: 2500, color: "#6fd8b0" },
-    { id: "castle",   name: "중앙 왕성", category: "자리",   passUnit: 2000, color: "#f2c14e" },
-    { id: "coast",    name: "우측 해안", category: "급식순서", passUnit: 1500, color: "#62bdff" }
+    { id: "castle", name: "중앙 왕성", category: "자리", passUnit: 2000, color: "#f2c14e" },
+    { id: "coast", name: "우측 해안", category: "급식순서", passUnit: 1500, color: "#62bdff" }
   ],
   guilds: [
-    { id: "g1", name: "슈퍼노바",   rank: 1, members: 4, color: "#ff9a6b", spend: { mountain: { gold: 3409, pass: 4 }, castle: { gold: 4055, pass: 2 }, coast: { gold: 4063, pass: 2 } } },
-    { id: "g2", name: "아블루션",   rank: 2, members: 5, color: "#b9a0ff", spend: { mountain: { gold: 3757, pass: 2 }, castle: { gold: 1764, pass: 2 }, coast: { gold: 8900, pass: 1 } } },
-    { id: "g3", name: "루나 네이비", rank: 3, members: 5, color: "#6fb8ff", spend: { mountain: { gold: 8204, pass: 0 }, castle: { gold: 4305, pass: 1 }, coast: { gold: 4277, pass: 2 } } },
-    { id: "g4", name: "와사비",     rank: 4, members: 5, color: "#9ee07a", spend: { mountain: { gold: 5336, pass: 3 }, castle: { gold: 1040, pass: 2 }, coast: { gold: 2482, pass: 1 } } },
-    { id: "g5", name: "Phoenix",   rank: 5, members: 5, color: "#ff7f9a", spend: { mountain: { gold: 1986, pass: 1 }, castle: { gold: 6632, pass: 0 }, coast: { gold: 5160, pass: 0 } } }
+    { id: "g1", name: "슈퍼노바", rank: 1, color: "#ff9a6b", roster: [
+      { id: "g1m1", name: "길드원 A", spend: { mountain: { gold: 500, pass: 1 }, castle: { gold: 201, pass: 0 }, coast: { gold: 150, pass: 1 } } },
+      { id: "g1m2", name: "길드원 B", spend: { mountain: { gold: 500, pass: 1 }, castle: { gold: 100, pass: 1 }, coast: { gold: 1322, pass: 0 } } },
+      { id: "g1m3", name: "길드원 C", spend: { mountain: { gold: 500, pass: 1 }, castle: { gold: 833, pass: 1 }, coast: { gold: 1091, pass: 0 } } },
+      { id: "g1m4", name: "길드원 D", spend: { mountain: { gold: 1909, pass: 1 }, castle: { gold: 2921, pass: 0 }, coast: { gold: 1500, pass: 1 } } }
+    ] },
+    { id: "g2", name: "아블루션", rank: 2, color: "#b9a0ff", roster: [
+      { id: "g2m1", name: "길드원 A", spend: { mountain: { gold: 1869, pass: 0 }, castle: { gold: 100, pass: 1 }, coast: { gold: 5512, pass: 1 } } },
+      { id: "g2m2", name: "길드원 B", spend: { mountain: { gold: 0, pass: 0 }, castle: { gold: 100, pass: 1 }, coast: { gold: 1256, pass: 0 } } },
+      { id: "g2m3", name: "길드원 C", spend: { mountain: { gold: 500, pass: 1 }, castle: { gold: 0, pass: 0 }, coast: { gold: 1292, pass: 0 } } },
+      { id: "g2m4", name: "길드원 D", spend: { mountain: { gold: 0, pass: 0 }, castle: { gold: 0, pass: 0 }, coast: { gold: 0, pass: 0 } } },
+      { id: "g2m5", name: "길드원 E", spend: { mountain: { gold: 1388, pass: 1 }, castle: { gold: 1564, pass: 0 }, coast: { gold: 840, pass: 0 } } }
+    ] },
+    { id: "g3", name: "루나 네이비", rank: 3, color: "#6fb8ff", roster: [
+      { id: "g3m1", name: "길드원 A", spend: { mountain: { gold: 6053, pass: 0 }, castle: { gold: 2300, pass: 1 }, coast: { gold: 250, pass: 2 } } },
+      { id: "g3m2", name: "길드원 B", spend: { mountain: { gold: 2151, pass: 0 }, castle: { gold: 1005, pass: 0 }, coast: { gold: 1091, pass: 0 } } },
+      { id: "g3m3", name: "길드원 C", spend: { mountain: { gold: 0, pass: 0 }, castle: { gold: 1000, pass: 0 }, coast: { gold: 2500, pass: 0 } } },
+      { id: "g3m4", name: "길드원 D", spend: { mountain: { gold: 0, pass: 0 }, castle: { gold: 0, pass: 0 }, coast: { gold: 436, pass: 0 } } }
+    ] },
+    { id: "g4", name: "와사비", rank: 4, color: "#9ee07a", roster: [
+      { id: "g4m1", name: "길드원 A", spend: { mountain: { gold: 500, pass: 1 }, castle: { gold: 0, pass: 0 }, coast: { gold: 0, pass: 0 } } },
+      { id: "g4m2", name: "길드원 B", spend: { mountain: { gold: 500, pass: 1 }, castle: { gold: 940, pass: 1 }, coast: { gold: 0, pass: 0 } } },
+      { id: "g4m3", name: "길드원 C", spend: { mountain: { gold: 2000, pass: 0 }, castle: { gold: 0, pass: 0 }, coast: { gold: 0, pass: 0 } } },
+      { id: "g4m4", name: "길드원 D", spend: { mountain: { gold: 1836, pass: 0 }, castle: { gold: 0, pass: 0 }, coast: { gold: 2382, pass: 0 } } },
+      { id: "g4m5", name: "길드원 E", spend: { mountain: { gold: 500, pass: 1 }, castle: { gold: 100, pass: 1 }, coast: { gold: 100, pass: 1 } } }
+    ] },
+    { id: "g5", name: "Phoenix", rank: 5, color: "#ff7f9a", roster: [
+      { id: "g5m1", name: "길드원 A", spend: { mountain: { gold: 0, pass: 0 }, castle: { gold: 0, pass: 0 }, coast: { gold: 1465, pass: 0 } } },
+      { id: "g5m2", name: "길드원 B", spend: { mountain: { gold: 1105, pass: 1 }, castle: { gold: 769, pass: 0 }, coast: { gold: 0, pass: 0 } } },
+      { id: "g5m3", name: "길드원 C", spend: { mountain: { gold: 881, pass: 0 }, castle: { gold: 1579, pass: 0 }, coast: { gold: 795, pass: 0 } } },
+      { id: "g5m4", name: "길드원 D", spend: { mountain: { gold: 0, pass: 0 }, castle: { gold: 0, pass: 0 }, coast: { gold: 900, pass: 0 } } },
+      { id: "g5m5", name: "길드원 E", spend: { mountain: { gold: 0, pass: 0 }, castle: { gold: 4284, pass: 0 }, coast: { gold: 2000, pass: 0 } } }
+    ] }
   ]
 };
 
 /* ---------------- 저장 도우미 (실패해도 화면은 동작) ---------------- */
-const CFG_KEY = "brand-conquest-config-v1";
+/* v2: 길드원 개인별 데이터 구조. 예전(v1) 브라우저 저장값은 구조가 달라 읽지 않는다. */
+const CFG_KEY = "brand-conquest-config-v2";
 const store = {
   get(k){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e){ return null; } },
   set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch(e){ return false; } },
@@ -395,13 +435,22 @@ function normalizeConfig(c){
     passUnit: Math.max(0, Number(t.passUnit) || 0), color: t.color || "#f2c14e"
   }));
   out.guilds = (Array.isArray(out.guilds) ? out.guilds : []).map((g, i) => {
+    const gid = String(g.id || ("g" + (i + 1)));
+    const roster = (Array.isArray(g.roster) ? g.roster : []).map((p, j) => {
+      const spend = {};
+      out.territories.forEach((t) => {
+        const s = (p.spend && p.spend[t.id]) || {};
+        spend[t.id] = { gold: Math.max(0, Math.round(Number(s.gold) || 0)), pass: Math.max(0, Math.round(Number(s.pass) || 0)) };
+      });
+      return { id: String(p.id || (gid + "m" + (j + 1))), name: String(p.name || ("길드원 " + (j + 1))), spend };
+    });
+    /* 길드 인원 = 명단 수, 길드 합계 spend = 길드원 합 (계산용으로 자동 생성) */
     const spend = {};
     out.territories.forEach((t) => {
-      const s = (g.spend && g.spend[t.id]) || {};
-      spend[t.id] = { gold: Math.max(0, Math.round(Number(s.gold) || 0)), pass: Math.max(0, Math.round(Number(s.pass) || 0)) };
+      spend[t.id] = roster.reduce((a, p) => ({ gold: a.gold + p.spend[t.id].gold, pass: a.pass + p.spend[t.id].pass }), { gold: 0, pass: 0 });
     });
-    return { id: String(g.id || ("g" + (i + 1))), name: String(g.name || ("길드 " + (i + 1))), rank: Math.round(Number(g.rank) || (i + 1)),
-             members: Math.max(1, Math.round(Number(g.members) || 1)), color: g.color || "#cccccc", spend };
+    return { id: gid, name: String(g.name || ("길드 " + (i + 1))), rank: Math.round(Number(g.rank) || (i + 1)),
+             members: roster.length, color: g.color || "#cccccc", roster, spend };
   });
   ["voterCount","voteThreshold","rateMin","rateMax","defaultRate","surchargePp","minDivisor"].forEach((k) => { out[k] = Number(out[k]); if (!Number.isFinite(out[k])) out[k] = d[k]; });
   out.taxIncludesSuperPass = Boolean(out.taxIncludesSuperPass);
@@ -435,7 +484,7 @@ const occupierCandidates = () => config.guilds.filter((g) => config.occupierRank
 const objectorCandidates = () => config.guilds.filter((g) => config.objectorRanks.includes(g.rank)).sort((a, b) => a.rank - b.rank);
 
 /* ---------------- 계산 (화면 표시용, 서버 정산과 같은 규칙) ----------------
-   길드 g가 거점 t에 내는 세금 = 버림( 과세 대상 × 적용 세율 )
+   길드원 p가 거점 t에 내는 세금 = 버림( 과세 대상 × 적용 세율 )  ← 개인별로 계산해서 길드 합계를 만든다
    과세 대상 = GOLD 낙찰금 (+ 슈퍼패스 장수 × 환산가, 설정이 켜져 있을 때)
    적용 세율 = 이의 제기 가결이면 요구 세율, 아니면 선언 세율. 부결이면 제기 길드만 + 가산 %p
    1인당 분배 = 버림( 거점 세수 ÷ max(점령 길드 인원, 최소 나누는 수) )
@@ -447,13 +496,16 @@ function computeTerritory(t, ts, override){
   const finalRate = o.status === "passed" ? o.proposed : rate;
   let fundGold = 0, fundPass = 0;
   const rows = config.guilds.map((g) => {
-    const sp = g.spend[t.id] || { gold: 0, pass: 0 };
-    fundGold += sp.gold; fundPass += sp.pass;
-    const base = sp.gold + (config.taxIncludesSuperPass ? sp.pass * t.passUnit : 0);
     const sur = owner && o.status === "rejected" && o.objector === g.id ? config.surchargePp : 0;
     const eff = owner ? Math.min(100, finalRate + sur) : 0;
-    const tax = owner ? Math.floor(base * eff / 100) : 0;
-    return { g, gold: sp.gold, pass: sp.pass, base, sur, eff, tax };
+    const people = g.roster.map((p) => {
+      const sp = p.spend[t.id] || { gold: 0, pass: 0 };
+      const base = sp.gold + (config.taxIncludesSuperPass ? sp.pass * t.passUnit : 0);
+      return { p, gold: sp.gold, pass: sp.pass, base, tax: owner ? Math.floor(base * eff / 100) : 0 };
+    });
+    const gold = people.reduce((s, x) => s + x.gold, 0), pass = people.reduce((s, x) => s + x.pass, 0);
+    fundGold += gold; fundPass += pass;
+    return { g, gold, pass, base: people.reduce((s, x) => s + x.base, 0), sur, eff, tax: people.reduce((s, x) => s + x.tax, 0), people };
   });
   const total = rows.reduce((s, r) => s + r.tax, 0);
   const divisor = owner ? Math.max(owner.members, config.minDivisor) : config.minDivisor;
@@ -466,11 +518,21 @@ function computeAll(){
   const terr = config.territories.map((t) => computeTerritory(t, state.territories[t.id]));
   const ledger = config.guilds.map((g) => {
     let paid = 0, recv = 0, owns = [];
+    /* 길드원 개인: 낸 세금(거점별) / 받는 분배(우리 길드가 점령한 거점의 1인당 몫) / 순손익 */
+    const people = g.roster.map((p) => ({ p, taxBy: {}, paid: 0, recv: 0, net: 0 }));
     terr.forEach((m) => {
       const r = m.rows.find((x) => x.g.id === g.id); paid += r ? r.tax : 0;
-      if (m.owner && m.owner.id === g.id) { recv += m.paidOut; owns.push(m.t.name); }
+      const mine = m.owner && m.owner.id === g.id;
+      if (mine) { recv += m.paidOut; owns.push(m.t.name); }
+      people.forEach((pp, i) => {
+        const tx = r ? r.people[i].tax : 0;
+        pp.taxBy[m.t.id] = tx; pp.paid += tx;
+        if (mine) pp.recv += m.per;
+      });
     });
-    return { g, paid, recv, net: recv - paid, owns };
+    people.forEach((pp) => { pp.net = pp.recv - pp.paid; });
+    return { g, paid, recv, net: recv - paid, owns, people,
+             winners: people.filter((x) => x.net > 0).length, losers: people.filter((x) => x.net < 0).length };
   });
   return {
     terr, ledger,
@@ -478,7 +540,7 @@ function computeAll(){
     tax: terr.reduce((s, m) => s + m.total, 0),
     paid: terr.reduce((s, m) => s + m.paidOut, 0),
     kept: terr.reduce((s, m) => s + m.kept, 0)
-  };
+  }; /* fund/tax/paid/kept 는 화면 위 카드에서는 쓰지 않지만 검산용으로 남겨 둔다 */
 }
 
 /* ---------------- 숫자 애니메이션 ---------------- */
@@ -571,12 +633,22 @@ function renderSettle(){
 
   $("ledgerGrid").innerHTML = config.guilds.slice().sort((a, b) => a.rank - b.rank).map((g) => `
     <div class="gtile" style="--gc:${g.color}">
-      <div class="nm">${esc(g.name)}</div>
-      <div class="meta">${g.rank}위 · ${g.members}명 · <span id="go-${g.id}"></span></div>
-      <div class="gline"><span>낸 세금</span><b class="num neg">−<span id="gp-${g.id}">0</span>G</b></div>
-      <div class="gline"><span>받는 분배</span><b class="num pos">+<span id="gr-${g.id}">0</span>G</b></div>
-      <div class="gnet"><span style="font-size:.8rem;color:var(--text-2)">길드 순손익</span><span class="v num" id="gn-${g.id}">0</span></div>
-      <div class="gline"><span>1인당 평균</span><b class="num" id="gm-${g.id}">0G</b></div>
+      <div class="gh">
+        <div><div class="nm">${esc(g.name)}</div>
+          <div class="meta">${g.rank}위 · ${g.members}명 · <span id="go-${g.id}"></span></div></div>
+        <div class="gsum"><div class="k">길드 합계</div><div class="v num" id="gn-${g.id}">0</div></div>
+      </div>
+      <div class="tally" id="gt-${g.id}"></div>
+      <div class="people">${g.roster.map((p) => `
+        <div class="person">
+          <div class="p-top">
+            <span class="p-nm">${esc(p.name)}</span>
+            <div class="nbar" aria-hidden="true"><div class="l"><i id="pbl-${g.id}-${p.id}" style="width:0"></i></div><div class="r"><i id="pbr-${g.id}-${p.id}" style="width:0"></i></div></div>
+            <span class="p-net num" id="pn-${g.id}-${p.id}">0</span>
+          </div>
+          <div class="p-sub"><span id="pt-${g.id}-${p.id}"></span><span id="pr-${g.id}-${p.id}"></span></div>
+          <div class="p-brk" id="pk-${g.id}-${p.id}"></div>
+        </div>`).join("")}</div>
     </div>`).join("");
   updateSettle();
 }
@@ -592,7 +664,6 @@ function objChip(tid){
 
 function updateSettle(){
   const M = computeAll();
-  setNum($("kFund"), M.fund); setNum($("kTax"), M.tax); setNum($("kPaid"), M.paid); setNum($("kKept"), M.kept);
   M.terr.forEach((m) => {
     const id = m.t.id;
     setNum($("f-" + id), m.fund);
@@ -621,16 +692,29 @@ function updateSettle(){
       el.classList.toggle("on", r === m.finalRate);
     });
   });
+  /* 막대 길이의 기준: 지금 화면에서 가장 크게 이익·손해를 보는 사람 (슬라이더를 움직이면 같이 변한다) */
+  const maxAbs = Math.max(1, ...M.ledger.flatMap((L) => L.people.map((x) => Math.abs(x.net))));
+  const catOf = (tid) => terrById(tid).category;
   M.ledger.forEach((L) => {
-    setNum($("gp-" + L.g.id), L.paid); setNum($("gr-" + L.g.id), L.recv);
-    const n = $("gn-" + L.g.id); setNum(n, L.net, { signed: true });
+    const gid = L.g.id;
+    const n = $("gn-" + gid); setNum(n, L.net, { signed: true });
     n.className = "v num " + (L.net > 0 ? "pos" : L.net < 0 ? "neg" : "zero");
-    const per = Math.round(L.net / L.g.members);
-    const pm = $("gm-" + L.g.id); pm.textContent = (per > 0 ? "+" : "") + fmt(per) + "G";
-    pm.className = "num " + (per > 0 ? "pos" : per < 0 ? "neg" : "zero");
-    $("go-" + L.g.id).textContent = L.owns.length ? L.owns.join(", ") + " 점령" : "점령 없음";
+    $("go-" + gid).textContent = L.owns.length ? L.owns.join(", ") + " 점령" : "점령 없음";
+    const even = L.people.length - L.winners - L.losers;
+    $("gt-" + gid).innerHTML =
+      `<span class="w">이익 ${L.winners}명</span><span class="l">손해 ${L.losers}명</span>` + (even ? `<span class="z">본전 ${even}명</span>` : "");
+    L.people.forEach((x) => {
+      const k = gid + "-" + x.p.id;
+      const net = $("pn-" + k); setNum(net, x.net, { signed: true });
+      net.className = "p-net num " + (x.net > 0 ? "pos" : x.net < 0 ? "neg" : "zero");
+      $("pbl-" + k).style.width = (x.net < 0 ? Math.min(100, (-x.net / maxAbs) * 100) : 0) + "%";
+      $("pbr-" + k).style.width = (x.net > 0 ? Math.min(100, (x.net / maxAbs) * 100) : 0) + "%";
+      $("pt-" + k).innerHTML = `낸 세금 <b class="num neg">${x.paid > 0 ? "−" + fmt(x.paid) : "0"}</b>`;
+      $("pk-" + k).textContent = config.territories.map((t) => `${catOf(t.id)} ${fmt(x.taxBy[t.id])}`).join(" · ");
+      $("pr-" + k).innerHTML = x.recv > 0 ? `받는 분배 <b class="num pos">+${fmt(x.recv)}</b>` : `받는 분배 <b class="num">0</b>`;
+    });
   });
-  $("footnote").textContent = `과세 대상 = GOLD 낙찰금${config.taxIncludesSuperPass ? " + 슈퍼패스 환산액" : ""}. 실제 징수는 낙찰 1건마다 버림으로 계산하고, 세율 감면 버프가 있는 학생은 그만큼 덜 내므로 몇 G 차이가 날 수 있습니다. 운영국 회수 = 확정 세수 − 길드원에게 지급한 금액.`;
+  $("footnote").textContent = `과세 대상 = GOLD 낙찰금${config.taxIncludesSuperPass ? " + 슈퍼패스 환산액" : ""}. 세금은 길드원 한 사람씩 버림으로 계산합니다. 점령 길드가 인원이 ${config.minDivisor}명보다 적으면 ${config.minDivisor}등분한 몫을 받고 남는 몫은 운영국이 회수합니다. 실제 징수는 낙찰 1건마다 버림으로 계산하고, 세율 감면 버프가 있는 학생은 그만큼 덜 내므로 몇 G 차이가 날 수 있습니다.`;
 }
 
 /* ---------------- 이의 제기 투표 화면 ---------------- */
@@ -785,14 +869,22 @@ document.addEventListener("click", (e) => {
     case "edSave": saveEditor(); break;
     case "edDefault": config = normalizeConfig(clone(DEFAULT_CONFIG)); store.del(CFG_KEY); state = loadState(); fillEditor(); rerender(); edMsg("파일에 적힌 처음 값으로 되돌렸습니다.", true); break;
     case "edAddGuild": addGuildRow(); break;
+    case "edAddMember": addMemberRow(); break;
     case "edCopy": copyJson(); break;
     case "edImport": importJson(); break;
     case "btnFull": try { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {}); else document.exitFullscreen(); } catch(err) {} break;
     case "btnReset": armReset(e.target.closest("button")); break;
   }
-  const del = e.target.closest("[data-del-guild]"); if (del) { del.closest("tr").remove(); }
+  const del = e.target.closest("[data-del-guild]");
+  if (del) {
+    const tr = del.closest("tr"), gid = tr.dataset.gid; tr.remove();
+    $("edMembers").querySelectorAll("tr[data-mid]").forEach((m) => { if (m.querySelector("select[data-mg]").value === gid) m.remove(); });
+    refreshGuildOptions();
+  }
+  const delM = e.target.closest("[data-del-member]"); if (delM) { delM.closest("tr").remove(); }
 });
 document.addEventListener("input", (e) => {
+  if (e.target.matches('#edGuilds [data-k="name"]')) refreshGuildOptions();
   if (e.target.dataset.range) { const ts = state.territories[e.target.dataset.range]; ts.rate = clamp(Number(e.target.value), config.rateMin, config.rateMax); saveState(); updateSettle(); }
 });
 document.addEventListener("change", (e) => {
@@ -834,25 +926,53 @@ function fillEditor(){
   $("edTerr").innerHTML = c.territories.map((t, i) =>
     f(`e_tn_${i}`, `거점 ${i + 1} 이름`, t.name, "text") + f(`e_tc_${i}`, `거점 ${i + 1} 경매 종류`, t.category, "text") + f(`e_tp_${i}`, `슈퍼패스 1장 환산 G`, t.passUnit)
   ).join("");
-  const head = `<tr><th>길드 이름</th><th>순위</th><th>인원</th><th>색</th>${c.territories.map((t) => `<th>${esc(t.name)} GOLD</th><th>슈퍼패스</th>`).join("")}<th></th></tr>`;
-  $("edGuilds").innerHTML = head + c.guilds.map((g) => guildRow(g)).join("");
-  $("edJson").value = JSON.stringify(c, null, 2);
+  $("edGuilds").innerHTML = `<tr><th>길드 이름</th><th>순위</th><th>색</th><th></th></tr>` + c.guilds.map((g) => guildRow(g)).join("");
+  $("edMembers").innerHTML = `<tr><th>소속 길드</th><th>이름</th>${c.territories.map((t) => `<th>${esc(t.name)} GOLD</th><th>슈퍼패스</th>`).join("")}<th></th></tr>` +
+    c.guilds.map((g) => g.roster.map((p) => memberRow(p, g.id)).join("")).join("");
+  refreshGuildOptions();
+  $("edJson").value = JSON.stringify(plainConfig(c), null, 2);
+}
+/* JSON으로 내보낼 때는 화면 계산용 값(인원 수, 길드 합계)을 빼고 길드원 명단만 남긴다 */
+function plainConfig(c){
+  const o = clone(c);
+  o.guilds = o.guilds.map((g) => ({ id: g.id, name: g.name, rank: g.rank, color: g.color, roster: g.roster }));
+  return o;
 }
 function guildRow(g){
   return `<tr data-gid="${esc(g.id)}">
     <td><input type="text" data-k="name" value="${esc(g.name)}" aria-label="길드 이름"></td>
     <td><input type="number" class="s" data-k="rank" value="${g.rank}" aria-label="순위"></td>
-    <td><input type="number" class="s" data-k="members" value="${g.members}" aria-label="인원"></td>
     <td><input type="color" data-k="color" value="${esc(g.color)}" aria-label="색"></td>
-    ${config.territories.map((t) => `<td><input type="number" class="n" data-t="${t.id}" data-f="gold" value="${g.spend[t.id] ? g.spend[t.id].gold : 0}" aria-label="${esc(t.name)} GOLD"></td>
-      <td><input type="number" class="s" data-t="${t.id}" data-f="pass" value="${g.spend[t.id] ? g.spend[t.id].pass : 0}" aria-label="${esc(t.name)} 슈퍼패스"></td>`).join("")}
     <td><button class="link-btn" type="button" data-del-guild>삭제</button></td></tr>`;
+}
+function memberRow(p, gid){
+  return `<tr data-mid="${esc(p.id)}">
+    <td><select data-mg="1" data-cur="${esc(gid)}" aria-label="소속 길드"></select></td>
+    <td><input type="text" data-mk="name" value="${esc(p.name)}" aria-label="길드원 이름"></td>
+    ${config.territories.map((t) => `<td><input type="number" class="n" data-t="${t.id}" data-f="gold" value="${p.spend[t.id] ? p.spend[t.id].gold : 0}" aria-label="${esc(t.name)} GOLD"></td>
+      <td><input type="number" class="s" data-t="${t.id}" data-f="pass" value="${p.spend[t.id] ? p.spend[t.id].pass : 0}" aria-label="${esc(t.name)} 슈퍼패스"></td>`).join("")}
+    <td><button class="link-btn" type="button" data-del-member>삭제</button></td></tr>`;
+}
+/* 길드 표의 이름·추가·삭제가 길드원 표의 「소속 길드」 목록에 바로 반영되게 한다 */
+function refreshGuildOptions(){
+  const gs = [...$("edGuilds").querySelectorAll("tr[data-gid]")].map((tr) => ({ id: tr.dataset.gid, name: tr.querySelector('[data-k="name"]').value || "(이름 없음)" }));
+  $("edMembers").querySelectorAll("select[data-mg]").forEach((sel) => {
+    const cur = sel.value || sel.dataset.cur;
+    sel.innerHTML = gs.map((g) => `<option value="${esc(g.id)}"${g.id === cur ? " selected" : ""}>${esc(g.name)}</option>`).join("");
+  });
 }
 function addGuildRow(){
   const n = $("edGuilds").querySelectorAll("tr[data-gid]").length + 1;
-  const g = { id: "g" + Date.now().toString(36), name: "새 길드", rank: n, members: 5, color: "#cccccc", spend: {} };
-  config.territories.forEach((t) => { g.spend[t.id] = { gold: 0, pass: 0 }; });
+  const g = { id: "g" + Date.now().toString(36), name: "새 길드", rank: n, color: "#cccccc" };
   $("edGuilds").insertAdjacentHTML("beforeend", guildRow(g));
+  refreshGuildOptions();
+}
+function addMemberRow(){
+  const first = $("edGuilds").querySelector("tr[data-gid]"); if (!first) { edMsg("먼저 길드를 추가해 주세요.", false); return; }
+  const p = { id: "m" + Date.now().toString(36), name: "새 길드원", spend: {} };
+  config.territories.forEach((t) => { p.spend[t.id] = { gold: 0, pass: 0 }; });
+  $("edMembers").insertAdjacentHTML("beforeend", memberRow(p, first.dataset.gid));
+  refreshGuildOptions();
 }
 function readEditor(){
   const v = (id) => $(id).value;
@@ -866,10 +986,15 @@ function readEditor(){
   c.taxIncludesSuperPass = $("e_incsp").checked;
   c.territories.forEach((t, i) => { t.name = v(`e_tn_${i}`).trim() || t.name; t.category = v(`e_tc_${i}`).trim(); t.passUnit = parseInt(v(`e_tp_${i}`), 10) || 0; });
   c.guilds = [...$("edGuilds").querySelectorAll("tr[data-gid]")].map((tr) => {
-    const g = { id: tr.dataset.gid, spend: {} };
+    const g = { id: tr.dataset.gid, roster: [] };
     tr.querySelectorAll("[data-k]").forEach((inp) => { g[inp.dataset.k] = inp.type === "number" ? parseInt(inp.value, 10) : inp.value; });
-    tr.querySelectorAll("[data-t]").forEach((inp) => { g.spend[inp.dataset.t] = g.spend[inp.dataset.t] || {}; g.spend[inp.dataset.t][inp.dataset.f] = parseInt(inp.value, 10) || 0; });
     return g;
+  });
+  [...$("edMembers").querySelectorAll("tr[data-mid]")].forEach((tr) => {
+    const g = c.guilds.find((x) => x.id === tr.querySelector("select[data-mg]").value); if (!g) return;
+    const p = { id: tr.dataset.mid, name: tr.querySelector('[data-mk="name"]').value.trim(), spend: {} };
+    tr.querySelectorAll("[data-t]").forEach((inp) => { p.spend[inp.dataset.t] = p.spend[inp.dataset.t] || {}; p.spend[inp.dataset.t][inp.dataset.f] = parseInt(inp.value, 10) || 0; });
+    g.roster.push(p);
   });
   return c;
 }
@@ -879,7 +1004,8 @@ function validate(c){
   if (!(c.minDivisor >= 1)) return "최소 나누는 수는 1 이상이어야 합니다.";
   if (!c.guilds.length) return "길드가 한 개 이상 있어야 합니다.";
   if (c.guilds.some((g) => !String(g.name || "").trim())) return "이름이 빈 길드가 있습니다.";
-  if (c.guilds.some((g) => !(g.members >= 1))) return "길드 인원은 1명 이상이어야 합니다.";
+  if (c.guilds.some((g) => !Array.isArray(g.roster) || g.roster.length < 1)) return "길드마다 길드원이 1명 이상 있어야 합니다. (길드원 명단이 없는 길드가 있습니다.)";
+  if (c.guilds.some((g) => g.roster.some((p) => !String(p.name || "").trim()))) return "이름이 빈 길드원이 있습니다.";
   const rk = c.guilds.map((g) => g.rank); if (new Set(rk).size !== rk.length) return "같은 순위의 길드가 두 개 있습니다.";
   return null;
 }

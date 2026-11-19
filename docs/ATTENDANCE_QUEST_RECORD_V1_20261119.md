@@ -22,6 +22,8 @@ migration `attendance_quest_record_calendar_20261119` (저장소 파일: `supaba
 | `_is_school_day(int, date)` | 운영일 공통 판단. 내부 전용(authenticated EXECUTE 없음) |
 | `student_get_my_attendance_quest_calendar(date)` | 학생 본인 월 단위 조회. SECURITY DEFINER, authenticated만 EXECUTE |
 
+보정 migration `attendance_quest_not_participant_20261119` (저장소: `supabase/migrations/20261119_02_attendance_quest_not_participant.sql`): 정산된 원장에 본인 체크가 0행이면(테스트 계정·전입 전 등) `확인 필요` 대신 `—`(CLOSED, reason `NOT_PARTICIPANT`)로 표시하고 집계에서 뺀다. 1~3행이면 그대로 `확인 필요`.
+
 기존 테이블·함수·이력에는 쓰기가 없다. 기존 `student_get_attendance_dashboard`는 그대로이며, 연속 출석·마일스톤·이번 달 보상은 계속 이 함수가 담당한다.
 
 ### 적용 후 검증 (2026-11-19, 실제 운영 데이터)
@@ -49,6 +51,13 @@ migration `attendance_quest_record_calendar_20261119` (저장소 파일: `supaba
 | `src/features/attendance/AttendanceQuestAchievementCard.tsx` | 신규. LIFE-002 안내 카드 |
 | `src/features/attendance/AttendanceModal.tsx` | 수정. 기록 창 조합. 기존 마일스톤·보상 블록 재사용, 이전 연속출석·달력 블록은 보존(미사용) |
 | `src/components/shared/components.tsx` | 수정. 공통 Modal에 opt-in `size="record"`, `bodyClassName`, `accessibleDialog` 추가. 다른 모달의 기본값은 그대로 |
+
+## 3-1. 화면 배치 보정 (2026-11-19, 사용자 피드백 반영)
+
+- 넓은 화면(≥1024px): 선택일 상세를 달력 아래로 옮겨 왼쪽 하단 빈 공간을 없앴다. 오른쪽은 주간표 → 분포 → 퀘스트 마스터.
+- 모바일·중간 화면: 달력 → 주간표 → 선택일 → 퀘스트 마스터 순서 유지.
+- 퀘스트 마스터 카드를 3줄(이름·보유·선택 주 배지 / 조건 / 일수 요약)로 줄이고, 보조 설명은 `ⓘ 이 카드는?` 안에 접었다. 확정 전 날이 있을 때만 한 줄 안내를 보인다.
+- 미리보기(실제 학생 11월 응답, 1366px·390px)로 두 열 높이 차이 약 10px, 모바일 가로 넘침 없음 확인.
 
 ## 4. 남은 확인 (사용자)
 

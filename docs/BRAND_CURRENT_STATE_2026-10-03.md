@@ -115,4 +115,4 @@ Repo authoritative source:
 
 ## 출석·일일퀘스트 기록 창 V1 (2026-11-19, 운영 DB 적용 완료 · 소스 전달)
 
-홈 출석현황 창을 날짜별 일일퀘스트 기록 창으로 확장했다(학생 읽기 전용). 운영 DB migration `attendance_quest_record_calendar_20261119` 적용: 휴업일 표 `classroom_closures`(운영일 판단 `_is_school_day` 공통 사용), 2학기 첫 주 보관 표 `legacy_daily_quest_results`(672행), 조회 RPC `student_get_my_attendance_quest_calendar`. 기존 원장·출결·보상에는 쓰기 없음. 재학생 23명×4개월 실데이터 검증 통과. 사용자 로컬 build·학생 로그인 화면 확인은 미완료. 상세: `docs/ATTENDANCE_QUEST_RECORD_V1_20261119.md`, 명세: `docs/BRAND_ATTENDANCE_DAILY_QUEST_SPEC_v1.3_20261118.md`.
+홈 출석현황 창을 날짜별 일일퀘스트 기록 창으로 확장했다(학생 읽기 전용). 운영 DB migration `attendance_quest_record_calendar_20261119` 적용: 휴업일 표 `classroom_closures`(운영일 판단 `_is_school_day` 공통 사용), 2학기 첫 주 보관 표 `legacy_daily_quest_results`(672행), 조회 RPC `student_get_my_attendance_quest_calendar`(보정 migration `attendance_quest_not_participant_20261119`: 본인 체크 0행인 날은 `—`). 기존 원장·출결·보상에는 쓰기 없음. 재학생 23명×4개월 실데이터 검증 통과. 사용자 로컬 build·학생 로그인 화면 확인은 미완료. 상세: `docs/ATTENDANCE_QUEST_RECORD_V1_20261119.md`, 명세: `docs/BRAND_ATTENDANCE_DAILY_QUEST_SPEC_v1.3_20261118.md`.

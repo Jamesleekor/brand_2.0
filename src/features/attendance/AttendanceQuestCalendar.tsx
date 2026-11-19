@@ -142,7 +142,7 @@ export function AttendanceQuestCalendar({
         <li className="whitespace-nowrap"><span className={AQ.apricot}>3/4</span> 일부 미달</li>
         <li className="whitespace-nowrap"><span className={AQ.lavender}>대기·미확정</span> 정산 전</li>
         <li className="whitespace-nowrap">예정</li>
-        <li className="whitespace-nowrap">— 휴업</li>
+        <li className="whitespace-nowrap">— 휴업·대상 아님</li>
         <li className="whitespace-nowrap"><span className={AQ.check}>확인</span> 기록 확인 필요</li>
       </ul>
       <p className={cn('text-[11.5px] font-bold mt-1.5 [word-break:keep-all]', AQ.cream)}>
