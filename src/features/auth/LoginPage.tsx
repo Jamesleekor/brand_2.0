@@ -186,7 +186,7 @@ function StudentLoginForm() {
           type="text"
           value={studentName}
           onChange={(e) => setStudentName(e.target.value)}
-          placeholder="예: 이태우"
+          placeholder="예: 김철수"
           className="login-input"
           required
           maxLength={20}
