@@ -26,6 +26,8 @@ import { RaidLootBroadcastLayer } from './RaidLootCeremonyOverlay';
 // RAID_CLASH_V1_20261028
 import RaidClashBroadcastOverlay, { useClashBroadcastCues, type ClashCuePlayer } from './RaidClashBroadcastOverlay';
 import { raidV15AdminRpc } from '@/lib/rpc/raid_v15_admin_rpc';
+// RAID_INSCRIPTION_BROADCAST_20261126
+import RaidInscriptionBroadcastOverlay from './RaidInscriptionBroadcastOverlay';
 
 
 type FeedbackTier = 'NORMAL' | 'CRIT' | 'POWERFUL' | 'DEVASTATING';
@@ -466,6 +468,13 @@ export default function RaidBroadcastPage() {
             names={state.participants.map((participant) => participant.brand_name || participant.name).filter(Boolean)}
             forceFinishing={clashForceBusy}
             onForceFinish={() => void forceFinishClash()}
+          />
+        )}
+        {raid.status === 'ACTIVE' && (
+          <RaidInscriptionBroadcastOverlay
+            inscription={state.inscription}
+            corruption={state.corruption}
+            serverNow={correctedNow}
           />
         )}
 

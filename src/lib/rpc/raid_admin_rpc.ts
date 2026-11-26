@@ -4,6 +4,7 @@ import type { RaidVisualConfigV1 } from '@/features/raid/visual/raidVisualTypes'
 import type { RaidTargetingPublicConfig, RaidTargetingSavePayload } from '@/features/raid/targeting/raidTargeting';
 // RAID_TARGETING_V1_20261103
 import type { RaidClashPublicState } from './raid_student_rpc';
+import type { RaidCorruptionPublicState, RaidInscriptionPublicState } from './raid_student_rpc';
 
 export type RaidElement = 'FIRE' | 'WATER' | 'WIND' | 'EARTH' | 'LIGHT' | 'DARK';
 export type RaidStatus =
@@ -174,6 +175,9 @@ export interface TeacherRaidBroadcastState {
   server_now: string;
   // RAID_CLASH_V1_20261028: 격돌 마이그레이션 전 서버에는 없을 수 있다.
   clash?: RaidClashPublicState | null;
+  // RAID_INSCRIPTION_BROADCAST_20261126: 서버는 이미 보내고 있었지만 중계 화면 타입에 빠져 있었다.
+  inscription?: RaidInscriptionPublicState | null;
+  corruption?: RaidCorruptionPublicState | null;
   raid: {
     id: number; title: string; boss_name: string; boss_element: RaidElement; status: RaidStatus;
     max_hp: number; current_hp: number; hp_ratio: number; damage_coefficient: number;
