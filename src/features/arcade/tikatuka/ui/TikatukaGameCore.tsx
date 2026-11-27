@@ -46,6 +46,7 @@ const ROWS = ['top', 'middle', 'bottom'] as const satisfies readonly RowId[];
 
 interface TikatukaGameProps {
   onExit: () => void;
+  officialChallenge?: { periodId: number; difficulty: Difficulty; sessionId: number };
 }
 
 interface ActiveAnimation {
@@ -75,7 +76,7 @@ function createProductionDependencies(gameId: string): EngineDependencies {
   };
 }
 
-export function TikatukaGame({ onExit }: TikatukaGameProps) {
+export function TikatukaGame({ onExit, officialChallenge }: TikatukaGameProps) {
   const studentId = useStudentId();
   const queryClient = useQueryClient();
   const progressQueryKey = useMemo(() => ['arcade', 'tikatuka', 'progress', studentId] as const, [studentId]);
@@ -90,7 +91,7 @@ export function TikatukaGame({ onExit }: TikatukaGameProps) {
     retry: 1,
   });
 
-  const [difficulty, setDifficulty] = useState<Difficulty>(1);
+  const [difficulty, setDifficulty] = useState<Difficulty>(officialChallenge?.difficulty ?? 1);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [eventQueue, setEventQueue] = useState<GameEvent[]>([]);
   const [activeAnimation, setActiveAnimation] = useState<ActiveAnimation | null>(null);
@@ -120,11 +121,12 @@ export function TikatukaGame({ onExit }: TikatukaGameProps) {
   useEffect(() => {
     const progress = progressQuery.data;
     if (!progress) return;
+    if (officialChallenge) { setDifficulty(officialChallenge.difficulty); return; }
     if (!progressInitializedRef.current || !isTikatukaDifficultyUnlocked(progress, difficulty)) {
       setDifficulty(getTikatukaDefaultDifficulty(progress));
       progressInitializedRef.current = true;
     }
-  }, [difficulty, progressQuery.data]);
+  }, [difficulty, progressQuery.data, officialChallenge]);
 
   const animationBusy = activeAnimation !== null || eventQueue.length > 0;
 
@@ -177,6 +179,16 @@ export function TikatukaGame({ onExit }: TikatukaGameProps) {
 
     setIsStarting(true);
     setError(null);
+    if (officialChallenge) {
+      try {
+        const check = await tikatukaStudentRpc.getCompetition(supabase, { p_period_id: officialChallenge.periodId });
+        if (check.success === false) { setError(tikatukaRpcErrorMessage(check)); setIsStarting(false); return; }
+        const active = check.data.active_challenge;
+        if (!active || active.session_id !== officialChallenge.sessionId || active.difficulty !== nextDifficulty || active.remaining_games <= 0 || !['ACTIVE', 'VERIFICATION', 'READY_TO_FINALIZE'].includes(check.data.period_status)) {
+          setError('공인 도전 세션이 종료되었거나 변경되었습니다. 아케이드로 돌아가 현황을 확인하세요.'); setIsStarting(false); return;
+        }
+      } catch (caught) { setError(caught instanceof Error ? caught.message : '공인 도전 확인 실패'); setIsStarting(false); return; }
+    }
     const issued = await tikatukaStudentRpc.createGame(supabase, { p_difficulty: nextDifficulty });
     setIsStarting(false);
     if (issued.success === false) {
@@ -207,7 +219,7 @@ export function TikatukaGame({ onExit }: TikatukaGameProps) {
     gameStateRef.current = transition.nextState;
     setGameState(transition.nextState);
     enqueueEvents(transition.events);
-  }, [difficulty, enqueueEvents, isStarting, progressQuery, progressQueryKey, queryClient, studentId]);
+  }, [difficulty, enqueueEvents, isStarting, progressQuery, progressQueryKey, queryClient, studentId, officialChallenge]);
 
   const resetToSetup = useCallback((preferHighest: boolean) => {
     if (aiTimerRef.current !== null) window.clearTimeout(aiTimerRef.current);
@@ -354,7 +366,8 @@ export function TikatukaGame({ onExit }: TikatukaGameProps) {
       progressLoading={progressQuery.isLoading || progressQuery.isFetching}
       progressError={progressQuery.isError ? (progressQuery.error instanceof Error ? progressQuery.error.message : '진행도를 불러오지 못했습니다.') : null}
       isStarting={isStarting}
-      onDifficulty={setDifficulty}
+      officialMode={Boolean(officialChallenge)}
+      onDifficulty={officialChallenge ? () => {} : setDifficulty}
       onStart={() => void startGame(difficulty)}
       onRetryProgress={() => void progressQuery.refetch()}
       onExit={onExit}
@@ -371,8 +384,9 @@ export function TikatukaGame({ onExit }: TikatukaGameProps) {
       isSubmitting={isSubmitting}
       submitError={submitError}
       onRetrySubmit={retrySubmission}
-      onRematch={() => void startGame(gameState.difficulty)}
-      onChangeDifficulty={() => resetToSetup(true)}
+      officialMode={Boolean(officialChallenge)}
+      onRematch={officialChallenge ? onExit : () => void startGame(gameState.difficulty)}
+      onChangeDifficulty={officialChallenge ? onExit : () => resetToSetup(true)}
       onExit={onExit}
     />;
   }
@@ -391,7 +405,7 @@ export function TikatukaGame({ onExit }: TikatukaGameProps) {
           <p className="mt-2 text-base font-semibold text-slate-200">Lv.{gameState.difficulty} · {difficultyLabel(gameState.difficulty)} · 서버 발급 게임</p>
         </div>
         <div className="flex gap-2">
-          <button className="btn-secondary text-sm" onClick={() => resetToSetup(false)}>난이도 변경</button>
+          {!officialChallenge && <button className="btn-secondary text-sm" onClick={() => resetToSetup(false)}>난이도 변경</button>}
           <button className="btn-secondary text-sm" onClick={onExit}>나가기</button>
         </div>
       </header>
@@ -428,7 +442,8 @@ export function TikatukaGame({ onExit }: TikatukaGameProps) {
   </section>;
 }
 
-function SetupScreen({ difficulty, progress, progressLoading, progressError, isStarting, onDifficulty, onStart, onRetryProgress, onExit, error }: {
+function SetupScreen({ difficulty, progress, progressLoading, progressError, isStarting, onDifficulty, onStart, onRetryProgress, onExit, error, officialMode }: {
+  officialMode: boolean;
   difficulty: Difficulty;
   progress: TikatukaProgress | null;
   progressLoading: boolean;
@@ -480,7 +495,7 @@ function SetupScreen({ difficulty, progress, progressLoading, progressError, isS
             return <button
               key={level}
               type="button"
-              disabled={!unlocked || isStarting}
+              disabled={!unlocked || isStarting || officialMode}
               onClick={() => onDifficulty(level)}
               className={`relative aspect-square rounded-card-md border text-lg font-black transition ${difficulty === level && unlocked ? 'border-gold bg-gold/15 text-yellow-300 shadow-[0_0_20px_rgba(250,204,21,0.15)]' : unlocked ? 'border-white/15 bg-bg-deep text-white hover:border-white/35' : 'cursor-not-allowed border-white/10 bg-black/25 text-slate-600'}`}
             >
@@ -497,7 +512,7 @@ function SetupScreen({ difficulty, progress, progressLoading, progressError, isS
       </div>
 
       <button className="btn-primary mt-7 w-full py-4 text-base" disabled={!selectedUnlocked || isStarting || Boolean(progressError)} onClick={onStart}>
-        {isStarting ? '서버에서 게임 준비 중...' : `Lv.${difficulty} 게임 시작`}
+        {isStarting ? '서버에서 게임 준비 중...' : `Lv.${difficulty} ${officialMode ? '공인 인증 플레이 시작' : '게임 시작'}`}
       </button>
     </>}
   </section>;
@@ -633,7 +648,8 @@ function eventTargetsRow(event: GameEvent | null, side: Side, row: RowId): boole
   return false;
 }
 
-function ResultScreen({ state, submission, previousHighestUnlocked, isSubmitting, submitError, onRetrySubmit, onRematch, onChangeDifficulty, onExit }: {
+function ResultScreen({ state, submission, previousHighestUnlocked, isSubmitting, submitError, onRetrySubmit, onRematch, onChangeDifficulty, onExit, officialMode }: {
+  officialMode: boolean;
   state: GameState;
   submission: TikatukaSubmissionResponse | null;
   previousHighestUnlocked: Difficulty | null;
@@ -675,8 +691,8 @@ function ResultScreen({ state, submission, previousHighestUnlocked, isSubmitting
     </div>}
 
     <div className="mx-auto mt-6 flex max-w-2xl flex-col gap-2 sm:flex-row">
-      <button className="btn-primary flex-1" disabled={!canContinue} onClick={onRematch}>같은 난이도 다시 하기</button>
-      <button className="btn-secondary flex-1" disabled={!canContinue} onClick={onChangeDifficulty}>난이도 선택</button>
+      <button className="btn-primary flex-1" disabled={!canContinue} onClick={onRematch}>{officialMode ? '공인 도전 현황 / 다음 경기' : '같은 난이도 다시 하기'}</button>
+      {!officialMode && <button className="btn-secondary flex-1" disabled={!canContinue} onClick={onChangeDifficulty}>난이도 선택</button>}
       <button className="btn-secondary flex-1" disabled={!canContinue} onClick={onExit}>아케이드로</button>
     </div>
     {!canContinue && <p className="mt-4 text-sm font-semibold text-slate-300">서버 저장이 끝나기 전에는 새 게임으로 이동하지 않습니다. 중복 제출은 같은 game UUID로 안전하게 처리됩니다.</p>}

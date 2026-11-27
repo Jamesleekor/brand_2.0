@@ -8,7 +8,7 @@ import type { TikatukaCompetition } from '@/lib/zod_schemas/tikatuka_competition
 
 const DIFFICULTIES = [1,2,3,4,5,6,7,8,9,10] as const satisfies readonly TikatukaDifficulty[];
 
-export function RakarukaCompetitionPanel({ periodId }: { periodId: number }) {
+export function RakarukaCompetitionPanel({ periodId, onPlay }: { periodId: number; onPlay: (difficulty: TikatukaDifficulty, sessionId: number) => void }) {
   const studentId = useStudentId();
   const queryClient = useQueryClient();
   const competitionKey = useMemo(() => ['arcade','tikatuka','competition',studentId,periodId] as const,[studentId,periodId]);
@@ -56,6 +56,7 @@ export function RakarukaCompetitionPanel({ periodId }: { periodId: number }) {
       return;
     }
     queryClient.setQueryData(competitionKey,rpc.data);
+    if (rpc.data.active_challenge) onPlay(rpc.data.active_challenge.difficulty, rpc.data.active_challenge.session_id);
     void queryClient.invalidateQueries({ queryKey:['arcade','tikatuka','competition'] });
   };
 
@@ -71,7 +72,7 @@ export function RakarukaCompetitionPanel({ periodId }: { periodId: number }) {
     </div>
 
     <div className="grid gap-4 p-5 xl:grid-cols-[.9fr_1.1fr]">
-      <OfficialChallengeCard data={data} highestUnlocked={highestUnlocked} selectedDifficulty={selectedDifficulty} setSelectedDifficulty={setSelectedDifficulty} starting={starting} actionError={actionError} onStart={() => void startChallenge()} />
+      <OfficialChallengeCard data={data} highestUnlocked={highestUnlocked} selectedDifficulty={selectedDifficulty} setSelectedDifficulty={setSelectedDifficulty} starting={starting} actionError={actionError} onStart={() => void startChallenge()} onPlay={onPlay} />
       <div className="rounded-card-lg border border-line bg-bg-deep/70 p-4"><div className="text-base font-black text-white">📐 공인 기록 판정</div><div className="mt-3 grid grid-cols-3 gap-2"><RuleStat label="승리" value="+3점"/><RuleStat label="무승부" value="+1점"/><RuleStat label="패배" value="0점"/></div><div className="mt-4 space-y-2 text-sm font-semibold leading-6 text-text-secondary"><p>• 학생당 이 기간에 <b className="text-gold">딱 1회 · 5판</b>만 도전합니다.</p><p>• 5판 총점이 <b className="text-gold">3점 이상</b>이어야 공인 기록으로 인정됩니다.</p><p>• 순위는 <b className="text-white">도전 난이도 → 결과점수</b> 순이며 동점은 공동 순위입니다.</p><p>• <b className="text-success">Lv.10 · 3점</b>은 <b>Lv.9 · 15점</b>보다 높은 순위입니다.</p><p>• 월간 <b className="text-gold">Guild 2 Arcade 보너스</b>는 일반 플레이가 아니라 <b className="text-white">이 공인 기록 랭킹 Top 10</b>을 기준으로 지급됩니다.</p></div></div>
     </div>
 
@@ -82,9 +83,9 @@ export function RakarukaCompetitionPanel({ periodId }: { periodId: number }) {
   </section>;
 }
 
-function OfficialChallengeCard({ data,highestUnlocked,selectedDifficulty,setSelectedDifficulty,starting,actionError,onStart }:{ data:TikatukaCompetition; highestUnlocked:TikatukaDifficulty; selectedDifficulty:TikatukaDifficulty; setSelectedDifficulty:(v:TikatukaDifficulty)=>void; starting:boolean; actionError:string|null; onStart:()=>void }) {
+function OfficialChallengeCard({ data,highestUnlocked,selectedDifficulty,setSelectedDifficulty,starting,actionError,onStart,onPlay }:{ data:TikatukaCompetition; highestUnlocked:TikatukaDifficulty; selectedDifficulty:TikatukaDifficulty; setSelectedDifficulty:(v:TikatukaDifficulty)=>void; starting:boolean; actionError:string|null; onStart:()=>void; onPlay:(difficulty:TikatukaDifficulty,sessionId:number)=>void }) {
   const active=data.active_challenge;
-  if (active) return <div className="rounded-card-lg border border-gold/40 bg-gold/10 p-5"><div className="flex justify-between gap-3"><div><div className="text-sm font-black text-gold">🔥 공인 기록 도전 진행 중</div><div className="mt-1 font-display text-3xl text-white">Lv.{active.difficulty}</div></div><span className="rounded-pill bg-black/25 px-3 py-1 text-sm font-black text-gold">{active.games_played}/5판</span></div><div className="mt-4 h-2.5 overflow-hidden rounded-full bg-black/35"><div className="h-full bg-gold" style={{width:`${active.games_played*20}%`}}/></div><div className="mt-4 grid grid-cols-4 gap-2"><MiniStat label="승" value={active.wins}/><MiniStat label="무" value={active.draws}/><MiniStat label="패" value={active.losses}/><MiniStat label="점수" value={active.points}/></div><p className="mt-4 text-sm font-semibold text-text-secondary">남은 <b className="text-white">{active.remaining_games}판</b>도 Lv.{active.difficulty}로 진행합니다.</p></div>;
+  if (active) return <div className="rounded-card-lg border border-gold/40 bg-gold/10 p-5"><div className="flex justify-between gap-3"><div><div className="text-sm font-black text-gold">🔥 공인 기록 도전 진행 중</div><div className="mt-1 font-display text-3xl text-white">Lv.{active.difficulty}</div></div><span className="rounded-pill bg-black/25 px-3 py-1 text-sm font-black text-gold">{active.games_played}/5판</span></div><div className="mt-4 h-2.5 overflow-hidden rounded-full bg-black/35"><div className="h-full bg-gold" style={{width:`${active.games_played*20}%`}}/></div><div className="mt-4 grid grid-cols-4 gap-2"><MiniStat label="승" value={active.wins}/><MiniStat label="무" value={active.draws}/><MiniStat label="패" value={active.losses}/><MiniStat label="점수" value={active.points}/></div><p className="mt-4 text-sm font-semibold text-text-secondary">남은 <b className="text-white">{active.remaining_games}판</b>도 Lv.{active.difficulty}로 진행합니다.</p><button className="btn-primary mt-4 w-full" disabled={active.remaining_games <= 0} onClick={() => onPlay(active.difficulty, active.session_id)}>공인 인증 플레이 · {active.games_played + 1}/5판</button></div>;
 
   const completed=data.recent_challenges[0]??null;
   if (data.official_attempt_used) return <div className="rounded-card-lg border border-line bg-bg-deep/70 p-5"><div className="text-sm font-black text-text-secondary">✓ 이번 기간 공인 도전 사용 완료</div>{completed && <><div className="mt-2 font-display text-3xl text-white">Lv.{completed.difficulty} · {completed.points}점</div><div className="mt-2 text-sm font-bold text-text-secondary">{completed.wins}승 {completed.draws}무 {completed.losses}패</div><div className={`mt-3 rounded-card-md p-3 text-sm font-black ${completed.qualified?'bg-success/10 text-success':'bg-white/5 text-text-muted'}`}>{completed.qualified?'🏅 공인 기록 성립':'공인 기록 미인정 · 3점 미만'}</div></>}<p className="mt-4 text-xs font-bold text-text-muted">이 기간에는 다시 도전할 수 없습니다.</p></div>;

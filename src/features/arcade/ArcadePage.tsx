@@ -48,7 +48,8 @@ export default function ArcadePage() {
   const creatingRunRef = useRef(false);
   const verificationRequestRef = useRef<{ sessionId: number; key: string } | null>(null);
   const [isResultRankingUpdating, setIsResultRankingUpdating] = useState(false);
-  const [tikatukaOpen, setTikatukaOpen] = useState(false);  const arcadeQuery = useQuery({
+  const [tikatukaOpen, setTikatukaOpen] = useState(false);
+  const [officialRakaruka, setOfficialRakaruka] = useState<{ periodId: number; difficulty: 1|2|3|4|5|6|7|8|9|10; sessionId: number } | null>(null);  const arcadeQuery = useQuery({
     queryKey: ['arcade', 'catalog', classroomId],
     enabled: Boolean(classroomId),
     staleTime: 60_000,
@@ -212,7 +213,7 @@ const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPla
   if (tikatukaOpen) {
     return <div className="min-h-screen">
       <PageHeader title="아케이드 · 라카루카" emoji="🎲" />
-      <main className="mx-auto max-w-6xl px-4 py-5"><TikatukaGame onExit={() => setTikatukaOpen(false)} /></main>
+      <main className="mx-auto max-w-6xl px-4 py-5"><TikatukaGame officialChallenge={officialRakaruka ?? undefined} onExit={() => { setTikatukaOpen(false); setOfficialRakaruka(null); void queryClient.invalidateQueries({ queryKey: ['arcade', 'tikatuka', 'competition'] }); }} /></main>
     </div>;
   }
 
@@ -265,7 +266,7 @@ const handleRecorded = (nextResult: ArcadeRunSubmissionResult, summary: FocusPla
           </div>
         </section>}
 
-        {!bootstrap && isRakarukaSelected && selectedPeriod && <RakarukaCompetitionPanel periodId={selectedPeriod.id} />}
+        {!bootstrap && isRakarukaSelected && selectedPeriod && <RakarukaCompetitionPanel periodId={selectedPeriod.id} onPlay={(difficulty, sessionId) => { setOfficialRakaruka({ periodId: selectedPeriod.id, difficulty, sessionId }); setTikatukaOpen(true); }} />}
 
         {!bootstrap && game && <section className="glass-card overflow-hidden border-brand-primary/20">
           <div>
